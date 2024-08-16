@@ -1,0 +1,116 @@
+<?xml version="1.0" standalone="yes" ?>
+<script>
+    <property key="dff.date" value="Thu Apr 09 02:23:12 2015" />
+    <property key="dff.version" value="2.2.8.20131118" />
+    <functor name="LoadMap">
+        <property key="dff.functor.alias" value="Dist_2_Road" />
+        <inputport name="filename">&quot;jarak_ke_jalan.tif&quot;</inputport>
+        <inputport name="nullValue">-9999</inputport>
+        <inputport name="loadAsSparse">.no</inputport>
+        <inputport name="suffixDigits">0</inputport>
+        <inputport name="step">.none</inputport>
+        <inputport name="workdir">.none</inputport>
+        <outputport name="map" id="v1" />
+    </functor>
+    <functor name="SaveMap">
+        <property key="dff.functor.alias" value="saveMap1680" />
+        <inputport name="map" peerid="v7" />
+        <inputport name="filename">&quot;../Result/faktor_Merangin.ers&quot;</inputport>
+        <inputport name="suffixDigits">2</inputport>
+        <inputport name="step">.none</inputport>
+        <inputport name="useCompression">.yes</inputport>
+        <inputport name="workdir">.none</inputport>
+    </functor>
+    <functor name="LoadMap">
+        <property key="dff.functor.alias" value="Dist2Lindung" />
+        <inputport name="filename">&quot;jarak_ke_area_lindung.tif&quot;</inputport>
+        <inputport name="nullValue">-9999</inputport>
+        <inputport name="loadAsSparse">.no</inputport>
+        <inputport name="suffixDigits">0</inputport>
+        <inputport name="step">.none</inputport>
+        <inputport name="workdir">.none</inputport>
+        <outputport name="map" id="v2" />
+    </functor>
+    <functor name="LoadMap">
+        <property key="dff.functor.alias" value="Dist2Deforest" />
+        <inputport name="filename">&quot;jarak_ke_deforestasi.tif&quot;</inputport>
+        <inputport name="nullValue">-9999</inputport>
+        <inputport name="loadAsSparse">.no</inputport>
+        <inputport name="suffixDigits">0</inputport>
+        <inputport name="step">.none</inputport>
+        <inputport name="workdir">.none</inputport>
+        <outputport name="map" id="v3" />
+    </functor>
+    <functor name="LoadMap">
+        <property key="dff.functor.alias" value="elevation" />
+        <inputport name="filename">&quot;elevasi.tif&quot;</inputport>
+        <inputport name="nullValue">0</inputport>
+        <inputport name="loadAsSparse">.no</inputport>
+        <inputport name="suffixDigits">0</inputport>
+        <inputport name="step">.none</inputport>
+        <inputport name="workdir">.none</inputport>
+        <outputport name="map" id="v4" />
+    </functor>
+    <functor name="LoadMap">
+        <property key="dff.functor.alias" value="population" />
+        <inputport name="filename">&quot;kepadatan_populasi.tif&quot;</inputport>
+        <inputport name="nullValue">0</inputport>
+        <inputport name="loadAsSparse">.no</inputport>
+        <inputport name="suffixDigits">0</inputport>
+        <inputport name="step">.none</inputport>
+        <inputport name="workdir">.none</inputport>
+        <outputport name="map" id="v5" />
+    </functor>
+    <functor name="LoadMap">
+        <property key="dff.functor.alias" value="PlanningUnit" />
+        <inputport name="filename">&quot;unit_perencanaan.tif&quot;</inputport>
+        <inputport name="nullValue">.none</inputport>
+        <inputport name="loadAsSparse">.no</inputport>
+        <inputport name="suffixDigits">0</inputport>
+        <inputport name="step">.none</inputport>
+        <inputport name="workdir">.none</inputport>
+        <outputport name="map" id="v6" />
+    </functor>
+    <containerfunctor name="CreateCubeMap">
+        <property key="dff.functor.alias" value="createCubeMap1678" />
+        <inputport name="cellType">.int32</inputport>
+        <inputport name="nullValue">-9999</inputport>
+        <outputport name="map" id="v7" />
+        <functor name="NumberAndNameMap">
+            <property key="dff.functor.alias" value="dist2jalan" />
+            <inputport name="map" peerid="v1" />
+            <inputport name="mapName">&quot;dist2road&quot;</inputport>
+            <inputport name="mapNumber">0</inputport>
+        </functor>
+        <functor name="NumberAndNameMap">
+            <property key="dff.functor.alias" value="dist2protect" />
+            <inputport name="map" peerid="v2" />
+            <inputport name="mapName">&quot;dist2protect&quot;</inputport>
+            <inputport name="mapNumber">0</inputport>
+        </functor>
+        <functor name="NumberAndNameMap">
+            <property key="dff.functor.alias" value="dist2deforest" />
+            <inputport name="map" peerid="v3" />
+            <inputport name="mapName">&quot;dist2deforest&quot;</inputport>
+            <inputport name="mapNumber">0</inputport>
+        </functor>
+        <functor name="NumberAndNameMap">
+            <property key="dff.functor.alias" value="elevation" />
+            <inputport name="map" peerid="v4" />
+            <inputport name="mapName">&quot;elevation&quot;</inputport>
+            <inputport name="mapNumber">0</inputport>
+        </functor>
+        <functor name="NumberAndNameMap">
+            <property key="dff.functor.alias" value="population" />
+            <inputport name="map" peerid="v5" />
+            <inputport name="mapName">&quot;population&quot;</inputport>
+            <inputport name="mapNumber">0</inputport>
+        </functor>
+        <functor name="NumberAndNameMap">
+            <property key="dff.functor.alias" value="PlanningUnit" />
+            <inputport name="map" peerid="v6" />
+            <inputport name="mapName">&quot;PlanningUnit&quot;</inputport>
+            <inputport name="mapNumber">0</inputport>
+        </functor>
+    </containerfunctor>
+</script>

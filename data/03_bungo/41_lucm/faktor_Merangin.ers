@@ -1,0 +1,47 @@
+DatasetHeader Begin
+    Version     = "6.0"
+    LastUpdated = Wed Apr 08 15:39:15 GMT 2015
+    DataSetType = ERStorage
+    DataType    = Raster
+    ByteOrder   = LSBFirst
+    CoordinateSpace Begin
+        Datum          = "WGS84"
+        Projection     = "SUTM48"
+        CoordinateType = EN
+        Units          = "METERS"
+        Rotation       = 0:0:0.0
+    CoordinateSpace End
+    RasterInfo Begin
+        CellType      = Signed32BitInteger
+        NullCellValue = -9999
+        CellInfo Begin
+            Xdimension = 100
+            Ydimension = 100
+        CellInfo End
+        NrOfLines        = 868
+        NrOfCellsPerLine = 1199
+        RegistrationCoord Begin
+            Eastings  = 103744.54640594264
+            Northings = 9875500.819699835
+        RegistrationCoord End
+        NrOfBands = 6
+        BandId Begin
+            Value = "dist2road"
+        BandId End
+        BandId Begin
+            Value = "dist2protect"
+        BandId End
+        BandId Begin
+            Value = "dist2deforest"
+        BandId End
+        BandId Begin
+            Value = "elevation"
+        BandId End
+        BandId Begin
+            Value = "population"
+        BandId End
+        BandId Begin
+            Value = "PlanningUnit"
+        BandId End
+    RasterInfo End
+DatasetHeader End
