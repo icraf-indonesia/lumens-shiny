@@ -1,17 +1,42 @@
-ID,LC
-0,No data
-1,Hutan Primer
-2,Hutan bekas tebangan kerapatan tinggi
-3,Hutan bekas tebangan kerapatan rendah
-10,Agroforestri karet
-12,Agroforestri kayu manis
-14,Kebun campuran
-16,Karet monokultur
-17,Kelapa sawit
-19,Semak
-20,Lahan pertanian
-21,Sawah
-23,Rumput
-24,Lahan terbuka
-25,Pemukiman
-42,Air 
+ID,LC,Classified
+1,Hutan Primer,Hutan Primer
+2,Hutan bekas tebangan kerapatan tinggi,Hutan bekas-tebangan
+3,Hutan bekas tebangan kerapatan rendah,Hutan bekas-tebangan
+4,Hutan Rawa Primer,Hutan Primer
+5,Hutan Rawa Sekunder,Hutan bekas-tebangan
+6,Hutan Rawa Primer Gambut,Hutan Primer
+7,Hutan Rawa Sekunder Gambut,Hutan bekas-tebangan
+8,Hutan Mangrove Primer,Hutan Primer
+9,Hutan Mangrove Sekunder,Hutan bekas-tebangan
+10,Agroforestri karet,Perkebunan berbasis-pohon campuran
+11,Agoroforestri kelapa/pinang,Perkebunan berbasis-pohon campuran
+12,Agroforestri kayu manis,Perkebunan berbasis-pohon campuran
+13,Agroforestri kopi,Perkebunan berbasis-pohon campuran
+14,Kebun campuran,Perkebunan berbasis-pohon campuran
+15,HTI Akasia,Perkebunan berbasis-pohon monokultur
+16,Karet monokultur,Perkebunan berbasis-pohon monokultur
+17,Kelapa sawit,Perkebunan berbasis-pohon monokultur
+18,Kelapa,Perkebunan berbasis-pohon monokultur
+19,Semak,"Semak belukar, rerumputan, dan lahan terbuka"
+20,Lahan pertanian,Lahan pertanian tanaman semusim
+21,Sawah,Lahan pertanian tanaman semusim
+22,Perkebunan teh,Perkebunan berbasis-pohon monokultur
+23,Rumput,"Semak belukar, rerumputan, dan lahan terbuka"
+24,Lahan terbuka,"Semak belukar, rerumputan, dan lahan terbuka"
+25,Pemukiman,Pemukiman dan lahan terbangun
+26,Agroforestri karet gambut,Perkebunan berbasis-pohon campuran
+27,Agoroforestri kelapa/pinang gambut,Perkebunan berbasis-pohon campuran
+29,Agroforestri kopi gambut,Perkebunan berbasis-pohon campuran
+30,Kebun campuran gambut,Perkebunan berbasis-pohon campuran
+31,HTI Akasia gambut,Perkebunan berbasis-pohon monokultur
+32,Karet monokultur gambut,Perkebunan berbasis-pohon monokultur
+33,Kelapa sawit gambut,Perkebunan berbasis-pohon monokultur
+34,Kelapa gambut,Perkebunan berbasis-pohon monokultur
+35,Semak gambut,"Semak belukar, rerumputan, dan lahan terbuka"
+36,Lahan pertanian gambut,Lahan pertanian tanaman semusim
+37,Sawah gambut,Lahan pertanian tanaman semusim
+39,Rumput gambut,"Semak belukar, rerumputan, dan lahan terbuka"
+40,Lahan terbuka gambut,"Semak belukar, rerumputan, dan lahan terbuka"
+41,Pemukiman gambut,Pemukiman dan lahan terbangun
+42,Air,Lainnya
+43,Kayu manis monokultur,Perkebunan berbasis-pohon monokultur

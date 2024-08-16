@@ -1,17 +1,42 @@
 ID,LC,CARBON
-0,No data,0
 1,Hutan Primer,261.52
 2,Hutan bekas tebangan kerapatan tinggi,192.81
 3,Hutan bekas tebangan kerapatan rendah,129.97
+4,Hutan Rawa Primer,261.52
+5,Hutan Rawa Sekunder,141.3
+6,Hutan Rawa Primer Gambut,261.52
+7,Hutan Rawa Sekunder Gambut,141.3
+8,Hutan Mangrove Primer,261.52
+9,Hutan Mangrove Sekunder,129.97
 10,Agroforestri karet,69
+11,Agoroforestri kelapa/pinang,31.8
 12,Agroforestri kayu manis,61.6
+13,Agroforestri kopi,47.6
 14,Kebun campuran,73.21
+15,HTI Akasia,57.9
 16,Karet monokultur,40.5
 17,Kelapa sawit,40
+18,Kelapa,54.96
 19,Semak,43
 20,Lahan pertanian,9.5
 21,Sawah,0.99
+22,Perkebunan the,43
 23,Rumput,3.35
 24,Lahan terbuka,3.35
 25,Pemukiman,4.14
-42,Air ,0
+26,Agroforestri karet gambut,69
+27,Agoroforestri kelapa/pinang gambut,31.8
+29,Agroforestri kopi gambut,47.6
+30,Kebun campuran gambut,73.21
+31,HTI Akasia gambut,57.9
+32,Karet monokultur gambut,40.5
+33,Kelapa sawit gambut,40
+34,Kelapa gambut,54.96
+35,Semak gambut,43
+36,Lahan pertanian gambut,9.5
+37,Sawah gambut,0.99
+39,Rumput gambut,3.35
+40,Lahan terbuka gambut,3.35
+41,Pemukiman gambut,4.14
+42,Air,0
+43,Kayu manis monokultur,61.6
