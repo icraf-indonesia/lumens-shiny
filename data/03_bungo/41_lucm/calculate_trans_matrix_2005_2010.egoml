@@ -1,0 +1,61 @@
+<?xml version="1.0" standalone="yes" ?>
+<script>
+    <property key="dff.date" value="Thu Apr 09 02:22:43 2015" />
+    <property key="dff.version" value="2.2.8.20131118" />
+    <property key="metadata.author" value="Dinamica Team" />
+    <property key="metadata.description" value="This model calculates transition matrices, the single-step corresponds to a time period represented as a single time step, in turn the multiple-step corresponds to a time step unit (year, month, day, etc) specified by dividing the time period by the number of time steps." />
+    <property key="metadata.notes" value="Multiple-step transition matrix can only be derived from ergodic matrix." />
+    <property key="metadata.organization" value="CSR / UFMG" />
+    <property key="metadata.showproperties" value="yes" />
+    <property key="metadata.title" value="Determine Transition Matrix" />
+    <functor name="DetermineTransitionMatrix">
+        <property key="dff.functor.alias" value="Transition Rates" />
+        <property key="viewer.multistepmatrix" value="yes" />
+        <property key="viewer.singlestepmatrix" value="yes" />
+        <inputport name="initialLandscape" peerid="v3" />
+        <inputport name="finalLandscape" peerid="v4" />
+        <inputport name="timeSteps">5</inputport>
+        <outputport name="singleStepMatrix" id="v1" />
+        <outputport name="multiStepMatrix" id="v2" />
+    </functor>
+    <functor name="SaveTable">
+        <property key="dff.functor.alias" value="saveTable846" />
+        <property key="dff.functor.comment" value="Single-step transition matrix." />
+        <inputport name="table" peerid="v1" />
+        <inputport name="filename">&quot;../Result/singlestep_2005-2010.csv&quot;</inputport>
+        <inputport name="suffixDigits">0</inputport>
+        <inputport name="step">.none</inputport>
+        <inputport name="workdir">.none</inputport>
+    </functor>
+    <functor name="SaveTable">
+        <property key="dff.functor.alias" value="saveTable847" />
+        <property key="dff.functor.comment" value="Multi-step transition matrix." />
+        <inputport name="table" peerid="v2" />
+        <inputport name="filename">&quot;../Result/multi_step_2005-2010.csv&quot;</inputport>
+        <inputport name="suffixDigits">0</inputport>
+        <inputport name="step">.none</inputport>
+        <inputport name="workdir">.none</inputport>
+    </functor>
+    <functor name="LoadCategoricalMap">
+        <property key="dff.functor.alias" value="Initial Landscape" />
+        <property key="dff.functor.comment" value="Initial landscape map." />
+        <inputport name="filename">&quot;tutupan_lahan_2005.tif&quot;</inputport>
+        <inputport name="nullValue">.none</inputport>
+        <inputport name="loadAsSparse">.no</inputport>
+        <inputport name="suffixDigits">0</inputport>
+        <inputport name="step">.none</inputport>
+        <inputport name="workdir">.none</inputport>
+        <outputport name="map" id="v3" />
+    </functor>
+    <functor name="LoadCategoricalMap">
+        <property key="dff.functor.alias" value="Final Landscape" />
+        <property key="dff.functor.comment" value="Final landscape map." />
+        <inputport name="filename">&quot;tutupan_lahan_2010.tif&quot;</inputport>
+        <inputport name="nullValue">.none</inputport>
+        <inputport name="loadAsSparse">.no</inputport>
+        <inputport name="suffixDigits">0</inputport>
+        <inputport name="step">.none</inputport>
+        <inputport name="workdir">.none</inputport>
+        <outputport name="map" id="v4" />
+    </functor>
+</script>
