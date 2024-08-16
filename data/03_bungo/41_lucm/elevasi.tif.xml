@@ -1,0 +1,2 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<metadata xml:lang="en"><Esri><CreaDate>20150408</CreaDate><CreaTime>21442200</CreaTime><ArcGISFormat>1.0</ArcGISFormat><SyncOnce>TRUE</SyncOnce><DataProperties><lineage><Process ToolSource="c:\program files (x86)\arcgis\desktop10.0\ArcToolbox\Toolboxes\Spatial Analyst Tools.tbx\ExtractByMask" Date="20150408" Time="214422">ExtractByMask subset_suma.img Pola_Ruang_Bungo C:\LUMENS_JAMBI\Land_Use_Change_Model\Bungo\Factors\elevasi.tif</Process></lineage></DataProperties></Esri></metadata>

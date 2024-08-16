@@ -1,0 +1,122 @@
+<?xml version="1.0" standalone="yes" ?>
+<script>
+    <property key="dff.date" value="Thu Apr 09 02:24:29 2015" />
+    <property key="dff.version" value="2.2.8.20131118" />
+    <functor name="LoadCategoricalMap">
+        <property key="dff.functor.alias" value="initial" />
+        <inputport name="filename">&quot;tutupan_lahan_2005.tif&quot;</inputport>
+        <inputport name="nullValue">.none</inputport>
+        <inputport name="loadAsSparse">.no</inputport>
+        <inputport name="suffixDigits">0</inputport>
+        <inputport name="step">.none</inputport>
+        <inputport name="workdir">.none</inputport>
+        <outputport name="map" id="v1" />
+    </functor>
+    <functor name="LoadCategoricalMap">
+        <property key="dff.functor.alias" value="final" />
+        <property key="viewer.map" value="yes" />
+        <inputport name="filename">&quot;tutupan_lahan_2010.tif&quot;</inputport>
+        <inputport name="nullValue">.none</inputport>
+        <inputport name="loadAsSparse">.no</inputport>
+        <inputport name="suffixDigits">0</inputport>
+        <inputport name="step">.none</inputport>
+        <inputport name="workdir">.none</inputport>
+        <outputport name="map" id="v2" />
+    </functor>
+    <functor name="LoadMap">
+        <property key="dff.functor.alias" value="static" />
+        <inputport name="filename">&quot;faktor_Merangin.ers&quot;</inputport>
+        <inputport name="nullValue">.none</inputport>
+        <inputport name="loadAsSparse">.no</inputport>
+        <inputport name="suffixDigits">0</inputport>
+        <inputport name="step">.none</inputport>
+        <inputport name="workdir">.none</inputport>
+        <outputport name="map" id="v3" />
+    </functor>
+    <functor name="CalcDistanceMap">
+        <property key="dff.functor.alias" value="calcDistanceMap1730" />
+        <inputport name="categoricalMap" peerid="v1" />
+        <inputport name="categories">[ 1 ]</inputport>
+        <inputport name="cellType">.int32</inputport>
+        <inputport name="nullValue">.default</inputport>
+        <inputport name="truncateDistance">.no</inputport>
+        <outputport name="distance" id="v4" />
+    </functor>
+    <functor name="SaveTable">
+        <property key="dff.functor.alias" value="saveTable1750" />
+        <inputport name="table" peerid="v7" />
+        <inputport name="filename">&quot;../Result/merangin_woe_coeff.csv&quot;</inputport>
+        <inputport name="suffixDigits">2</inputport>
+        <inputport name="step">.none</inputport>
+        <inputport name="workdir">.none</inputport>
+    </functor>
+    <functor name="SaveWeights">
+        <property key="dff.functor.alias" value="saveWeights1756" />
+        <inputport name="weights" peerid="v6" />
+        <inputport name="filename">&quot;../Result/merangin_woe_weight.dcf&quot;</inputport>
+        <inputport name="suffixDigits">2</inputport>
+        <inputport name="step">.none</inputport>
+        <inputport name="workdir">.none</inputport>
+    </functor>
+    <functor name="SaveTable">
+        <property key="dff.functor.alias" value="saveTable1774" />
+        <inputport name="table" peerid="v8" />
+        <inputport name="filename">&quot;../Result/merangin_woe_correlation_report.csv&quot;</inputport>
+        <inputport name="suffixDigits">2</inputport>
+        <inputport name="step">.none</inputport>
+        <inputport name="workdir">.none</inputport>
+    </functor>
+    <containerfunctor name="DetermineWeightsOfEvidenceRanges">
+        <property key="dff.functor.alias" value="determineWeightsOfEvidenceRanges1708" />
+        <inputport name="initialLandscape" peerid="v1" />
+        <inputport name="finalLandscape" peerid="v2" />
+        <inputport name="skeleton">[&#x0A;    1-&gt;2 [&#x0A;        &quot;distance/distance_to_1&quot; 100 500000 1 5,&#x0A;        &quot;static/PlanningUnit&quot; 100 500000 1 5,&#x0A;        &quot;static/dist2deforest&quot; 100 500000 1 5,&#x0A;        &quot;static/dist2protect&quot; 100 500000 1 5,&#x0A;        &quot;static/dist2road&quot; 100 500000 1 5,&#x0A;        &quot;static/elevation&quot; 100 500000 1 5,&#x0A;        &quot;static/population&quot; 100 500000 1 5&#x0A;    ],&#x0A;    1-&gt;10 [&#x0A;        &quot;distance/distance_to_1&quot; 100 500000 1 5,&#x0A;        &quot;static/PlanningUnit&quot; 100 500000 1 5,&#x0A;        &quot;static/dist2deforest&quot; 100 500000 1 5,&#x0A;        &quot;static/dist2protect&quot; 100 500000 1 5,&#x0A;        &quot;static/dist2road&quot; 100 500000 1 5,&#x0A;        &quot;static/elevation&quot; 100 500000 1 5,&#x0A;        &quot;static/population&quot; 100 500000 1 5&#x0A;    ],&#x0A;    1-&gt;16 [&#x0A;        &quot;distance/distance_to_1&quot; 100 500000 1 5,&#x0A;        &quot;static/PlanningUnit&quot; 100 500000 1 5,&#x0A;        &quot;static/dist2deforest&quot; 100 500000 1 5,&#x0A;        &quot;static/dist2protect&quot; 100 500000 1 5,&#x0A;        &quot;static/dist2road&quot; 100 500000 1 5,&#x0A;        &quot;static/elevation&quot; 100 500000 1 5,&#x0A;        &quot;static/population&quot; 100 500000 1 5&#x0A;    ],&#x0A;    1-&gt;17 [&#x0A;        &quot;distance/distance_to_1&quot; 100 500000 1 5,&#x0A;        &quot;static/PlanningUnit&quot; 100 500000 1 5,&#x0A;        &quot;static/dist2deforest&quot; 100 500000 1 5,&#x0A;        &quot;static/dist2protect&quot; 100 500000 1 5,&#x0A;        &quot;static/dist2road&quot; 100 500000 1 5,&#x0A;        &quot;static/elevation&quot; 100 500000 1 5,&#x0A;        &quot;static/population&quot; 100 500000 1 5&#x0A;    ],&#x0A;    10-&gt;16 [&#x0A;        &quot;distance/distance_to_1&quot; 100 500000 1 5,&#x0A;        &quot;static/PlanningUnit&quot; 100 500000 1 5,&#x0A;        &quot;static/dist2deforest&quot; 100 500000 1 5,&#x0A;        &quot;static/dist2protect&quot; 100 500000 1 5,&#x0A;        &quot;static/dist2road&quot; 100 500000 1 5,&#x0A;        &quot;static/elevation&quot; 100 500000 1 5,&#x0A;        &quot;static/population&quot; 100 500000 1 5&#x0A;    ],&#x0A;    10-&gt;17 [&#x0A;        &quot;distance/distance_to_1&quot; 100 500000 1 5,&#x0A;        &quot;static/PlanningUnit&quot; 100 500000 1 5,&#x0A;        &quot;static/dist2deforest&quot; 100 500000 1 5,&#x0A;        &quot;static/dist2protect&quot; 100 500000 1 5,&#x0A;        &quot;static/dist2road&quot; 100 500000 1 5,&#x0A;        &quot;static/elevation&quot; 100 500000 1 5,&#x0A;        &quot;static/population&quot; 100 500000 1 5&#x0A;    ],&#x0A;    16-&gt;10 [&#x0A;        &quot;distance/distance_to_1&quot; 100 500000 1 5,&#x0A;        &quot;static/PlanningUnit&quot; 100 500000 1 5,&#x0A;        &quot;static/dist2deforest&quot; 100 500000 1 5,&#x0A;        &quot;static/dist2protect&quot; 100 500000 1 5,&#x0A;        &quot;static/dist2road&quot; 100 500000 1 5,&#x0A;        &quot;static/elevation&quot; 100 500000 1 5,&#x0A;        &quot;static/population&quot; 100 500000 1 5&#x0A;    ],&#x0A;    16-&gt;17 [&#x0A;        &quot;distance/distance_to_1&quot; 100 500000 1 5,&#x0A;        &quot;static/PlanningUnit&quot; 100 500000 1 5,&#x0A;        &quot;static/dist2deforest&quot; 100 500000 1 5,&#x0A;        &quot;static/dist2protect&quot; 100 500000 1 5,&#x0A;        &quot;static/dist2road&quot; 100 500000 1 5,&#x0A;        &quot;static/elevation&quot; 100 500000 1 5,&#x0A;        &quot;static/population&quot; 100 500000 1 5&#x0A;    ],&#x0A;    17-&gt;10 [&#x0A;        &quot;distance/distance_to_1&quot; 100 500000 1 5,&#x0A;        &quot;static/PlanningUnit&quot; 100 500000 1 5,&#x0A;        &quot;static/dist2deforest&quot; 100 500000 1 5,&#x0A;        &quot;static/dist2protect&quot; 100 500000 1 5,&#x0A;        &quot;static/dist2road&quot; 100 500000 1 5,&#x0A;        &quot;static/elevation&quot; 100 500000 1 5,&#x0A;        &quot;static/population&quot; 100 500000 1 5&#x0A;    ],&#x0A;    17-&gt;16 [&#x0A;        &quot;distance/distance_to_1&quot; 100 500000 1 5,&#x0A;        &quot;static/PlanningUnit&quot; 100 500000 1 5,&#x0A;        &quot;static/dist2deforest&quot; 100 500000 1 5,&#x0A;        &quot;static/dist2protect&quot; 100 500000 1 5,&#x0A;        &quot;static/dist2road&quot; 100 500000 1 5,&#x0A;        &quot;static/elevation&quot; 100 500000 1 5,&#x0A;        &quot;static/population&quot; 100 500000 1 5&#x0A;    ]&#x0A;]</inputport>
+        <inputport name="fixAbnormalWeights">.no</inputport>
+        <outputport name="ranges" id="v5" />
+        <functor name="NameMap">
+            <property key="dff.functor.alias" value="nameMap1726" />
+            <inputport name="map" peerid="v4" />
+            <inputport name="mapName">&quot;distance&quot;</inputport>
+        </functor>
+        <functor name="NameMap">
+            <property key="dff.functor.alias" value="nameMap1728" />
+            <inputport name="map" peerid="v3" />
+            <inputport name="mapName">&quot;static&quot;</inputport>
+        </functor>
+    </containerfunctor>
+    <containerfunctor name="DetermineWeightsOfEvidenceCoefficients">
+        <property key="dff.functor.alias" value="determineWeightsOfEvidenceCoefficients1735" />
+        <inputport name="initialLandscape" peerid="v1" />
+        <inputport name="finalLandscape" peerid="v2" />
+        <inputport name="ranges" peerid="v5" />
+        <inputport name="fixAbnormalWeights">.no</inputport>
+        <outputport name="weights" id="v6" />
+        <outputport name="report" id="v7" />
+        <functor name="NameMap">
+            <property key="dff.functor.alias" value="nameMap1739" />
+            <inputport name="map" peerid="v4" />
+            <inputport name="mapName">&quot;distance&quot;</inputport>
+        </functor>
+        <functor name="NameMap">
+            <property key="dff.functor.alias" value="nameMap1741" />
+            <inputport name="map" peerid="v3" />
+            <inputport name="mapName">&quot;static&quot;</inputport>
+        </functor>
+    </containerfunctor>
+    <containerfunctor name="DetermineWeightsOfEvidenceCorrelation">
+        <property key="dff.functor.alias" value="determineWeightsOfEvidenceCorrelation1759" />
+        <inputport name="ranges" peerid="v6" />
+        <inputport name="transition">[ 1-&gt;2, 1-&gt;10, 1-&gt;16, 1-&gt;17, 10-&gt;16, 10-&gt;17, 16-&gt;10, 16-&gt;17, 17-&gt;10, 17-&gt;16 ]</inputport>
+        <outputport name="report" id="v8" />
+        <functor name="NameMap">
+            <property key="dff.functor.alias" value="nameMap1767" />
+            <inputport name="map" peerid="v4" />
+            <inputport name="mapName">&quot;distance&quot;</inputport>
+        </functor>
+        <functor name="NameMap">
+            <property key="dff.functor.alias" value="nameMap1769" />
+            <inputport name="map" peerid="v3" />
+            <inputport name="mapName">&quot;static&quot;</inputport>
+        </functor>
+    </containerfunctor>
+</script>
