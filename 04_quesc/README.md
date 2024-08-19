@@ -2,19 +2,19 @@
 
 This is a prototype
 
-## All QUES-C Inputs 
+## All QUES-C Inputs
 
-![](04_quesc/www/img/inputs.png)
+![](www/img/inputs.png){width="206"}
 
 ## Upload shapefiles
 
 Select all related shp
 
-![](04_quesc/www/img/shp.png)
+![](www/img/shp.png){width="561"}
 
 ## Select working directory
 
-![](04_quesc/www/img/wd.png)
+![](www/img/wd.png){width="575"}
 
 ## Prototype v1.0.0
 
