@@ -152,7 +152,7 @@ server <- function(input, output, session) {
     df_lucdb <- df_lucdb %>% mutate(
       EM = (C_T1 - C_T2) * (C_T1 > C_T2) * Ha * 3.67,
       SQ = (C_T2 - C_T1) * (C_T1 < C_T2) * Ha * 3.67,
-      LU_CHG = do.call(paste, c(df_lucdb[c(as.character(period_1), as.character(period_2))], sep = " to "))
+      LU_CHG = do.call(paste, c(df_lucdb[c(rv$map1_year, rv$map2_year)], sep = " to "))
     )
     rv$tbl_quesc <- df_lucdb
     
