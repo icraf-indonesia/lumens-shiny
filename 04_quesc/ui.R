@@ -15,14 +15,14 @@ page_sidebar(
     textInput("map1_year", "Initial time"),
     textInput("map2_year", "Final time"),
     shinyDirButton("wd", "Select working directory", "Select a folder"),
+    textOutput("selected_directory"),
     actionButton("processQUESC", "Submit")
   ),
   
   # To display the report
   card(
     card_header("QuES-C Report"),
-    htmlOutput("reportOutput"),
-    # includeMarkdown("report_template.Rmd")
+    htmlOutput("reportOutput")
   ),
   downloadButton("downloadReport", "Download Report") 
 )

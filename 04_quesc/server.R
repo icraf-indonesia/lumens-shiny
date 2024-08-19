@@ -103,6 +103,15 @@ server <- function(input, output, session) {
     session = session
   )
   
+  output$selected_directory <- renderText({
+    rv$wd <- parseDirPath(volumes, input$wd)
+    if(length(rv$wd) == 0) {
+      return()
+    } else {
+      paste0("Selected output directory: ",  rv$wd)
+    }
+  })
+  
   #### Do the calculation and store it to the markdown content ####
   report_content <- eventReactive(input$processQUESC, {
     rv$map1_rast <- rv$map1_rast %>% spatial_sync_raster(rv$mapz_rast)
@@ -157,8 +166,7 @@ server <- function(input, output, session) {
     rv$tbl_quesc <- df_lucdb
     
     # save maps and db
-    print(paste0("The output is successfully stored in ", input$wd))
-    rv$wd <- parseDirPath(volumes, input$wd)
+    print(paste0("The output is successfully stored in ", rv$wd))
     write.table(df_lucdb,
                 paste0(rv$wd, "/quesc_database.csv"), 
                 quote=FALSE, 

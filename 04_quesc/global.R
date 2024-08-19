@@ -19,6 +19,7 @@ install_load(
   "terra",
   "shiny",
   "shinyFiles",
+  "bslib",
   "raster",
   "splitstackshape",
   "ggplot2",
