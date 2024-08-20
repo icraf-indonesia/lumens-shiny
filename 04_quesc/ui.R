@@ -21,8 +21,10 @@ page_sidebar(
   
   # To display the report
   card(
-    card_header("QuES-C Report"),
-    htmlOutput("reportOutput")
+    card_header("QuES-C Help Guide"),
+    card_body(
+      includeMarkdown("README.md")
+    )
   ),
   downloadButton("downloadReport", "Download Report") 
 )

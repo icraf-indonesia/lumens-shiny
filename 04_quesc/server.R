@@ -13,6 +13,10 @@ server <- function(input, output, session) {
     mapc_spat = NULL,
     maps_spat = NULL,
     mapz_df = NULL,
+    map_c1 = NULL,
+    map_c2 = NULL,
+    map_e = NULL,
+    map_s = NULL,
     tbl_c = NULL,
     tbl_quesc = NULL,
     period_year = NULL,
@@ -23,7 +27,6 @@ server <- function(input, output, session) {
   map_list <- c("mapz", "map1", "map2")
 
   volumes <- c(
-      # Home = fs::path_home(),
       getVolumes()()
   )
   
@@ -112,82 +115,110 @@ server <- function(input, output, session) {
     }
   })
   
-  #### Do the calculation and store it to the markdown content ####
-  report_content <- eventReactive(input$processQUESC, {
-    rv$map1_rast <- rv$map1_rast %>% spatial_sync_raster(rv$mapz_rast)
-    rv$map2_rast <- rv$map2_rast %>% spatial_sync_raster(rv$mapz_rast)
-    
-    print("load maps")
-    lc_t1 <- rv$map1_rast %>% rast() %>%
-      add_legend_to_categorical_raster(., lookup_table = rv$tbl_c, year = as.numeric(rv$map1_year))
-    lc_t2 <- rv$map2_rast %>% rast() %>%
-      add_legend_to_categorical_raster(., lookup_table = rv$tbl_c, year = as.numeric(rv$map2_year))  
-    zone <- rv$mapz_rast %>% rast() %>%
-      add_legend_to_categorical_raster(., lookup_table = rv$mapz_df)  
-    
-    rv$preques <- ques_pre(lc_t1, lc_t2, zone)
-    rv$period_year <- as.numeric(rv$map1_year) - as.numeric(rv$map1_year)
-    lucDummy <- generate_dummy_crosstab(rv$tbl_c, rv$mapz_df)
-    
-    # join table
-    print("create QUESC-DB")
-    df_lucdb <- rv$tbl_c %>% dplyr::rename(ID_LC1 = 1, C_T1 = 3) %>% 
-      rename_with(.cols = 2, ~rv$map1_year) %>% right_join(lucDummy, by="ID_LC1")
-    df_lucdb <- rv$tbl_c %>% dplyr::rename(ID_LC2 = 1, C_T2 = 3) %>% 
-      rename_with(.cols = 2, ~rv$map2_year) %>% right_join(df_lucdb, by="ID_LC2")
-    df_lucdb <- rv$mapz_df %>% dplyr::rename(ID_PU = 1) %>% 
-      rename_with(.cols = 2, ~names(zone)) %>% right_join(df_lucdb, by="ID_PU") 
-    df_lucdb <- df_lucdb %>% 
-      left_join(
-        rv$preques[["landscape_level"]][["crosstab_long"]], 
-        by = c(names(zone), rv$map1_year, rv$map2_year)
-      ) 
-    # the full version of preques database from preques analysis combined with all possible landcover listed in the lookup table
-    df_lucdb <- df_lucdb %>% replace(is.na(df_lucdb), 0)
-    
-    # create new matrix reclassification 
-    reclassify_matrix <- as.matrix(rv$tbl_c[,1]) %>% 
-      cbind(., as.matrix(rv$tbl_c[,3])) %>%
-      rbind(., c(0, NA))
-    
-    # create all maps
-    print("generate cabon, emission, and sequestration maps")
-    map_carbon1 <- lc_t1 %>% classify(reclassify_matrix)
-    map_carbon2 <- lc_t2 %>% classify(reclassify_matrix)
-    map_emission <- ((map_carbon1 - map_carbon2) * 3.67) * (map_carbon1 > map_carbon2)
-    map_sequestration <- ((map_carbon2 - map_carbon1) * 3.67) * (map_carbon1 < map_carbon2)
-    
-    # quescdatabase
-    df_lucdb <- df_lucdb %>% mutate(
-      EM = (C_T1 - C_T2) * (C_T1 > C_T2) * Ha * 3.67,
-      SQ = (C_T2 - C_T1) * (C_T1 < C_T2) * Ha * 3.67,
-      LU_CHG = do.call(paste, c(df_lucdb[c(rv$map1_year, rv$map2_year)], sep = " to "))
+  # Input validation
+  validate_inputs <- reactive({
+    validate(
+      need(input$map1_file, "Please upload initial land cover"),
+      need(input$map1_file, "Please upload final land cover"),
+      need(input$mapz_file, "Please upload zone file"),
+      need(input$carbon_file, "Please upload carbon lookup table"),
+      need(input$map1_year, "Please define the initial year"),
+      need(input$map2_year, "Please define the final year"),
+      need(input$wd, "Please select an output directory")
     )
-    rv$tbl_quesc <- df_lucdb
+    return(TRUE)
+  })
+  
+  #### Do the calculation and store it to the markdown content ####
+  observeEvent(input$processQUESC, {
+    req(validate_inputs())
     
-    # save maps and db
-    print(paste0("The output is successfully stored in ", rv$wd))
-    write.table(df_lucdb,
-                paste0(rv$wd, "/quesc_database.csv"), 
-                quote=FALSE, 
-                row.names=FALSE, 
-                sep=",")
-    writeRaster(map_carbon1,
-                paste0(rv$wd, "/carbon_map_t1.tif"), overwrite = T)
-    writeRaster(map_carbon2,
-                paste0(rv$wd, "/carbon_map_t2.tif"), overwrite = T)
-    writeRaster(map_emission,
-                paste0(rv$wd, "/emission_map.tif"), overwrite = T)
-    writeRaster(map_sequestration,
-                paste0(rv$wd, "/sequestration_map.tif"), overwrite = T)
-    
-    # generate report
+    withProgress(message = "Running QuES-C Analysis", value = 0, {
+      rv$map1_rast <- rv$map1_rast %>% spatial_sync_raster(rv$mapz_rast)
+      rv$map2_rast <- rv$map2_rast %>% spatial_sync_raster(rv$mapz_rast)
+      
+      
+      setProgress(value = 0.2, message = "load maps")
+      lc_t1 <- rv$map1_rast %>% rast() %>%
+        add_legend_to_categorical_raster(., lookup_table = rv$tbl_c, year = as.numeric(rv$map1_year))
+      lc_t2 <- rv$map2_rast %>% rast() %>%
+        add_legend_to_categorical_raster(., lookup_table = rv$tbl_c, year = as.numeric(rv$map2_year))  
+      zone <- rv$mapz_rast %>% rast() %>%
+        add_legend_to_categorical_raster(., lookup_table = rv$mapz_df)  
+      showNotification("Maps has been loaded", type = "message")
+      
+      rv$preques <- ques_pre(lc_t1, lc_t2, zone)
+      rv$period_year <- as.numeric(rv$map1_year) - as.numeric(rv$map1_year)
+      lucDummy <- generate_dummy_crosstab(rv$tbl_c, rv$mapz_df)
+      
+      # join table
+      setProgress(value = 0.5, message = "create QUES-C database")
+      df_lucdb <- rv$tbl_c %>% dplyr::rename(ID_LC1 = 1, C_T1 = 3) %>% 
+        rename_with(.cols = 2, ~rv$map1_year) %>% right_join(lucDummy, by="ID_LC1")
+      df_lucdb <- rv$tbl_c %>% dplyr::rename(ID_LC2 = 1, C_T2 = 3) %>% 
+        rename_with(.cols = 2, ~rv$map2_year) %>% right_join(df_lucdb, by="ID_LC2")
+      df_lucdb <- rv$mapz_df %>% dplyr::rename(ID_PU = 1) %>% 
+        rename_with(.cols = 2, ~names(zone)) %>% right_join(df_lucdb, by="ID_PU") 
+      df_lucdb <- df_lucdb %>% 
+        left_join(
+          rv$preques[["landscape_level"]][["crosstab_long"]], 
+          by = c(names(zone), rv$map1_year, rv$map2_year)
+        ) 
+      # the full version of preques database from preques analysis combined with all possible landcover listed in the lookup table
+      df_lucdb <- df_lucdb %>% replace(is.na(df_lucdb), 0)
+      showNotification("QUESC-DB has been created", type = "message")
+      
+      # create new matrix reclassification 
+      reclassify_matrix <- as.matrix(rv$tbl_c[,1]) %>% 
+        cbind(., as.matrix(rv$tbl_c[,3])) %>%
+        rbind(., c(0, NA))
+      
+      # create all maps
+      setProgress(value = 0.7, message = "generate carbon, emission, and sequestration maps")
+      map_carbon1 <- lc_t1 %>% classify(reclassify_matrix)
+      map_carbon2 <- lc_t2 %>% classify(reclassify_matrix)
+      map_emission <- ((map_carbon1 - map_carbon2) * 3.67) * (map_carbon1 > map_carbon2)
+      map_sequestration <- ((map_carbon2 - map_carbon1) * 3.67) * (map_carbon1 < map_carbon2)
+      rv$map_c1 = map_carbon1
+      rv$map_c2 = map_carbon2
+      rv$map_e = map_emission
+      rv$map_s = map_sequestration
+      showNotification("Carbon, emission, and sequestration map has been created", type = "message")
+      
+      # quescdatabase
+      df_lucdb <- df_lucdb %>% mutate(
+        EM = (C_T1 - C_T2) * (C_T1 > C_T2) * Ha * 3.67,
+        SQ = (C_T2 - C_T1) * (C_T1 < C_T2) * Ha * 3.67,
+        LU_CHG = do.call(paste, c(df_lucdb[c(rv$map1_year, rv$map2_year)], sep = " to "))
+      )
+      rv$tbl_quesc <- df_lucdb
+      
+      # save maps and db
+      setProgress(value = 1, message = paste0("The output is successfully stored in ", rv$wd))
+      write.table(df_lucdb,
+                  paste0(rv$wd, "/quesc_database.csv"), 
+                  quote=FALSE, 
+                  row.names=FALSE, 
+                  sep=",")
+      writeRaster(map_carbon1,
+                  paste0(rv$wd, "/carbon_map_t1.tif"), overwrite = T)
+      writeRaster(map_carbon2,
+                  paste0(rv$wd, "/carbon_map_t2.tif"), overwrite = T)
+      writeRaster(map_emission,
+                  paste0(rv$wd, "/emission_map.tif"), overwrite = T)
+      writeRaster(map_sequestration,
+                  paste0(rv$wd, "/sequestration_map.tif"), overwrite = T)
+    })
+  })
+  
+  # generate report
+  report_content <- reactive({
     params <- list(
-      map_c1 = map_carbon1,
-      map_c2 = map_carbon2,
-      map_em = map_emission,
-      map_sq = map_sequestration,
-      ques_db = df_lucdb,
+      map_c1 = rv$map_c1,
+      map_c2 = rv$map_c2,
+      map_em = rv$map_e,
+      map_sq = rv$map_s,
+      ques_db = rv$tbl_quesc,
       p1 = rv$map1_year,
       p2 = rv$map2_year
     )
@@ -198,23 +229,38 @@ server <- function(input, output, session) {
            envir = new.env(parent = globalenv()))
     readLines(temp_report)
   })
-    
-  output$reportOutput <- renderUI({
-    HTML(paste(report_content(), collapse = "\n"))
-    # tryCatch({
-    #   HTML(paste(report_content(), collapse = "\n"))
-    #   
-    # }, error = function(e){
-    #   return(HTML(paste("Error generating the report:", e$message)))
-    # })
-  })
+  
+  # output$downloadReport <- downloadHandler(
+  #   filename = function() {
+  #     paste0("quesc_report_", Sys.Date(), ".html")
+  #   },
+  #   content = function(file) {
+  #     file <- paste0(rv$wd, "/quesc_report_", Sys.Date(), ".html")
+  #     writeLines(report_content(), file)
+  #   }
+  # )
   
   output$downloadReport <- downloadHandler(
     filename = function() {
       paste0("quesc_report_", Sys.Date(), ".html")
     },
     content = function(file) {
-      writeLines(report_content(), file)
+      params <- list(
+        map_c1 = rv$map_c1,
+        map_c2 = rv$map_c2,
+        map_em = rv$map_e,
+        map_sq = rv$map_s,
+        ques_db = rv$tbl_quesc,
+        p1 = rv$map1_year,
+        p2 = rv$map2_year
+      )
+      
+      out <- render("report_template.Rmd",
+             output_file = paste0("quesc_report_", Sys.Date(), ".html"),
+             output_dir = rv$wd,
+             params = params,
+             envir = new.env(parent = globalenv()))
+      file.copy(out, file)
     }
   )
 }
