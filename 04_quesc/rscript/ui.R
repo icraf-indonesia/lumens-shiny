@@ -23,7 +23,7 @@ page_sidebar(
   card(
     card_header("QuES-C Help Guide"),
     card_body(
-      includeMarkdown("README.md")
+      includeMarkdown("../helpfile/help.md")
     )
   ),
   downloadButton("downloadReport", "Download Report") 

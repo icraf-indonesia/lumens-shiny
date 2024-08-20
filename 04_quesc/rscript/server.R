@@ -255,7 +255,7 @@ server <- function(input, output, session) {
         p2 = rv$map2_year
       )
       
-      out <- render("report_template.Rmd",
+      out <- render("../report_template/report_template.Rmd",
              output_file = paste0("quesc_report_", Sys.Date(), ".html"),
              output_dir = rv$wd,
              params = params,
