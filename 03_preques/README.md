@@ -40,7 +40,7 @@ A minimal implementation of Pre-QuES land use/land cover analysis, now with a Sh
 
    ```r
    # Load Pre-QuES analysis functions
-   source("R/functions_ques_pre.R")          
+   source(""03_preques/rscript/functions_ques_pre.R")          
    # Launch the Pre-QuES Shiny application
    preques_app()
    ```
