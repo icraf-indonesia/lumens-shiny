@@ -2,29 +2,29 @@ page_sidebar(
   title = "Land Use Planning for Multiple Environmental Services (LUMENS)",
   theme = bs_theme(version = 5),
   sidebar = sidebar(
-    title = "QuES-C input",
+    title = "QuES-C",
     width = 400,
-    fileInput("map1_file", "Initial land cover", accept = c("image/tiff")),
-    fileInput("map2_file", "Final land cover", accept = c("image/tiff")),
+    fileInput("map1_file", "Land cover map at T1", accept = c("image/tiff")),
+    fileInput("map2_file", "Land cover map at T2", accept = c("image/tiff")),
     fileInput("mapz_file", 
-              "Zone", 
+              "Planning Unit", 
               accept = c(".shp", ".dbf", ".sbn", ".sbx", ".shx", ".prj"), 
               multiple = T, 
               placeholder = "All related shapefiles"),
-    fileInput("carbon_file", "Carbon lookup table", accept = c(".csv")),
-    textInput("map1_year", "Initial time"),
-    textInput("map2_year", "Final time"),
+    fileInput("carbon_file", "Carbon stock lookup table", accept = c(".csv")),
+    textInput("map1_year", "Year of T1"),
+    textInput("map2_year", "Year of T2"),
     shinyDirButton("wd", "Select working directory", "Select a folder"),
     textOutput("selected_directory"),
-    actionButton("processQUESC", "Submit")
+    actionButton("processQUESC", "Run")
   ),
   
   # To display the report
   card(
-    card_header("QuES-C Help Guide"),
+    card_header("QuES-C Guide"),
     card_body(
       includeMarkdown("../helpfile/help.md")
     )
   ),
-  downloadButton("downloadReport", "Download Report") 
+  downloadButton("downloadReport", "View report") 
 )
