@@ -7,11 +7,9 @@ A minimal implementation of Pre-QuES land use/land cover analysis, now with a Sh
 
 ## Repository Structure
 
-- `R/`: Directory containing R scripts and functions.
+- `rscript/`: Directory containing R scripts and functions.
   - `functions_ques_pre.R`: Core Pre-QuES analysis functions.
-- `data/`: Directory for the input data files.
-- `report/`: Directory for storing templates of reports and analysis results.
-- `pre_ques.Rproj`: RStudio project file.
+- `report_template/`: Directory for storing templates of reports and analysis results.
 
 ## Getting Started
 
@@ -24,7 +22,7 @@ A minimal implementation of Pre-QuES land use/land cover analysis, now with a Sh
 
 1. Clone this repository to your local machine:
    ```
-   git clone https://github.com/icraf-indonesia/pre_ques.git
+   git clone https://github.com/icraf-indonesia/lumens-shiny.git
    ```
    Or download the ZIP file and unzip it to your desired location.
 
@@ -40,7 +38,7 @@ A minimal implementation of Pre-QuES land use/land cover analysis, now with a Sh
 
    ```r
    # Load Pre-QuES analysis functions
-   source(""03_preques/rscript/functions_ques_pre.R")          
+   source("03_preques/rscript/functions_ques_pre.R")          
    # Launch the Pre-QuES Shiny application
    preques_app()
    ```
