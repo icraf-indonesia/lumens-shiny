@@ -3,7 +3,7 @@ page_sidebar(
   theme = bs_theme(version = 5),
   sidebar = sidebar(
     title = "QuES-C",
-    width = 400,
+    width = 600,
     fileInput("map1_file", "Land cover map at T1", accept = c("image/tiff")),
     fileInput("map2_file", "Land cover map at T2", accept = c("image/tiff")),
     fileInput("mapz_file", 
@@ -21,7 +21,7 @@ page_sidebar(
   
   # To display the report
   card(
-    card_header("QuES-C Guide"),
+    card_header("Guide"),
     card_body(
       includeMarkdown("../helpfile/help.md")
     )
