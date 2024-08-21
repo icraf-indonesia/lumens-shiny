@@ -2,6 +2,7 @@ server <- function(input, output, session) {
   #### Initialize all required reactive values ####
   rv <- reactiveValues(
     wd = "",
+    report_file = NULL,
     map1_year = NULL,
     map2_year = NULL,
     map1_file = NULL,
@@ -116,22 +117,24 @@ server <- function(input, output, session) {
   })
   
   # Input validation
-  validate_inputs <- reactive({
-    validate(
-      need(input$map1_file, "Please upload initial land cover"),
-      need(input$map1_file, "Please upload final land cover"),
-      need(input$mapz_file, "Please upload zone file"),
-      need(input$carbon_file, "Please upload carbon lookup table"),
-      need(input$map1_year, "Please define the initial year"),
-      need(input$map2_year, "Please define the final year"),
-      need(input$wd, "Please select an output directory")
-    )
-    return(TRUE)
-  })
+  iv <- InputValidator$new()
+  iv$add_rule("map1_file", sv_required(message = "Please upload land cover map at T1"))
+  iv$add_rule("map2_file", sv_required(message = "Please upload land cover map at T2"))
+  iv$add_rule("mapz_file", sv_required(message = "Please upload planning unit"))
+  iv$add_rule("carbon_file", sv_required(message = "Please upload carbon stock lookup table"))
+  iv$add_rule("map1_year", sv_required(message = "Please define the year of T1"))
+  iv$add_rule("map2_year", sv_required(message = "Please define the year of T2"))
+  iv$add_rule("wd", sv_required(message = "Please select an output directory"))
   
   #### Do the calculation and store it to the markdown content ####
   observeEvent(input$processQUESC, {
-    req(validate_inputs())
+    if(!iv$is_valid()) {
+      iv$enable()
+      showNotification(
+        "Please correct the errors in the form and try again",
+        id = "submit_message", type = "error")
+      return()
+    }
     
     withProgress(message = "Running QuES-C Analysis", value = 0, {
       rv$map1_rast <- rv$map1_rast %>% spatial_sync_raster(rv$mapz_rast)
@@ -194,7 +197,7 @@ server <- function(input, output, session) {
       rv$tbl_quesc <- df_lucdb
       
       # save maps and db
-      setProgress(value = 1, message = paste0("The output is successfully stored in ", rv$wd))
+      setProgress(value = 0.9, message = paste0("The output is successfully stored in ", rv$wd))
       write.table(df_lucdb,
                   paste0(rv$wd, "/quesc_database.csv"), 
                   quote=FALSE, 
@@ -208,6 +211,10 @@ server <- function(input, output, session) {
                   paste0(rv$wd, "/emission_map.tif"), overwrite = T)
       writeRaster(map_sequestration,
                   paste0(rv$wd, "/sequestration_map.tif"), overwrite = T)
+      
+      setProgress(value = 1, message = paste0("generate report"))
+      report_content()
+      showNotification("Report has been generated", type = "message")
     })
   })
   
@@ -222,45 +229,20 @@ server <- function(input, output, session) {
       p1 = rv$map1_year,
       p2 = rv$map2_year
     )
-    temp_report <- tempfile(fileext = ".html")
-    render("report_template.Rmd",
-           output_file = temp_report,
-           params = params,
-           envir = new.env(parent = globalenv()))
-    readLines(temp_report)
+    output_file <- paste0("quesc_report_", Sys.Date(), ".html")
+    output_dir <- rv$wd
+    rv$report_file <- paste(output_dir, output_file, sep = "/")
+    
+    render(
+      "../report_template/report_template.Rmd",
+      output_file = output_file,
+      output_dir = rv$wd,
+      params = params,
+      envir = new.env(parent = globalenv())
+    )
   })
   
-  # output$downloadReport <- downloadHandler(
-  #   filename = function() {
-  #     paste0("quesc_report_", Sys.Date(), ".html")
-  #   },
-  #   content = function(file) {
-  #     file <- paste0(rv$wd, "/quesc_report_", Sys.Date(), ".html")
-  #     writeLines(report_content(), file)
-  #   }
-  # )
-  
-  output$downloadReport <- downloadHandler(
-    filename = function() {
-      paste0("quesc_report_", Sys.Date(), ".html")
-    },
-    content = function(file) {
-      params <- list(
-        map_c1 = rv$map_c1,
-        map_c2 = rv$map_c2,
-        map_em = rv$map_e,
-        map_sq = rv$map_s,
-        ques_db = rv$tbl_quesc,
-        p1 = rv$map1_year,
-        p2 = rv$map2_year
-      )
-      
-      out <- render("../report_template/report_template.Rmd",
-             output_file = paste0("quesc_report_", Sys.Date(), ".html"),
-             output_dir = rv$wd,
-             params = params,
-             envir = new.env(parent = globalenv()))
-      file.copy(out, file)
-    }
-  )
+  observeEvent(input$viewReport, {
+    file.show(rv$report_file)
+  })
 }

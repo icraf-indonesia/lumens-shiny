@@ -26,5 +26,5 @@ page_sidebar(
       includeMarkdown("../helpfile/help.md")
     )
   ),
-  downloadButton("downloadReport", "View report") 
+  actionButton("viewReport", "View report", icon = icon("file-code")) 
 )

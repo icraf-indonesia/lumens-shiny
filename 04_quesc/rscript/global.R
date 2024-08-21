@@ -30,6 +30,7 @@ install_load(
   "purrr",
   "plotly",
   "sf",
+  "shinyvalidate",
   "remote",
   "rmarkdown"
 )
