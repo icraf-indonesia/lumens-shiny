@@ -77,6 +77,7 @@ server <- function(input, output, session) {
   v <- reactiveValues(
     title = "",
     description = "",
+    quescdb = NULL,
     abacus_file = NULL,
     abacus_data = NULL,
     lc_list_df = NULL,
@@ -109,7 +110,11 @@ server <- function(input, output, session) {
     other_sequestration_total = 0,
     all_emission_total = 0,
     all_sequestration_total = 0,
-    scenario_list = list()
+    scenario_list = list(),
+    
+    f_plot = NULL,
+    em_plot = NULL,
+    report_file = NULL
   )
 
   lc_legend_pal = NULL
@@ -622,6 +627,50 @@ server <- function(input, output, session) {
     updateSelectInput(session, "iteration_select_c", choices = pl)
   })
 
+  
+  ### QUES-C DATABASE IMPORT ##########
+  
+  observeEvent(input$quescdb, {
+    if (is.null(input$quescdb)) {
+      return(NULL)
+    }
+    
+    v$quescdb <- read.csv(input$quescdb$datapath)
+    df_lucdb <- v$quescdb
+    
+    v$map1_file <- NULL
+    v$map2_file <- NULL
+    v$mapz_file <- NULL
+    v$map1_stars <- NULL
+    v$map2_stars <- NULL
+    v$mapz_stars <- NULL
+    v$mapc_stars <- NULL
+    v$map1_df <- NULL
+    v$map2_df <- NULL
+    v$mapz_df <- NULL
+    
+    df_lutm <- quesc_transform(df_lucdb)
+    temp_car <- generate_car_file(df_lutm)
+    
+    v$abacus_data <- read.abacus(temp_car)
+    p <- v$abacus_data$project_list[[v$selected_project_id]]
+    p$landcover$color <- map_color(nrow(p$landcover))
+    v$lc_list_df <- p$landcover[lc_table_def]
+    p$zone$color <- map_color(nrow(p$zone))
+    p$zone$area <- ""
+    v$zone_list_df <- p$zone[zone_table_def]
+    cdf <- p$carbonstock
+    v$cstock_list <- cdf[cdf$scenario_id == 0 &
+                           cdf$iteration_id == 0 &
+                           cdf$zone_id == 1, c("lc_id", "c")]
+    v$lc_changes_df <- p$landcover_change
+    v$n_iteration <- p$project$n_iteration
+    v$map1_date <- as.Date(paste0(p$project$baseyear0, "-07-01"))
+    v$map2_date <- as.Date(paste0(p$project$baseyear1, "-07-01"))
+    removeModal()
+  })
+  
+  
 
   ### PROJECTION ######################
 
@@ -1048,6 +1097,7 @@ server <- function(input, output, session) {
     }"
       )
 
+    v$f_plot <- fig
     fig
   })
 
@@ -1463,13 +1513,22 @@ server <- function(input, output, session) {
       ro.observe(el);
     }"
       )
+    
+    v$em_plot <- fig
     fig
   })
 
 
   ### INPUT OUTPUT FILE #############################
 
-
+  observeEvent(input$import_quescdb, {
+    showModal(modalDialog(
+      easyClose = T,
+      footer = NULL,
+      fileInput("quescdb", "Load QuES-C Database (.csv)", accept = ".csv")
+    ))
+  })
+  
   observeEvent(input$upload_params, {
     showModal(modalDialog(
       easyClose = T,
@@ -1545,14 +1604,6 @@ server <- function(input, output, session) {
           return()
         write.csv(df, d[["file"]], row.names = F, na = "")
         fs <<- c(fs, d[["file"]])
-      })
-      ### Output parameter map data ###
-      apply(map_file_df, 1, function(d) {
-        m <- v[[d[["var"]]]]
-        if (!is.null(m)) {
-          write_stars(m, d[["file"]])
-          fs <<- c(fs, d[["file"]])
-        }
       })
       ### Output parameter scenario data ###
       for (i in c(1:length(v$scenario_list))) {
@@ -1699,21 +1750,6 @@ server <- function(input, output, session) {
     )
   })
 
-  #### Output Map #########################
-  apply(rbind(map_file_df, output_map_file_df) , 1, function(d) {
-    output[[paste0(d[["var"]], "_id")]] <- downloadHandler(
-      filename = function() {
-        d[["file"]]
-      },
-      content = function(file) {
-        m <- v[[d[["var"]]]]
-        if (!is.null(m)) {
-          write_stars(m, file)
-        }
-      }
-    )
-  })
-
   #### Output Scenario #########################
   output$scenario_output_params <- renderUI({
     apply(scenario_file_df, 1, function(d) {
@@ -1775,6 +1811,31 @@ server <- function(input, output, session) {
         zip::zip(zipfile = file, files = fs)
       }
     )
+  })
+  
+  
+  # generate report
+  report_content <- reactive({
+    params <- list(
+      final_plot = v$f_plot,
+      emission_plot = v$em_plot 
+    )
+    output_file <- paste0("sciendo_report_", Sys.Date(), ".html")
+    output_dir <- paste0(Sys.getenv("USERPROFILE"), "\\Download")
+    v$report_file <- paste(output_dir, output_file, sep = "\\")
+    
+    render(
+      "../report_template/report_template.Rmd",
+      output_file = output_file,
+      output_dir = output_dir,
+      params = params,
+      envir = new.env(parent = globalenv())
+    )
+  })
+  
+  observeEvent(input$viewReport, {
+    report_content()
+    file.show(v$report_file)
   })
 
 }

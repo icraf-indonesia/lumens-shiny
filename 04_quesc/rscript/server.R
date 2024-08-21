@@ -236,7 +236,7 @@ server <- function(input, output, session) {
     render(
       "../report_template/report_template.Rmd",
       output_file = output_file,
-      output_dir = rv$wd,
+      output_dir = output_dir,
       params = params,
       envir = new.env(parent = globalenv())
     )

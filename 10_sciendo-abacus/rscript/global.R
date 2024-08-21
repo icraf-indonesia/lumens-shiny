@@ -30,10 +30,12 @@ install_load(
   "excelR",
   "RColorBrewer",
   "jsonlite",
+  "dplyr",
   "reshape2",
   "leafem",
   "yaml",
-  "paletteer"
+  "paletteer",
+  "rmarkdown"
 )
 
 if (!("abacuslib" %in% rownames(installed.packages()))) {
@@ -191,6 +193,136 @@ per_ha_unit <- function(prefix = "", suffix = "") {
             tags$sup(-1, .noWS = c("after", "before")),
             suffix,
             .noWS = c("after", "before"))
+}
+
+quesc_transform <- function(quescdb) {
+  df_lucdb_melt <- quescdb %>% 
+    melt(
+      id.vars = c('ID_LC2','ID_PU'), 
+      measure.vars=c('Ha')
+    )
+  
+  df_ha_pu_t2 <- df_lucdb_melt %>% dcast(formula = ID_LC2 + ID_PU ~ ., fun.aggregate = sum)
+  names(df_ha_pu_t2)[3]<-"Ha.LC.PU.T2"
+  
+  df_lucdb_melt <- quescdb %>% 
+    melt(
+      id.vars = c('ID_LC1','ID_PU'), 
+      measure.vars=c('Ha')
+    )
+  df_ha_pu_t1 <- df_lucdb_melt %>% dcast(formula = ID_LC1 + ID_PU ~ ., fun.aggregate = sum)
+  names(df_ha_pu_t1)[3]<-"Ha.LC.PU.T1"
+  
+  df_lucdb_02 <- quescdb %>% 
+    left_join(df_ha_pu_t1, by = c("ID_LC1", "ID_PU")) 
+  
+  df_lucdb_02 <- df_lucdb_02 %>% 
+    merge(df_ha_pu_t2, 
+          by.x=c("ID_LC1", "ID_PU"), 
+          by.y=c("ID_LC2", "ID_PU"))
+  
+  # calculating the first iteration of TPM
+  df_lucdb_02 <- df_lucdb_02 %>% mutate(
+    TPM1 = Ha / Ha.LC.PU.T1
+  )
+  df_lucdb_02 <- df_lucdb_02 %>% replace(is.na(df_lucdb_02), 0)
+  
+  # Handling new emerging land use type in TPM
+  # Get the total of TPM1 according to first land-cover period and zone
+  df_temp <- df_lucdb_02 %>% 
+    melt(
+      id.vars = c('ID_LC1','ID_PU'),
+      measure.vars = c('TPM1')
+    ) %>% 
+    dcast(
+      formula = ID_LC1 + ID_PU ~ .,
+      fun.aggregate = sum
+    )
+  
+  # Check if the TPM value is...
+  # equal to zero, then rename the column with 'fix'
+  # it means the specific record-with-zero have to be revalued
+  # more than zero, then rename the column with 'ignore'
+  # it means the specific record must keep the value
+  names(df_temp)[3] <- "CEK"
+  df_temp <- df_temp %>% 
+    mutate(ACT = case_when(
+      CEK > 0 ~ "ignore",
+      .default = "fix"
+    ))
+  df_temp$CEK <- NULL
+  
+  # merge df_lucdb_02 with data-bound table
+  df_lutm <- merge(df_lucdb_02, df_temp, by = c("ID_LC1", "ID_PU"))
+  df_lutm <- df_lutm %>% 
+    mutate(TPM1 = case_when(
+      ACT == "fix" & ID_LC1 == ID_LC2 ~ 1,
+      .default = TPM1
+    ))
+  
+  return(df_lutm)
+}
+
+generate_car_file <- function(df) {
+  options(scipen=999)
+  temp_car <- tempfile()
+  df <- df %>% rename(PU = names(df)[3])
+  t2 <- unlist(strsplit(names(df)[5], split = "X"))[2]
+  t1 <- unlist(strsplit(names(df)[7], split = "X"))[2]
+  
+  general <- paste("file_version=1.2.0")
+  write("#GENERAL", temp_car, append = TRUE, sep = "\t")
+  write.table(general, temp_car, append = TRUE, quote = FALSE, col.names = FALSE, row.names = FALSE, sep = "\t")
+
+  project <- c(
+    "title=SCIENDO Abacus",
+    "description=LUMENS project",
+    paste0("baseyear0=", t1),
+    paste0("baseyear1=", t2),
+    paste0("n_iteration=", as.numeric(t2) - as.numeric(t1))
+  )
+  write("\n#PROJECT", temp_car, append = TRUE, sep = "\t")
+  write.table(project, temp_car, append = TRUE, quote = FALSE, col.names = FALSE, row.names = FALSE,sep="\t")
+  
+  write("\n#LANDCOVER", temp_car, append=TRUE, sep="\t")
+  lc <- df %>% melt(id.vars = c('ID_LC1', paste0('X', t1))) %>% 
+    select(-c(variable, value)) %>%
+    distinct() %>%
+    arrange(ID_LC1) %>% 
+    rename('//lc_id' = ID_LC1, label = paste0('X', t1)) %>% 
+    mutate(description = "")
+  write.table(lc, temp_car, append = TRUE, quote = FALSE, col.names = TRUE, row.names = FALSE, sep = "\t")
+  
+  write("\n#ZONE", temp_car, append=TRUE, sep="\t")
+  z <- df %>% 
+    melt(id.vars=c('ID_PU', 'PU'), measure.vars=c('Ha')) %>%
+    dcast(formula = ID_PU + PU ~ variable, fun.aggregate = sum ) %>% 
+    select(-Ha) %>%
+    arrange(ID_PU) %>% 
+    rename('//zone_id' = ID_PU, label = PU) %>% 
+    mutate(description = "")
+  write.table(z, temp_car, append = TRUE, quote = FALSE, col.names = TRUE, row.names = FALSE, sep = "\t")
+  
+  write("\n#LANDCOVER_CHANGE", temp_car, append=TRUE, sep="\t")
+  lcc <- df %>% 
+    mutate('//scenario_id' = 0, iteration_id = 0) %>%
+    select(c('//scenario_id', iteration_id, ID_PU, ID_LC1, ID_LC2, Ha)) %>%
+    rename(zone_id = ID_PU, lc1_id = ID_LC1, lc2_id = ID_LC2, area = Ha) %>%
+    filter(area != 0)
+  write.table(lcc, temp_car, append = TRUE, quote = FALSE, col.names = TRUE, row.names = FALSE, sep = "\t")
+  
+  write("\n#CARBONSTOCK", temp_car, append=TRUE, sep="\t")
+  carbon <- df %>%
+    melt(id.vars = c('ID_LC1', 'ID_PU', 'C_T1')) %>% 
+    select(-c(variable, value)) %>%
+    distinct(ID_LC1, ID_PU, C_T1) %>% 
+    mutate('//scenario_id' = 0, iteration_id = 0) %>%
+    select(c('//scenario_id', iteration_id, ID_PU, ID_LC1, C_T1)) %>%
+    rename(zone_id = ID_PU, lc_id = ID_LC1, area = C_T1) 
+  write.table(carbon, temp_car, append = TRUE, quote = FALSE, col.names = TRUE, row.names = FALSE, sep = "\t")
+  
+  write("\n#SCENARIO", temp_car, append=TRUE, sep="\t")
+  return(temp_car)
 }
 
 ### TODO: read data from url

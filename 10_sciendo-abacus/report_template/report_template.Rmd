@@ -1,5 +1,5 @@
 ---
-title: "QuES-C Report"
+title: "SCIENDO Abacus Report"
 author: "System"
 date: "`r Sys.Date()`"
 output: 
@@ -11,65 +11,33 @@ output:
     highlight: tango
     df_print: paged
 params:
-  map_c1: NA
-  map_c2: NA
-  map_em: NA
-  map_sq: NA
-  ques_db: NA
-  p1: NA
-  p2: NA
+  final_plot: NA
+  emission_plot: NA
 ---
 
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-library(ggplot2)
-library(raster)
+library(plotly)
 ```
 
 ## Introduction
 
 This report presents the results of an analysis based on the provided maps and lookup table
 
-## Lookup Table Summary
-
-The uploaded lookup table contains `r nrow(params$ques_db)` rows and `r names(params$ques_db)` columns.
-
-* A brief description or summary statistics of the lookup table data can be included here.
-
-```{r}
-head(params$ques_db, n=20)
-```
-
 
 ## Analysis Results
 
-The maps provided was carbon, emission and sequestration map.
-
-* Calculation or analysis details based on the results can be presented here.
-
-### Carbon map `r nrow(params$p1)`
+### Final plot
 
 ```{r}
-plot(params$map_c1)
+params$final_plot
 ```
 
-### Carbon map `r nrow(params$p2)`
+### Emission plot
 
 ```{r}
-plot(params$map_c2)
-```
-
-### Emission map 
-
-```{r}
-plot(params$map_em)
-```
-
-### Sequestration map 
-
-```{r}
-plot(params$map_sq)
+params$emission_plot
 ```
 
 ## Conclusion

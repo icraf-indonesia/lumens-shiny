@@ -228,10 +228,10 @@ download_panel <- layout_column_wrap(
       "This file can be used later for the parameterization and uploaded at once."
     ),
     p(
-      downloadButton("download_params", "Download all the data parameters")
+      downloadButton("download_params", "Download all the data parameters"),
+      actionButton("viewReport", "View report", icon = icon("file-code")) 
     ),
     p("This bundling file contains the following data:"),
-    generate_download_link(map_file_df, "Map data parameters"),
     generate_download_link(table_file_df, "Tabular data parameters"),
     p(p(tags$b(
       "Scenario parameters"
@@ -239,8 +239,6 @@ download_panel <- layout_column_wrap(
   ),
   card(
     card_header("Output data", class = "bg_theme"),
-    generate_download_link(output_map_file_df, "Map of emission factor"),
-    # generate_download_link(json_file_df, "Projection data in JSON format"),
     generate_download_link(output_table_file_df, "Baseline projection"),
     p(p(tags$b(
       "Scenario projection"
@@ -334,6 +332,9 @@ ui <-
     nav_menu(
       title = "Options",
       align = "right",
+      nav_item(actionLink(
+        "import_quescdb", div(icon("database"), "Import QuES-C Database (.csv)")
+      )),
       nav_item(actionLink(
         "upload_params", div(icon("upload"), "Load saved parameters (.zip)")
       )),
