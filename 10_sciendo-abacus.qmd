@@ -1,0 +1,304 @@
+---
+title: "SCIENDO Abacus"
+format: html
+editor: source
+---
+
+## Load library
+  
+```{r}
+#| eval: false
+install.packages(
+  c("terra", "ggplot2", "splitstackshape", "foreign", "reshape2",
+    "dplyr", "plotly", "devtools", "sf")
+)
+devtools::install_github("degi/abacuslib")
+```
+
+
+```{r}
+library(splitstackshape)
+library(ggplot2)
+library(plotly)
+library(reshape2)
+library(dplyr)
+library(sf)
+library(abacuslib)
+```
+
+## Load Functions
+
+```{r}
+map_color <-
+    colorRampPalette(c("darkgreen", "gold", "red3", "blue3"))
+
+quesc_transform <- function(quescdb) {
+  df_lucdb_melt <- quescdb %>% 
+    melt(
+      id.vars = c('ID_LC2','ID_PU'), 
+      measure.vars=c('Ha')
+    )
+  
+  df_ha_pu_t2 <- df_lucdb_melt %>% dcast(formula = ID_LC2 + ID_PU ~ ., fun.aggregate = sum)
+  names(df_ha_pu_t2)[3]<-"Ha.LC.PU.T2"
+  
+  df_lucdb_melt <- quescdb %>% 
+    melt(
+      id.vars = c('ID_LC1','ID_PU'), 
+      measure.vars=c('Ha')
+    )
+  df_ha_pu_t1 <- df_lucdb_melt %>% dcast(formula = ID_LC1 + ID_PU ~ ., fun.aggregate = sum)
+  names(df_ha_pu_t1)[3]<-"Ha.LC.PU.T1"
+  
+  df_lucdb_02 <- quescdb %>% 
+    left_join(df_ha_pu_t1, by = c("ID_LC1", "ID_PU")) 
+  
+  df_lucdb_02 <- df_lucdb_02 %>% 
+    merge(df_ha_pu_t2, 
+          by.x=c("ID_LC1", "ID_PU"), 
+          by.y=c("ID_LC2", "ID_PU"))
+  
+  # calculating the first iteration of TPM
+  df_lucdb_02 <- df_lucdb_02 %>% mutate(
+    TPM1 = Ha / Ha.LC.PU.T1
+  )
+  df_lucdb_02 <- df_lucdb_02 %>% replace(is.na(df_lucdb_02), 0)
+  
+  # Handling new emerging land use type in TPM
+  # Get the total of TPM1 according to first land-cover period and zone
+  df_temp <- df_lucdb_02 %>% 
+    melt(
+      id.vars = c('ID_LC1','ID_PU'),
+      measure.vars = c('TPM1')
+    ) %>% 
+    dcast(
+      formula = ID_LC1 + ID_PU ~ .,
+      fun.aggregate = sum
+    )
+  
+  # Check if the TPM value is...
+  # equal to zero, then rename the column with 'fix'
+  # it means the specific record-with-zero have to be revalued
+  # more than zero, then rename the column with 'ignore'
+  # it means the specific record must keep the value
+  names(df_temp)[3] <- "CEK"
+  df_temp <- df_temp %>% 
+    mutate(ACT = case_when(
+      CEK > 0 ~ "ignore",
+      .default = "fix"
+    ))
+  df_temp$CEK <- NULL
+  
+  # merge df_lucdb_02 with data-bound table
+  df_lutm <- merge(df_lucdb_02, df_temp, by = c("ID_LC1", "ID_PU"))
+  df_lutm <- df_lutm %>% 
+    mutate(TPM1 = case_when(
+      ACT == "fix" & ID_LC1 == ID_LC2 ~ 1,
+      .default = TPM1
+    ))
+  
+  return(df_lutm)
+}
+
+generate_car_file <- function(df) {
+  options(scipen=999)
+  temp_car <- tempfile()
+  t2 <- unlist(strsplit(names(df)[5], split = "X"))[2]
+  t1 <- unlist(strsplit(names(df)[7], split = "X"))[2]
+  
+  general <- paste("file_version=1.2.0")
+  write("#GENERAL", temp_car, append = TRUE, sep = "\t")
+  write.table(general, temp_car, append = TRUE, quote = FALSE, col.names = FALSE, row.names = FALSE, sep = "\t")
+
+  project <- c(
+    "title=SCIENDO Abacus",
+    "description=LUMENS project",
+    paste0("baseyear0=", t1),
+    paste0("baseyear1=", t2),
+    paste0("n_iteration=", as.numeric(t2) - as.numeric(t1))
+  )
+  write("\n#PROJECT", temp_car, append = TRUE, sep = "\t")
+  write.table(project, temp_car, append = TRUE, quote = FALSE, col.names = FALSE, row.names = FALSE,sep="\t")
+  
+  write("\n#LANDCOVER", temp_car, append=TRUE, sep="\t")
+  lc <- df %>% melt(id.vars = c('ID_LC1', paste0('X', t1))) %>% 
+    dplyr::select(-c(variable, value)) %>%
+    distinct() %>%
+    arrange(ID_LC1) %>% 
+    dplyr::rename('//lc_id' = ID_LC1, label = paste0('X', t1)) %>% 
+    mutate(description = "")
+  write.table(lc, temp_car, append = TRUE, quote = FALSE, col.names = TRUE, row.names = FALSE, sep = "\t")
+  
+  write("\n#ZONE", temp_car, append=TRUE, sep="\t")
+  z <- df %>% 
+    melt(id.vars=c('ID_PU', 'PU'), measure.vars=c('Ha')) %>%
+    dcast(formula = ID_PU + PU ~ variable, fun.aggregate = sum ) %>% 
+    dplyr::select(-Ha) %>%
+    arrange(ID_PU) %>% 
+    dplyr::rename('//zone_id' = ID_PU, label = PU) %>% 
+    mutate(description = "")
+  write.table(z, temp_car, append = TRUE, quote = FALSE, col.names = TRUE, row.names = FALSE, sep = "\t")
+  
+  write("\n#LANDCOVER_CHANGE", temp_car, append=TRUE, sep="\t")
+  lcc <- df %>% 
+    mutate('//scenario_id' = 0, iteration_id = 0) %>%
+    dplyr::select(c('//scenario_id', iteration_id, ID_PU, ID_LC1, ID_LC2, Ha)) %>%
+    dplyr::rename(zone_id = ID_PU, lc1_id = ID_LC1, lc2_id = ID_LC2, area = Ha) %>%
+    filter(area != 0)
+  write.table(lcc, temp_car, append = TRUE, quote = FALSE, col.names = TRUE, row.names = FALSE, sep = "\t")
+  
+  write("\n#CARBONSTOCK", temp_car, append=TRUE, sep="\t")
+  carbon <- df %>%
+    melt(id.vars = c('ID_LC1', 'ID_PU', 'C_T1')) %>% 
+    dplyr::select(-c(variable, value)) %>%
+    distinct(ID_LC1, ID_PU, C_T1) %>% 
+    mutate('//scenario_id' = 0, iteration_id = 0) %>%
+    dplyr::select(c('//scenario_id', iteration_id, ID_PU, ID_LC1, C_T1)) %>%
+    dplyr::rename(zone_id = ID_PU, lc_id = ID_LC1, area = C_T1) 
+  write.table(carbon, temp_car, append = TRUE, quote = FALSE, col.names = TRUE, row.names = FALSE, sep = "\t")
+  
+  write("\n#SCENARIO", temp_car, append=TRUE, sep="\t")
+  return(temp_car)
+}
+```
+
+```{r}
+abacus_baseline = NULL
+scenario_lc_colums <- c("lc_id",
+                          "color",
+                          "label",
+                          "description",
+                          "zone_id",
+                          "iteration_id",
+                          "c")
+scenario_list = list()
+final_area <- list(sc_lc_df = NULL, bl_lc_df = NULL)
+generate_scenario_object <- function(id = NULL,
+                                       label = NULL,
+                                       desc = "") {
+  if (is.null(label))
+    label <- paste("Scenario", id)
+  l <- list(label = label, desc = desc)
+  if (is.null(lc_list_df))
+    return(l)
+  if (is.null(cstock_list)) {
+    lc_df <- lc_list_df
+    lc_df$c <- 0
+  } else {
+    lc_df <- merge(lc_list_df, cstock_list, by = "lc_id")
+  }
+  lc_df$zone_id <- 0
+  lc_df$iteration_id <- 0
+  l$abacus_scenario$scenario$landcover <- lc_df[scenario_lc_colums]
+  return(l)
+}
+
+get_lc_area_total <- function(lc_sum_area) {
+  a <- lc_sum_area
+  i <- max(a$iteration)
+  a <- a[a$iteration == i, ]
+  ag <- aggregate(a$area, by = list(lc_id = a$lc1_id), FUN = sum)
+  names(ag)[names(ag) == "x"] <- "area"
+  ag <- ag[order(ag$area, decreasing = T), ]
+  ag$lc <- lapply(ag$lc_id, get_landcover_label)
+  return(ag)
+}
+
+active_scenario <- function() {
+  if (length(scenario_list) == 0) {
+    scenario_list <- list(generate_scenario_object(1))
+  }
+  scenario_list[[1]]
+}
+
+get_landcover_label <- function(id) {
+  df <- active_scenario()$abacus_scenario$scenario$landcover
+  return(df[df$lc_id == id, "label"])
+}
+```
+
+
+## Set Input Parameters
+
+```{r}
+quescdb <- read.csv("data/others/abacus_input/quesc_database.csv")
+```
+
+## Load Data
+
+```{r}
+df_lutm <- quesc_transform(quescdb)
+temp_car <- generate_car_file(df_lutm)
+```
+
+
+```{r}
+abacus_data <- read.abacus(temp_car)
+abacus_data
+```
+
+
+```{r}
+p <- abacus_data$project_list[[1]]
+p
+```
+
+
+```{r}
+p$landcover$color <- map_color(nrow(p$landcover))
+lc_table_def <- c("lc_id", "color", "label", "description")
+lc_list_df <- p$landcover[lc_table_def]
+lc_list_df
+```
+
+
+```{r}
+zone_table_def <-
+    c("zone_id", "color", "label", "description", "area")
+p$zone$color <- map_color(nrow(p$zone))
+p$zone$area <- ""
+zone_list_df <- p$zone[zone_table_def]
+zone_list_df
+```
+
+
+```{r}
+cdf <- p$carbonstock
+cstock_list <- cdf[cdf$scenario_id == 0 &
+                       cdf$iteration_id == 0 &
+                       cdf$zone_id == min(cdf$zone_id), c("lc_id", "c")]
+cstock_list
+```
+
+
+```{r}
+lc_changes_df <- p$landcover_change
+n_iteration <- p$project$n_iteration
+map1_date <- as.Date(paste0(p$project$baseyear0, "-07-01"))
+map2_date <- as.Date(paste0(p$project$baseyear1, "-07-01"))
+```
+
+
+```{r}
+#| eval: false
+# only can be obtained via shinywidgets
+abacus_baseline <- input$edit_scenario_baseline
+final_area$bl_lc_df <-
+      get_lc_area_total(v$abacus_baseline$projection$lc_sum_area)
+sc <- active_scenario()$abacus_scenario
+```
+
+
+## Save output
+
+
+```{r}
+#| eval: false
+plot(
+      v$abacus_data,
+      active_scenario()$abacus_scenario$scenario,
+      selected_iteration = sc_active_section$iteration,
+      selected_zone = sc_active_section$zone,
+      selected_lc = sc_active_section$lc
+    )
+```
