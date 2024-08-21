@@ -266,7 +266,6 @@ quesc_transform <- function(quescdb) {
 generate_car_file <- function(df) {
   options(scipen=999)
   temp_car <- tempfile()
-  df <- df %>% rename(PU = names(df)[3])
   t2 <- unlist(strsplit(names(df)[5], split = "X"))[2]
   t1 <- unlist(strsplit(names(df)[7], split = "X"))[2]
   
@@ -286,10 +285,10 @@ generate_car_file <- function(df) {
   
   write("\n#LANDCOVER", temp_car, append=TRUE, sep="\t")
   lc <- df %>% melt(id.vars = c('ID_LC1', paste0('X', t1))) %>% 
-    select(-c(variable, value)) %>%
+    dplyr::select(-c(variable, value)) %>%
     distinct() %>%
     arrange(ID_LC1) %>% 
-    rename('//lc_id' = ID_LC1, label = paste0('X', t1)) %>% 
+    dplyr::rename('//lc_id' = ID_LC1, label = paste0('X', t1)) %>% 
     mutate(description = "")
   write.table(lc, temp_car, append = TRUE, quote = FALSE, col.names = TRUE, row.names = FALSE, sep = "\t")
   
@@ -297,36 +296,30 @@ generate_car_file <- function(df) {
   z <- df %>% 
     melt(id.vars=c('ID_PU', 'PU'), measure.vars=c('Ha')) %>%
     dcast(formula = ID_PU + PU ~ variable, fun.aggregate = sum ) %>% 
-    select(-Ha) %>%
+    dplyr::select(-Ha) %>%
     arrange(ID_PU) %>% 
-    rename('//zone_id' = ID_PU, label = PU) %>% 
+    dplyr::rename('//zone_id' = ID_PU, label = PU) %>% 
     mutate(description = "")
   write.table(z, temp_car, append = TRUE, quote = FALSE, col.names = TRUE, row.names = FALSE, sep = "\t")
   
   write("\n#LANDCOVER_CHANGE", temp_car, append=TRUE, sep="\t")
   lcc <- df %>% 
     mutate('//scenario_id' = 0, iteration_id = 0) %>%
-    select(c('//scenario_id', iteration_id, ID_PU, ID_LC1, ID_LC2, Ha)) %>%
-    rename(zone_id = ID_PU, lc1_id = ID_LC1, lc2_id = ID_LC2, area = Ha) %>%
+    dplyr::select(c('//scenario_id', iteration_id, ID_PU, ID_LC1, ID_LC2, Ha)) %>%
+    dplyr::rename(zone_id = ID_PU, lc1_id = ID_LC1, lc2_id = ID_LC2, area = Ha) %>%
     filter(area != 0)
   write.table(lcc, temp_car, append = TRUE, quote = FALSE, col.names = TRUE, row.names = FALSE, sep = "\t")
   
   write("\n#CARBONSTOCK", temp_car, append=TRUE, sep="\t")
   carbon <- df %>%
     melt(id.vars = c('ID_LC1', 'ID_PU', 'C_T1')) %>% 
-    select(-c(variable, value)) %>%
+    dplyr::select(-c(variable, value)) %>%
     distinct(ID_LC1, ID_PU, C_T1) %>% 
     mutate('//scenario_id' = 0, iteration_id = 0) %>%
-    select(c('//scenario_id', iteration_id, ID_PU, ID_LC1, C_T1)) %>%
-    rename(zone_id = ID_PU, lc_id = ID_LC1, area = C_T1) 
+    dplyr::select(c('//scenario_id', iteration_id, ID_PU, ID_LC1, C_T1)) %>%
+    dplyr::rename(zone_id = ID_PU, lc_id = ID_LC1, area = C_T1) 
   write.table(carbon, temp_car, append = TRUE, quote = FALSE, col.names = TRUE, row.names = FALSE, sep = "\t")
   
   write("\n#SCENARIO", temp_car, append=TRUE, sep="\t")
   return(temp_car)
 }
-
-### TODO: read data from url
-# data <- reactive({
-#   url <- "http://example.com/data.csv"
-#   read.csv(url)
-# })

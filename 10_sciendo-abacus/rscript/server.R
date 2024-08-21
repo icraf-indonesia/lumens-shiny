@@ -662,7 +662,7 @@ server <- function(input, output, session) {
     cdf <- p$carbonstock
     v$cstock_list <- cdf[cdf$scenario_id == 0 &
                            cdf$iteration_id == 0 &
-                           cdf$zone_id == 1, c("lc_id", "c")]
+                           cdf$zone_id == min(cdf$zone_id), c("lc_id", "c")]
     v$lc_changes_df <- p$landcover_change
     v$n_iteration <- p$project$n_iteration
     v$map1_date <- as.Date(paste0(p$project$baseyear0, "-07-01"))

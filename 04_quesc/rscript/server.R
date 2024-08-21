@@ -143,11 +143,11 @@ server <- function(input, output, session) {
       
       setProgress(value = 0.2, message = "load maps")
       lc_t1 <- rv$map1_rast %>% rast() %>%
-        add_legend_to_categorical_raster(., lookup_table = rv$tbl_c, year = as.numeric(rv$map1_year))
+        add_legend_to_categorical_raster(lookup_table = rv$tbl_c, year = as.numeric(rv$map1_year))
       lc_t2 <- rv$map2_rast %>% rast() %>%
-        add_legend_to_categorical_raster(., lookup_table = rv$tbl_c, year = as.numeric(rv$map2_year))  
+        add_legend_to_categorical_raster(lookup_table = rv$tbl_c, year = as.numeric(rv$map2_year))  
       zone <- rv$mapz_rast %>% rast() %>%
-        add_legend_to_categorical_raster(., lookup_table = rv$mapz_df)  
+        add_legend_to_categorical_raster(lookup_table = rv$mapz_df)  
       showNotification("Maps has been loaded", type = "message")
       
       rv$preques <- ques_pre(lc_t1, lc_t2, zone)
@@ -168,7 +168,7 @@ server <- function(input, output, session) {
           by = c(names(zone), rv$map1_year, rv$map2_year)
         ) 
       # the full version of preques database from preques analysis combined with all possible landcover listed in the lookup table
-      df_lucdb <- df_lucdb %>% replace(is.na(df_lucdb), 0)
+      df_lucdb <- df_lucdb %>% replace(is.na(df_lucdb), 0) %>% dplyr::rename(PU = names(zone))
       showNotification("QUESC-DB has been created", type = "message")
       
       # create new matrix reclassification 
