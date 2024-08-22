@@ -1,0 +1,158 @@
+---
+title: "pur_setup_backend"
+author: "ICRAF"
+date: "2024-08-22"
+output: html_document
+---
+
+## 1. Input Parameters and Load Library
+```{r cars}
+setwd()
+
+# Input parameters
+ref_data <- "data/pur_test/RTRW_V2Fcr_Raster.tif"
+lut_ref <- "data/pur_test/RTRW_F.csv"
+ref_class <- "data/pur_test/ref_class.csv"
+ref_mapping <- "data/pur_test/ref_mapping.csv"
+pu_units <- "data/pur_test/pu_units.csv"
+output_dir <- "01_pur1/output/"
+
+# Load required libraries
+library(foreign)
+library(raster)
+library(terra)
+library(dplyr)
+library(sp)
+
+time_start <- Sys.time()
+```
+
+## 2. Prepare Reference Data
+```{r cars}
+# Load and prepare reference data
+ref <- raster(ref_data)
+ref <- reclassify(ref, cbind(255, 0))
+
+lookup_ref <- read.csv(lut_ref)
+colnames(lookup_ref)[ncol(lookup_ref)] <- "REFERENCE"
+ref.name <- names(ref)
+```
+
+## 3. Projection Handling
+```{r cars}
+# Check and handle the projection of the reference data
+if (grepl("+units=m", as.character(crs(ref)@projargs))) {
+  # Handle meter projection
+} else if (grepl("+proj=longlat", as.character(crs(ref)@projargs))) {
+  # Handle degree projection
+} else {
+  # Handle unknown projection
+}
+```
+
+## 4. Merge Reference Data with Reference Class
+```{r cars}
+# Load and merge reference class and mapping data
+tabel_acuan <- read.table(ref_class, header = FALSE, sep = ",") %>%
+  setNames(c("acuan_kelas", "acuan_kode"))
+
+tabel_mapping <- read.table(ref_mapping, header = FALSE, sep = ",") %>%
+  setNames(c("REFERENCE", "IDS")) %>%
+  left_join(lookup_ref, by = "REFERENCE")
+
+# Process and save the reference table
+```
+
+## 5. Prepare Planning Units
+```{r cars}
+# Load planning unit data
+pu_list <- read.table(pu_units, header=FALSE, sep=",")
+n_pu_list <- nrow(pu_list)
+
+# Process each planning unit
+for (i in 1:n_pu_list) {
+  # Load and process each planning unit raster
+}
+
+# Combine reference and planning units
+PUR_stack <- stack(command1)
+```
+
+## 6. Create Raster Attribute Table
+```{r cars}
+# Create and process the raster attribute table
+eval(parse(text=(paste("PUR<-", cmd, sep=""))))
+PUR <- ratify(PUR, count=TRUE)
+PUR_db <- levels(PUR)[[1]]
+
+# Reclassify attribute ID and extract variables
+```
+
+## 7. Conduct Reconciliation
+```{r cars}
+# Prepare data for reconciliation
+PUR_dbmod <- merge(PUR_db, tabel_mapping, by=ref.name)
+
+# Perform reconciliation for each planning unit
+for (j in 1:(n_pu_list)) {
+  # Reconciliation logic
+}
+
+# Check for overlapping planning units
+```
+
+## 8. Create Central Attribute of Planning Units
+```{r cars}
+# Create and process central attributes
+central_attr <- central_attr %>%
+  as_tibble() %>%
+  mutate(numb_ca = row_number()) %>%
+  dplyr::select(numb_ca, everything())
+
+# Process and combine central attributes
+```
+
+## 9. Finalize and Save Results
+```{r cars}
+# Finalize reconciliation results
+PUR_dbfinal <- PUR_dbmod %>% 
+  inner_join(central_attrmod, by = "reconcile_attr2") %>%
+  # Further processing
+
+# Save results
+write.dbf(PUR_dbfinal, paste0(output_dir, "PUR-build_database.dbf"))
+writeRaster(PUR, filename=paste0(output_dir, "PUR_reconciliation_result"), format="GTiff", overwrite=TRUE)
+```
+
+## 10. Handle Unresolved Cases
+```{r cars}
+# Process and save unresolved cases if any
+if (nrow(unresolved_cases) != 0) {
+  # Process unresolved cases
+  write.table(database_unresolved_out, paste0(output_dir, "/PUR_unresolved_case.csv"), quote=FALSE, row.names=FALSE, sep=",")
+} else {
+  # Handle case with no unresolved areas
+}
+```
+
+## 11. Final Output Processing
+```{r cars}
+# Prepare final output for GIS
+PUR_rec1 <- PUR
+attr_df <- as.data.frame(levels(PUR)[[1]])
+levels(PUR_rec1)[[1]] <- attr_df |> select(-COUNT)
+
+PUR_rec1_shp  <- as.polygons(rast(PUR_rec1), values=TRUE)
+# Further processing for GIS output
+```
+
+## 12. Finalization
+```{r cars}
+time_end <- Sys.time()
+run_time <- time_end - time_start
+
+# Final status message and cleanup
+```
+
+
+

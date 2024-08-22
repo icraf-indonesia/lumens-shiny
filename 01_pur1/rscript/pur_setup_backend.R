@@ -1,4 +1,4 @@
-# input parameter
+# input parameter -----------------------------------------------------
 ref_data <-"data/pur_test/RTRW_V2Fcr_Raster.tif"
 lut_ref <- "data/pur_test/RTRW_F.csv"
 ref_class <-"data/pur_test/ref_class.csv"
@@ -6,29 +6,16 @@ ref_mapping <-"data/pur_test/ref_mapping.csv"
 pu_units <-"data/pur_test/pu_units.csv"
 output_dir <-"01_pur1/output/"
 
-# load library
+# load library -----------------------------------------------------
 library(foreign)
-library(grid)
-library(gridExtra)
-library(ggplot2)
-library(RColorBrewer)
-library(DBI)
-library(RPostgreSQL)
-library(rpostgis)
 library(raster)
 library(terra)
 library(dplyr)
 library(sp)
-library(leaflet)
 
 time_start <- Sys.time () 
 
-# set the working directory
-# wd_user <- output_dir
-# dir.create(wd_user, recursive = TRUE, mode = "0777")
-#setwd(wd_user)
-
-# prepare reference data
+# prepare reference data -----------------------------------------------------
 ref <- raster(ref_data)
 ref <- reclassify(ref, cbind(255, 0))
 
@@ -53,7 +40,7 @@ if (grepl("+units=m", as.character(crs(ref)@projargs))){
   quit()
 }
 
-# merge reference data with the reference class
+# merge reference data with the reference class -----------------------------------------------------
 tabel_acuan <- read.table(ref_class, header = FALSE, sep = ",") %>%
   setNames(c("acuan_kelas", "acuan_kode"))
 
@@ -324,15 +311,12 @@ unresolved_cases <- df_levels |>
 db_final2 <- rbind(merged_df, unresolved_cases)
 colnames(db_final2) <- c("ID","Rec_phase1b" , "COUNT")
 
-
-
 # Build the reclassification matrix
 reclass_matrix <- as.matrix(df_levels[, c('ID', 'ID_rec')])
 
 # reclassify the PUR raster
 PUR_reclassified <- reclassify(PUR, reclass_matrix) |> ratify()
 levels(PUR_reclassified) <- merge(levels(PUR_reclassified), db_final2, by = "ID")
-#  ------------------------------
 
 # write PUR reconciliation phase 1 raster
 write.dbf(PUR_dbfinal, paste0(output_dir, "PUR-build_database.dbf"))
