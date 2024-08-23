@@ -7,15 +7,6 @@ editor: source
 ---
 
 ## 1. Input Parameters and Load Library
-
-```{r}
-
-#| eval: false 
-install.packages(
-  c("foreign", "raster", "terra", "dplyr", "sp")
-)
-```
-
 ```{r}
 library(foreign)
 library(raster)
@@ -150,6 +141,7 @@ command1[[ref.number]] <- R_ref
 
 # Create the PUR_stack
 PUR_stack <- stack(command1)
+plot(PUR_stack)
 ```
 
 ## 6. Create Raster Attribute Table
@@ -400,6 +392,7 @@ write.table(data_attribute, paste0(output_dir, "/PUR_attribute.csv"), quote=FALS
 write.table(PUR_dbfinal, paste0(output_dir, "/PUR_dbfinal.csv"), quote=FALSE, row.names=FALSE, sep=",")
 # write.dbf(data_attribute, "PUR_attribute.dbf")
 
+plot(PUR_rec1_shp)
 ```
 
 ## 10. Handle Unresolved Cases
@@ -458,6 +451,4 @@ names(PUR_rec1_shp)[names(PUR_rec1_shp) == "layer"] <- "Rec_phase1b"
 ```{r}
 time_end <- Sys.time ()
 run_time <- time_end - time_start
-
-# Final status message and cleanup
 ```

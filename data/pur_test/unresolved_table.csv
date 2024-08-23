@@ -1,0 +1,9 @@
+ID,Rec_phase1b,PU_1,PU_2,REFERENCE,COUNT,Reconcile Action
+11,unresolved_case,-,PIAPS21_V2_F2_Raster,Kawasan Konservasi,112,Kawasan Konservasi
+12,unresolved_case,-,PIAPS21_V2_F2_Raster,Kawasan Lindung,1,Kawasan Lindung
+13,unresolved_case,-,PIAPS21_V2_F2_Raster,Kawasan yang Memberikan Perlindungan Terhadap Kawasan Bawahannya,1830,PIAPS21_V2_F2_Raster
+14,unresolved_case,-,PIAPS21_V2_F2_Raster,Kawasan Ekosistem Mangrove,1,Kawasan Ekosistem Mangrove
+20,unresolved_case,Konsesi_V2_F2rcl_Raster,-,Hutan Produksi,2309,Konsesi_V2_F2rcl_Raster
+24,unresolved_case,Konsesi_V2_F2rcl_Raster,-,Hutan Produksi,364,Konsesi_V2_F2rcl_Raster
+21,unresolved_case,Konsesi_V2_F2rcl_Raster,-,Pertanian,60273,Pertanian
+25,unresolved_case,Konsesi_V2_F2rcl_Raster,-,Pertanian,9,Pertanian
