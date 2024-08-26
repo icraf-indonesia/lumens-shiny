@@ -1,0 +1,24 @@
+Value,Class,FocalArea
+0,Nodata,0
+1,Undisturbed forest,1
+2,Logged over forest-high density,0
+3,Logged over forest-low density,0
+4,Undisturbed swamp forest,0
+5,Logged over swamp forest,0
+6,Rubber agroforest,0
+7,Coconut/ Betelnut agroforest,0
+8,Cinnamon agroforest,0
+9,Coffee agroforest,0
+10,Mix garden,0
+11,Acacia plantation,0
+12,Rubber monoculture,0
+13,Oil palm monoculture,0
+14,Coconut monoculture,0
+15,Shrub,0
+16,Other crops,0
+17,Rice field,0
+18,Tea plantation,0
+19,Grass,0
+20,Cleared land,0
+21,Settlement,0
+22,Waterbody,0

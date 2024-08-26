@@ -1,6 +1,6 @@
 # QuES-B module
 # This script perform TECI (Total Edge Contrast Index) calculation and
-# calculates DIFA
+# calculates DIFA Index
 
 # Load required packages ====
 library(dplyr)    # For data manipulation
@@ -15,11 +15,11 @@ source("05_quesb/rscript/ques_biodiv_functions.r")
 
 # run ques-b for lc 1990
 qb_1990 <- quesb_single_period(
-  lc_t1_path = "data/quesb_test/lc_1990.tif",
+  lc_t1_path = "data/raster/tutupan_lahan_Bungo_1990r.tif",
   t1 = 1990,  # Year of the land cover data for lc_t1
   raster.nodata = 0, # Set NoData value for rasters
-  lulc_lut_path = "data/quesb_test/habitat_lookup.csv",
-  contab_path = "data/quesb_test/contrast_euc.fsq",
+  lulc_lut_path = "data/table/Tabel_focal_area_Bungo.csv",
+  contab_path = "data/table/Tabel_edge_contrast_euc.fsq",
   output_dir = "data/quesb_test/",
   sampling_points = 1000, # n points
   window_size = 1000, # in meters
@@ -30,11 +30,11 @@ qb_1990 <- quesb_single_period(
 
 # run ques-b for lc 2000
 qb_2000 <- quesb_single_period(
-  lc_t1_path = "data/quesb_test/lc_2000.tif",
+  lc_t1_path = "data/raster/tutupan_lahan_Bungo_2000r.tif",
   t1 = 2000,  # Year of the land cover data for lc_t1
   raster.nodata = 0, # Set NoData value for rasters
-  lulc_lut_path = "data/quesb_test/habitat_lookup.csv",
-  contab_path = "data/quesb_test/contrast_euc.fsq",
+  lulc_lut_path = "data/table/Tabel_focal_area_Bungo.csv",
+  contab_path = "data/table/Tabel_edge_contrast_euc.fsq",
   output_dir = "data/quesb_test/",
   sampling_points = 1000, # n points
   window_size = 1000, # in meters
@@ -46,11 +46,11 @@ qb_2000 <- quesb_single_period(
 
 # run ques-b for lc 2005
 qb_2005 <- quesb_single_period(
-  lc_t1_path = "data/quesb_test/lc_2005.tif",
+  lc_t1_path = "data/raster/tutupan_lahan_Bungo_2005r.tif",
   t1 = 2005,  # Year of the land cover data for lc_t1
   raster.nodata = 0, # Set NoData value for rasters
-  lulc_lut_path = "data/quesb_test/habitat_lookup.csv",
-  contab_path = "data/quesb_test/contrast_euc.fsq",
+  lulc_lut_path = "data/table/Tabel_focal_area_Bungo.csv",
+  contab_path = "data/table/Tabel_edge_contrast_euc.fsq",
   output_dir = "data/quesb_test/",
   sampling_points = 1000, # n points
   window_size = 1000, # in meters
@@ -61,11 +61,11 @@ qb_2005 <- quesb_single_period(
 
 # run ques-b for lc 2010
 qb_2010 <- quesb_single_period(
-  lc_t1_path = "data/quesb_test/lc_2010.tif",
-  t1 = 2005,  # Year of the land cover data for lc_t1
+  lc_t1_path = "data/raster/tutupan_lahan_Bungo_2010r.tif",
+  t1 = 2010,  # Year of the land cover data for lc_t1
   raster.nodata = 0, # Set NoData value for rasters
-  lulc_lut_path = "data/quesb_test/habitat_lookup.csv",
-  contab_path = "data/quesb_test/contrast_euc.fsq",
+  lulc_lut_path = "data/table/Tabel_focal_area_Bungo.csv",
+  contab_path = "data/table/Tabel_edge_contrast_euc.fsq",
   output_dir = "data/quesb_test/",
   sampling_points = 1000, # n points
   window_size = 1000, # in meters
