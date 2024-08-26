@@ -410,6 +410,40 @@ reclassify_to_binary <- function(raster, target_value) {
   app(raster, reclass)
 }
 
+library(terra)
+
+#' Create a binary raster from input raster
+#'
+#' @param raster SpatRaster. The input raster.
+#'
+#' @return SpatRaster. A binary raster where 1 represents any non-NA value and 0 represents NA.
+#'
+#' @examples
+#' \dontrun{
+#' # Create a sample raster
+#' r <- rast(nrows=10, ncols=10, vals=sample(c(1:5, NA), 100, replace=TRUE))
+#'
+#' # Create binary raster
+#' binary_r <- create_binary_raster(r)
+#' plot(binary_r)
+#' }
+#'
+#' @export
+create_binary_raster <- function(raster) {
+  # Check if input is a SpatRaster
+  if (!inherits(raster, "SpatRaster")) {
+    stop("Input must be a SpatRaster object")
+  }
+
+  # Create binary raster
+  binary_raster <- ifel(is.na(raster), NA, 1)
+
+  # Set layer name
+  names(binary_raster) <- paste0("binary_", names(raster))
+
+  return(binary_raster)
+}
+
 #' Update Fragstats parameters in the database
 #'
 #' This function updates various parameters in the Fragstats SQLite database
@@ -786,3 +820,69 @@ teci_analysis <- function(landuse,
   # Return the resulting TECI and raster
   return(list(teci = rast(teci_path), focal_area = rast(focal_area_path)))
 }
+
+
+
+#' Generate Sampling Grid
+#'
+#' This function generates a sampling grid (polygon) based on a reference raster.
+#' It uses the sf and terra packages for spatial operations.
+#'
+#' @param ref SpatRaster. A reference raster object.
+#' @param g_res numeric. The desired grid resolution. If 0, n will be used instead.
+#' @param n integer. The number of points to generate if g_res is 0.
+#'
+#' @return sf object. A polygon grid covering the extent of the input raster.
+#'
+#' @import sf
+#' @import terra
+#'
+#' @examples
+#' \dontrun{
+#' library(terra)
+#' library(sf)
+#'
+#' # Create a sample raster
+#' r <- rast(nrows=100, ncols=100, xmin=0, xmax=10, ymin=0, ymax=10)
+#' values(r) <- 1:ncell(r)
+#'
+#' # Generate sampling grid
+#' grid <- generate_sampling_grid(r, g_res = 1)
+#' plot(grid)
+#' }
+#'
+#' @export
+generate_sampling_grid <- function(ref, n = 1000, seed = 100) {
+  # Ensure ref is a SpatRaster
+  if (!inherits(ref, "SpatRaster")) {
+    stop("ref must be a SpatRaster object")
+  }
+
+  binary_raster <- create_binary_raster(ref)
+
+  # Convert raster to polygon
+  ref_poly_sf <- as.polygons(binary_raster, dissolve=TRUE) %>%
+              st_as_sf()
+  # Generate points
+  set.seed(seed)
+  sampling_points <- st_sample(ref_poly_sf,
+                               size = n,
+                               type = "regular",
+                               exact = TRUE,
+                               replace=TRUE,
+                               progress = TRUE,
+                               great_circles = FALSE)
+  # Calculate min_distance
+  min_distance <- min(apply(st_distance(sampling_points), 1,
+                            function(x) min(x[x > 0]))) %>%
+    floor()
+  # produce sampling grid
+  sampling_grid <- st_buffer(sampling_points, dist = min_distance/2, endCapStyle = "SQUARE") %>%
+    st_as_sf() %>%
+    mutate(ID = row_number(),  .before =1) %>%
+    mutate(area = st_area(.), .after =1) %>%
+    mutate(area = units::set_units(x = area, value = "ha"))
+
+  return(sampling_grid)
+}
+
