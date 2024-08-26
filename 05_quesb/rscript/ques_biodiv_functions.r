@@ -197,7 +197,6 @@ check_and_harmonise_geometries <- function(...) {
 #' @param cont_fsq A string path to the contrast CSV file (default: "data/quesb_test/contrast_euc.fsq")
 #' @param fca A string path to the Fragstats model file (default: "data/quesb_test/teciuf.fca")
 #' @param adjacent_only Numeric, whether to consider only adjacent cells (default: 1)
-#' @param gridres Numeric, grid resolution (default: 10000)
 #' @param windowsize Numeric, size of the moving window (default: 1000)
 #' @param window.shape Numeric, shape of the moving window (default: 1)
 #' @param raster.nodata Numeric, value to be treated as NoData in the raster (default: 0)
@@ -217,7 +216,6 @@ setupTECIParameters <- function(landuse,
                                 cont_fsq,
                                 fca,
                                 adjacent_only = 1,
-                                gridres = 10000,
                                 windowsize = 1000,
                                 window.shape = 1,
                                 raster.nodata = 0,
@@ -287,9 +285,12 @@ setupTECIParameters <- function(landuse,
   params$output_dir <- normalizePath(output_dir)
   params$classdesc <- normalizePath(classdesc)
   params$cont_fsq <- normalizePath(cont_fsq)
+  fca <- if(is.null(fca)) {
+    warning("fca is NULL. Using default value: 05_quesb/rscript/teciuf.fca")
+    "05_quesb/rscript/teciuf.fca"
+  } else fca
   params$fca <- normalizePath(fca)
   params$adjacent_only <- adjacent_only
-  params$gridres <- gridres
   params$windowsize <- windowsize
   params$window.shape <- window.shape
   params$raster.nodata <- raster.nodata
@@ -684,26 +685,35 @@ processTECIOutput <- function(params) {
 #' @param cont_fsq character. Path to the contrast FSQ file.
 #' @param fca character. Path to the Fragstats model file.
 #' @param adjacent_only numeric. Whether to consider only adjacent cells (1) or not (0). Default is 1.
-#' @param gridres numeric. Grid resolution for analysis. Default is 10000.
 #' @param windowsize numeric. Size of the moving window for TECI calculation. Default is 1000.
 #' @param window.shape numeric. Shape of the moving window (1 for square, 2 for circle). Default is 1.
 #' @param raster.nodata numeric. Value to be treated as NoData in the raster. Default is 0.
+#' @param fragstats_path character. Path to the Fragstats executable. Default is NULL.
 #'
-#' @return SpatRaster. A raster object representing the TECI values.
+#' @return list. A list containing three elements:
+#'   \item{teci}{SpatRaster. A raster object representing the TECI values.}
+#'   \item{focal_area}{SpatRaster. A binary raster representing the focal area.}
+#'   \item{total_area}{numeric. Total area of the landscape in hectares.}
 #'
 #' @details
 #' This function performs the following steps:
-#' 1. Sets up parameters for TECI analysis
-#' 2. Cleans up previous TECI results (commented out in current version)
-#' 3. Sets up and updates the Fragstats database
-#' 4. Inserts the landscape layer information
-#' 5. Executes Fragstats for TECI calculation
-#' 6. Processes the TECI output
-#' 7. Writes the result to a file and returns it as a SpatRaster object
+#' 1. Checks if the output directory exists
+#' 2. Calculates the total area of the landscape in hectares
+#' 3. Processes the class descriptor file
+#' 4. Creates a focal area map based on the habitat of interest
+#' 5. Sets up parameters for TECI analysis
+#' 6. Sets up and updates the Fragstats database
+#' 7. Inserts the landscape layer information
+#' 8. Executes Fragstats for TECI calculation
+#' 9. Processes the TECI output
+#' 10. Writes the results to files and returns them as a list
 #'
 #' @note
 #' This function requires Fragstats 4.x to be installed on the system.
-#' The function uses several helper functions that should be defined elsewhere in the script.
+#' The function uses several helper functions that should be defined elsewhere in the script,
+#' such as create_binary_raster(), setupTECIParameters(), reclassify_to_binary(),
+#' setupFragstatsDatabase(), updateFragstatsParameters(), insertLandscapeLayer(),
+#' executeFragstats(), and processTECIOutput().
 #'
 #' @import terra
 #' @import dplyr
@@ -719,6 +729,10 @@ processTECIOutput <- function(params) {
 #'   cont_fsq = "data/contrast_euc.fsq",
 #'   fca = "data/teciuf.fca"
 #' )
+#' # Access the results
+#' teci_raster <- result$teci
+#' focal_area_raster <- result$focal_area
+#' total_landscape_area <- result$total_area
 #' }
 #'
 #' @export
@@ -726,58 +740,85 @@ teci_analysis <- function(landuse,
                           output_dir,
                           classdesc,
                           cont_fsq,
-                          fca,
+                          fca = fca,
                           adjacent_only = 1,
-                          gridres = 10000,
                           windowsize = 1000,
                           window.shape = 1,
                           raster.nodata = 0,
                           fragstats_path = NULL) {
 
-  # Set up parameters
+  # Check if the output directory exists
+  if (!dir.exists(output_dir)) {
+    stop("Error: The specified output directory does not exist: ", output_dir)
+  }
+
+  # Calculate total area of the landscape (in Hectares)
+  total_area_ <- landuse %>%
+    create_binary_raster() %>%
+    # Convert to ha
+    aggregate(., fact = c(100, 100) / res(.),
+              fun = "modal") %>%
+    freq() %>%
+    pull(count)
+
+  # Read and process the class descriptor file
+  classdesc_tbl <- classdesc %>%
+    read.csv() %>%
+    rename(ID = 1, CLASS = 2, BIODIV = 3) %>%
+    filter(!ID %in% raster.nodata)
+
+  # Prepare the class descriptor for Fragstats
+  classdesc_fcd <- classdesc_tbl %>%
+    rename(ID = 1, Name = 2, Enabled = 3) %>%
+    mutate(Enabled = as.logical(Enabled)) %>%
+    mutate(IsBackground = FALSE)
+
+  # Create a path for the processed class descriptor file
+  classdesc_path <- paste0(output_dir, "/", "habitat_lookup.fcd")
+
+  # Write the processed class descriptor to a file
+  write.table(classdesc_fcd,
+              classdesc_path,
+              sep = ",",
+              row.names = FALSE,
+              quote = FALSE)
+
+  # Set up parameters for TECI analysis
   params <- setupTECIParameters(landuse = landuse,
                                 output_dir = output_dir,
-                                classdesc = classdesc,
+                                classdesc = classdesc_path,
                                 cont_fsq = cont_fsq,
                                 fca = fca,
                                 adjacent_only = adjacent_only,
-                                gridres = gridres,
                                 windowsize = windowsize,
                                 window.shape = window.shape,
                                 raster.nodata = raster.nodata,
                                 fragstats_path = NULL)
 
-  # Clean up previous TECI results
-  #cleanupPreviousTECI(params = params)
-
   # Retrieve focal area ID (land cover class that represents a habitat of interest)
-  focal_area_ID <- params$classdesc %>%
-    read.csv() %>%
-    filter(Enabled %in% TRUE) %>%
-    pull(ID) %>%
+  focal_area_ID <- classdesc_tbl %>%
+    filter(BIODIV %in% 1) %>%
+    pull(1) %>%
     .[1]
 
   # Create a focal area map
   focal_area_map <- reclassify_to_binary(landuse, focal_area_ID)
 
-  # Set name and time attributes for the result raster
+  # Set name and time attributes for the focal area raster
   names(focal_area_map) <- paste0(
-    "focal_area_",focal_area_ID,"_",
-    sub("\\.[^.]+$",
-        "",
-        basename(terra::sources(landuse))))
+    "focal_area_", focal_area_ID, "_",
+    sub("\\.[^.]+$", "", basename(terra::sources(landuse))))
 
-  terra::time(focal_area_map, tstep="years") <- time(landuse)
+  terra::time(focal_area_map, tstep = "years") <- time(landuse)
 
-  # Construct output file path and write result to file
+  # Construct output file path and write focal area result to file
   focal_area_path <- file.path(output_dir,
-                         paste0("focal_area_",
-                                focal_area_ID,
-                                "_",
-                                basename(terra::sources(landuse))))
+                               paste0("focal_area_",
+                                      focal_area_ID,
+                                      "_",
+                                      basename(terra::sources(landuse))))
 
   writeRaster(focal_area_map, focal_area_path, overwrite = TRUE)
-
 
   # Set up Fragstats database
   db_conn <- setupFragstatsDatabase(params)
@@ -785,26 +826,23 @@ teci_analysis <- function(landuse,
   # Update Fragstats parameters
   updateFragstatsParameters(db_conn, params)
 
-  # Insert landscape layer
+  # Insert landscape layer into Fragstats database
   insertLandscapeLayer(db_conn, params)
 
-  # Execute Fragstats
+  # Execute Fragstats for TECI calculation
   executeFragstats(params)
 
   # Process TECI output
   result <- processTECIOutput(params)
 
-
-  # Set name and time attributes for the result raster
+  # Set name and time attributes for the TECI result raster
   names(result) <- paste0(
-    "teci_",focal_area_ID,"_",
-    sub("\\.[^.]+$",
-        "",
-        basename(terra::sources(landuse))))
+    "teci_", focal_area_ID, "_",
+    sub("\\.[^.]+$", "", basename(terra::sources(landuse))))
 
-  terra::time(result, tstep="years") <- time(landuse)
+  terra::time(result, tstep = "years") <- time(landuse)
 
-  # Construct output file path and write result to file
+  # Construct output file path and write TECI result to file
   teci_path <- file.path(output_dir,
                          paste0("teci_",
                                 focal_area_ID,
@@ -817,8 +855,12 @@ teci_analysis <- function(landuse,
   unlink(params$temp_dir, recursive = TRUE)
   dbDisconnect(db_conn)
 
-  # Return the resulting TECI and raster
-  return(list(teci = rast(teci_path), focal_area = rast(focal_area_path)))
+  # Return the resulting TECI raster, focal area raster, and total area
+  return(list(
+    teci = rast(teci_path),
+    focal_area = rast(focal_area_path),
+    total_area = total_area_
+  ))
 }
 
 
@@ -887,3 +929,246 @@ generate_sampling_grid <- function(ref, n = 1000, seed = 100) {
   return(sampling_grid)
 }
 
+
+#' Calculate DIFA (Degree of Integration of Focal Areas)
+#'
+#' This function calculates the DIFA table, score, and plot based on input TECI map,
+#' focal area, sampling grid, and total landscape area.
+#'
+#' @param teci_map SpatRaster object representing the TECI (Threat Ecological Corridor Index) map
+#' @param focal_area SpatRaster object representing the focal area
+#' @param sampling_grid SpatVector object representing the sampling grid
+#' @param total_area_landscape Numeric value representing the total landscape area in hectares
+#'
+#' @return A list containing:
+#'   \item{difa_table}{A data frame containing the DIFA table}
+#'   \item{difa_score}{Numeric value representing the DIFA score}
+#'   \item{difa_year}{Numeric value representing the year (can be NULL if not found)}
+#'   \item{difa_plot}{A ggplot2 object representing the DIFA plot}
+#'
+#' @import terra
+#' @import tidyverse
+#' @import caTools
+#' @import ggplot2
+#'
+#' @export
+#'
+#' @examples
+#' \dontrun{
+#' result <- calculate_difa(teci_map, focal_area, sampling_grid, total_area_landscape)
+#' print(result$difa_plot)
+#' }
+calculate_difa <- function(teci_map, focal_area, sampling_grid, total_area_landscape) {
+  # Input validation
+  if (!inherits(teci_map, "SpatRaster")) {
+    stop("teci_map must be a SpatRaster object")
+  }
+  if (!inherits(focal_area, "SpatRaster")) {
+    stop("focal_area must be a SpatRaster object")
+  }
+  if (!inherits(sampling_grid, "SpatVector")) {
+    stop("sampling_grid must be a SpatVector object")
+  }
+  if (!("ID" %in% names(sampling_grid))) {
+    stop("sampling_grid must contain a column named 'ID'")
+  }
+  if (!is.numeric(total_area_landscape) || length(total_area_landscape) != 1) {
+    stop("total_area_landscape must be a single numeric value")
+  }
+
+  # Try to extract year from teci_map or focal_area
+  year <- tryCatch(
+    teci_map %>% time() %>% as.numeric(),
+    error = function(e)
+      tryCatch(
+        focal_area %>% time() %>% as.numeric(),
+        error = function(e)
+          NULL
+      )
+  )
+
+  # Calculate median TECI values for each grid cell
+  grid_teci <- terra::zonal(
+    teci_map,
+    sampling_grid,
+    fun = "median",
+    na.rm = TRUE,
+    small = FALSE
+  )
+
+  # Aggregate focal area and calculate sum for each grid cell
+  grid_focal_area <- terra::aggregate(
+    focal_area,
+    fact = c(100, 100) / res(focal_area),
+    fun = "modal"
+  ) %>%
+    terra::zonal(
+      .,
+      sampling_grid,
+      fun = "sum",
+      na.rm = TRUE,
+      small = FALSE
+    )
+
+  # Combine grid data with TECI and focal area information
+  raw_extract <- sampling_grid %>%
+    as.data.frame() %>%
+    cbind(grid_teci) %>%
+    cbind(grid_focal_area) %>%
+    as_tibble() %>%
+    arrange(.[3]) %>%
+    mutate(
+      cumsum_fa = cumsum(.[[4]]),
+      cumsum_fa_perc = cumsum_fa / total_area_landscape * 100
+    ) %>%
+    tidyr::drop_na()
+
+  # Prepare DIFA table
+  difa_table <- raw_extract %>%
+    select(TECI = 3, FocalArea = 6) %>%
+    bind_rows(tibble(TECI = 100, FocalArea = max(raw_extract[6])))
+
+  # Calculate DIFA score using trapezoidal rule
+  difa_score <- round((caTools::trapz(na.omit(difa_table[["TECI"]]),
+                                      difa_table[["FocalArea"]])) / 100,
+                      digits = 2
+  )
+
+  # Create DIFA plot
+  # difa_plot <- ggplot(difa_table, aes(x = TECI, y = FocalArea, xend = 100, yend = 100)) +
+  #   geom_area(alpha = 0.8) +
+  #   labs(x = "DIFA", y = "Cumulative Focal Area (%)") +
+  #   theme_bw() +
+  #   labs(caption = paste("DIFA Score = ", difa_score))
+
+  # Return results as a list
+  return(list(
+    difa_table = difa_table,
+    difa_score = difa_score,
+    difa_year = year#,
+   # difa_plot = difa_plot
+  ))
+}
+
+#' Perform QuESB (Quantification of  Environmental Services - Biodiversity) analysis for a single time period
+#'
+#' This function performs a complete QuES-B analysis for a single time period, including
+#' TECI (Total Edge Contrast Index) analysis and DIFA (Degree of Integration of Focal Areas) calculation.
+#'
+#' @param lulc_lut_path character. Path to the land use/land cover lookup table CSV file.
+#' @param lc_t1_path character. Path to the land cover raster file for the time period.
+#' @param t1 numeric. Year of the land cover data.
+#' @param raster.nodata numeric. Value to be treated as NoData in the raster. Default is 0.
+#' @param contab_path character. Path to the contrast table (FSQ file).
+#' @param sampling_points numeric. Number of sampling points for the grid. Default is 1000.
+#' @param window_size numeric. Size of the moving window for TECI calculation in meters. Default is 1000.
+#' @param window.shape numeric. Shape of the moving window (0 for square, 1 for circle). Default is 0.
+#' @param output_dir character. Path to the directory for output files.
+#' @param fca_path character. Path to the Fragstats model file (optional). Default is NULL.
+#' @param fragstats_path character. Path to Fragstats software (optional). Default is NULL.
+#'
+#' @return A list containing the following elements:
+#'   \item{teci_map}{SpatRaster. A raster object representing the TECI values.}
+#'   \item{focal_area}{SpatRaster. A binary raster representing the focal area.}
+#'   \item{total_area}{units. Total area of the landscape in hectares.}
+#'   \item{difa_table}{data.frame. Table of DIFA calculations.}
+#'   \item{difa_score}{numeric. Overall DIFA score.}
+#'   \item{difa_plot}{ggplot. Plot of DIFA results.}
+#'
+#' @details
+#' This function performs the following steps:
+#' 1. Loads and prepares the land cover data
+#' 2. Generates a sampling grid
+#' 3. Performs TECI analysis
+#' 4. Calculates DIFA
+#' 5. Returns the results as a list
+#'
+#' @note
+#' This function requires Fragstats to be installed on the system if `fragstats_path` is provided.
+#' It also depends on several helper functions: prepare_lc_data(), generate_sampling_grid(),
+#' teci_analysis(), and calculate_difa(). Ensure these functions are available in your environment.
+#'
+#' @import terra
+#' @import units
+#' @import ggplot2
+#'
+#' @examples
+#' \dontrun{
+#' result <- quesb_single_period(
+#'   lulc_lut_path = "path/to/habitat_lookup.csv",
+#'   lc_t1_path = "path/to/lc_2010.tif",
+#'   t1 = 2010,
+#'   contab_path = "path/to/contrast_euc.fsq",
+#'   output_dir = "path/to/output/",
+#'   sampling_points = 1000,
+#'   window_size = 1000
+#' )
+#'
+#' # Access the results
+#' teci_map <- result$teci_map
+#' difa_score <- result$difa_score
+#' plot(result$difa_plot)
+#' }
+#'
+#' @export
+quesb_single_period <- function(lulc_lut_path,
+                                lc_t1_path,
+                                t1,
+                                raster.nodata = 0,
+                                contab_path,
+                                sampling_points = 1000,
+                                window_size = 1000,
+                                window.shape = 0,
+                                output_dir,
+                                fca_path = NULL,
+                                fragstats_path = NULL) {
+
+  # Load and prepare data
+  # Load land use/land cover lookup table
+  lulc_lut <- read.csv(lulc_lut_path)
+
+  # Load and prepare land cover map
+  lc_t1 <- prepare_lc_data(lc_t1_path,
+                           year = t1,
+                           lookup_table = lulc_lut)
+  NAflag(lc_t1) <- raster.nodata  # Set NoData flag
+
+
+  if (!grepl("\\+units=m", terra::crs(lc_t1, proj = TRUE))){
+    stop("Raster is not in metre units. Please provide a raster with metre units.")
+    } else { message("Raster is in metre units")}
+
+  # Generate sampling grid
+  # Create a polygon grid for sampling
+  sampling_grid <- generate_sampling_grid(lc_t1,
+                                          n = sampling_points)
+
+  # Perform TECI analysis
+  teci_lc_t1 <- teci_analysis(
+    landuse = lc_t1,
+    output_dir = output_dir,
+    classdesc = lulc_lut_path,  # Class descriptor file
+    cont_fsq = contab_path,  # Contrast file
+    fca = fca_path,  # Fragstats model file (optional)
+    adjacent_only = 1,  # Consider only adjacent cells
+    windowsize = window_size,  # Moving window size
+    window.shape = window.shape,  # Window shape (0 for square, 1 for circle)
+    raster.nodata = raster.nodata,  # NoData value
+    fragstats_path = fragstats_path  # Path to Fragstats software (optional)
+  )
+
+  # Calculate DIFA (Degree of Integration of Focal Areas) table
+  difa_lc_t1 <- calculate_difa(teci_map = teci_lc_t1$teci,
+                               focal_area = teci_lc_t1$focal_area,
+                               sampling_grid = sampling_grid,
+                               total_area_landscape = teci_lc_t1$total_area)
+
+  # Return results
+  return(
+    list(teci_map = teci_lc_t1$teci,
+         focal_area = teci_lc_t1$focal_area,
+         total_area = teci_lc_t1$total_area %>% units::as_units("ha"),
+         difa_table = difa_lc_t1$difa_table,
+         difa_score = difa_lc_t1$difa_score)
+  )
+}
