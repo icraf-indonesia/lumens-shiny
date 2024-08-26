@@ -6,7 +6,10 @@ format: html
 editor: source
 ---
 
-## 1. Input Parameters and Load Library
+## 1. Load Library and Input Parameters
+
+-   load library
+-   assign the curent date and time to variabel `time_start`
 ```{r}
 library(foreign)
 library(raster)
@@ -17,6 +20,7 @@ library(sp)
 time_start <- Sys.time()
 ```
 
+-   input raster, csv, and directory parameter
 ```{r}
 # Input parameters
 ref_data <- "data/pur_test/RTRW_V2Fcr_Raster.tif"
@@ -40,17 +44,18 @@ ref.name <- names(ref)
 ```
 
 ## 3. Projection Handling
-
+- check the projection of the reference data
+- 
 ```{r}
 # Check and handle the projection of the reference data
 if (grepl("+units=m", as.character(crs(ref)@projargs))){
   print("Raster maps have projection in meter unit")
   Spat_res<-res(ref)[1]*res(ref)[2]/10000
-  paste("Raster maps have ", Spat_res, " Ha spatial resolution, QuES-C will automatically generate data in Ha unit")
+  paste("Raster maps have ", Spat_res, " Ha spatial resolution, PUR will automatically generate data in Ha unit")
 } else if (grepl("+proj=longlat", as.character(crs(ref)@projargs))){
   print("Raster maps have projection in degree unit")
   Spat_res<-res(ref)[1]*res(ref)[2]*(111319.9^2)/10000
-  paste("Raster maps have ", Spat_res, " Ha spatial resolution, QuES-C will automatically generate data in Ha unit")
+  paste("Raster maps have ", Spat_res, " Ha spatial resolution, PUR will automatically generate data in Ha unit")
 } else{
   statuscode<-0
   statusmessage<-"Raster map projection is unknown"
