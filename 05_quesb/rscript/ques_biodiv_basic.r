@@ -22,6 +22,7 @@ raster.nodata <- 0
 lc_t1 <- prepare_lc_data(lc_t1_path,
                          year = t1,
                          lookup_table = lulc_lut)
+
 NAflag(lc_t1) <- raster.nodata
 
 teci_lc_t1 <- teci_analysis(landuse = lc_t1,
@@ -33,4 +34,7 @@ teci_lc_t1 <- teci_analysis(landuse = lc_t1,
               gridres = 10000,
               windowsize = 1000,
               window.shape = 1,
-              raster.nodata = 0)
+              raster.nodata = 0,
+              fragstats_path = "C:/Program Files/Fragstats 4.3/")
+
+# generate a sampling grid polygon

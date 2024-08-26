@@ -220,7 +220,8 @@ setupTECIParameters <- function(landuse,
                                 gridres = 10000,
                                 windowsize = 1000,
                                 window.shape = 1,
-                                raster.nodata = 0) {
+                                raster.nodata = 0,
+                                fragstats_path = NULL) {
 
   # Create a temporary directory
   temp_dir <- tempfile(pattern = "TECI_temp_")
@@ -292,6 +293,7 @@ setupTECIParameters <- function(landuse,
   params$windowsize <- windowsize
   params$window.shape <- window.shape
   params$raster.nodata <- raster.nodata
+  params$fragstats_path <- fragstats_path
 
   # Store the temporary directory path
   params$temp_dir <- temp_dir
@@ -371,6 +373,41 @@ setupFragstatsDatabase <- function(params) {
   dbExecute(con, "DELETE FROM frg_landscape_layers")
 
   return(con)
+}
+
+
+#' Reclassify a raster to binary values
+#'
+#' This function reclassifies a SpatRaster object to binary values,
+#' where a specified target value becomes 1, and all other non-NA values become 0.
+#'
+#' @param raster A SpatRaster object to be reclassified.
+#' @param target_value The value in the input raster that should be reclassified to 1.
+#'
+#' @return A new SpatRaster object with binary values (1, 0, and NA).
+#'
+#' @importFrom terra app
+#'
+#' @examples
+#' \dontrun{
+#'   library(terra)
+#'   # Create a sample raster
+#'   r <- rast(nrows=10, ncols=10, vals=sample(1:5, 100, replace=TRUE))
+#'   # Reclassify, setting all 3's to 1 and other values to 0
+#'   r_binary <- reclassify_to_binary(r, target_value = 3)
+#' }
+#'
+#' @export
+reclassify_to_binary <- function(raster, target_value) {
+  reclass <- function(x) {
+    # Use nested ifelse for the reclassification logic:
+    # If x equals target_value, return 1
+    # Else, if x is NA, return NA
+    # Otherwise, return 0
+    ifelse(x == target_value, 1, ifelse(is.na(x), NA, 0))
+  }
+
+  app(raster, reclass)
 }
 
 #' Update Fragstats parameters in the database
@@ -506,36 +543,45 @@ insertLandscapeLayer <- function(db_conn, params) {
 #' This function executes the Fragstats software to perform the TECI analysis.
 #' It supports Fragstats 4.x versions.
 #'
-#' @param params A list of parameters including paths and Fragstats settings
+#' @param params A list of parameters including paths to Fragstats and Fragstats settings
 #'
 #' @return NULL
 #'
-#' @importFrom sys2 sys_exec
+#' @importFrom utils file.path
 #'
 #' @examples
+#' \dontrun{
 #' params <- list(
-#'   quesb_dir = "path/to/quesb_dir",
+#'   output_dir = "path/to/output_dir",
 #'   fca = "path/to/teciuf.fca"
 #' )
 #' executeFragstats(params)
+#' }
 #'
 #' @export
 executeFragstats <- function(params) {
-  # Find Fragstats directory
-  program_files <- c("C:/Program Files/", "C:/Program Files (x86)/")
-  fragstats_dirs <- list.files(program_files, pattern = "^Fragstats 4", full.names = TRUE)
+  # Find Fragstats directory if not provided
+  if (is.null(params$fragstats_path)) {
+    program_files <- c("C:/Program Files/", "C:/Program Files (x86)/")
+    fragstats_dirs <- list.files(program_files, pattern = "^Fragstats 4", full.names = TRUE)
 
-  if (length(fragstats_dirs) == 0) {
-    stop("No Fragstats 4.x installation found.")
+    if (length(fragstats_dirs) == 0) {
+      stop("No Fragstats 4.x installation found.")
+    }
+
+    # Sort directories to use the latest version if multiple are found
+    fragstats_path <- sort(fragstats_dirs, decreasing = TRUE)[1]
   }
 
-  # Sort directories to use the latest version if multiple are found
-  fragstats_dir <- sort(fragstats_dirs, decreasing = TRUE)[1]
+  message(paste("Using Fragstats installation:", fragstats_path))
 
-  message(paste("Using Fragstats installation:", fragstats_dir))
+  # Check if Fragstats directory exists
+  if (!dir.exists(fragstats_path)) {
+    stop("Specified Fragstats directory does not exist.")
+  }
 
   # Set working directory to Fragstats directory
-  old_wd <- setwd(fragstats_dir)
+  old_wd <- setwd(fragstats_path)
   on.exit(setwd(old_wd), add = TRUE)
 
   # Prepare Fragstats command
@@ -551,6 +597,8 @@ executeFragstats <- function(params) {
     message("Fragstats execution completed successfully.")
   }
 }
+
+
 
 #' Process TECI output from Fragstats
 #'
@@ -593,28 +641,51 @@ processTECIOutput <- function(params) {
 
 #' Perform TECI (Total Edge Contrast Index) analysis
 #'
-#' This function performs a complete TECI analysis on the given landuse raster,
+#' This function performs a complete TECI analysis on the given land use raster,
 #' including setup, Fragstats execution, and output processing.
 #'
-#' @param landuse A RasterLayer object representing the land use
-#' @param output_dir Character. Path to the QUES-B directory (default: "data/quesb_test/")
-#' @param classdesc Character. Path to the class descriptor file (default: "data/quesb_test/descriptors.fcd")
-#' @param cont_fsq Character. Path to the contrast FSQ file (default: "data/quesb_test/contrast_euc.fsq")
-#' @param fca Character. Path to the Fragstats model file (default: "data/quesb_test/teciuf.fca")
-#' @param adjacent_only Numeric. Whether to consider only adjacent cells (default: 1)
-#' @param gridres Numeric. Grid resolution (default: 10000)
-#' @param windowsize Numeric. Size of the moving window (default: 1000)
-#' @param window.shape Numeric. Shape of the moving window (default: 1)
-#' @param raster.nodata Numeric. Value to be treated as NoData in the raster (default: 0)
+#' @param landuse SpatRaster. A raster object representing the land use.
+#' @param output_dir character. Path to the output directory for TECI results.
+#' @param classdesc character. Path to the class descriptor file.
+#' @param cont_fsq character. Path to the contrast FSQ file.
+#' @param fca character. Path to the Fragstats model file.
+#' @param adjacent_only numeric. Whether to consider only adjacent cells (1) or not (0). Default is 1.
+#' @param gridres numeric. Grid resolution for analysis. Default is 10000.
+#' @param windowsize numeric. Size of the moving window for TECI calculation. Default is 1000.
+#' @param window.shape numeric. Shape of the moving window (1 for square, 2 for circle). Default is 1.
+#' @param raster.nodata numeric. Value to be treated as NoData in the raster. Default is 0.
 #'
-#' @return A RasterLayer object representing the TECI values
+#' @return SpatRaster. A raster object representing the TECI values.
 #'
-#' @import raster
+#' @details
+#' This function performs the following steps:
+#' 1. Sets up parameters for TECI analysis
+#' 2. Cleans up previous TECI results (commented out in current version)
+#' 3. Sets up and updates the Fragstats database
+#' 4. Inserts the landscape layer information
+#' 5. Executes Fragstats for TECI calculation
+#' 6. Processes the TECI output
+#' 7. Writes the result to a file and returns it as a SpatRaster object
+#'
+#' @note
+#' This function requires Fragstats 4.x to be installed on the system.
+#' The function uses several helper functions that should be defined elsewhere in the script.
+#'
+#' @import terra
+#' @import dplyr
 #' @import RSQLite
 #'
 #' @examples
-#' landuse <- raster("path/to/landuse.tif")
-#' result <- teci_analysis(landuse)
+#' \dontrun{
+#' landuse <- rast("path/to/landuse.tif")
+#' result <- teci_analysis(
+#'   landuse,
+#'   output_dir = "data/teci_output/",
+#'   classdesc = "data/descriptors.fcd",
+#'   cont_fsq = "data/contrast_euc.fsq",
+#'   fca = "data/teciuf.fca"
+#' )
+#' }
 #'
 #' @export
 teci_analysis <- function(landuse,
@@ -626,7 +697,8 @@ teci_analysis <- function(landuse,
                           gridres = 10000,
                           windowsize = 1000,
                           window.shape = 1,
-                          raster.nodata = 0) {
+                          raster.nodata = 0,
+                          fragstats_path = NULL) {
 
   # Set up parameters
   params <- setupTECIParameters(landuse = landuse,
@@ -638,10 +710,40 @@ teci_analysis <- function(landuse,
                                 gridres = gridres,
                                 windowsize = windowsize,
                                 window.shape = window.shape,
-                                raster.nodata = raster.nodata)
+                                raster.nodata = raster.nodata,
+                                fragstats_path = NULL)
 
   # Clean up previous TECI results
   #cleanupPreviousTECI(params = params)
+
+  # Retrieve focal area ID (land cover class that represents a habitat of interest)
+  focal_area_ID <- params$classdesc %>%
+    read.csv() %>%
+    filter(Enabled %in% TRUE) %>%
+    pull(ID) %>%
+    .[1]
+
+  # Create a focal area map
+  focal_area_map <- reclassify_to_binary(landuse, focal_area_ID)
+
+  # Set name and time attributes for the result raster
+  names(focal_area_map) <- paste0(
+    "focal_area_",focal_area_ID,"_",
+    sub("\\.[^.]+$",
+        "",
+        basename(terra::sources(landuse))))
+
+  terra::time(focal_area_map, tstep="years") <- time(landuse)
+
+  # Construct output file path and write result to file
+  focal_area_path <- file.path(output_dir,
+                         paste0("focal_area_",
+                                focal_area_ID,
+                                "_",
+                                basename(terra::sources(landuse))))
+
+  writeRaster(focal_area_map, focal_area_path, overwrite = TRUE)
+
 
   # Set up Fragstats database
   db_conn <- setupFragstatsDatabase(params)
@@ -657,18 +759,30 @@ teci_analysis <- function(landuse,
 
   # Process TECI output
   result <- processTECIOutput(params)
+
+
+  # Set name and time attributes for the result raster
   names(result) <- paste0(
-      "teci_",
-      sub("\\.[^.]+$",
-          "",
-          basename(terra::sources(landuse))))
-  terra::time(result, tstep="years")<- time(landuse)
-  teci_path <- paste0(output_dir,"/", "teci_",basename(terra::sources(landuse)))
+    "teci_",
+    sub("\\.[^.]+$",
+        "",
+        basename(terra::sources(landuse))))
+
+  terra::time(result, tstep="years") <- time(landuse)
+
+  # Construct output file path and write result to file
+  teci_path <- file.path(output_dir,
+                         paste0("teci_",
+                                focal_area_ID,
+                                "_",
+                                basename(terra::sources(landuse))))
+
   writeRaster(result, teci_path, overwrite = TRUE)
 
-  # Clean up
+  # Clean up temporary directory and close database connection
   unlink(params$temp_dir, recursive = TRUE)
   dbDisconnect(db_conn)
 
-  return(rast(teci_path))
+  # Return the resulting TECI and raster
+  return(list(teci = rast(teci_path), focal_area = rast(focal_area_path)))
 }
