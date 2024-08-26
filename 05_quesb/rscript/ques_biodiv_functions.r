@@ -1028,6 +1028,13 @@ calculate_difa <- function(teci_map, focal_area, sampling_grid, total_area_lands
     select(TECI = 3, FocalArea = 6) %>%
     bind_rows(tibble(TECI = 100, FocalArea = max(raw_extract[6])))
 
+  difa_path <- paste0(output_dir,
+                      "/",
+                      gsub("teci", "difa_tbl", names(teci_map)),
+                      ".csv")
+
+  write.csv(difa_table, difa_path, quote = FALSE, row.names = FALSE)
+
   # Calculate DIFA score using trapezoidal rule
   difa_score <- round((caTools::trapz(na.omit(difa_table[["TECI"]]),
                                       difa_table[["FocalArea"]])) / 100,

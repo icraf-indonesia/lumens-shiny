@@ -13,6 +13,10 @@ library(ggplot2)
 # Source custom functions
 source("05_quesb/rscript/ques_biodiv_functions.r")
 
+# Define output directory
+output_dir <- "output/quesb"
+dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+
 # run ques-b for lc 1990
 qb_1990 <- quesb_single_period(
   lc_t1_path = "data/raster/tutupan_lahan_Bungo_1990r.tif",
@@ -20,7 +24,7 @@ qb_1990 <- quesb_single_period(
   raster.nodata = 0, # Set NoData value for rasters
   lulc_lut_path = "data/table/Tabel_focal_area_Bungo.csv",
   contab_path = "data/table/Tabel_edge_contrast_euc.fsq",
-  output_dir = "data/quesb_test/",
+  output_dir = output_dir,
   sampling_points = 1000, # n points
   window_size = 1000, # in meters
   window.shape = 1, # circle, if 0 is square
@@ -35,7 +39,7 @@ qb_2000 <- quesb_single_period(
   raster.nodata = 0, # Set NoData value for rasters
   lulc_lut_path = "data/table/Tabel_focal_area_Bungo.csv",
   contab_path = "data/table/Tabel_edge_contrast_euc.fsq",
-  output_dir = "data/quesb_test/",
+  output_dir = output_dir,
   sampling_points = 1000, # n points
   window_size = 1000, # in meters
   window.shape = 1, # circle, if 0 is square
@@ -51,7 +55,7 @@ qb_2005 <- quesb_single_period(
   raster.nodata = 0, # Set NoData value for rasters
   lulc_lut_path = "data/table/Tabel_focal_area_Bungo.csv",
   contab_path = "data/table/Tabel_edge_contrast_euc.fsq",
-  output_dir = "data/quesb_test/",
+  output_dir = output_dir,
   sampling_points = 1000, # n points
   window_size = 1000, # in meters
   window.shape = 1, # circle, if 0 is square
@@ -66,7 +70,7 @@ qb_2010 <- quesb_single_period(
   raster.nodata = 0, # Set NoData value for rasters
   lulc_lut_path = "data/table/Tabel_focal_area_Bungo.csv",
   contab_path = "data/table/Tabel_edge_contrast_euc.fsq",
-  output_dir = "data/quesb_test/",
+  output_dir = output_dir,
   sampling_points = 1000, # n points
   window_size = 1000, # in meters
   window.shape = 1, # circle, if 0 is square
