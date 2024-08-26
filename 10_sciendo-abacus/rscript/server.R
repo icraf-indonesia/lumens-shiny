@@ -667,7 +667,7 @@ server <- function(input, output, session) {
     v$n_iteration <- p$project$n_iteration
     v$map1_date <- as.Date(paste0(p$project$baseyear0, "-07-01"))
     v$map2_date <- as.Date(paste0(p$project$baseyear1, "-07-01"))
-    removeModal()
+    updateNavlistPanel(session, "main_page", selected = "Projection")
   })
   
   
@@ -1520,14 +1520,6 @@ server <- function(input, output, session) {
 
 
   ### INPUT OUTPUT FILE #############################
-
-  observeEvent(input$import_quescdb, {
-    showModal(modalDialog(
-      easyClose = T,
-      footer = NULL,
-      fileInput("quescdb", "Load QuES-C Database (.csv)", accept = ".csv")
-    ))
-  })
   
   observeEvent(input$upload_params, {
     showModal(modalDialog(

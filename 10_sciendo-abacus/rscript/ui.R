@@ -108,7 +108,7 @@ box_emission <- function(id, title, icon_str, theme) {
   )
 }
 
-please_input <- p("Please upload the required input in the options menu.")
+please_input <- p("Please import QUES-C Database first.")
 
 #### PROJECTION VALUE BOX ####
 projection_value_box <- layout_column_wrap(
@@ -287,18 +287,26 @@ ui <-
         tags$link(rel = "stylesheet", href = "jsuites.css", type = "text/css"),
         tags$link(rel = "stylesheet", type = "text/css", href = "table.css")
       ),
-    window_title = "SCIENDO-Abacus",
+    window_title = "SCIENDO-Scenario Builder",
     title =
     #   HTML(
     #   "<span style='color:#E42E34; background:#540b0e; padding:2px 20px 4px 20px; border-radius:15px'>
     #   <b>REDD<span style='color: white;'>Abacus</span>2</b></span>"
     # )
     span(tags$img(height = 18, src = "images/abacus2_logo_white.svg", style = "margin-right:5px"),
-         "SCIENDO", span("Abacus", style = "color: white;", .noWS = c('before', "after") ),
+         "SCIENDO", span("ScenarioBuilder", style = "color: white;", .noWS = c('before', "after") ),
          style = "color:#E42E34; background:#540b0e; padding:2px 20px 4px 20px; border-radius:15px; font-weight:bold"),
 
     underline = TRUE,
 
+    ### IMPORT QUESC #############################
+    nav_panel(
+      title = "Import QUES-C Database",
+      id = "panel_import",
+      icon = icon("database"),
+      fileInput("quescdb", "Load QuES-C Database (.csv)", accept = ".csv")
+    ),
+    
     ### PROJECTION #############################
     nav_panel(
       title = "Projection",
@@ -332,9 +340,6 @@ ui <-
     nav_menu(
       title = "Options",
       align = "right",
-      nav_item(actionLink(
-        "import_quescdb", div(icon("database"), "Import QuES-C Database (.csv)")
-      )),
       nav_item(actionLink(
         "upload_params", div(icon("upload"), "Load saved parameters (.zip)")
       )),
