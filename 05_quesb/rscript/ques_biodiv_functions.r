@@ -797,7 +797,7 @@ teci_analysis <- function(landuse,
 
   # Set name and time attributes for the result raster
   names(result) <- paste0(
-    "teci_",
+    "teci_",focal_area_ID,"_",
     sub("\\.[^.]+$",
         "",
         basename(terra::sources(landuse))))
@@ -881,7 +881,8 @@ generate_sampling_grid <- function(ref, n = 1000, seed = 100) {
     st_as_sf() %>%
     mutate(ID = row_number(),  .before =1) %>%
     mutate(area = st_area(.), .after =1) %>%
-    mutate(area = units::set_units(x = area, value = "ha"))
+    mutate(area = units::set_units(x = area, value = "ha")) %>%
+    terra::vect()
 
   return(sampling_grid)
 }
