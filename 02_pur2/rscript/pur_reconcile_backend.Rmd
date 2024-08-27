@@ -22,17 +22,19 @@ time_start<-paste(eval(parse(text=(paste("Sys.time ()")))), sep="")
 
 ```{r}
 ref_data <- "data/pur_test/RTRW_V2Fcr_Raster.tif"
-recon_file = rgdal::readOGR("data/pur_test/",layer="PURrec1shp")
+#recon_file = rgdal::readOGR("data/pur_test/",layer="PURrec1shp")
 unresolved_table="data/pur_test/unresolved_table.csv"
-output_dir="01_pur1/output/"
+inputPU1_dir="01_pur1/output/"
+output_dir="02_pur2/output/"
 
 ref <- raster(ref_data)
+recon_file = rgdal::readOGR(paste0(inputPU1_dir),layer="PUR_reconciliation_result")
 ```
 
 ## 3. Load and Process Attribute Table
 
 ```{r}
-attribute_dir <- paste0(output_dir, "/PUR_attribute.csv")
+attribute_dir <- paste0(inputPU1_dir, "PUR_attribute.csv")
 attribute <- read.table(attribute_dir, header = TRUE, sep = ",")
 last_unresolved <- max(which(attribute$Rec_phase1b == "unresolved_case"))
 attribute <- attribute[1:last_unresolved, ]
@@ -52,7 +54,7 @@ unresolved_edit.join <- cbind(unresolved_edit.c1, unresolved_edit.c2)
 ### 3.b Load original attribute data and merge with unresolved cases
 
 ```{r}
-attribute_ori <- read.csv("01_pur1/output/PUR_dbfinal.csv") |> select(ID = NEW_ID, Rec_phase1b)
+attribute_ori <- read.csv(paste0(inputPU1_dir,"PUR_dbfinal.csv")) |> select(ID = NEW_ID, Rec_phase1b)
 attribute.edit <- merge(attribute_ori, unresolved_edit.join, by = "ID", all = TRUE)
 ```
 

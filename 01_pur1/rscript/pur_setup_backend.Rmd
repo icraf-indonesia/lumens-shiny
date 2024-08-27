@@ -16,6 +16,7 @@ library(raster)
 library(terra)
 library(dplyr)
 library(sp)
+library(openxlsx)
 
 time_start <- Sys.time()
 ```
@@ -322,6 +323,7 @@ PUR_dbfinal2 <- PUR_dbfinal %>%
 
 levels(PUR) <- merge(levels(PUR), PUR_dbfinal2 %>% 
                        distinct(ID, Rec_phase1b), by = "ID")
+
 # Merge classes based on Rec_phase 1b column ------------------------------
 # 1. Extract levels of the raster into a data frame
 df_levels <- as.data.frame(levels(PUR)[[1]])
@@ -367,6 +369,13 @@ levels(PUR_reclassified) <- merge(levels(PUR_reclassified), db_final2, by = "ID"
 # write PUR reconciliation phase 1 raster
 write.dbf(PUR_dbfinal, paste0(output_dir, "PUR-build_database.dbf"))
 writeRaster(PUR, filename=paste0(output_dir, "PUR_reconciliation_result"), format="GTiff", overwrite=TRUE)
+
+#########################
+PUR1_output <- as.polygons(rast(PUR))
+
+writeVector(PUR1_output, filename = paste(output_dir, "/PUR1_output.shp", sep=""), overwrite=TRUE)
+##########################
+
 # writeRaster(PUR_reclassified, filename="PUR_reconciliation_result_dissolved", format="GTiff", overwrite=TRUE)
 
 PUR_rec1_shp  <- as.polygons(rast(PUR_reclassified))
@@ -429,6 +438,41 @@ if (nrow(unresolved_cases) != 0) {
   database_unresolved_out <- cbind(dat1, database_unresolved_out, dat3, dat2)
   
   write.table(database_unresolved_out, paste0(output_dir, "/PUR_unresolved_case.csv"), quote=FALSE, row.names=FALSE, sep=",")
+
+  database_unresolved_out$'Reconcile Action' <- "unresolved_case"
+
+  # Create the workbook
+  database_unresolved_out_wb = createWorkbook()
+  
+  # Add worksheets
+  addWorksheet(database_unresolved_out_wb, "PUR_unresolved_case")
+  writeData(database_unresolved_out_wb, sheet = "PUR_unresolved_case", x = database_unresolved_out, startCol = 1)
+  
+  addWorksheet(database_unresolved_out_wb, "drop-down_attribute")
+  pur_attribute_df <- data_attribute[data_attribute$Rec_phase1b != "unresolved_case", -1]
+  names(pur_attribute_df)[1] <- "Reconcile Action"
+
+  new_row <- as.data.frame(matrix("unresolved_case", nrow = 1, ncol = ncol(pur_attribute_df)))
+  colnames(new_row) <- colnames(pur_attribute_df)
+  pur_attribute_df <- rbind(pur_attribute_df, new_row)
+
+  #pur_attribute_df$`Reconcile Action`[1] <- "unresolved_case"
+  writeData(database_unresolved_out_wb, sheet = "drop-down_attribute", x = pur_attribute_df, startCol = 1)
+  
+  # Add dropdown to Excel workbook 
+  dataValidation(
+    wb = database_unresolved_out_wb,
+    sheet = "PUR_unresolved_case",
+    cols = 7,
+    rows = 2:(1+nrow(database_unresolved_out)),
+    type = "list",
+    value = "'drop-down_attribute'!$A$2:$A$1000",
+    allowBlank = TRUE,
+  )
+
+  # Save the workbook
+  saveWorkbook(database_unresolved_out_wb, "D:/PUR_unresolved_case.xlsx", overwrite = TRUE)
+
 } else {
   database_unresolved_out <- tibble("Reconciliation result" = "There are no unresolved areas in this analysis session")
 }
