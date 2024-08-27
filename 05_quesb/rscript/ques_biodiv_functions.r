@@ -859,7 +859,9 @@ teci_analysis <- function(landuse,
   return(list(
     teci = rast(teci_path),
     focal_area = rast(focal_area_path),
-    total_area = total_area_
+    total_area = total_area_,
+    path_teci_map = teci_path,
+    path_focal_area = focal_area_path
   ))
 }
 
@@ -1052,8 +1054,10 @@ calculate_difa <- function(teci_map, focal_area, sampling_grid, total_area_lands
   return(list(
     difa_table = difa_table,
     difa_score = difa_score,
-    difa_year = year#,
+    difa_year = year,
    # difa_plot = difa_plot
+   difa_path = difa_path
+
   ))
 }
 
@@ -1144,11 +1148,23 @@ quesb_single_period <- function(lulc_lut_path,
   if (!grepl("\\+units=m", terra::crs(lc_t1, proj = TRUE))){
     stop("Raster is not in metre units. Please provide a raster with metre units.")
     } else { message("Raster is in metre units")}
-
   # Generate sampling grid
   # Create a polygon grid for sampling
   sampling_grid <- generate_sampling_grid(lc_t1,
                                           n = sampling_points)
+
+
+  # Construct output file path and write sampling grid
+  sampling_grid_path <- file.path(output_dir,
+                         paste0("sampling_grid",
+                                "_",
+                                tools::file_path_sans_ext(
+                                  basename(
+                                    terra::sources(lc_t1))), ".shp"))
+  writeVector(sampling_grid,
+              sampling_grid_path,
+              filetype = "ESRI Shapefile",
+              overwrite = TRUE)
 
   # Perform TECI analysis
   teci_lc_t1 <- teci_analysis(
@@ -1176,6 +1192,40 @@ quesb_single_period <- function(lulc_lut_path,
          focal_area = teci_lc_t1$focal_area,
          total_area = teci_lc_t1$total_area %>% units::as_units("ha"),
          difa_table = difa_lc_t1$difa_table,
-         difa_score = difa_lc_t1$difa_score)
+         difa_score = difa_lc_t1$difa_score,
+         path_teci_map = teci_lc_t1$path_teci_map,
+         path_focal_area = teci_lc_t1$path_focal_area,
+         path_sampling_grid = sampling_grid_path,
+         path_difa_table = difa_lc_t1$difa_path)
   )
+}
+
+
+format_session_info_table <- function() {
+  si <- sessionInfo()
+
+  # Extract R version info
+  r_version <- si$R.version[c("major", "minor", "year", "month", "day", "nickname")]
+  r_version <- paste0(
+    "R ", r_version$major, ".", r_version$minor,
+    " (", r_version$year, "-", r_version$month, "-", r_version$day, ")",
+    " '", r_version$nickname, "'"
+  )
+
+  # Extract platform and OS info
+  platform_os <- paste(si$platform, "|", si[[6]])
+
+  # Extract locale info
+  locale_info <- strsplit(si[[3]], ";")[[1]]
+  locale_info <- paste(locale_info, collapse = "<br>")
+
+  # Combine all info into a single tibble
+  session_summary <- tibble(
+    Category = c("R Version", "Platform | OS", "Locale"),
+    Details = c(r_version, platform_os, locale_info)
+  )
+
+
+
+  return(session_summary)
 }
