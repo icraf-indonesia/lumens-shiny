@@ -1,106 +1,37 @@
----
-title: "pur_setup_backend"
-author: "Faza"
-date: "2024-08-22"
-format: html
-editor: source
----
+# Planning Unit Reconciliation (PUR) #1 Script
 
-## 1. Load Library, Input Parameters, and Define Function
+# 0. Load functions and libraries -------------------------------
 
--   load library
--   assign the curent date and time to variabel `time_start`
-```{r}
-library(foreign)
-library(raster)
-library(terra)
-library(dplyr)
-library(sp)
-library(sf)
-library(openxlsx)
+# Load custom functions
+source("01_pur1/rscript/functions_pur.R")
 
-time_start <- Sys.time()
-```
+# Check and install required packages
+required_packages <- c(
+  "foreign", "raster", "terra", "dplyr", 
+  "sp", "sf", "openxlsx"
+)
 
--   input raster, csv, and directory parameter
-```{r}
-# Input parameters
-#ref_data <- "data/pur_test/RTRW_V2Fcr_Raster.tif"
-ref_data <- st_read("data/pur_test/vector/vector1/RTRW_F.shp")
+check_and_install_packages(required_packages)
 
-lut_ref <- "data/pur_test/tabular/RTRW_F.csv"
-ref_class <- "data/pur_test/tabular/ref_class.csv"
-ref_mapping <- "data/pur_test/tabular/ref_mapping.csv"
-pu_units <- "data/pur_test/tabular/pu_units.csv"
-output_dir <- "01_pur1/output/"
-```
+# 1. Define input parameters ------------------------------------
 
-- define rasterise multipolygon function
-```{r}
-#' Rasterize an sf MULTIPOLYGON object
-#'
-#' This function rasterizes an sf MULTIPOLYGON object to a SpatRaster object. The function also retains
-#' an attribute table from the sf object, by assigning categorical ID values to the raster values.
-#' The rasterized SpatRaster object will also contain a legend derived from the attribute table of the sf object.
-#'
-#' @param sf_object An sf MULTIPOLYGON object. It must contain an attribute table, with at least one categorical ID (numeric).
-#' @param raster_res A numeric vector specifying the resolution of the raster. Default is c(100,100).
-#' @param field A character string specifying the field name to be used for rasterization from the sf object. Default is "ID".
-#' @return A SpatRaster object that is a rasterized version of the input sf object, with a legend derived from the attribute table of the sf object.
-#' @importFrom sf st_drop_geometry st_geometry_type st_crs
-#' @importFrom terra vect ext rast rasterize levels
-#' @export
-#' @examples
-#' rasterise_multipolygon(sf_object = ntt_admin, raster_res = c(100,100), field = "ID")
-rasterise_multipolygon <- function(sf_object, raster_res = c(100,100), field = "ID"){
+# Define file path and parameters
+path <- list(
+  ref_map = "data/pur_test/vector/vector1/RTRW_F.shp",
+  lut_ref = "data/pur_test/tabular/RTRW_F.csv",
+  ref_class = "data/pur_test/tabular/ref_class.csv",
+  ref_mapping = "data/pur_test/tabular/ref_mapping.csv",
+  pu_units = "data/pur_test/tabular/pu_units.csv"
+)
 
-  # Error checking
-  if (!inherits(sf_object, "sf")) stop("sf_object must be an sf object.")
-  if (!all(sf::st_geometry_type(sf_object) == "MULTIPOLYGON")) stop("All features in sf_object must be MULTIPOLYGONs.")  # Check if sf_object has UTM projection
-  if (!grepl("\\+proj=utm", st_crs(sf_object)$proj4string)) stop("sf_object must have UTM projection system.")
-  if (is.null(sf::st_drop_geometry(sf_object)) || !(field %in% names(sf::st_drop_geometry(sf_object)))) stop("sf_object must contain an attribute table with at least one numeric/factor column.")
-  if (!is.numeric(sf_object[[field]]) && !is.factor(sf_object[[field]])) stop("The field must be numeric or a factor.")
+output_dir = "01_pur1/output/"
 
-  # Convert the sf object to a SpatVector
-  spatvect <- terra::vect(sf_object)
+# 2. Data preparation ------------------------------------------
 
-  # Define the extent based on the SpatVector
-  raster_extent <- terra::ext(spatvect)
-
-  # Create an empty SpatRaster based on the extent, resolution, and CRS
-  raster_template <- terra::rast(raster_extent, resolution = raster_res, crs = terra::crs(spatvect))
-
-  # Rasterize the SpatVector based on the SpatRaster template
-  # Specify the field in the rasterize function
-  rasterised_spatraster <- terra::rasterize(spatvect, raster_template, field = field)
-
-  # Convert the 'Kabupaten' column of the sf_object to a lookup_table
-  lookup_table <- sf::st_drop_geometry(sf_object)
-
-  # Add legend to the rasterized SpatRaster using the lookup_table
-  levels(rasterised_spatraster) <- lookup_table
-
-  # Return the rasterized SpatRaster with legend
-  return(rasterised_spatraster)
-}
-```
-
-## 2. Prepare Reference Data
-
-```{r}
-# Load and prepare reference data
-# ref <- raster(ref_data)
+# Prepare reference data
+ref_data <- st_read(path$ref_map)
 ref <- rasterise_multipolygon(sf_object = ref_data, raster_res = c(100,100), field = "ID")
-#ref <- reclassify(ref, cbind(255, 0))
 
-lookup_ref <- read.csv(lut_ref)
-colnames(lookup_ref)[ncol(lookup_ref)] <- "REFERENCE"
-ref.name <- names(ref)
-```
-
-## 3. Projection Handling
-- check the projection of the reference data
-```{r}
 # Check and handle the projection of the reference data
 if (grepl("+units=m", as.character(st_crs(ref)$proj4string))){
   print("Raster maps have projection in meter unit")
@@ -116,16 +47,17 @@ if (grepl("+units=m", as.character(st_crs(ref)$proj4string))){
   statusoutput<-data.frame(statuscode=statuscode, statusmessage=statusmessage)
   quit()
 }
-```
 
-## 4. Merge Reference Data with Reference Class
+# Prepare lookup data
+lookup_ref <- read.csv(path$lut_ref)
+colnames(lookup_ref)[ncol(lookup_ref)] <- "REFERENCE"
+ref.name <- names(ref)
 
-```{r}
 # Load and merge reference class and mapping data
-tabel_acuan <- read.table(ref_class, header = FALSE, sep = ",") %>%
+tabel_acuan <- read.table(path$ref_class, header = FALSE, sep = ",") %>%
   setNames(c("acuan_kelas", "acuan_kode"))
 
-tabel_mapping <- read.table(ref_mapping, header = FALSE, sep = ",") %>%
+tabel_mapping <- read.table(path$ref_mapping, header = FALSE, sep = ",") %>%
   setNames(c("REFERENCE", "IDS")) %>%
   left_join(lookup_ref, by = "REFERENCE")
 
@@ -140,13 +72,9 @@ tabel_mapping <- tabel_mapping %>%
 # save reference table and map to temporary folder
 target_file <- paste(output_dir, "/reference.csv", sep="")
 write.table(tabel_mapping, target_file, quote=FALSE, row.names=FALSE, sep=",")
-```
 
-## 5. Prepare Planning Units
-
-```{r}
 # Load planning unit data
-pu_list <- read.table(pu_units, header=FALSE, sep=",")
+pu_list <- read.table(path$pu_units, header=FALSE, sep=",")
 n_pu_list <- nrow(pu_list)
 
 # create an empty list to store the results
@@ -167,24 +95,24 @@ for (i in 1:n_pu_list) {
   print(pu_raster)
   # Append the lookup table data to a list
   pu_lut_list[[i]] <- lut_table
-
+  
   # Append 'data_name' to the 'central_attr' list
   central_attr <- append(central_attr, data_name)
-
+  
   # Reclassify NA and 255 values in the raster data
   pu_raster[is.na(pu_raster)] <- 0  # Set NA values to 0
   #pu_raster <- reclassify(pu_raster, cbind(255, 0))  # Reclassify 255 values to 0
-
+  
   # Rename the raster to 'data_name'
   names(pu_raster) <- data_name
-
+  
   # Perform calculations involving 'pu_raster' and store in 'R' variables
   j <- n_pu_list + 1 - i
   assign(paste0("R", i), pu_raster * (100^(j)))
-
+  
   # Build a command for further calculations
   cmd <- paste0(cmd, "R", i, "+")
-
+  
   command1[[i]] <- pu_raster
 }
 
@@ -204,11 +132,9 @@ command1[[ref.number]] <- R_ref
 PUR_stack <- rast(command1)
 # PUR_stack <- rast(command1_adjusted)
 plot(PUR_stack)
-```
 
-## 6. Create Raster Attribute Table
+# 3. Create raster attribute table -------------------------
 
-```{r}
 # Create and process the raster attribute table
 eval(parse(text=(paste("PUR<-", cmd, sep=""))))
 PUR_raster <- raster(PUR)
@@ -237,7 +163,7 @@ while (k < ref.number) {
 
 PUR_db$TEMP_ID<-NULL
 
-# conduct reconciliation --------------------------------------------------
+# 4. Conduct reconciliation ---------------------------------
 
 colnames(PUR_db)[1] <- "unique_id"
 colnames(PUR_db)[2] <- "Freq"
@@ -261,11 +187,7 @@ for(l in 1:n_pu_list) {
 
 # combining tabel mapping and pur attribute table
 colnames(tabel_mapping)[3]<-ref.name
-```
 
-## 7. Conduct Reconciliation
-
-```{r}
 # Prepare data for reconciliation
 PUR_dbmod<-merge(PUR_db, tabel_mapping, by=ref.name)
 
@@ -340,12 +262,8 @@ PUR_dbmod <- within(PUR_dbmod, {
 })
 # If 'reconcile1' is 1, calculate 'reconcile_attr2' using the concatenated command5 string,
 # otherwise set 'reconcile_attr2' to 100
-```
 
-## 8. Create Central Attribute of Planning Units
-
-```{r}
-# Create and process central attributes
+# 5. Create and process central attributes -----------------
 central_attr <- central_attr %>%
   as_tibble() %>%
   mutate(numb_ca = row_number()) %>%
@@ -363,11 +281,9 @@ central_attrmod <- central_attrmod %>%
 # Combine the data frames and convert reconcile_attr2 column to numeric
 central_attrmod <- bind_rows(central_attrmod, add_22) %>%
   mutate(reconcile_attr2 = as.numeric(reconcile_attr2))
-```
 
-## 9. Finalize and Save Results
+# 6. Finalize and save result ----------------
 
-```{r}
 # Finalize reconciliation results
 PUR_dbfinal <- PUR_dbmod %>% 
   inner_join(central_attrmod, by = "reconcile_attr2") %>%
@@ -381,7 +297,7 @@ PUR_dbfinal2 <- PUR_dbfinal %>%
 levels(PUR) <- merge(levels(PUR), PUR_dbfinal2 %>% 
                        distinct(ID, Rec_phase1b), by = "ID")
 
-# Merge classes based on Rec_phase 1b column ------------------------------
+# Merge classes based on Rec_phase 1b column 
 # 1. Extract levels of the raster into a data frame
 df_levels <- as.data.frame(levels(PUR)[[1]])
 # 2. Assign new unique IDs for each category in Rec_phase1b
@@ -427,11 +343,9 @@ levels(PUR_reclassified) <- merge(levels(PUR_reclassified), db_final2, by = "ID"
 write.dbf(PUR_dbfinal, paste0(output_dir, "PUR-build_database.dbf"))
 writeRaster(PUR, filename=paste0(output_dir, "PUR_reconciliation_result"), format="GTiff", overwrite=TRUE)
 
-#########################
 # PUR1_output <- as.polygons(rast(PUR))
 # 
 # writeVector(PUR1_output, filename = paste(output_dir, "/PUR1_output.shp", sep=""), overwrite=TRUE)
-##########################
 
 # writeRaster(PUR_reclassified, filename="PUR_reconciliation_result_dissolved", format="GTiff", overwrite=TRUE)
 
@@ -464,11 +378,9 @@ write.table(PUR_dbfinal, paste0(output_dir, "/PUR_dbfinal.csv"), quote=FALSE, ro
 # write.dbf(data_attribute, "PUR_attribute.dbf")
 
 plot(PUR_rec1_shp)
-```
 
-## 10. Handle Unresolved Cases
+# 7. Handle unresolved case ------------------
 
-```{r}
 # Process and save unresolved cases if any
 if (nrow(unresolved_cases) != 0) {
   len <- nrow(database_unresolved)
@@ -495,9 +407,9 @@ if (nrow(unresolved_cases) != 0) {
   database_unresolved_out <- cbind(dat1, database_unresolved_out, dat3, dat2)
   
   write.table(database_unresolved_out, paste0(output_dir, "/PUR_unresolved_case.csv"), quote=FALSE, row.names=FALSE, sep=",")
-
+  
   database_unresolved_out$'Reconcile Action' <- "unresolved_case"
-
+  
   # Create the workbook
   database_unresolved_out_wb = createWorkbook()
   
@@ -508,11 +420,11 @@ if (nrow(unresolved_cases) != 0) {
   addWorksheet(database_unresolved_out_wb, "drop-down_attribute")
   pur_attribute_df <- data_attribute[data_attribute$Rec_phase1b != "unresolved_case", -1]
   names(pur_attribute_df)[1] <- "Reconcile Action"
-
+  
   new_row <- as.data.frame(matrix("unresolved_case", nrow = 1, ncol = ncol(pur_attribute_df)))
   colnames(new_row) <- colnames(pur_attribute_df)
   pur_attribute_df <- rbind(pur_attribute_df, new_row)
-
+  
   #pur_attribute_df$`Reconcile Action`[1] <- "unresolved_case"
   writeData(database_unresolved_out_wb, sheet = "drop-down_attribute", x = pur_attribute_df, startCol = 1)
   
@@ -526,35 +438,11 @@ if (nrow(unresolved_cases) != 0) {
     value = "'drop-down_attribute'!$A$2:$A$1000",
     allowBlank = TRUE,
   )
-
+  
   # Save the workbook
   saveWorkbook(database_unresolved_out_wb, paste0(output_dir,"/PUR_unresolved_case.xlsx"), overwrite = TRUE)
-
+  
 } else {
   database_unresolved_out <- tibble("Reconciliation result" = "There are no unresolved areas in this analysis session")
 }
-```
 
-## 11. Final Output Processing
-
-```{r}
-# Prepare final output for GIS
-PUR_rec1 <- PUR
-attr_df <- as.data.frame(levels(PUR)[[1]])
-levels(PUR_rec1)[[1]] <- attr_df |> select(-COUNT)
-
-PUR_rec1_shp  <- as.polygons(rast(PUR_rec1), values=TRUE)
-# Merge the attributes to the polygons based on the ID
-PUR_rec1_shp$ID <- attr_df$ID
-
-PUR_rec1_shp <- PUR_rec1_shp |> sf::st_as_sf() |> sf::as_Spatial()
-PUR_rec1_shp <- PUR_rec1_shp[, c("ID", "layer")]
-names(PUR_rec1_shp)[names(PUR_rec1_shp) == "layer"] <- "Rec_phase1b"
-```
-
-## 12. Finalization
-
-```{r}
-time_end <- Sys.time ()
-run_time <- time_end - time_start
-```

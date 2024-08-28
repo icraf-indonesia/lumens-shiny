@@ -1,16 +1,18 @@
+# load library ----------------------------------------------------------------------------
 library(shiny)
 library(DT)
 library(readr)
 
+# ui ------------------------------------------------------------------------------
 ui <- fluidPage(
-  titlePanel("Planning Unit Reconcilitation"),
-  
+  titlePanel("Planning Unit Reconcilitation (PUR)"),
+
   fluidRow(
     column(6,  # Left side: Inputs and buttons
            fluidRow(
-             column(12, fileInput("reference_map", "Reference Map (Raster)", accept = c(".tif", ".tiff"))),
-             column(12, fileInput("attribute_table", "Attribute Table (CSV)", accept = c(".csv"))),
-             column(12, fileInput("reference_class", "Reference Class (CSV)", accept = c(".csv")))
+             column(12, fileInput("reference_map", "Reference Map", accept = c(".tif", ".tiff"), placeholder = "input your raster file")),
+             column(12, fileInput("attribute_table", "Reference Map Attribute Table", accept = c(".csv"), placeholder = "input your csv file")),
+             column(12, fileInput("reference_class", "Reference Class Table", accept = c(".csv"), placeholder = "input your csv file"))
            ),
            
            hr(),
@@ -29,7 +31,7 @@ ui <- fluidPage(
            fluidRow(
              column(12, 
                     div(
-                      style = "border: 1px solid #ddd; padding: 10px; margin-top: 20px;",
+                      style = "border: 1px solid #ddd; padding: 10px; margin-top: 10px;",
                       h4("Planning Unit Inputs"),
                       uiOutput("form_table")
                     )
@@ -40,22 +42,13 @@ ui <- fluidPage(
              column(12, 
                     div(
                       style = "margin-top: 20px;",
-                      h4("Collected Data"),
+                      h4("Collected Planning Unit Data"),
                       DTOutput("data_table")
                     )
              )
            ),
            
            hr(),
-           
-           fluidRow(
-             column(12,
-                    h4("Attribute Table"),
-                    actionButton("load_reference_class", "Load Reference Class"),
-                    DTOutput("attribute_table_display"),
-                    actionButton("save_attr_actions", "Save Actions")
-             )
-           )
     ),
     
     column(6,  # Right side: HTML previewer
@@ -68,6 +61,7 @@ ui <- fluidPage(
   )
 )
 
+# server ------------------------------------------------------------------------------
 server <- function(input, output, session) {
   counter <- reactiveValues(n = 0)
   
@@ -85,30 +79,28 @@ server <- function(input, output, session) {
     
     if (n > 0) {
       tagList(
-        div(style = "display: flex; flex-direction: column; border-bottom: 1px solid #ddd; padding: 5px 0;",
-            div(style = "display: flex; font-weight: bold; border-bottom: 1px solid #ddd; padding: 5px 0;",
-                div(style = "flex: 0.5; min-width: 50px;", "PU"),
-                div(style = "flex: 2; min-width: 150px;", "Planning Unit Name"),
+        div(style = "display: flex; flex-direction: column; border-bottom: 1px solid #ccc; border-radius: 5px; padding: 10px; background-color: #f9f9f9;",
+            div(style = "display: flex; font-weight: bold; border-bottom: 2px solid #ccc; padding-bottom: 10px; margin-bottom: 10px;",
+                div(style = "flex: 0.5; min-width: 50px;text-align: center;", "PU"),
+                div(style = "flex: 2; min-width: 150px;", "Name"),
                 div(style = "flex: 2; min-width: 150px;", "File"),
                 div(style = "flex: 1; min-width: 100px;", "Action")
             ),
             lapply(seq_len(n), function(i) {
-              div(style = "display: flex; flex-direction: column; align-items: flex-start; border-bottom: 1px solid #eee; padding: 10px 0;",
-                  div(style = "display: flex; align-items: center; width: 100%;",
-                      div(style = "flex: 0.5; min-width: 50px;", paste("PU", i)),
-                      div(style = "flex: 2; min-width: 150px;", 
-                          textInput(inputId = paste0("textin", i),
-                                    label = NULL,
-                                    placeholder = paste("Planning Unit", i))),
-                      div(style = "flex: 2; min-width: 150px;", 
-                          fileInput(inputId = paste0("filein", i),
-                                    label = NULL,
-                                    accept = c(".tif", ".tiff"))),
-                      div(style = "flex: 1; min-width: 100px;", 
-                          selectInput(inputId = paste0("action", i),
-                                      label = NULL,
-                                      choices = c("Reconciliation", "Additional")))
-                  )
+              div(style = "display: flex; align-items: center; margin-bottom: 10px;",
+                  div(style = "flex: 0.5; min-width: 50px; text-align: center;", paste("PU", i)),
+                  div(style = "flex: 2; min-width: 150px; padding-right: 10px;", 
+                      textInput(inputId = paste0("textin", i),
+                                label = NULL,
+                                placeholder = paste("Planning Unit", i))),
+                  div(style = "flex: 2; min-width: 150px; padding-right: 10px;", 
+                      fileInput(inputId = paste0("filein", i),
+                                label = NULL,
+                                accept = c(".tif", ".tiff"))),
+                  div(style = "flex: 1; min-width: 100px;", 
+                      selectInput(inputId = paste0("action", i),
+                                  label = NULL,
+                                  choices = c("Reconciliation", "Additional")))
               )
             })
         )
@@ -122,9 +114,8 @@ server <- function(input, output, session) {
     n <- counter$n
     if (n > 0) {
       data <- data.frame(
-        Row = seq_len(n),
-        TextInput = sapply(seq_len(n), function(i) input[[paste0("textin", i)]]),
-        DynamicsFile = sapply(seq_len(n), function(i) {
+        Name = sapply(seq_len(n), function(i) input[[paste0("textin", i)]]),
+        Path = sapply(seq_len(n), function(i) {
           file <- input[[paste0("filein", i)]]
           if (!is.null(file)) file$name else "No file uploaded"
         }),
@@ -205,4 +196,5 @@ server <- function(input, output, session) {
   })
 }
 
+# shinyapp ------------------------------------------------------------------------------
 shinyApp(ui, server)
