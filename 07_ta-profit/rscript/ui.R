@@ -4,19 +4,15 @@ page_sidebar(
   sidebar = sidebar(
     title = "Trade-off Analysis (Profit)",
     width = 600,
-    fileInput("map1_file", "Land cover map at T1", accept = c("image/tiff")),
-    fileInput("map2_file", "Land cover map at T2", accept = c("image/tiff")),
-    fileInput("mapz_file", 
-              "Planning Unit", 
-              accept = c(".shp", ".dbf", ".sbn", ".sbx", ".shx", ".prj"), 
-              multiple = T, 
-              placeholder = "All related shapefiles"),
-    fileInput("carbon_file", "Carbon stock lookup table", accept = c(".csv")),
-    textInput("map1_year", "Year of T1"),
-    textInput("map2_year", "Year of T2"),
+    fileInput("landuse1_file", "Land cover map at T1", accept = c("image/tiff")),
+    fileInput("landuse2_file", "Land cover map at T2", accept = c("image/tiff")),
+    fileInput("npv_file", "NPV lookup table", accept = c(".csv")),
+    fileInput("quesc_db_file", "QUES-C table", accept = c(".csv")),
+    textInput("landuse1_year", "Year of T1"),
+    textInput("landuse2_year", "Year of T2"),
     shinyDirButton("wd", "Select working directory", "Select a folder"),
     textOutput("selected_directory"),
-    actionButton("processQUESC", "Run")
+    actionButton("processProfit", "Run")
   ),
   
   # To display the report

@@ -26,11 +26,11 @@ The Trade-off Analysis Regional 1 module calculate the amount of green-house gas
 
 ## <a name="_toc_run"></a>3. Running the module
 
-### Upload shapefiles
+### Upload Regional Economy table
 
-Select all related shp
+Select all related files
 
-![](www/img/shp.png)
+![](www/img/files.png)
 
 ### Select working directory
 

@@ -1,10 +1,14 @@
 #=====================================================
 workspace=""
-NPV="D:/ICRAF/Kodingan/icraf-indonesia/lumens-shiny/07_ta_profit/data/tabel_acuan_NPV.csv"
-ques_c_db="D:/ICRAF/Kodingan/icraf-indonesia/lumens-shiny/07_ta_profit/data/QUESC_database_2000-2020.csv"
+landuse_1_map="data/raster/tutupan_lahan_Bungo_2005r.tif"
+landuse_2_map="data/raster/tutupan_lahan_Bungo_2010r.tif"
+NPV_table="07_ta-profit/data/tabel_acuan_NPV.csv"
+ques_c_db="07_ta-profit/data/QUESC_database_2000-2020.csv"
+# lookup_lc="data/table/Tabel_landuse_Bungo.csv"
 cost_threshold= 2
-T1=2020
-T2=2024
+raster.nodata=0
+T1=2005
+T2=2010
 #=====================================================
 
 #=Load library
@@ -31,7 +35,8 @@ setwd(wd)
 
 #Load Datasets
 data<-read_csv(ques_c_db)
-lookup_npv<- read_csv(NPV)
+lookup_npv<- read_csv(NPV_table)
+# lookup_lc<-read_csv(lookup_lc)
 t1=T1
 t2=T2
 period<-t2-t1
@@ -102,19 +107,38 @@ find_x_val<-subset(opcost_all2, opcost_log>=log10(cost_threshold))
 x_val<-find_x_val$order[1]
 
 #====NPV Accounting Process====
-rcl.m.npv1<-as.matrix(lookup_npv[,1])
-rcl.m.npv2<-as.matrix(lookup_npv[,3])
-rcl.m.npv<-cbind(rcl.m.npv1,rcl.m.npv2)
-npv1<-reclassify(landuse1, rcl.m.npv)
-npv2<-reclassify(landuse2, rcl.m.npv)
-
-npv_chg<-npv2-npv1
-opcost<-npv_chg/emission
+# lookup_npv<-lookup_npv[which(lookup_npv[1] != 0),]
+# colnames(lookup_npv)<-c("ID", "LC", "NPV")
+# 
+# landuse1=raster(landuse_1_map)
+# landuse2=raster(landuse_2_map)
+# NAvalue(landuse1)<-raster.nodata
+# NAvalue(landuse2)<-raster.nodata
+# rcl.m.npv1<-as.matrix(lookup_npv[,1])
+# rcl.m.npv2<-as.matrix(lookup_npv[,3])
+# rcl.m.npv<-cbind(rcl.m.npv1,rcl.m.npv2)
+# npv1<-reclassify(landuse1, rcl.m.npv)
+# npv2<-reclassify(landuse2, rcl.m.npv)
+# npv_chg<-npv2-npv1
+# 
+# # opcost<-npv_chg/emission
+# delta_npv<-data$NPV2-data$NPV1
+# opcost<-delta_npv/data$em
 
 #export analysis result
-carbontiff1<-carbon1
-carbontiff2<-carbon2
 npvtiff1<-npv1
 npvtiff2<-npv2
 npvchgtiff<-npv_chg
 opcosttiff<-opcost
+
+# Calculate cumulative opportunity cost and emission rate
+opcost_all2$cum_opcost_g <- cumsum(opcost_all2$opcost)
+opcost_all2$cum_emrate_g <- cumsum(opcost_all2$emrate)
+
+# Plot the Opportunity Cost Curve
+ggplot(opcost_all2, aes(x=cum_opcost_g, y=cum_emrate_g)) +
+  geom_line(color="blue", size=1) +
+  labs(title="Opportunity Cost Curve", 
+       x="Cumulative Opportunity Cost", 
+       y="Cumulative Emission Rate") +
+  theme_minimal()
