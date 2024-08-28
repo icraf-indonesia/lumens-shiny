@@ -1,1 +1,0 @@
-# LUMENS - QuES Carbon Module

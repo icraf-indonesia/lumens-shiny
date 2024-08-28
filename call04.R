@@ -1,1 +1,0 @@
-shiny::runApp('04_quesc/rscript/', launch.browser = T, port = 875)

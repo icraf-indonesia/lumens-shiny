@@ -1,0 +1,469 @@
+library paths:
+... D:/My_Development/ElectronJS/lumens-shiny/apps/R-Portable/App/R-Portable/library
+Loading required package: shiny
+Warning: package 'callr' was built under R version 4.2.3
+
+Listening on http://127.0.0.1:3795
+Loading required package: shiny
+Warning: package 'terra' was built under R version 4.2.3
+terra 1.7.71
+Warning: package 'shinyFiles' was built under R version 4.2.3
+
+Attaching package: 'bslib'
+
+The following object is masked from 'package:utils':
+
+    page
+
+Warning: package 'raster' was built under R version 4.2.3
+Loading required package: sp
+Warning: package 'sp' was built under R version 4.2.3
+Warning: package 'splitstackshape' was built under R version 4.2.3
+Warning: package 'ggplot2' was built under R version 4.2.3
+Warning: package 'reshape2' was built under R version 4.2.3
+Warning: package 'dplyr' was built under R version 4.2.3
+
+Attaching package: 'dplyr'
+
+The following objects are masked from 'package:raster':
+
+    intersect, select, union
+
+The following objects are masked from 'package:terra':
+
+    intersect, union
+
+The following objects are masked from 'package:stats':
+
+    filter, lag
+
+The following objects are masked from 'package:base':
+
+    intersect, setdiff, setequal, union
+
+Warning: package 'reshape' was built under R version 4.2.3
+
+Attaching package: 'reshape'
+
+The following object is masked from 'package:dplyr':
+
+    rename
+
+The following objects are masked from 'package:reshape2':
+
+    colsplit, melt, recast
+
+Warning: package 'purrr' was built under R version 4.2.3
+Warning: package 'plotly' was built under R version 4.2.3
+
+Attaching package: 'plotly'
+
+The following object is masked from 'package:reshape':
+
+    rename
+
+The following object is masked from 'package:ggplot2':
+
+    last_plot
+
+The following object is masked from 'package:raster':
+
+    select
+
+The following object is masked from 'package:stats':
+
+    filter
+
+The following object is masked from 'package:graphics':
+
+    layout
+
+Warning: package 'sf' was built under R version 4.2.3
+Linking to GEOS 3.9.3, GDAL 3.5.2, PROJ 8.2.1; sf_use_s2() is TRUE
+Warning: package 'shinyvalidate' was built under R version 4.2.3
+Warning: package 'remote' was built under R version 4.2.3
+Loading required package: Rcpp
+Warning: package 'Rcpp' was built under R version 4.2.3
+
+Listening on http://127.0.0.1:875
+Reading layer `unit_perencanaan_bungo' from data source 
+  `C:\Users\anugraha\AppData\Local\Temp\RtmpSkxK0a\8a2dc6a2e19ed1b2dcd06562\unit_perencanaan_bungo.shp' 
+  using driver `ESRI Shapefile'
+Simple feature collection with 8 features and 2 fields
+Geometry type: MULTIPOLYGON
+Dimension:     XY
+Bounding box:  xmin: 103841.2 ymin: 9788820 xmax: 223589.4 ymax: 9875403
+Projected CRS: WGS 84 / UTM zone 48S
+<SpatRaster> resampled to 500864 cells.
+<SpatRaster> resampled to 500864 cells.
+<SpatRaster> resampled to 500864 cells.
+Raster map has a projection in metre unit.
+Raster map has  1  Ha spatial resolution. Pre-QuES will automatically generate data in Ha unit.
+Warning: Values from `Ha` are not uniquely identified; output will contain list-cols.
+• Use `values_fn = list` to suppress this warning.
+• Use `values_fn = {summary_fun}` to summarise duplicates.
+• Use the following dplyr code to identify duplicates.
+  {data} |>
+  dplyr::summarise(n = dplyr::n(), .by = c(Freq, `2005`)) |>
+  dplyr::filter(n > 1L)
+Warning: Values from `Ha` are not uniquely identified; output will contain list-cols.
+• Use `values_fn = list` to suppress this warning.
+• Use `values_fn = {summary_fun}` to summarise duplicates.
+• Use the following dplyr code to identify duplicates.
+  {data} |>
+  dplyr::summarise(n = dplyr::n(), .by = c(Freq, `2005`)) |>
+  dplyr::filter(n > 1L)
+Warning: Values from `Ha` are not uniquely identified; output will contain list-cols.
+• Use `values_fn = list` to suppress this warning.
+• Use `values_fn = {summary_fun}` to summarise duplicates.
+• Use the following dplyr code to identify duplicates.
+  {data} |>
+  dplyr::summarise(n = dplyr::n(), .by = c(Freq, `2005`)) |>
+  dplyr::filter(n > 1L)
+Warning: Values from `Ha` are not uniquely identified; output will contain list-cols.
+• Use `values_fn = list` to suppress this warning.
+• Use `values_fn = {summary_fun}` to summarise duplicates.
+• Use the following dplyr code to identify duplicates.
+  {data} |>
+  dplyr::summarise(n = dplyr::n(), .by = c(Freq, `2005`)) |>
+  dplyr::filter(n > 1L)
+Warning: Values from `Ha` are not uniquely identified; output will contain list-cols.
+• Use `values_fn = list` to suppress this warning.
+• Use `values_fn = {summary_fun}` to summarise duplicates.
+• Use the following dplyr code to identify duplicates.
+  {data} |>
+  dplyr::summarise(n = dplyr::n(), .by = c(Freq, `2005`)) |>
+  dplyr::filter(n > 1L)
+Warning: Values from `Ha` are not uniquely identified; output will contain list-cols.
+• Use `values_fn = list` to suppress this warning.
+• Use `values_fn = {summary_fun}` to summarise duplicates.
+• Use the following dplyr code to identify duplicates.
+  {data} |>
+  dplyr::summarise(n = dplyr::n(), .by = c(Freq, `2005`)) |>
+  dplyr::filter(n > 1L)
+Warning: Values from `Ha` are not uniquely identified; output will contain list-cols.
+• Use `values_fn = list` to suppress this warning.
+• Use `values_fn = {summary_fun}` to summarise duplicates.
+• Use the following dplyr code to identify duplicates.
+  {data} |>
+  dplyr::summarise(n = dplyr::n(), .by = c(Freq, `2005`)) |>
+  dplyr::filter(n > 1L)
+Warning: Values from `Ha` are not uniquely identified; output will contain list-cols.
+• Use `values_fn = list` to suppress this warning.
+• Use `values_fn = {summary_fun}` to summarise duplicates.
+• Use the following dplyr code to identify duplicates.
+  {data} |>
+  dplyr::summarise(n = dplyr::n(), .by = c(Freq, `2005`)) |>
+  dplyr::filter(n > 1L)
+[1] "/RStudioPortable/App/RStudio/bin/pandoc"
+Warning: Error in : pandoc version 1.12.3 or higher is required and was not found (see the help page ?rmarkdown::pandoc_available).
+  1: shiny::runApp
+Reading layer `unit_perencanaan_bungo' from data source 
+  `C:\Users\anugraha\AppData\Local\Temp\RtmpSkxK0a\14c1ced4315f8993c80c1653\unit_perencanaan_bungo.shp' 
+  using driver `ESRI Shapefile'
+Simple feature collection with 8 features and 2 fields
+Geometry type: MULTIPOLYGON
+Dimension:     XY
+Bounding box:  xmin: 103841.2 ymin: 9788820 xmax: 223589.4 ymax: 9875403
+Projected CRS: WGS 84 / UTM zone 48S
+<SpatRaster> resampled to 500864 cells.
+<SpatRaster> resampled to 500864 cells.
+<SpatRaster> resampled to 500864 cells.
+Raster map has a projection in metre unit.
+Raster map has  1  Ha spatial resolution. Pre-QuES will automatically generate data in Ha unit.
+Warning: Values from `Ha` are not uniquely identified; output will contain list-cols.
+• Use `values_fn = list` to suppress this warning.
+• Use `values_fn = {summary_fun}` to summarise duplicates.
+• Use the following dplyr code to identify duplicates.
+  {data} |>
+  dplyr::summarise(n = dplyr::n(), .by = c(Freq, `2005`)) |>
+  dplyr::filter(n > 1L)
+Warning: Values from `Ha` are not uniquely identified; output will contain list-cols.
+• Use `values_fn = list` to suppress this warning.
+• Use `values_fn = {summary_fun}` to summarise duplicates.
+• Use the following dplyr code to identify duplicates.
+  {data} |>
+  dplyr::summarise(n = dplyr::n(), .by = c(Freq, `2005`)) |>
+  dplyr::filter(n > 1L)
+Warning: Values from `Ha` are not uniquely identified; output will contain list-cols.
+• Use `values_fn = list` to suppress this warning.
+• Use `values_fn = {summary_fun}` to summarise duplicates.
+• Use the following dplyr code to identify duplicates.
+  {data} |>
+  dplyr::summarise(n = dplyr::n(), .by = c(Freq, `2005`)) |>
+  dplyr::filter(n > 1L)
+Warning: Values from `Ha` are not uniquely identified; output will contain list-cols.
+• Use `values_fn = list` to suppress this warning.
+• Use `values_fn = {summary_fun}` to summarise duplicates.
+• Use the following dplyr code to identify duplicates.
+  {data} |>
+  dplyr::summarise(n = dplyr::n(), .by = c(Freq, `2005`)) |>
+  dplyr::filter(n > 1L)
+Warning: Values from `Ha` are not uniquely identified; output will contain list-cols.
+• Use `values_fn = list` to suppress this warning.
+• Use `values_fn = {summary_fun}` to summarise duplicates.
+• Use the following dplyr code to identify duplicates.
+  {data} |>
+  dplyr::summarise(n = dplyr::n(), .by = c(Freq, `2005`)) |>
+  dplyr::filter(n > 1L)
+Warning: Values from `Ha` are not uniquely identified; output will contain list-cols.
+• Use `values_fn = list` to suppress this warning.
+• Use `values_fn = {summary_fun}` to summarise duplicates.
+• Use the following dplyr code to identify duplicates.
+  {data} |>
+  dplyr::summarise(n = dplyr::n(), .by = c(Freq, `2005`)) |>
+  dplyr::filter(n > 1L)
+Warning: Values from `Ha` are not uniquely identified; output will contain list-cols.
+• Use `values_fn = list` to suppress this warning.
+• Use `values_fn = {summary_fun}` to summarise duplicates.
+• Use the following dplyr code to identify duplicates.
+  {data} |>
+  dplyr::summarise(n = dplyr::n(), .by = c(Freq, `2005`)) |>
+  dplyr::filter(n > 1L)
+Warning: Values from `Ha` are not uniquely identified; output will contain list-cols.
+• Use `values_fn = list` to suppress this warning.
+• Use `values_fn = {summary_fun}` to summarise duplicates.
+• Use the following dplyr code to identify duplicates.
+  {data} |>
+  dplyr::summarise(n = dplyr::n(), .by = c(Freq, `2005`)) |>
+  dplyr::filter(n > 1L)
+__CONDA_OPENSLL_CERT_FILE_SET
+                        1
+_CONDA_EXE              C:\Users\anugraha\AppData\Local\miniconda3\Scripts\conda.exe
+_CONDA_ROOT             C:\Users\anugraha\AppData\Local\miniconda3
+ALLUSERSPROFILE         C:\ProgramData
+ANDROID_HOME            C:\Users\anugraha\AppData\Local\Android\Sdk
+APPDATA                 C:\Users\anugraha\AppData\Roaming
+CommonProgramFiles      C:\Program Files\Common Files
+CommonProgramFiles(x86)
+                        C:\Program Files (x86)\Common Files
+CommonProgramW6432      C:\Program Files\Common Files
+COMPUTERNAME            ICRAF-BGR001621
+ComSpec                 C:\WINDOWS\system32\cmd.exe
+CONDA_DEFAULT_ENV       base
+CONDA_EXE               C:\Users\anugraha\AppData\Local\miniconda3\Scripts\conda.exe
+CONDA_PREFIX            C:\Users\anugraha\AppData\Local\miniconda3
+CONDA_PROMPT_MODIFIER   (base)
+CONDA_PYTHON_EXE        C:\Users\anugraha\AppData\Local\miniconda3\python.exe
+CONDA_SHLVL             1
+CUDA_PATH               C:\Program Files\NVIDIA GPU Computing
+                        Toolkit\CUDA\v11.5
+CUDA_PATH_V11_5         C:\Program Files\NVIDIA GPU Computing
+                        Toolkit\CUDA\v11.5
+CURL_CA_BUNDLE          D:/My_Development/ElectronJS/lumens-shiny/apps/R-Portable/App/R-Portable/etc/curl-ca-bundle.crt
+DriverData              C:\Windows\System32\Drivers\DriverData
+ESET_OPTIONS            
+FPS_BROWSER_APP_PROFILE_STRING
+                        Internet Explorer
+FPS_BROWSER_USER_PROFILE_STRING
+                        Default
+GDAL_DATA               D:/My_Development/ElectronJS/lumens-shiny/apps/R-Portable/App/R-Portable/library/sf/gdal
+GITHUB_PAT              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
+GRADLE_HOME             C:\Gradle\gradle-7.2
+HOME                    C:\Users\anugraha\OneDrive - CGIAR\Documents
+HOMEDRIVE               C:
+HOMEPATH                \Users\anugraha
+JAVA_HOME               C:\Program Files\Java\jdk1.8.0_311
+LOCALAPPDATA            C:\Users\anugraha\AppData\Local
+LOGONSERVER             \\DC1-BOGOR
+MAGICK_TMPDIR           C:\Users\anugraha\AppData\Local\Temp\RtmpSkxK0a
+MOZ_PLUGIN_PATH         C:\PROGRAM FILES (X86)\FOXIT SOFTWARE\FOXIT
+                        READER\plugins\
+MSYS2_ENV_CONV_EXCL     R_ARCH
+NUMBER_OF_PROCESSORS    12
+NVCUDASAMPLES_ROOT      C:\ProgramData\NVIDIA Corporation\CUDA
+                        Samples\v11.5
+NVCUDASAMPLES11_5_ROOT
+                        C:\ProgramData\NVIDIA Corporation\CUDA
+                        Samples\v11.5
+NVM_HOME                C:\Users\anugraha\AppData\Roaming\nvm
+NVM_SYMLINK             C:\Program Files\nodejs
+NVTOOLSEXT_PATH         C:\Program Files\NVIDIA Corporation\NvToolsExt\
+OneDrive                C:\Users\anugraha\OneDrive
+OneDriveSync            C:\Users\anugraha\OneDrive - CGIAR
+OPENAI_API_KEY          sk-proj-GKYIgSc36QQHdchS1alg1yjpvaNobpfLnGfeR3pC"
+OS                      Windows_NT
+PATH                    C:\rtools42/x86_64-w64-mingw32.static.posix/bin;C:\rtools42/usr/bin;C:\rtools42/x86_64-w64-mingw32.static.posix/bin;C:\rtools42/usr/bin;C:\Users\anugraha\AppData\Local\miniconda3;C:\Users\anugraha\AppData\Local\miniconda3\Library\mingw-w64\bin;C:\Users\anugraha\AppData\Local\miniconda3\Library\usr\bin;C:\Users\anugraha\AppData\Local\miniconda3\Library\bin;C:\Users\anugraha\AppData\Local\miniconda3\Scripts;C:\Users\anugraha\AppData\Local\miniconda3\bin;C:\Users\anugraha\AppData\Local\miniconda3\condabin;C:\Program
+                        Files\WindowsApps\Microsoft.PowerShell_7.4.5.0_x64__8wekyb3d8bbwe;C:\Program
+                        Files\Quarto\bin;C:\Program Files (x86)\Common
+                        Files\Oracle\Java\javapath;C:\Program
+                        Files\NVIDIA GPU Computing
+                        Toolkit\CUDA\v11.5\bin;C:\Program Files\NVIDIA
+                        GPU Computing
+                        Toolkit\CUDA\v11.5\libnvvp;C:\Program
+                        Files\Common Files\Microsoft Shared\Microsoft
+                        Online Services;C:\Program Files (x86)\Common
+                        Files\Microsoft Shared\Microsoft Online
+                        Services;C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0;C:\Windows\System32\OpenSSH;C:\Program
+                        Files (x86)\NVIDIA
+                        Corporation\PhysX\Common;C:\Program
+                        Files\NVIDIA Corporation\NVIDIA
+                        NvDLISR;C:\Program
+                        Files\SlikSvn\bin;C:\xampp\php;C:\ProgramData\ComposerSetup\bin;C:\Program
+                        Files\Git\cmd;C:\Program Files
+                        (x86)\PuTTY;C:\Program
+                        Files\Docker\Docker\resources\bin;C:\ProgramData\DockerDesktop\version-bin;C:\Users\anugraha\AppData\Roaming\nvm;C:\Program
+                        Files\nodejs;C:\Gradle\gradle-7.2\bin;C:\Users\anugraha\AppData\Local\Android\Sdk\tools;C:\Users\anugraha\AppData\Local\Android\Sdk\platform-tools;C:\Program
+                        Files\NVIDIA Corporation\Nsight Compute
+                        2021.3.0;C:\Users\anugraha\AppData\Local\Android\Sdk\tools;C:\Users\anugraha\AppData\Local\Android\Sdk\platform-tools;C:\Program
+                        Files\MongoDB\Server\5.0\bin;C:\Program
+                        Files\dotnet;C:\Python39;C:\Python39\Scripts;C:\Program
+                        Files\MongoDB\Tools\100\bin;C:\WINDOWS\system32;C:\WINDOWS;C:\WINDOWS\System32\Wbem;C:\WINDOWS\System32\WindowsPowerShell\v1.0;C:\WINDOWS\System32\OpenSSH;C:\Users\anugraha\AppData\Roaming\TinyTeX\bin\win32;C:\Users\anugraha\AppData\Roaming\ActiveState\bin;C:\Users\anugraha\AppData\Local\activestate\bin;C:\Users\anugraha\AppData\Local\Programs\MiKTeX\miktex\bin\x64;C:\Users\anugraha\AppData\Local\Microsoft\WindowsApps;C:\Users\anugraha\AppData\Local\Programs\Microsoft
+                        VS
+                        Code\bin;C:\Users\anugraha\AppData\Roaming\Composer\vendor\bin;C:\Users\anugraha\AppData\Roaming\npm;C:\Users\anugraha\AppData\Roaming\nvm;C:\Program
+                        Files\nodejs;C:\Users\anugraha\AppData\Local\Microsoft\WindowsApps;.;C:\Users\anugraha\AppData\Local\Programs\Ollama;C:\Users\anugraha\AppData\Local\Microsoft\WinGet\Links;.
+PATHEXT                 .COM;.EXE;.BAT;.CMD;.VBS;.VBE;.JS;.JSE;.WSF;.WSH;.MSC;.PY;.PYW;.CPL
+POSTGIS_ENABLE_OUTDB_RASTERS
+                        1
+POSTGIS_GDAL_ENABLED_DRIVERS
+                        GTiff PNG JPEG GIF XYZ DTED USGSDEM AAIGrid
+PROCESSOR_ARCHITECTURE
+                        AMD64
+PROCESSOR_IDENTIFIER    Intel64 Family 6 Model 165 Stepping 2,
+                        GenuineIntel
+PROCESSOR_LEVEL         6
+PROCESSOR_REVISION      a502
+ProgramData             C:\ProgramData
+ProgramFiles            C:\Program Files
+ProgramFiles(x86)       C:\Program Files (x86)
+ProgramW6432            C:\Program Files
+PROJ_LIB                D:\My_Development\pgsql13\share\contrib\postgis-3.1\proj
+PROMPT                  $P$G
+PSModulePath            C:\Users\anugraha\OneDrive -
+                        CGIAR\Documents\PowerShell\Modules;C:\Program
+                        Files\PowerShell\Modules;c:\program
+                        files\windowsapps\microsoft.powershell_7.4.5.0_x64__8wekyb3d8bbwe\Modules;C:\Program
+                        Files\WindowsPowerShell\Modules;C:\WINDOWS\system32\WindowsPowerShell\v1.0\Modules
+PUBLIC                  C:\Users\Public
+QUARTO_PYTHON           C:\Users\anugraha\AppData\Local\miniconda3\envs\ds_bootcamp\python.exe
+R_ARCH                  /x64
+R_COMPILED_BY           gcc 10.3.0
+R_HOME                  D:/My_Development/ElectronJS/lumens-shiny/apps/R-Portable/App/R-Portable
+R_LIBS_SITE             D:/My_Development/ElectronJS/lumens-shiny/apps/R-Portable/App/R-Portable/site-library
+R_LIBS_USER             C:\Users\anugraha\AppData\Local/R/win-library/4.2
+R_MAP_DATA_DIR          D:/My_Development/ElectronJS/lumens-shiny/apps/R-Portable/App/R-Portable/library/maps/mapdata/
+R_MAP_DATA_DIR_WORLD    D:/My_Development/ElectronJS/lumens-shiny/apps/R-Portable/App/R-Portable/library/maps/mapdata/
+R_MAPDATA_DATA_DIR      D:/My_Development/ElectronJS/lumens-shiny/apps/R-Portable/App/R-Portable/library/mapdata/mapdata/
+R_RTOOLS42_PATH         C:\rtools42/x86_64-w64-mingw32.static.posix/bin;C:\rtools42/usr/bin
+R_USER                  C:\Users\anugraha\OneDrive - CGIAR\Documents
+ROPTS                   --no-save --no-restore
+RSTUDIO_PANDOC          /RStudioPortable/App/RStudio/bin/pandoc
+RTOOLS40_HOME           C:\rtools40
+RTOOLS42_HOME           C:\rtools42
+RTOOLS43_HOME           C:\rtools43
+SESSIONNAME             Console
+SSL_CERT_FILE           C:\Users\anugraha\AppData\Local\miniconda3\Library\ssl\cacert.pem
+SystemDrive             C:
+SystemRoot              C:\WINDOWS
+TEMP                    C:\Users\anugraha\AppData\Local\Temp
+TMP                     C:\Users\anugraha\AppData\Local\Temp
+TWITTER_PAT             C:/Users/anugraha/Documents/.rtweet_token9.rds
+TWITTER_SCREEN_NAME     alfabot562
+USERDNSDOMAIN           CIFOR-ICRAF.ORG
+USERDOMAIN              CIFOR-ICRAF
+USERDOMAIN_ROAMINGPROFILE
+                        CIFOR-ICRAF
+USERNAME                ANugraha
+USERPROFILE             C:\Users\anugraha
+windir                  C:\WINDOWS
+WSLENV                  WT_SESSION:WT_PROFILE_ID:
+WT_PROFILE_ID           {574e775e-4f2a-5b96-ac1e-a2962a402336}
+WT_SESSION              40a97740-5dfb-4eba-bc39-5df16cbfd80e
+ZES_ENABLE_SYSMAN       1
+Warning: Error in : pandoc version 1.12.3 or higher is required and was not found (see the help page ?rmarkdown::pandoc_available).
+  1: shiny::runApp
+Reading layer `unit_perencanaan_bungo' from data source 
+  `C:\Users\anugraha\AppData\Local\Temp\RtmpSkxK0a\752006331fcdbddbe418fff5\unit_perencanaan_bungo.shp' 
+  using driver `ESRI Shapefile'
+Simple feature collection with 8 features and 2 fields
+Geometry type: MULTIPOLYGON
+Dimension:     XY
+Bounding box:  xmin: 103841.2 ymin: 9788820 xmax: 223589.4 ymax: 9875403
+Projected CRS: WGS 84 / UTM zone 48S
+<SpatRaster> resampled to 500864 cells.
+<SpatRaster> resampled to 500864 cells.
+<SpatRaster> resampled to 500864 cells.
+Raster map has a projection in metre unit.
+Raster map has  1  Ha spatial resolution. Pre-QuES will automatically generate data in Ha unit.
+Warning: Values from `Ha` are not uniquely identified; output will contain list-cols.
+• Use `values_fn = list` to suppress this warning.
+• Use `values_fn = {summary_fun}` to summarise duplicates.
+• Use the following dplyr code to identify duplicates.
+  {data} |>
+  dplyr::summarise(n = dplyr::n(), .by = c(Freq, `2005`)) |>
+  dplyr::filter(n > 1L)
+Warning: Values from `Ha` are not uniquely identified; output will contain list-cols.
+• Use `values_fn = list` to suppress this warning.
+• Use `values_fn = {summary_fun}` to summarise duplicates.
+• Use the following dplyr code to identify duplicates.
+  {data} |>
+  dplyr::summarise(n = dplyr::n(), .by = c(Freq, `2005`)) |>
+  dplyr::filter(n > 1L)
+Warning: Values from `Ha` are not uniquely identified; output will contain list-cols.
+• Use `values_fn = list` to suppress this warning.
+• Use `values_fn = {summary_fun}` to summarise duplicates.
+• Use the following dplyr code to identify duplicates.
+  {data} |>
+  dplyr::summarise(n = dplyr::n(), .by = c(Freq, `2005`)) |>
+  dplyr::filter(n > 1L)
+Warning: Values from `Ha` are not uniquely identified; output will contain list-cols.
+• Use `values_fn = list` to suppress this warning.
+• Use `values_fn = {summary_fun}` to summarise duplicates.
+• Use the following dplyr code to identify duplicates.
+  {data} |>
+  dplyr::summarise(n = dplyr::n(), .by = c(Freq, `2005`)) |>
+  dplyr::filter(n > 1L)
+Warning: Values from `Ha` are not uniquely identified; output will contain list-cols.
+• Use `values_fn = list` to suppress this warning.
+• Use `values_fn = {summary_fun}` to summarise duplicates.
+• Use the following dplyr code to identify duplicates.
+  {data} |>
+  dplyr::summarise(n = dplyr::n(), .by = c(Freq, `2005`)) |>
+  dplyr::filter(n > 1L)
+Warning: Values from `Ha` are not uniquely identified; output will contain list-cols.
+• Use `values_fn = list` to suppress this warning.
+• Use `values_fn = {summary_fun}` to summarise duplicates.
+• Use the following dplyr code to identify duplicates.
+  {data} |>
+  dplyr::summarise(n = dplyr::n(), .by = c(Freq, `2005`)) |>
+  dplyr::filter(n > 1L)
+Warning: Values from `Ha` are not uniquely identified; output will contain list-cols.
+• Use `values_fn = list` to suppress this warning.
+• Use `values_fn = {summary_fun}` to summarise duplicates.
+• Use the following dplyr code to identify duplicates.
+  {data} |>
+  dplyr::summarise(n = dplyr::n(), .by = c(Freq, `2005`)) |>
+  dplyr::filter(n > 1L)
+Warning: Values from `Ha` are not uniquely identified; output will contain list-cols.
+• Use `values_fn = list` to suppress this warning.
+• Use `values_fn = {summary_fun}` to summarise duplicates.
+• Use the following dplyr code to identify duplicates.
+  {data} |>
+  dplyr::summarise(n = dplyr::n(), .by = c(Freq, `2005`)) |>
+  dplyr::filter(n > 1L)
+
+
+processing file: report_template.Rmd
+1/13                  
+2/13 [setup]          
+3/13                  
+4/13 [unnamed-chunk-1]
+5/13                  
+6/13 [unnamed-chunk-2]
+7/13                  
+8/13 [unnamed-chunk-3]
+9/13                  
+10/13 [unnamed-chunk-4]
+11/13                  
+12/13 [unnamed-chunk-5]
+13/13                  
+output file: report_template.knit.md
+
+"D:/My_Development/ElectronJS/lumens-shiny//apps/RStudioPortable/App/RStudio/bin/pandoc/pandoc" +RTS -K512m -RTS report_template.knit.md --to html4 --from markdown+autolink_bare_uris+tex_math_single_backslash --output pandoc2f94129c1bfb.html --self-contained --variable bs3=TRUE --section-divs --table-of-contents --toc-depth 2 --variable toc_float=1 --variable toc_selectors=h1,h2 --variable toc_collapsed=1 --variable toc_smooth_scroll=1 --variable toc_print=1 --template "D:\My_Development\ElectronJS\lumens-shiny\apps\R-Portable\App\R-Portable\library\rmarkdown\rmd\h\default.html" --highlight-style tango --variable theme=united --mathjax --variable "mathjax-url=https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML" --include-in-header "C:\Users\anugraha\AppData\Local\Temp\RtmpSkxK0a\rmarkdown-str2f94183828aa.html" 
+
+Output created: D:/_sample_data/quesc_report_2024-08-28.html
+^C
+
+
+Execution halted
+Execution halted

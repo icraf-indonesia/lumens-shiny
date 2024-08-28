@@ -1,1 +1,0 @@
-# LUMENS - SCIENDO Abacus
