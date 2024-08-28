@@ -4,19 +4,21 @@ page_sidebar(
   sidebar = sidebar(
     title = "Trade-off Analysis (Regional 1)",
     width = 600,
-    fileInput("map1_file", "Land cover map at T1", accept = c("image/tiff")),
-    fileInput("map2_file", "Land cover map at T2", accept = c("image/tiff")),
-    fileInput("mapz_file", 
-              "Planning Unit", 
-              accept = c(".shp", ".dbf", ".sbn", ".sbx", ".shx", ".prj"), 
-              multiple = T, 
-              placeholder = "All related shapefiles"),
-    fileInput("carbon_file", "Carbon stock lookup table", accept = c(".csv")),
-    textInput("map1_year", "Year of T1"),
-    textInput("map2_year", "Year of T2"),
+    fileInput("sector_file", "Sector table", accept = c(".csv")),
+    fileInput("int_con_file", "Intermediate Demand table", accept = c(".csv")),
+    fileInput("fin_dem_struc_file", "Final Demand Component table", accept = c(".csv")),
+    fileInput("fin_dem_file", "Final Demand table", accept = c(".csv")),
+    fileInput("add_val_struc_file", "Added Value Component table", accept = c(".csv")),
+    fileInput("add_val_file", "Added Value table", accept = c(".csv")),
+    fileInput("labour_file", "Labour table", accept = c(".csv")),
+    fileInput("land_use_file", "Land Use map", accept = c("image/tiff")),
+    fileInput("land_distribution_file", "Land Distribution table", accept = c(".csv")),
+    textInput("unit", "Unit"),
+    textInput("location", "Location"),
+    textInput("I_O_period", "IO Period"),
     shinyDirButton("wd", "Select working directory", "Select a folder"),
     textOutput("selected_directory"),
-    actionButton("processQUESC", "Run")
+    actionButton("processTAReg1", "Run")
   ),
   
   # To display the report

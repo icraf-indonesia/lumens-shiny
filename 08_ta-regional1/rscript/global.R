@@ -32,113 +32,64 @@ install_load(
   "sf",
   "shinyvalidate",
   "remote",
-  "rmarkdown"
+  "rmarkdown",
+  "magick"
 )
 
-if (!("LUMENSR" %in% rownames(installed.packages()))) {
-  install_github("icraf-indonesia/LUMENSR")
-  do.call("library", list("LUMENSR"))
-}
-library(LUMENSR)
-
-generate_dummy_crosstab <- function(landcover, zone){
-  if(!is.data.frame(landcover)) {
-    stop("Land cover is not a data frame")
-  }
-  
-  if(!is.data.frame(zone)) {
-    stop("Zone is not a data frame")
-  }
-  
-  n_lc <- nrow(landcover)
-  n_pu <- nrow(zone)
-  
-  dummy1 <- data.frame(nPU = zone[,1], divider = n_lc*n_lc)
-  dummy1 <- expandRows(dummy1, 'divider')
-  
-  dummy2 <- data.frame(nT1 = landcover[,1], divider = n_lc)
-  dummy2 <- expandRows(dummy2, 'divider')
-  dummy2 <- data.frame(nT1 = rep(dummy2$nT1, n_pu))
-  
-  dummy3 <- data.frame(nT2 = rep(rep(landcover[,1], n_lc), n_pu))
-  
-  lucDummy <- cbind(dummy1, dummy2, dummy3)
-  colnames(lucDummy) <- c('ID_PU', 'ID_LC1', 'ID_LC2')
-  return(lucDummy)
+#### Helper Functions ####
+create_linkages_table <- function(sector, DBL, DFL) {
+  # Function to create the Linkages Table
+  DBL <- as.data.frame(DBL)
+  DFL <- as.data.frame(DFL)
+  # BPD_temp <- DBL / mean(DBL)
+  # FPD_temp <- DFL / mean(DFL)
+  Linkages_table <- cbind(sector, DBL, DFL)
+  colnames(Linkages_table) <- c("SECTOR", "CATEGORY", "DBL", "DFL")
+  return(Linkages_table)
 }
 
-spatial_sync_raster <- function(unsynced,reference,method="ngb", size_only=FALSE,raster_size,verbose=FALSE,...) {
-  if(!size_only) {
-    new_projection=projection(reference)
-    old_projection=projection(unsynced)
-    
-    new_res=res(reference)
-    old_res=res(unsynced)
-    
-    # Check for rotation
-    new_extent=bbox(reference)
-    old_extent=bbox(unsynced)
-    
-    if((new_extent[1,1] < 0 && old_extent[1,1] >=0) || (new_extent[1,1] >= 0 && old_extent[1,1] <0)) {
-      if(verbose) { message ("Rotating...") }
-      unsynced_rotated=rotate(unsynced)
-    } else
-    {
-      unsynced_rotated=unsynced
-    }
-    
-    if(new_projection!=old_projection | new_res[1] != old_res[1] | new_res[2] != old_res[2])
-    {
-      pr_extent=projectExtent(unsynced_rotated, new_projection)
-      # We need to fix the extent
-      pr_extent <- setExtent(pr_extent,extent(reference))
-      res(pr_extent)=res(reference)
-      if(new_projection!=old_projection)
-      {
-        if(verbose) { message("Projecting and resampling...") }
-        pr <- projectRaster(unsynced_rotated, pr_extent,method=method)
-      } else
-      {
-        if(verbose) { message("Same projection, resampling only...") }
-        pr <- raster::resample(unsynced_rotated, pr_extent,method=method)
-      }
-    } else
-    {
-      if(verbose) { message("Same projection and pixel size...") }
-      pr=unsynced_rotated
-    }
-    
-    if(verbose) { message("Expanding...") }
-    expanded_raster=extend(pr,reference)
-    if(verbose) { message("Cropping...") }
-    synced_raster=crop(expanded_raster,reference)
-    
-    # This in theory shouldn't be neccesasary...
-    if(verbose) { message("Fixing extents...") }
-    extent(synced_raster)=extent(reference)
-  } else {
-    #		if(missing(raster_size))
-    #		{
-    #			stop("For size_only=TRUE you must set the raster_size as c(ncol,nrow)")
-    #		} 
-    
-    unsynced_ncol=ncol(unsynced)
-    unsynced_nrow=nrow(unsynced)
-    
-    # Eventually we should preserve the pixel size		
-    unsynced_ulx=(raster_size[[1]]-unsynced_ncol)/2
-    unsynced_uly=(raster_size[[2]]-unsynced_nrow)/2
-    
-    extent(unsynced)=extent(unsynced_ulx,unsynced_ulx+unsynced_ncol,unsynced_uly,unsynced_uly+unsynced_nrow)
-    full_extent=extent(0,raster_size[[1]],0,raster_size[[2]])
-    
-    synced_raster=extend(unsynced,full_extent)
-    extent(synced_raster)=full_extent
-    res(synced_raster)=c(1,1)
-  }
-  #	if(!missing(filename))
-  #	{
-  #		writeRaster(synced_raster,...)
-  #	}
-  return(synced_raster)
+calculate_land_requirements <- function(land_distribution, land_use, fin_dem, int_con, sector) {
+  # Function to calculate land requirements
+  lc_freq <- freq(land_use)
+  lc_freq <- as.data.frame(na.omit(lc_freq))
+  landuse_area <- as.matrix((lc_freq$count))
+  land_distribution_t <- as.matrix(land_distribution)
+  landuse_area_diag <- diag(as.numeric(landuse_area))
+  land_distribution_val <- land_distribution_t %*% landuse_area_diag
+  
+  land_requirement <- rowSums(land_distribution_val)
+  fin_dem_rtot <- rowSums(fin_dem)
+  int_con_rtot <- rowSums(int_con)
+  demand <- fin_dem_rtot + int_con_rtot
+  land_requirement_coeff <- land_requirement / demand
+  land_requirement_coeff[is.infinite(land_requirement_coeff)] <- 0
+  
+  land_productivity_coeff <- land_requirement / fin_dem_rtot
+  land_productivity_coeff[is.infinite(land_productivity_coeff)] <- 0
+  
+  land_requirement_table <- cbind(
+    sector,
+    LR = round(land_requirement),
+    LR_PROP = round(land_requirement / sum(land_requirement), 2),
+    OUTPUT = round(demand),
+    DEMAND = round(demand),
+    LRC = round(land_requirement_coeff, 2),
+    LPC = round(land_productivity_coeff, 2)
+  )
+  
+  colnames(land_requirement_table) <- c("SECTOR", "CATEGORY", "LR", "LR_PROP", "OUTPUT", "DEMAND", "LRC", "LPC")
+  return(as.data.frame(land_requirement_table))
+}
+
+create_graph <- function(sector, data, y_label, graph_title) {
+  sector <- as.data.frame(sector$SECTOR)
+  colnames(sector) <- "SECTOR"
+  # Function to create a graph
+  ggplot(data = data.frame(SECTOR = sector, VALUE = data), aes(x = SECTOR, y = VALUE, fill = SECTOR)) +
+    geom_bar(colour = "black", stat = "identity") +
+    coord_flip() +
+    guides(fill = FALSE) +
+    xlab("Sectors") +
+    ylab(y_label) +
+    ggtitle(graph_title)
 }
