@@ -4,7 +4,7 @@ landuse_1_map="data/raster/tutupan_lahan_Bungo_2005r.tif"
 landuse_2_map="data/raster/tutupan_lahan_Bungo_2010r.tif"
 NPV_table="07_ta-profit/data/tabel_acuan_NPV.csv"
 ques_c_db="07_ta-profit/data/QUESC_database_2000-2020.csv"
-# lookup_lc="data/table/Tabel_landuse_Bungo.csv"
+lookup_c="data/table/Tabel_karbon_Bungo.csv"
 cost_threshold= 2
 raster.nodata=0
 T1=2005
@@ -36,7 +36,9 @@ setwd(wd)
 #Load Datasets
 data<-read_csv(ques_c_db)
 lookup_npv<- read_csv(NPV_table)
-# lookup_lc<-read_csv(lookup_lc)
+lookup_c<-read_csv(lookup_c)
+landuse1=raster(landuse_1_map)
+landuse2=raster(landuse_2_map)
 t1=T1
 t2=T2
 period<-t2-t1
@@ -106,30 +108,38 @@ opcost_all2$order<-c(1:nrow(opcost_all2))
 find_x_val<-subset(opcost_all2, opcost_log>=log10(cost_threshold))
 x_val<-find_x_val$order[1]
 
-#====NPV Accounting Process====
-# lookup_npv<-lookup_npv[which(lookup_npv[1] != 0),]
-# colnames(lookup_npv)<-c("ID", "LC", "NPV")
-# 
-# landuse1=raster(landuse_1_map)
-# landuse2=raster(landuse_2_map)
-# NAvalue(landuse1)<-raster.nodata
-# NAvalue(landuse2)<-raster.nodata
-# rcl.m.npv1<-as.matrix(lookup_npv[,1])
-# rcl.m.npv2<-as.matrix(lookup_npv[,3])
-# rcl.m.npv<-cbind(rcl.m.npv1,rcl.m.npv2)
-# npv1<-reclassify(landuse1, rcl.m.npv)
-# npv2<-reclassify(landuse2, rcl.m.npv)
-# npv_chg<-npv2-npv1
-# 
-# # opcost<-npv_chg/emission
-# delta_npv<-data$NPV2-data$NPV1
-# opcost<-delta_npv/data$em
+#====Carbon Accounting Process====
+NAvalue(landuse1)<-raster.nodata
+NAvalue(landuse2)<-raster.nodata
+rcl.m.c1<-as.matrix(lookup_c[,1])
+rcl.m.c2<-as.matrix(lookup_c[,3])
+rcl.m<-cbind(rcl.m.c1,rcl.m.c2)
+rcl.m<-rbind(rcl.m, c(0, NA))
+carbon1<-reclassify(landuse1, rcl.m)
+carbon2<-reclassify(landuse2, rcl.m)
+chk_em<-carbon1>carbon2
+emission<-((carbon1-carbon2)*3.67)*chk_em
 
-#export analysis result
+#====NPV Accounting Process====
+lookup_npv<-lookup_npv[which(lookup_npv[1] != 0),]
+colnames(lookup_npv)<-c("ID", "LC", "NPV")
+
+rcl.m.npv1<-as.matrix(lookup_npv[,1])
+rcl.m.npv2<-as.matrix(lookup_npv[,3])
+rcl.m.npv<-cbind(rcl.m.npv1,rcl.m.npv2)
+npv1<-reclassify(landuse1, rcl.m.npv)
+npv2<-reclassify(landuse2, rcl.m.npv)
+
+npv_chg<-npv2-npv1
+opcost<-npv_chg/emission
+
+#Map Result
 npvtiff1<-npv1
 npvtiff2<-npv2
 npvchgtiff<-npv_chg
 opcosttiff<-opcost
+
+#====Opportunity Cost Curve====
 
 # Calculate cumulative opportunity cost and emission rate
 opcost_all2$cum_opcost_g <- cumsum(opcost_all2$opcost)
@@ -142,3 +152,13 @@ ggplot(opcost_all2, aes(x=cum_opcost_g, y=cum_emrate_g)) +
        x="Cumulative Opportunity Cost", 
        y="Cumulative Emission Rate") +
   theme_minimal()
+
+ggplot(opcost_all2, aes(x = emrate, y = opcost)) +
+  geom_col(width = 0.5) +  # Adjust width as needed
+  scale_y_log10() +  # Use a logarithmic scale for the y-axis
+  labs(
+    x = "Emission Per-Ha Area (ton CO2-eq/ha/year)",
+    y = "Opportunity Cost ($/ton CO2-eq)",
+    fill = "Soil Type"
+  ) +
+  theme_bw()  # Use a black and white theme
