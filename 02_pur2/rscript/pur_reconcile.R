@@ -16,7 +16,7 @@ check_and_install_packages(required_packages)
 
 # Define file path and parameters
 path <- list(
-  ref_map = "data/pur_test/vector/vector1/RTRW_F.shp",
+  ref_map = "data/pur_test/vector/RTRW_F.shp",
   recon_file = rgdal::readOGR("data/pur_test/vector/",layer="PURrec1shp"),
   unresolved_table = "data/pur_test/tabular/unresolved_table.csv",
   attribute_dir = "01_pur1/output/PUR_attribute.csv",

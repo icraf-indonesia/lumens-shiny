@@ -17,7 +17,7 @@ check_and_install_packages(required_packages)
 
 # Define file path and parameters
 path <- list(
-  ref_map = "data/pur_test/vector/vector1/RTRW_F.shp",
+  ref_map = "data/pur_test/vector/RTRW_F.shp",
   lut_ref = "data/pur_test/tabular/RTRW_F.csv",
   ref_class = "data/pur_test/tabular/ref_class.csv",
   ref_mapping = "data/pur_test/tabular/ref_mapping.csv",
