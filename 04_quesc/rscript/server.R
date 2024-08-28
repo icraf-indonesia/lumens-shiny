@@ -242,7 +242,15 @@ server <- function(input, output, session) {
     )
   })
   
-  observeEvent(input$viewReport, {
-    file.show(rv$report_file)
+  observe({
+    if(!is_null(rv$report_file)){
+      file.show(rv$report_file)
+      js$closeWindow()
+      shinyjs::delay(5000, stopApp())
+    }
   })
+  
+  # observeEvent(input$viewReport, {
+  #   file.show(rv$report_file)
+  # })
 }

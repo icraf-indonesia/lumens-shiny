@@ -1,5 +1,7 @@
 page_sidebar(
   title = "Land Use Planning for Multiple Environmental Services (LUMENS)",
+  useShinyjs(),
+  extendShinyjs(text = jscode, functions = c("closeWindow")),
   theme = bs_theme(version = 5),
   sidebar = sidebar(
     title = "QuES-C",
@@ -16,7 +18,14 @@ page_sidebar(
     textInput("map2_year", "Year of T2"),
     shinyDirButton("wd", "Select working directory", "Select a folder"),
     textOutput("selected_directory"),
-    actionButton("processQUESC", "Run")
+    actionButton("processQUESC", "Run"),
+    tags$button(
+      id = 'close',
+      type = "button",
+      class = "btn action-button",
+      onclick = "setTimeout(function(){window.close();},500);",  # close browser
+      "Close window"
+    )
   ),
   
   # To display the report
@@ -26,5 +35,5 @@ page_sidebar(
       includeMarkdown("../helpfile/help.md")
     )
   ),
-  actionButton("viewReport", "View report", icon = icon("file-code")) 
+  # actionButton("viewReport", "View report", icon = icon("file-code"))
 )

@@ -32,6 +32,7 @@ install_load(
   "sf",
   "shinyvalidate",
   "remote",
+  "shinyjs",
   "rmarkdown"
 )
 
@@ -142,3 +143,5 @@ spatial_sync_raster <- function(unsynced,reference,method="ngb", size_only=FALSE
   #	}
   return(synced_raster)
 }
+
+jscode <- "shinyjs.closeWindow = function() { window.close(); }"
