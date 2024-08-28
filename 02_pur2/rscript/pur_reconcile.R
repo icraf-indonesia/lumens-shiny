@@ -114,5 +114,5 @@ saveRDS(summary_PUR, paste0(output_dir, "/summary_PUR.rds"))
 
 # Save summary as PUR final lookup table
 summary_PUR$COUNT <- NULL
-write.table(summary_PUR, "PUR_final_lookup_table.csv", quote = FALSE, row.names = FALSE, sep = ",")
+write.table(summary_PUR, paste0(output_dir, "PUR_final_lookup_table.csv"), quote = FALSE, row.names = FALSE, sep = ",")
 
