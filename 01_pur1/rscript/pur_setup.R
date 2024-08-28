@@ -21,7 +21,8 @@ path <- list(
   lut_ref = "data/pur_test/tabular/RTRW_F.csv",
   ref_class = "data/pur_test/tabular/ref_class.csv",
   ref_mapping = "data/pur_test/tabular/ref_mapping.csv",
-  pu_units = "data/pur_test/tabular/pu_units.csv"
+  pu_units = "data/pur_test/tabular/pu_units.csv",
+  map_resolution = 100
 )
 
 output_dir = "01_pur1/output/"
@@ -30,7 +31,7 @@ output_dir = "01_pur1/output/"
 
 # Prepare reference data
 ref_data <- st_read(path$ref_map)
-ref <- rasterise_multipolygon(sf_object = ref_data, raster_res = c(100,100), field = "ID")
+ref <- rasterise_multipolygon(sf_object = ref_data, raster_res = c(path$map_resolution,path$map_resolution), field = "ID")
 
 # Check and handle the projection of the reference data
 if (grepl("+units=m", as.character(st_crs(ref)$proj4string))){
@@ -90,7 +91,7 @@ for (i in 1:n_pu_list) {
   pu_data <- as.character(pu_list[i, 1])
   lut_table <- pu_list[i, 5]
   pu_vector <- st_read(file.path(dirname(lut_table), paste0(pu_data, ".shp")))
-  pu_raster <- rasterise_multipolygon(sf_object = pu_vector, raster_res = c(100,100), field = "ID")
+  pu_raster <- rasterise_multipolygon(sf_object = pu_vector, raster_res = c(path$map_resolution,path$map_resolution), field = "ID")
   #pu_raster <- raster(file.path(dirname(lut_table), paste0(pu_data, ".tif")))
   print(pu_raster)
   # Append the lookup table data to a list
@@ -311,6 +312,31 @@ df_levels$ID_rec <- ifelse(df_levels$Rec_phase1b == "unresolved_case",
 
 PUR_dbfinal<- bind_cols(PUR_dbfinal, df_levels["ID_rec"])
 
+# Prepare a new variable as a PUR vector output
+pur_unresolved <- rast(PUR)
+
+pur_reconciled <- PUR_dbfinal %>%
+  as_tibble() %>%
+  select(ID = NEW_ID, REFERENCE, Rec_phase1, Rec_phase1b) %>%  
+  arrange(ID)
+
+joined_data <- levels(pur_unresolved)[[1]] %>%
+  left_join(pur_reconciled, by = "ID") %>%
+  select(ID, REFERENCE, Rec_phase1, Rec_phase1b) 
+
+levels(pur_unresolved)[[1]] <- joined_data
+
+# Convert the raster to polygons
+pur_unresolved_vector <- as.polygons(pur_unresolved)
+
+pur_unresolved_vector$ID <- joined_data$ID
+pur_unresolved_vector$Reference <- joined_data$REFERENCE
+pur_unresolved_vector$Rec_phase1 <- joined_data$Rec_phase1
+pur_unresolved_vector$Rec_phase2 <- joined_data$Rec_phase1b
+
+# Export vector to shapefile
+writeVector(pur_unresolved_vector, filename = file.path(output_dir, "PUR_first_phase_result.shp"), overwrite = TRUE)
+
 # Filter out 'unresolved_case'
 filtered_df <- df_levels |>
   subset(Rec_phase1b != "unresolved_case")
@@ -332,25 +358,20 @@ unresolved_cases <- df_levels |>
 db_final2 <- rbind(merged_df, unresolved_cases)
 colnames(db_final2) <- c("ID","Rec_phase1b" , "COUNT")
 
-# Build the reclassification matrix
-reclass_matrix <- as.matrix(df_levels[, c('ID', 'ID_rec')])
-
-# reclassify the PUR raster
-PUR_reclassified <- reclassify(PUR, reclass_matrix) |> ratify()
-levels(PUR_reclassified) <- merge(levels(PUR_reclassified), db_final2, by = "ID")
-
 # write PUR reconciliation phase 1 raster
 write.dbf(PUR_dbfinal, paste0(output_dir, "PUR-build_database.dbf"))
-writeRaster(PUR, filename=paste0(output_dir, "PUR_reconciliation_result"), format="GTiff", overwrite=TRUE)
+writeRaster(PUR, filename=paste0(output_dir, "PUR_first_phase_result"), format="GTiff", overwrite=TRUE)
 
-# PUR1_output <- as.polygons(rast(PUR))
-# 
-# writeVector(PUR1_output, filename = paste(output_dir, "/PUR1_output.shp", sep=""), overwrite=TRUE)
+# Prepare variable to export PUR shapefile reclassified
+# Build the reclassification matrix
+# reclass_matrix <- as.matrix(df_levels[, c('ID', 'ID_rec')])
 
-# writeRaster(PUR_reclassified, filename="PUR_reconciliation_result_dissolved", format="GTiff", overwrite=TRUE)
+# reclassify the PUR raster
+# PUR_reclassified <- reclassify(PUR, reclass_matrix) |> ratify()
+# levels(PUR_reclassified) <- merge(levels(PUR_reclassified), db_final2, by = "ID")
 
-PUR_rec1_shp  <- as.polygons(rast(PUR_reclassified))
-writeVector(PUR_rec1_shp, filename = paste(output_dir, "/PUR_reconciliation_result.shp", sep=""), overwrite=TRUE)
+# PUR_rec1_shp  <- as.polygons(rast(PUR_reclassified))
+# writeVector(PUR_rec1_shp, filename = paste(output_dir, "/PUR_reconciliation_result.shp", sep=""), overwrite=TRUE)
 
 #=Save PUR final database and unresolved case(s) 
 database_unresolved<-subset(PUR_dbfinal, Rec_phase1b == "unresolved_case") |> dplyr::select(-ID_rec)
@@ -376,8 +397,6 @@ write.table(data_attribute, paste0(output_dir, "/PUR_attribute.csv"), quote=FALS
 #PUR_dbfinal <- PUR_dbfinal |> select(-ID_rec)
 write.table(PUR_dbfinal, paste0(output_dir, "/PUR_dbfinal.csv"), quote=FALSE, row.names=FALSE, sep=",")
 # write.dbf(data_attribute, "PUR_attribute.dbf")
-
-plot(PUR_rec1_shp)
 
 # 7. Handle unresolved case ------------------
 

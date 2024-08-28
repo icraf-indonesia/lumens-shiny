@@ -17,10 +17,11 @@ check_and_install_packages(required_packages)
 # Define file path and parameters
 path <- list(
   ref_map = "data/pur_test/vector/RTRW_F.shp",
-  recon_file = rgdal::readOGR("data/pur_test/vector/",layer="PURrec1shp"),
-  unresolved_table = "data/pur_test/tabular/unresolved_table.csv",
+  recon_file = rgdal::readOGR("01_pur1/output/",layer="PUR_first_phase_result"),
+  unresolved_table = "data/pur_test/tabular/unresolved_table_konsesi_piaps_peat.csv",
   attribute_dir = "01_pur1/output/PUR_attribute.csv",
-  attribute_db = "01_pur1/output/PUR_dbfinal.csv"
+  attribute_db = "01_pur1/output/PUR_dbfinal.csv",
+  map_resolution = 100
 )
 
 output_dir = "02_pur2/output/"
@@ -29,7 +30,7 @@ output_dir = "02_pur2/output/"
 
 # Prepare reference data
 ref_data <- st_read(path$ref_map)
-ref <- rasterise_multipolygon(sf_object = ref_data, raster_res = c(100,100), field = "ID")
+ref <- rasterise_multipolygon(sf_object = ref_data, raster_res = c(path$map_resolution,path$map_resolution), field = "ID")
 
 # Load and process attribute table
 attribute <- read.table(path$attribute_dir, header = TRUE, sep = ",")
@@ -78,7 +79,7 @@ attribute.edit <- attribute.edit |> select(ID = PU_name, Rec_phase1b, resolved, 
 # Save final reconciliation shapefile
 sa <- path$recon_file |> sf::st_as_sf()
 sa <- merge(sa, attribute.edit, by = "ID", all = TRUE)
-st_write(sa, paste0(output_dir, "/pur_recon_ciliation.shp"), driver = "ESRI Shapefile", append = FALSE)
+st_write(sa, paste0(output_dir, "/PUR_reconciliation_result.shp"), driver = "ESRI Shapefile", append = FALSE)
 
 plot(sa)
 
@@ -97,7 +98,7 @@ summary_PUR <- merge(summary_PUR, unique_class, by = "PU_ID")
 
 # Reclassify and save the raster
 raster_temp <- reclassify(test4, cbind(NA, 255))
-raster_temp_name <- paste0(output_dir, "/raster_temp.tif")
+raster_temp_name <- paste0(output_dir, "/PUR_reconciliation_result.tif")
 writeRaster(raster_temp, filename = raster_temp_name, format = "GTiff", overwrite = TRUE)
 
 # Save attribute table
@@ -107,10 +108,11 @@ csv_file <- paste0(output_dir, "/csv_planning_unit.csv")
 write.table(pur_attribute_table, file = csv_file, quote = FALSE, row.names = FALSE, sep = ",")
 
 # Save RDS for report
-dir.create(path = paste0(output_dir, "/report_files"))
-saveRDS(pur_final_recon_rast, paste0(output_dir, "/pur_final_recon_rast.rds"))
+# dir.create(path = paste0(output_dir, "/report_files"))
+saveRDS(pur_final_recon_rast, paste0(output_dir, "/PUR_final_recon_rast.rds"))
 saveRDS(summary_PUR, paste0(output_dir, "/summary_PUR.rds"))
 
 # Save summary as PUR final lookup table
 summary_PUR$COUNT <- NULL
 write.table(summary_PUR, "PUR_final_lookup_table.csv", quote = FALSE, row.names = FALSE, sep = ",")
+
