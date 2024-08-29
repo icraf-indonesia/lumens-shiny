@@ -1,4 +1,4 @@
-# Planning Unit Reconciliation (PUR) #1 Script
+# Planning Unit Reconciliation (PUR Reconcile) #2 Script
 
 # 0. Load functions and libraries -------------------------------
 
@@ -7,7 +7,7 @@ source("01_pur1/rscript/functions_pur.R")
 
 # Check and install required packages
 required_packages <- c(
-  "raster", "terra", "dplyr", "sf"
+  "raster", "terra", "dplyr", "sf", "readxl"
 )
 
 check_and_install_packages(required_packages)
@@ -16,11 +16,8 @@ check_and_install_packages(required_packages)
 
 # Define file path and parameters
 path <- list(
-  ref_map = "data/pur_test/vector/RTRW_F.shp",
-  recon_file = rgdal::readOGR("01_pur1/output/",layer="PUR_first_phase_result"),
-  unresolved_table = "data/pur_test/tabular/unresolved_table_konsesi_piaps_peat.csv",
-  attribute_dir = "01_pur1/output/PUR_attribute.csv",
-  attribute_db = "01_pur1/output/PUR_dbfinal.csv",
+  recon_file = "01_pur1/output/PUR_first_phase_result.shp",
+  unresolved_table = "01_pur1/output/PUR_unresolved_case.xlsx",
   map_resolution = 100
 )
 
@@ -28,29 +25,45 @@ output_dir = "02_pur2/output/"
 
 # 2. Data preparation -------------------------------------------
 
-# Prepare reference data
-ref_data <- st_read(path$ref_map)
-ref <- rasterise_multipolygon(sf_object = ref_data, raster_res = c(path$map_resolution,path$map_resolution), field = "ID")
+# Load shapefile
+pur_sa <- path$recon_file %>% st_read %>% st_as_sf() %>% st_drop_geometry()
+sa <- path$recon_file %>% st_read()
 
-# Load and process attribute table
-attribute <- read.table(path$attribute_dir, header = TRUE, sep = ",")
-last_unresolved <- max(which(attribute$Rec_phase1b == "unresolved_case"))
-attribute <- attribute[1:last_unresolved, ]
+# Define attribute ori from shp
+attribute_ori <- pur_sa %>% st_drop_geometry() %>% 
+  rename(Rec_phase1b = Rec_phase2 ) %>% 
+  select(ID, Rec_phase1b)
+
+# Define attribute from shp
+pur_attribute_top <- pur_sa %>% rename(Rec_phase1b = Rec_phase2 ) %>% 
+  select(ID_rec, Rec_phase1b) %>% 
+  filter(!Rec_phase1b %in% "unresolved_case") %>% 
+  distinct(Rec_phase1b) %>% 
+  tibble::rownames_to_column("ID") %>%
+  mutate(ID = as.numeric(ID))
+
+pur_attribute_mid <- pur_sa %>%
+  rename(Rec_phase1b = Rec_phase2 ) %>% 
+  select( ID, Rec_phase1b) %>% 
+  filter(Rec_phase1b %in% "unresolved_case") %>% 
+  arrange(ID)
+
+pur_attribute_top %>% bind_rows(pur_attribute_mid)
+attribute <- pur_attribute_top
 
 # Load unresolved cases and join with attribute table
-unresolved_edit <- read.table(path$unresolved_table, header = TRUE, sep = ",")
-unresolved_edit.c1 <- as.data.frame(unresolved_edit$ID)
-unresolved_edit.c2 <- as.data.frame(unresolved_edit$Reconcile.Action)
+unresolved_edit <- readxl::read_xlsx(path$unresolved_table) # read xlsx
+unresolved_edit.c1 <- as.data.frame(unresolved_edit[["ID"]]) # define data frame ID field
+unresolved_edit.c2 <- as.data.frame(unresolved_edit[["Reconcile Action"]]) # define data frame Reconcile Action field
 colnames(unresolved_edit.c1)[1] <- "ID"
 colnames(unresolved_edit.c2)[1] <- "resolved"
 unresolved_edit.join <- cbind(unresolved_edit.c1, unresolved_edit.c2)
 
 # Load original attribute data and merge with unresolved cases
-attribute_ori <- read.csv(path$attribute_db) |> select(ID = NEW_ID, Rec_phase1b)
 attribute.edit <- merge(attribute_ori, unresolved_edit.join, by = "ID", all = TRUE)
 
 # 3. Resolve any unresolved cases --------------------------------
-test <- as.data.frame(unique(unresolved_edit$Reconcile.Action))
+test <- as.data.frame(unique(unresolved_edit[["Reconcile Action"]]))
 test2 <- as.data.frame(unique(attribute$Rec_phase1b))
 colnames(test)[1] <- "add"
 colnames(test2)[1] <- "add"
@@ -72,22 +85,21 @@ colnames(unique_class)[1] <- "resolved"
 countrow <- nrow(unique_class)
 unique_class$PU_ID <- seq(countrow)
 attribute.edit <- merge(attribute.edit, unique_class, by = "resolved")
-attribute.edit <- attribute.edit |> select(ID = PU_name, Rec_phase1b, resolved, res_id, PU_ID)
+attribute.edit <- attribute.edit |> select(ID = PU_name, resolved, PU_ID)
 
 # 5. Save final reconcilitation data ----------------------------
 
 # Save final reconciliation shapefile
-sa <- path$recon_file |> sf::st_as_sf()
-sa <- merge(sa, attribute.edit, by = "ID", all = TRUE)
+sa0 <- sa %>% select(-Referenc_1)
+sa <- merge(sa0, attribute.edit, by = "ID", all = TRUE)
 st_write(sa, paste0(output_dir, "/PUR_reconciliation_result.shp"), driver = "ESRI Shapefile", append = FALSE)
 
-plot(sa)
-
 # Save final reconciliation raster file
+ref0 <- sa %>% select(ID, REFERENCE)
+ref <- rasterise_multipolygon(sf_object = ref0, raster_res = c(path$map_resolution,path$map_resolution), field = "ID")
+
 pur_final_recon_rast <- terra::rasterize(vect(sa), rast(ref), field = "PU_ID", res = res(ref)[1], background = NA)
 pur_final_recon_rast2 <- terra::rasterize(vect(sa), rast(ref), field = "resolved", res = res(ref)[1], background = NA)
-
-plot(pur_final_recon_rast2)
 
 # Create summary of final reconciliation
 test4 <- raster(pur_final_recon_rast)
@@ -97,7 +109,7 @@ colnames(summary_PUR)[1] <- "PU_ID"
 summary_PUR <- merge(summary_PUR, unique_class, by = "PU_ID")
 
 # Reclassify and save the raster
-raster_temp <- reclassify(test4, cbind(NA, 255))
+raster_temp <- reclassify(test4, cbind(255, NA))
 raster_temp_name <- paste0(output_dir, "/PUR_reconciliation_result.tif")
 writeRaster(raster_temp, filename = raster_temp_name, format = "GTiff", overwrite = TRUE)
 
@@ -115,4 +127,3 @@ saveRDS(summary_PUR, paste0(output_dir, "/summary_PUR.rds"))
 # Save summary as PUR final lookup table
 summary_PUR$COUNT <- NULL
 write.table(summary_PUR, paste0(output_dir, "PUR_final_lookup_table.csv"), quote = FALSE, row.names = FALSE, sep = ",")
-

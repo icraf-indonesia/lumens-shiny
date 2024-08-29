@@ -1,4 +1,4 @@
-# Planning Unit Reconciliation (PUR) #1 Script
+# Planning Unit Reconciliation (PUR Setup) #1 Script
 
 # 0. Load functions and libraries -------------------------------
 
@@ -17,11 +17,11 @@ check_and_install_packages(required_packages)
 
 # Define file path and parameters
 path <- list(
-  ref_map = "data/pur_test/vector/RTRW_F.shp",
-  lut_ref = "data/pur_test/tabular/RTRW_F.csv",
-  ref_class = "data/pur_test/tabular/ref_class.csv",
-  ref_mapping = "data/pur_test/tabular/ref_mapping.csv",
-  pu_units = "data/pur_test/tabular/pu_units.csv",
+  ref_map = "data/vector/Pola_Ruang_Bungo_F.shp",
+  lut_ref = "data/table/pola_ruang_bungo.csv",
+  ref_class = "data/table/ref_class_bungo.csv",
+  ref_mapping = "data/table/ref_mapping_bungo.csv",
+  pu_units = "data/table/pu_units_bungo.csv",
   map_resolution = 100
 )
 
@@ -92,22 +92,15 @@ for (i in 1:n_pu_list) {
   lut_table <- pu_list[i, 5]
   pu_vector <- st_read(file.path(dirname(lut_table), paste0(pu_data, ".shp")))
   pu_raster <- rasterise_multipolygon(sf_object = pu_vector, raster_res = c(path$map_resolution,path$map_resolution), field = "ID")
-  #pu_raster <- raster(file.path(dirname(lut_table), paste0(pu_data, ".tif")))
   print(pu_raster)
-  # Append the lookup table data to a list
+
   pu_lut_list[[i]] <- lut_table
-  
-  # Append 'data_name' to the 'central_attr' list
   central_attr <- append(central_attr, data_name)
-  
-  # Reclassify NA and 255 values in the raster data
-  pu_raster[is.na(pu_raster)] <- 0  # Set NA values to 0
+  pu_raster[is.na(pu_raster)] <- 0
   #pu_raster <- reclassify(pu_raster, cbind(255, 0))  # Reclassify 255 values to 0
-  
-  # Rename the raster to 'data_name'
+
   names(pu_raster) <- data_name
-  
-  # Perform calculations involving 'pu_raster' and store in 'R' variables
+
   j <- n_pu_list + 1 - i
   assign(paste0("R", i), pu_raster * (100^(j)))
   
@@ -119,20 +112,12 @@ for (i in 1:n_pu_list) {
 
 # Calculate a reference value and store in an 'R' variable
 ref.number <- n_pu_list + 1
-R_ref <- ref * 1  # Assuming 'ref' is already defined
+R_ref <- ref * 1  
 assign(paste0("R", ref.number), R_ref)
 
-# Update the 'cmd' string with the reference value
 cmd <- paste0(cmd, "R", ref.number)
-
-# Combine reference and planning units
-# # Add the reference raster to the command1 list
 command1[[ref.number]] <- R_ref
-
-# Create the PUR_stack
 PUR_stack <- rast(command1)
-# PUR_stack <- rast(command1_adjusted)
-plot(PUR_stack)
 
 # 3. Create raster attribute table -------------------------
 
@@ -317,25 +302,26 @@ pur_unresolved <- rast(PUR)
 
 pur_reconciled <- PUR_dbfinal %>%
   as_tibble() %>%
-  select(ID = NEW_ID, REFERENCE, Rec_phase1, Rec_phase1b) %>%  
+  select(ID = NEW_ID, REFERENCE, Rec_phase1, Rec_phase1b, ID_rec) %>%  
   arrange(ID)
 
 joined_data <- levels(pur_unresolved)[[1]] %>%
   left_join(pur_reconciled, by = "ID") %>%
-  select(ID, REFERENCE, Rec_phase1, Rec_phase1b) 
+  select(ID, REFERENCE, Rec_phase1, Rec_phase1b, ID_rec) 
 
 levels(pur_unresolved)[[1]] <- joined_data
 
 # Convert the raster to polygons
 pur_unresolved_vector <- as.polygons(pur_unresolved)
-
 pur_unresolved_vector$ID <- joined_data$ID
+
+col_order <- c("ID", "REFERENCE")
+pur_unresolved_vector <- pur_unresolved_vector[, col_order]
+
 pur_unresolved_vector$Reference <- joined_data$REFERENCE
 pur_unresolved_vector$Rec_phase1 <- joined_data$Rec_phase1
 pur_unresolved_vector$Rec_phase2 <- joined_data$Rec_phase1b
-
-# Export vector to shapefile
-writeVector(pur_unresolved_vector, filename = file.path(output_dir, "PUR_first_phase_result.shp"), overwrite = TRUE)
+pur_unresolved_vector$ID_rec <- joined_data$ID_rec
 
 # Filter out 'unresolved_case'
 filtered_df <- df_levels |>
@@ -362,17 +348,6 @@ colnames(db_final2) <- c("ID","Rec_phase1b" , "COUNT")
 write.dbf(PUR_dbfinal, paste0(output_dir, "PUR-build_database.dbf"))
 writeRaster(PUR, filename=paste0(output_dir, "PUR_first_phase_result"), format="GTiff", overwrite=TRUE)
 
-# Prepare variable to export PUR shapefile reclassified
-# Build the reclassification matrix
-# reclass_matrix <- as.matrix(df_levels[, c('ID', 'ID_rec')])
-
-# reclassify the PUR raster
-# PUR_reclassified <- reclassify(PUR, reclass_matrix) |> ratify()
-# levels(PUR_reclassified) <- merge(levels(PUR_reclassified), db_final2, by = "ID")
-
-# PUR_rec1_shp  <- as.polygons(rast(PUR_reclassified))
-# writeVector(PUR_rec1_shp, filename = paste(output_dir, "/PUR_reconciliation_result.shp", sep=""), overwrite=TRUE)
-
 #=Save PUR final database and unresolved case(s) 
 database_unresolved<-subset(PUR_dbfinal, Rec_phase1b == "unresolved_case") |> dplyr::select(-ID_rec)
 
@@ -392,6 +367,9 @@ if (length(missing_strings) > 0) {
   new_rows <- tibble(ID = new_IDs, Rec_phase1b = missing_strings)
   data_attribute <- bind_rows(data_attribute, new_rows)
 }
+
+# Export vector to shapefile
+writeVector(pur_unresolved_vector, filename = file.path(output_dir, "PUR_first_phase_result.shp"), overwrite = TRUE)
 
 write.table(data_attribute, paste0(output_dir, "/PUR_attribute.csv"), quote=FALSE, row.names=FALSE, sep=",")
 #PUR_dbfinal <- PUR_dbfinal |> select(-ID_rec)
@@ -424,9 +402,6 @@ if (nrow(unresolved_cases) != 0) {
   dat2 <- data.frame(COUNT = database_unresolved$Freq)
   dat3 <- data.frame(REFERENCE = database_unresolved$REFERENCE)
   database_unresolved_out <- cbind(dat1, database_unresolved_out, dat3, dat2)
-  
-  write.table(database_unresolved_out, paste0(output_dir, "/PUR_unresolved_case.csv"), quote=FALSE, row.names=FALSE, sep=",")
-  
   database_unresolved_out$'Reconcile Action' <- "unresolved_case"
   
   # Create the workbook
@@ -434,7 +409,7 @@ if (nrow(unresolved_cases) != 0) {
   
   # Add worksheets
   addWorksheet(database_unresolved_out_wb, "PUR_unresolved_case")
-  writeData(database_unresolved_out_wb, sheet = "PUR_unresolved_case", x = database_unresolved_out, startCol = 1)
+  writeData(database_unresolved_out_wb, sheet = "PUR_unresolved_case", x = as_tibble(database_unresolved_out), startCol = 1)
   
   addWorksheet(database_unresolved_out_wb, "drop-down_attribute")
   pur_attribute_df <- data_attribute[data_attribute$Rec_phase1b != "unresolved_case", -1]
@@ -442,20 +417,22 @@ if (nrow(unresolved_cases) != 0) {
   
   new_row <- as.data.frame(matrix("unresolved_case", nrow = 1, ncol = ncol(pur_attribute_df)))
   colnames(new_row) <- colnames(pur_attribute_df)
-  pur_attribute_df <- rbind(pur_attribute_df, new_row)
+  pur_attribute_df <- rbind(pur_attribute_df, new_row) %>% 
+    mutate(`Reconcile Action` = as.factor(`Reconcile Action`))
   
   #pur_attribute_df$`Reconcile Action`[1] <- "unresolved_case"
-  writeData(database_unresolved_out_wb, sheet = "drop-down_attribute", x = pur_attribute_df, startCol = 1)
+  writeData(database_unresolved_out_wb, sheet = "drop-down_attribute", x = as_tibble(pur_attribute_df), startCol = 1)
   
-  # Add dropdown to Excel workbook 
+  # Add dropdown to Excel workbook
   dataValidation(
     wb = database_unresolved_out_wb,
     sheet = "PUR_unresolved_case",
-    cols = 7,
+    cols = 9,
     rows = 2:(1+nrow(database_unresolved_out)),
     type = "list",
-    value = "'drop-down_attribute'!$A$2:$A$1000",
-    allowBlank = TRUE,
+    # value = "'drop-down_attribute'!$A$2:$A$100",
+    value = paste0("'drop-down_attribute'!$A$2:$A$", nrow(pur_attribute_df)+1),
+    allowBlank = TRUE
   )
   
   # Save the workbook
