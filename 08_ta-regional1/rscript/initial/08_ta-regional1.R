@@ -1,6 +1,6 @@
 #Regional Economy Single I-O Descriptive Analysis
-working_dir="C:/Users/ykarimah/Downloads/Result"
-sector_file="data/regeco/01_sektor.csv"
+# working_dir="C:/Users/ykarimah/Downloads/Result"
+sector_file="data/regeco/01_sector.csv"
 int_con_file="data/regeco/02_intermediate demand.csv"
 fin_dem_struc_file="data/regeco/03_final demand comp.csv"
 fin_dem_file="data/regeco/04_final demand.csv"
@@ -13,7 +13,7 @@ I_O_period= 2010
 
 #Regional Economy Land Distribution and Requirement Analysis
 land_use="data/raster/tutupan_lahan_Bungo_2010r.tif"
-land.distribution_file="data/regeco/land_distribution_15.csv"
+land.distribution_file="data/regeco/08_land_distribution_15.csv"
 
 library(reshape2)
 library(ggplot2)
@@ -25,7 +25,7 @@ library(terra)
 time_start<-paste(eval(parse(text=(paste("Sys.time ()")))), sep="")
 
 #=Set Working Directory
-setwd(working_dir)
+# setwd(working_dir)
 
 #READ INPUT FILE
 int_con <- read.csv(int_con_file, header = FALSE)

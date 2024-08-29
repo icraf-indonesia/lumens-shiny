@@ -1,105 +1,180 @@
 server <- function(input, output, session) {
-  #### Initialize all required reactive values ####
+  
+  #### Initialize reactive values ####
   rv <- reactiveValues(
     wd = "",
     report_file = NULL,
-    map1_year = NULL,
-    map2_year = NULL,
     map1_file = NULL,
     map2_file = NULL,
-    mapz_file = NULL,
+    year1 = NULL,
+    year2 = NULL,
+    carbon_file = NULL,
+    npv_file = NULL,
     map1_rast = NULL,
     map2_rast = NULL,
-    mapz_rast = NULL,
-    mapc_spat = NULL,
-    maps_spat = NULL,
-    mapz_df = NULL,
-    map_c1 = NULL,
-    map_c2 = NULL,
-    map_e = NULL,
-    map_s = NULL,
-    tbl_c = NULL,
-    tbl_quesc = NULL,
-    period_year = NULL,
-    preques = list()
+    tbl_npv = NULL,
+    quesc_tbl = NULL,
+    all_tbl_carbon = NULL,
+    tbl_carbon = NULL,
+    period = NULL,
+    tot_area = NULL,
+    opcost_table = NULL,
+    npv_chg_map = NULL,
+    opcost_map = NULL,
+    emission_map = NULL,
+    raster_nodata = NULL,
+    map_npv1 = NULL,
+    map_npv2 = NULL
   )
-  
-  lc_list <- c("map1", "map2")
-  map_list <- c("mapz", "map1", "map2")
   
   volumes <- c(
     getVolumes()()
   )
   
+  # Define helper functions
   is_numeric_str <- function(s) {
     return(!is.na(as.integer(as.character(s))))
   }
   
-  #### Read file inputs ####
-  lapply(lc_list, function(id) {
-    inputs <- paste0(id, "_file")
-    files <- paste0(id, "_file")
-    rasters <- paste0(id, "_rast")
-    df <- paste0(id, "_df")
-    
-    observeEvent(input[[inputs]], {
-      rv[[files]] <- input[[inputs]]
-      rv[[rasters]] <- rv[[files]]$datapath %>% raster() 
-    })
+  #### File Inputs ####
+  observeEvent(input$map1_file, {
+    rv$map1_file <- input$map1_file$datapath
+    rv$map1_rast <- raster(rv$map1_file)
   })
   
-  observeEvent(input$mapz_file, {
-    shp <- input$mapz_file
-    if(is.null(shp))
-      return()
-    
-    prev_wd <- getwd()
-    uploaded_dir <- dirname(shp$datapath[1])
-    setwd(uploaded_dir)
-    for(i in 1:nrow(shp)){
-      file.rename(shp$datapath[i], shp$name[i])
-    }
-    setwd(prev_wd)
-    
-    rv$mapz_file <- paste(uploaded_dir, shp$name[grep(pattern="*.shp$", shp$name)], sep = "/")
-    
-    zone_sf <- rv$mapz_file %>% st_read()
-    zone <- zone_sf %>% 
-      rasterise_multipolygon(
-        raster_res = c(100, 100), 
-        field = "IDS" 
-      )
-    rv$mapz_df <- data.frame(ID_PU = zone_sf[[1]], PU = zone_sf[[2]])
-    rv$mapz_rast <- zone %>% raster()
+  observeEvent(input$map2_file, {
+    rv$map2_file <- input$map2_file$datapath
+    rv$map2_rast <- raster(rv$map2_file)
   })
   
-  #### Read year input ####
-  lapply(lc_list, function(x) {
-    id <- paste0(x, "_year")
-    observeEvent(input[[id]], {
-      rv[[id]] <- input[[id]]
-    })
-  })
-  
-  #### Read carbon lookup table ####
   observeEvent(input$carbon_file, {
-    f <- input$carbon_file
-    df_c <- read.csv(f$datapath)
-    
-    if(nrow(df_c) == 0)
-      return()
-    if(nrow(df_c) < 2)
-      return()
-    if(!is_numeric_str(df_c[1, 1]))
-      return()
-    
-    df <- data.frame("ID_LC" = as.integer((as.character(df_c[, 1]))))
-    df$LC <- df_c[, 2]
-    df$CARBON <- df_c[, 3]
-    rv$tbl_c <- df
+    rv$carbon_file <- input$carbon_file$datapath
+    df_c <- read.csv(rv$carbon_file)
+    rv$quesc_tbl <- df_c
+    rv$tbl_carbon <- df_c %>% select(ID = 1, Carbon = 3)
   })
   
-  #### Set working directory ####
+  observeEvent(input$npv_file, {
+    rv$npv_file <- input$npv_file$datapath
+    df_n <- read.csv(rv$npv_file)
+    rv$tbl_npv <- df_n %>% select(ID_LC = 1, NPV = 3)
+  })
+  
+  #### Read and Process Years ####
+  observeEvent(c(input$year1, input$year2), {
+    rv$period <- as.numeric(input$year2) - as.numeric(input$year1)
+  })
+  
+  #### Process Data ####
+  observeEvent(input$process, {
+    
+    # Validate inputs
+    if (is.null(rv$map1_rast) || is.null(rv$map2_rast) || is.null(rv$tbl_carbon) || is.null(rv$tbl_npv)) {
+      showNotification("Please upload all required files", type = "error")
+      return()
+    }
+    withProgress(message = "Processing Data", value = 0, {
+      
+      #Prepare NPV Lookup Table
+      lookup_n<-rv$tbl_npv
+      colnames(lookup_n)[1] ="ID_LC1"
+      colnames(lookup_n)[2] ="NPV1"
+      rv$quesc_tbl<-merge(rv$quesc_tbl,lookup_n,by="ID_LC1")
+      colnames(lookup_n)[1] ="ID_LC2"
+      colnames(lookup_n)[2] ="NPV2"
+      rv$quesc_tbl<-merge(rv$quesc_tbl,lookup_n,by="ID_LC2")
+      tot_area<-sum(rv$quesc_tbl$Ha)
+      
+      #Build Opcost Table
+      data_em_sel <- rv$quesc_tbl
+      data_em_sel <- data_em_sel[ which(data_em_sel$EM > 0),]
+      data_em_sel<-within(data_em_sel, {
+        em_rate<-((C_T1-C_T2)*(Ha*3.67))/(tot_area*period)
+        em_tot<- (C_T1-C_T2)*3.67
+        sq_rate<-((C_T1-C_T2)*(Ha*3.67))/(tot_area*period)
+        sq_tot<- (C_T1-C_T2)*3.67
+        opcost<-(NPV1-NPV2)/em_tot
+        opcost_sq<-(NPV1-NPV2)/sq_tot
+        cumsum_em<-cumsum(em_rate)
+        cumsum_sq<-cumsum(sq_rate)
+      })
+      
+      lcc_col<-as.data.frame(data_em_sel$LU_CHG)
+      zone_col<-as.data.frame(data_em_sel$PU)
+      opcost_col<-as.data.frame(data_em_sel$opcost)
+      em_col<-as.data.frame(data_em_sel$em_rate)
+      opcost_tab<-cbind(lcc_col,zone_col)
+      opcost_tab<-cbind(opcost_tab,opcost_col)
+      opcost_tab<-cbind(opcost_tab,em_col)
+      names(opcost_tab)[1] <- "luchg"
+      names(opcost_tab)[2] <- "zone"
+      names(opcost_tab)[3] <- "opcost"
+      names(opcost_tab)[4] <- "emrate"
+      
+      #Build Positive Opcost Table
+      opcost_tab_p<- opcost_tab[ which(opcost_tab$opcost >= 0),]
+      opcost_tab_p<- opcost_tab_p[order(opcost_tab_p$opcost),]
+      opcost_tab_p$cum_emrate<-cumsum(opcost_tab_p$emrate)
+      TA_opcost_database<-opcost_tab_p
+      opcost_tab_p$opcost_log<-log10(opcost_tab_p$opcost)
+      is.na(opcost_tab_p) <- sapply(opcost_tab_p, is.infinite)
+      opcost_tab_p[is.na(opcost_tab_p)] <- 0
+      
+      #Build Negative Opcost Table
+      opcost_tab_n<- opcost_tab[ which(opcost_tab$opcost < 0),]
+      opcost_tab_n<- opcost_tab_n[order(opcost_tab_n$opcost),]
+      opcost_tab_n$cum_emrate<-cumsum(opcost_tab_n$emrate)
+      opcost_tab_n$opcost_log<-opcost_tab_n$opcost*-1
+      opcost_tab_n$opcost_log<-log10(opcost_tab_n$opcost_log)*-1
+      
+      #Combine Positive && Negative Opcost
+      opcost_all<-rbind(opcost_tab_n, opcost_tab_p)
+      opcost_all$cum_emrate2<-as.factor(opcost_all$cum_emrate)
+      
+      #Find Cost Threshold
+      rv$opcost_table <- opcost_all
+      rv$opcost_table$order<-c(1:nrow(rv$opcost_table))
+      find_x_val<-subset(rv$opcost_table, opcost_log>=log10(cost_threshold))
+      x_val<-find_x_val$order[1]
+      
+      # Load land use maps and set NoData value
+      NAvalue(rv$map1_rast) <- as.numeric(input$raster_nodata)
+      NAvalue(rv$map2_rast) <- as.numeric(input$raster_nodata)
+
+      # Merge NPV and Carbon data
+      names(rv$tbl_carbon)[names(rv$tbl_carbon) == "ID"] <- "ID_LC"
+      merged_data <- merge(rv$tbl_npv, rv$tbl_carbon, by = "ID_LC")
+      reclassify_matrix <- as.matrix(merged_data[, c("ID_LC", "Carbon")])
+      
+      # Carbon Accounting
+      map_carbon1 <- reclassify(rv$map1_rast, reclassify_matrix)
+      map_carbon2 <- reclassify(rv$map2_rast, reclassify_matrix)
+      
+      # Calculate Emissions
+      chk_em <- map_carbon1 > map_carbon2
+      rv$emission_map <- ((map_carbon1 - map_carbon2) * 3.67) * chk_em
+      
+      # NPV Accounting
+      npv_matrix <- as.matrix(merged_data[, c("ID_LC", "NPV")])
+      rv$map_npv1 <- reclassify(rv$map1_rast, npv_matrix)
+      rv$map_npv2 <- reclassify(rv$map2_rast, npv_matrix)
+      
+      # Calculate NPV Change and Opportunity Cost
+      rv$npv_chg_map <- rv$map_npv2 - rv$map_npv1
+      rv$opcost_map <- rv$npv_chg_map / rv$emission_map
+      
+      # Generate Output Maps
+      writeRaster(map_carbon1, file.path(rv$wd, "carbon_map_t1.tif"), overwrite = TRUE)
+      writeRaster(map_carbon2, file.path(rv$wd, "carbon_map_t2.tif"), overwrite = TRUE)
+      writeRaster(rv$emission_map, file.path(rv$wd, "emission_map.tif"), overwrite = TRUE)
+      writeRaster(rv$opcost_map, file.path(rv$wd, "opcost_map.tif"), overwrite = TRUE)
+      
+      setProgress(1, message = "Processing Complete")
+      showNotification("All outputs have been generated", type = "message")
+    })
+  })
+  
+  # Set working directory
   shinyDirChoose(
     input, 
     'wd',
@@ -116,120 +191,24 @@ server <- function(input, output, session) {
     }
   })
   
-  # Input validation
-  iv <- InputValidator$new()
-  iv$add_rule("map1_file", sv_required(message = "Please upload land cover map at T1"))
-  iv$add_rule("map2_file", sv_required(message = "Please upload land cover map at T2"))
-  iv$add_rule("mapz_file", sv_required(message = "Please upload planning unit"))
-  iv$add_rule("carbon_file", sv_required(message = "Please upload carbon stock lookup table"))
-  iv$add_rule("map1_year", sv_required(message = "Please define the year of T1"))
-  iv$add_rule("map2_year", sv_required(message = "Please define the year of T2"))
-  iv$add_rule("wd", sv_required(message = "Please select an output directory"))
+  # # Generate Report
+  # observeEvent(input$viewReport, {
+  #   report_content()
+  # })
   
-  #### Do the calculation and store it to the markdown content ####
-  observeEvent(input$processQUESC, {
-    if(!iv$is_valid()) {
-      iv$enable()
-      showNotification(
-        "Please correct the errors in the form and try again",
-        id = "submit_message", type = "error")
-      return()
-    }
-    
-    withProgress(message = "Running QuES-C Analysis", value = 0, {
-      rv$map1_rast <- rv$map1_rast %>% spatial_sync_raster(rv$mapz_rast)
-      rv$map2_rast <- rv$map2_rast %>% spatial_sync_raster(rv$mapz_rast)
-      
-      
-      setProgress(value = 0.2, message = "load maps")
-      lc_t1 <- rv$map1_rast %>% rast() %>%
-        add_legend_to_categorical_raster(lookup_table = rv$tbl_c, year = as.numeric(rv$map1_year))
-      lc_t2 <- rv$map2_rast %>% rast() %>%
-        add_legend_to_categorical_raster(lookup_table = rv$tbl_c, year = as.numeric(rv$map2_year))  
-      zone <- rv$mapz_rast %>% rast() %>%
-        add_legend_to_categorical_raster(lookup_table = rv$mapz_df)  
-      showNotification("Maps has been loaded", type = "message")
-      
-      rv$preques <- ques_pre(lc_t1, lc_t2, zone)
-      rv$period_year <- as.numeric(rv$map1_year) - as.numeric(rv$map1_year)
-      lucDummy <- generate_dummy_crosstab(rv$tbl_c, rv$mapz_df)
-      
-      # join table
-      setProgress(value = 0.5, message = "create QUES-C database")
-      df_lucdb <- rv$tbl_c %>% dplyr::rename(ID_LC1 = 1, C_T1 = 3) %>% 
-        rename_with(.cols = 2, ~rv$map1_year) %>% right_join(lucDummy, by="ID_LC1")
-      df_lucdb <- rv$tbl_c %>% dplyr::rename(ID_LC2 = 1, C_T2 = 3) %>% 
-        rename_with(.cols = 2, ~rv$map2_year) %>% right_join(df_lucdb, by="ID_LC2")
-      df_lucdb <- rv$mapz_df %>% dplyr::rename(ID_PU = 1) %>% 
-        rename_with(.cols = 2, ~names(zone)) %>% right_join(df_lucdb, by="ID_PU") 
-      df_lucdb <- df_lucdb %>% 
-        left_join(
-          rv$preques[["landscape_level"]][["crosstab_long"]], 
-          by = c(names(zone), rv$map1_year, rv$map2_year)
-        ) 
-      # the full version of preques database from preques analysis combined with all possible landcover listed in the lookup table
-      df_lucdb <- df_lucdb %>% replace(is.na(df_lucdb), 0) %>% dplyr::rename(PU = names(zone))
-      showNotification("QUESC-DB has been created", type = "message")
-      
-      # create new matrix reclassification 
-      reclassify_matrix <- as.matrix(rv$tbl_c[,1]) %>% 
-        cbind(., as.matrix(rv$tbl_c[,3])) %>%
-        rbind(., c(0, NA))
-      
-      # create all maps
-      setProgress(value = 0.7, message = "generate carbon, emission, and sequestration maps")
-      map_carbon1 <- lc_t1 %>% classify(reclassify_matrix)
-      map_carbon2 <- lc_t2 %>% classify(reclassify_matrix)
-      map_emission <- ((map_carbon1 - map_carbon2) * 3.67) * (map_carbon1 > map_carbon2)
-      map_sequestration <- ((map_carbon2 - map_carbon1) * 3.67) * (map_carbon1 < map_carbon2)
-      rv$map_c1 = map_carbon1
-      rv$map_c2 = map_carbon2
-      rv$map_e = map_emission
-      rv$map_s = map_sequestration
-      showNotification("Carbon, emission, and sequestration map has been created", type = "message")
-      
-      # quescdatabase
-      df_lucdb <- df_lucdb %>% mutate(
-        EM = (C_T1 - C_T2) * (C_T1 > C_T2) * Ha * 3.67,
-        SQ = (C_T2 - C_T1) * (C_T1 < C_T2) * Ha * 3.67,
-        LU_CHG = do.call(paste, c(df_lucdb[c(rv$map1_year, rv$map2_year)], sep = " to "))
-      )
-      rv$tbl_quesc <- df_lucdb
-      
-      # save maps and db
-      setProgress(value = 0.9, message = paste0("The output is successfully stored in ", rv$wd))
-      write.table(df_lucdb,
-                  paste0(rv$wd, "/quesc_database.csv"), 
-                  quote=FALSE, 
-                  row.names=FALSE, 
-                  sep=",")
-      writeRaster(map_carbon1,
-                  paste0(rv$wd, "/carbon_map_t1.tif"), overwrite = T)
-      writeRaster(map_carbon2,
-                  paste0(rv$wd, "/carbon_map_t2.tif"), overwrite = T)
-      writeRaster(map_emission,
-                  paste0(rv$wd, "/emission_map.tif"), overwrite = T)
-      writeRaster(map_sequestration,
-                  paste0(rv$wd, "/sequestration_map.tif"), overwrite = T)
-      
-      setProgress(value = 1, message = paste0("generate report"))
-      report_content()
-      showNotification("Report has been generated", type = "message")
-    })
-  })
-  
-  # generate report
   report_content <- reactive({
     params <- list(
-      map_c1 = rv$map_c1,
-      map_c2 = rv$map_c2,
-      map_em = rv$map_e,
-      map_sq = rv$map_s,
-      ques_db = rv$tbl_quesc,
-      p1 = rv$map1_year,
-      p2 = rv$map2_year
+      map_carbon1 = rv$map_carbon1,
+      map_carbon2 = rv$map_carbon2,
+      emission_map = rv$emission_map,
+      opcost_map = rv$opcost_map,
+      opcost_table = rv$opcost_table,
+      npv1_map = rv$map_npv1,
+      npv2_map = rv$map_npv1,
+      delta_npv = rv$npv_chg_map
     )
-    output_file <- paste0("quesc_report_", Sys.Date(), ".html")
+    
+    output_file <- paste0("ta-profit_report_", Sys.Date(), ".html")
     output_dir <- rv$wd
     rv$report_file <- paste(output_dir, output_file, sep = "/")
     
@@ -243,6 +222,6 @@ server <- function(input, output, session) {
   })
   
   observeEvent(input$viewReport, {
-    file.show(rv$report_file)
+    file.show(report_content())
   })
 }

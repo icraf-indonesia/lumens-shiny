@@ -32,7 +32,8 @@ install_load(
   "sf",
   "shinyvalidate",
   "remote",
-  "rmarkdown"
+  "rmarkdown",
+  "readr"
 )
 
 if (!("LUMENSR" %in% rownames(installed.packages()))) {
