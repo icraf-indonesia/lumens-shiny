@@ -88,9 +88,8 @@ central_attr<-NULL
 # iterate over each planning unit in the list
 for (i in 1:n_pu_list) {
   data_name <- as.character(pu_list[i, 1])
-  pu_data <- as.character(pu_list[i, 1])
   lut_table <- pu_list[i, 5]
-  pu_vector <- st_read(file.path(dirname(lut_table), paste0(pu_data, ".shp")))
+  pu_vector <- st_read(file.path(dirname(lut_table), paste0(data_name, ".shp")))
   pu_raster <- rasterise_multipolygon(sf_object = pu_vector, raster_res = c(path$map_resolution,path$map_resolution), field = "ID")
   print(pu_raster)
 
@@ -159,7 +158,7 @@ m <- 0
 for(l in 1:n_pu_list) {
   pu_data <- as.character(pu_list[l, 2])
   var_num <- n_pu_list + 4 - m
-  
+
   # Check if the column exists in PUR_db
   if(var_num <= ncol(PUR_db)) {
     # Use the actual raster object stored in command1 to get the name
@@ -167,7 +166,7 @@ for(l in 1:n_pu_list) {
   } else {
     warning(paste("Column", var_num, "does not exist in PUR_db"))
   }
-  
+
   m <- m + 1
 }
 
@@ -374,7 +373,6 @@ writeVector(pur_unresolved_vector, filename = file.path(output_dir, "PUR_first_p
 write.table(data_attribute, paste0(output_dir, "/PUR_attribute.csv"), quote=FALSE, row.names=FALSE, sep=",")
 #PUR_dbfinal <- PUR_dbfinal |> select(-ID_rec)
 write.table(PUR_dbfinal, paste0(output_dir, "/PUR_dbfinal.csv"), quote=FALSE, row.names=FALSE, sep=",")
-# write.dbf(data_attribute, "PUR_attribute.dbf")
 
 # 7. Handle unresolved case ------------------
 
@@ -441,4 +439,3 @@ if (nrow(unresolved_cases) != 0) {
 } else {
   database_unresolved_out <- tibble("Reconciliation result" = "There are no unresolved areas in this analysis session")
 }
-
