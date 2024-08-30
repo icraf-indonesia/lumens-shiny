@@ -448,29 +448,30 @@ if (nrow(unresolved_cases) != 0) {
 end_time <- Sys.time()
 cat("Ended at:", format(end_time, "%Y-%m-%d %H:%M:%S"), "\n")
 
-# 8. Prepare parameters for report -------------------------
-report_params <- list(
-  start_time = as.character(format(start_time, "%Y-%m-%d %H:%M:%S")),
-  end_time = as.character(format(end_time, "%Y-%m-%d %H:%M:%S")),
-  output_dir = output_dir,
-  PUR_stack = PUR_stack,
-  db_final2 = db_final2,
-  database_unresolved_out = database_unresolved_out,
-  inputs = list(
-    ref = ref,
-    lookup_ref = lookup_ref,
-    pu_lut_list = pu_lut_list
-  )
-)
-
-# Render the R markdown report
-if (!rmarkdown::pandoc_available()) {
-  Sys.setenv(RSTUDIO_PANDOC = paste0(getwd(), "/pandoc"))
-}
-
-rmarkdown::render(
-  input = "05_quesb/report_template/quesb_report_template.Rmd",
-  output_file = "QuES_B_report.html",
-  output_dir = output_dir,
-  params = report_params
-)
+# # 8. Prepare parameters for report -------------------------
+# report_params <- list(
+#   start_time = as.character(format(start_time, "%Y-%m-%d %H:%M:%S")),
+#   end_time = as.character(format(end_time, "%Y-%m-%d %H:%M:%S")),
+#   output_dir = output_dir,
+#   PUR_stack = PUR_stack,
+#   db_final2 = db_final2,
+#   database_unresolved_out = database_unresolved_out,
+#   inputs = list(
+#     ref = ref,
+#     ref_class = tabel_acuan,
+#     lookup_ref = lookup_ref,
+#     pu_lut_list = pu_lut_list
+#   )
+# )
+# 
+# # Render the R markdown report
+# if (!rmarkdown::pandoc_available()) {
+#   Sys.setenv(RSTUDIO_PANDOC = paste0(getwd(), "/pandoc"))
+# }
+# 
+# rmarkdown::render(
+#   input = "05_quesb/report_template/quesb_report_template.Rmd",
+#   output_file = "QuES_B_report.html",
+#   output_dir = output_dir,
+#   params = report_params
+# )
