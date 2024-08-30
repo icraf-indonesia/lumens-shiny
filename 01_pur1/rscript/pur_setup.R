@@ -13,6 +13,10 @@ required_packages <- c(
 
 check_and_install_packages(required_packages)
 
+# Start running PUR
+start_time <- Sys.time()
+cat("Started at:", format(start_time, "%Y-%m-%d %H:%M:%S"), "\n")
+
 # 1. Define input parameters ------------------------------------
 
 # Define file path and parameters
@@ -55,10 +59,10 @@ colnames(lookup_ref)[ncol(lookup_ref)] <- "REFERENCE"
 ref.name <- names(ref)
 
 # Load and merge reference class and mapping data
-tabel_acuan <- read.table(path$ref_class, header = FALSE, sep = ",") %>%
+tabel_acuan <- read.table(path$ref_class, header = FALSE, sep = ",", skip=1) %>%
   setNames(c("acuan_kelas", "acuan_kode"))
 
-tabel_mapping <- read.table(path$ref_mapping, header = FALSE, sep = ",") %>%
+tabel_mapping <- read.table(path$ref_mapping, header = FALSE, sep = ",", skip=1) %>%
   setNames(c("REFERENCE", "IDS")) %>%
   left_join(lookup_ref, by = "REFERENCE")
 
@@ -75,7 +79,7 @@ target_file <- paste(output_dir, "/reference.csv", sep="")
 write.table(tabel_mapping, target_file, quote=FALSE, row.names=FALSE, sep=",")
 
 # Load planning unit data
-pu_list <- read.table(path$pu_units, header=FALSE, sep=",")
+pu_list <- read.table(path$pu_units, header=FALSE, sep=",", skip=1)
 n_pu_list <- nrow(pu_list)
 
 # create an empty list to store the results
@@ -409,7 +413,7 @@ if (nrow(unresolved_cases) != 0) {
   addWorksheet(database_unresolved_out_wb, "PUR_unresolved_case")
   writeData(database_unresolved_out_wb, sheet = "PUR_unresolved_case", x = as_tibble(database_unresolved_out), startCol = 1)
   
-  addWorksheet(database_unresolved_out_wb, "drop-down_attribute")
+  addWorksheet(database_unresolved_out_wb, "drop-down_attribute", visible = FALSE)
   pur_attribute_df <- data_attribute[data_attribute$Rec_phase1b != "unresolved_case", -1]
   names(pur_attribute_df)[1] <- "Reconcile Action"
   
@@ -439,3 +443,34 @@ if (nrow(unresolved_cases) != 0) {
 } else {
   database_unresolved_out <- tibble("Reconciliation result" = "There are no unresolved areas in this analysis session")
 }
+
+# End of the script
+end_time <- Sys.time()
+cat("Ended at:", format(end_time, "%Y-%m-%d %H:%M:%S"), "\n")
+
+# 8. Prepare parameters for report -------------------------
+report_params <- list(
+  start_time = as.character(format(start_time, "%Y-%m-%d %H:%M:%S")),
+  end_time = as.character(format(end_time, "%Y-%m-%d %H:%M:%S")),
+  output_dir = output_dir,
+  PUR_stack = PUR_stack,
+  db_final2 = db_final2,
+  database_unresolved_out = database_unresolved_out,
+  inputs = list(
+    ref = ref,
+    lookup_ref = lookup_ref,
+    pu_lut_list = pu_lut_list
+  )
+)
+
+# Render the R markdown report
+if (!rmarkdown::pandoc_available()) {
+  Sys.setenv(RSTUDIO_PANDOC = paste0(getwd(), "/pandoc"))
+}
+
+rmarkdown::render(
+  input = "05_quesb/report_template/quesb_report_template.Rmd",
+  output_file = "QuES_B_report.html",
+  output_dir = output_dir,
+  params = report_params
+)

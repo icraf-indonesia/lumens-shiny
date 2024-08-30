@@ -1,3 +1,4 @@
+PU_name,PU_identity,Ref_ID,Type,Path
 HTI_Bungo_F,pu1,2,0,data/vector/HTI_Bungo_F.shp
 Hutan_Adat_Bungo_F,pu2,1,0,data/vector/Hutan_Adat_Bungo_F.shp
 Perkebunan_Bungo_F,pu3,1,0,data/vector/Perkebunan_Bungo_F.shp
