@@ -3,20 +3,15 @@
 # calculates DIFA Index
 
 # Load required packages
-library(dplyr)
-library(terra)
-library(sf)
-library(DBI)
-library(RSQLite)
-library(ggplot2)
-library(caTools)
+
 
 # Source custom functions
 source("05_quesb/rscript/ques_biodiv_functions.r")
+check_and_install_packages(c("dplyr", "ggplot2", "caTools", "terra", "sf", "DBI", "RSQLite"))
 
 # Input data and Parameters
-lc_t1_path <- "data/raster/tutupan_lahan_Bungo_1990r.tif"
-t1 <- 1990
+lc_t1_path <- "data/raster/tutupan_lahan_Bungo_2010r.tif"
+t1 <- 2010
 nodata_class <- 0
 lulc_lut_path <- "data/table/Tabel_focal_area_Bungo.csv"
 contab_path <- "data/table/Tabel_edge_contrast_euc.fsq"
@@ -25,7 +20,7 @@ window_size <- 1000
 window.shape <- 0
 fca_path <- NULL
 fragstats_path <- NULL
-output_dir <- "output/quesb_1990"
+output_dir <- "output/quesb_2010"
 
 # Create output directory
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
@@ -81,7 +76,7 @@ report_params <- list(
 
 # Prepare parameters for report rendering
 report_params$inputs$fca_path <- if(is.null(fca_path)) {"05_quesb/rscript/teciuf.fca"} else {fca_path}
-if (is.null(params$inputs$fragstats_path)) {
+if (is.null(report_params$inputs$fragstats_path)) {
   program_files <- c("C:/Program Files/", "C:/Program Files (x86)/")
   fragstats_dirs <- list.files(program_files, pattern = "^Fragstats 4", full.names = TRUE)
   if (length(fragstats_dirs) == 0) {
