@@ -940,6 +940,7 @@ generate_sampling_grid <- function(ref, n = 1000, seed = 100) {
 #' @param teci_map SpatRaster object representing the TECI (Threat Ecological Corridor Index) map
 #' @param focal_area SpatRaster object representing the focal area
 #' @param sampling_grid SpatVector object representing the sampling grid
+#' @param output_dir character. Path to the output directory for TECI results.
 #' @param total_area_landscape Numeric value representing the total landscape area in hectares
 #'
 #' @return A list containing:
@@ -960,7 +961,7 @@ generate_sampling_grid <- function(ref, n = 1000, seed = 100) {
 #' result <- calculate_difa(teci_map, focal_area, sampling_grid, total_area_landscape)
 #' print(result$difa_plot)
 #' }
-calculate_difa <- function(teci_map, focal_area, sampling_grid, total_area_landscape) {
+calculate_difa <- function(teci_map, focal_area, sampling_grid, total_area_landscape, output_dir) {
   # Input validation
   if (!inherits(teci_map, "SpatRaster")) {
     stop("teci_map must be a SpatRaster object")
@@ -1188,6 +1189,7 @@ quesb_single_period <- function(lulc_lut_path,
   difa_lc_t1 <- calculate_difa(teci_map = teci_lc_t1$teci,
                                focal_area = teci_lc_t1$focal_area,
                                sampling_grid = sampling_grid,
+                               output_dir = output_dir,
                                total_area_landscape = teci_lc_t1$total_area)
 
   # Return results
@@ -1357,4 +1359,142 @@ check_and_install_packages <- function(required_packages) {
   } else {
     cat("\nAll required packages are installed and loaded.\n")
   }
+}
+
+
+#' Run QuES-B Analysis
+#'
+#' This function performs a QuES-B analysis using provided inputs and generates a report.
+#'
+#' @param lc_t1_path A character string specifying the path to the land cover raster file for the first time period.
+#' @param t1 A numeric value representing the time period of the first land cover raster.
+#' @param nodata_class A numeric value representing the no-data class in the raster.
+#' @param lulc_lut_path A character string specifying the path to the land use/land cover look-up table.
+#' @param contab_path A character string specifying the path to the contingency table.
+#' @param sampling_points A numeric value specifying the number of sampling points to use.
+#' @param window_size A numeric value specifying the size of the window to use for the analysis.
+#' @param window.shape A numeric value specifying the shape of the window (0 for square, 1 for circle).
+#' @param fca_path An optional character string specifying the path to the focal class analysis (FCA) file. Defaults to NULL.
+#' @param fragstats_path An optional character string specifying the path to the Fragstats executable. Defaults to NULL.
+#' @param output_dir A character string specifying the directory where output files and reports will be saved.
+#' @param report_template_path A character string specifying the path to the R Markdown report template.
+#'
+#' @details
+#' This function performs a series of steps to run the QuES-B analysis, including:
+#' \itemize{
+#'   \item Creating the output directory if it does not exist.
+#'   \item Running the `quesb_single_period` function with the provided parameters to perform the core analysis.
+#'   \item Generating a report using an R Markdown template.
+#' }
+#'
+#' The function sets a default path for the FCA file if not provided. For Fragstats, it searches for an installation
+#' in the Program Files directories if a path is not provided.
+#'
+#' @return A list (`report_params`) containing parameters used in the report generation, including paths to various
+#' output files and the analysis results from `quesb_single_period`.
+#'
+#' @examples
+#' \dontrun{
+#' run_ques_b(
+#'   lc_t1_path = "path/to/lc_t1.tif",
+#'   t1 = 2000,
+#'   nodata_class = -9999,
+#'   lulc_lut_path = "path/to/lulc_lut.csv",
+#'   contab_path = "path/to/contab.csv",
+#'   sampling_points = 1000,
+#'   window_size = 5,
+#'   window.shape = 0,
+#'   fca_path = NULL,
+#'   fragstats_path = NULL,
+#'   output_dir = "path/to/output",
+#'   report_template_path = "path/to/report_template.Rmd"
+#' )
+#' }
+#'
+#' @import rmarkdown
+#' @importFrom utils dir.create list.files
+#' @importFrom methods is
+#' @export
+run_ques_b <- function(lc_t1_path, t1, nodata_class, lulc_lut_path, contab_path,
+                       sampling_points, window_size, window.shape, fca_path = NULL,
+                       fragstats_path = NULL, output_dir, report_template_path) {
+
+  # Create output directory
+  dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+
+  # Run ques-b for lc
+  start_time <- Sys.time()
+  cat("Started at:", format(start_time, "%Y-%m-%d %H:%M:%S"), "\n")
+
+  quesb_result <- quesb_single_period(
+    lc_t1_path = lc_t1_path,
+    t1 = t1,
+    raster.nodata = nodata_class,
+    lulc_lut_path = lulc_lut_path,
+    contab_path = contab_path,
+    output_dir = output_dir,
+    sampling_points = sampling_points,
+    window_size = window_size,
+    window.shape = window.shape,
+    fca_path = fca_path,
+    fragstats_path = fragstats_path
+  )
+
+  # End of the script
+  end_time <- Sys.time()
+  cat("Ended at:", format(end_time, "%Y-%m-%d %H:%M:%S"), "\n")
+
+  session_log <- format_session_info_table()
+
+  report_params <- list(
+    start_time = as.character(format(start_time, "%Y-%m-%d %H:%M:%S")),
+    end_time = as.character(format(end_time, "%Y-%m-%d %H:%M:%S")),
+    output_dir = output_dir,
+    total_area = quesb_result$total_area,
+    dir_teci_map = basename(quesb_result$path_teci_map),
+    dir_focal_area_ = basename(quesb_result$path_focal_area),
+    dir_sampling_grid = basename(quesb_result$path_sampling_grid),
+    dir_difa_table = basename(quesb_result$path_difa_table),
+    difa_table = quesb_result$difa_table,
+    difa_score = quesb_result$difa_score,
+    inputs = list(
+      lc_t1_path = lc_t1_path,
+      t1 = t1,
+      raster.nodata = nodata_class,
+      lulc_lut_path = lulc_lut_path,
+      contab_path = contab_path,
+      output_dir = output_dir,
+      sampling_points = sampling_points,
+      window_size = window_size,
+      window.shape = window.shape
+    ),
+    session_log = session_log
+  )
+
+  # Prepare parameters for report rendering
+  report_params$inputs$fca_path <- if(is.null(fca_path)) {"05_quesb/rscript/teciuf.fca"} else {fca_path}
+
+  if (is.null(report_params$inputs$fragstats_path)) {
+    program_files <- c("C:/Program Files/", "C:/Program Files (x86)/")
+    fragstats_dirs <- list.files(program_files, pattern = "^Fragstats 4", full.names = TRUE)
+    if (length(fragstats_dirs) == 0) {
+      stop("No Fragstats 4.x installation found.")
+    }
+    # Sort directories to use the latest version if multiple are found
+    report_params$inputs$fragstats_path <- sort(fragstats_dirs, decreasing = TRUE)[1]
+  }
+
+  # Render the R Markdown report
+  if (!rmarkdown::pandoc_available()) {
+    Sys.setenv(RSTUDIO_PANDOC = paste0(getwd(), "/pandoc"))
+  }
+
+  rmarkdown::render(
+    input = report_template_path,
+    output_file = "QuES_B_report.html",
+    output_dir = output_dir,
+    params = report_params
+  )
+
+  return(report_params)
 }
