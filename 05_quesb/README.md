@@ -1,5 +1,7 @@
 # QuES-B
-A comprehensive implementation of QuES-B (Quantification of Ecosystem Services - Biodiversity) analysis, now featuring a user-friendly Shiny interface.
+An R implementation of QuES-B (Quantification of Ecosystem Services - Biodiversity) analysis, now featuring a user-friendly Shiny interface.
+
+
 ![Screenshot 2024-08-30 183450](https://github.com/user-attachments/assets/3a52c2de-74d5-4728-b71b-4385472bef8c)
 
 
