@@ -819,7 +819,6 @@ teci_analysis <- function(landuse,
                                       basename(terra::sources(landuse))))
 
   writeRaster(focal_area_map, focal_area_path, overwrite = TRUE)
-
   # Set up Fragstats database
   db_conn <- setupFragstatsDatabase(params)
 
@@ -1147,8 +1146,16 @@ quesb_single_period <- function(lulc_lut_path,
   lc_t1 <- prepare_lc_data(lc_t1_path,
                            year = t1,
                            lookup_table = lulc_lut)
-  NAflag(lc_t1) <- raster.nodata  # Set NoData flag
 
+  # check if nodata value present
+  lc_freq <- lc_t1 %>% freq() %>% tibble::rownames_to_column("ID")
+
+  if (raster.nodata %in% as.numeric(lc_freq[["ID"]])) {
+    NAflag(lc_t1) <- raster.nodata
+    message(sprintf("NoData value %s found in land cover map. Setting NAflag to this value.", raster.nodata))
+  } else {
+    message(sprintf("NoData value %s not found in land cover map. NAflag remains unchanged.", raster.nodata))
+  }
 
   if (!grepl("\\+units=m", terra::crs(lc_t1, proj = TRUE))){
     stop("Raster is not in metre units. Please provide a raster with metre units.")
@@ -1425,7 +1432,6 @@ run_ques_b <- function(lc_t1_path, t1, nodata_class, lulc_lut_path, contab_path,
   # Run ques-b for lc
   start_time <- Sys.time()
   cat("Started at:", format(start_time, "%Y-%m-%d %H:%M:%S"), "\n")
-
   quesb_result <- quesb_single_period(
     lc_t1_path = lc_t1_path,
     t1 = t1,
@@ -1437,7 +1443,7 @@ run_ques_b <- function(lc_t1_path, t1, nodata_class, lulc_lut_path, contab_path,
     window_size = window_size,
     window.shape = window.shape,
     fca_path = fca_path,
-    fragstats_path = fragstats_path
+    fragstats_path = fragstats_path[1]
   )
 
   # End of the script
@@ -1518,7 +1524,7 @@ run_ques_b <- function(lc_t1_path, t1, nodata_class, lulc_lut_path, contab_path,
 #' @export
 quesb_app <- function() {
   # Define a list of required packages for the QuES-B analysis and Shiny app
-  required_packages <- c("terra", "dplyr", "ggplot2", "shiny", "shinyjs", "shinyFiles", "caTools", "sf", "DBI", "RSQLite")
+  required_packages <- c("terra", "dplyr", "ggplot2", "shiny", "shinyjs", "shinyFiles", "caTools", "sf", "DBI", "RSQLite", "rmarkdown")
 
   # Check if required packages are installed, and install them if not
   check_and_install_packages(required_packages)
@@ -1537,15 +1543,27 @@ quesb_app <- function() {
         numericInput("window_size", "Window Size", value = 1000),
         selectInput("window_shape", "Window Shape", choices = c("Square" = 1, "Circle" = 2), selected = 1),
         fileInput("fca_path", "FRAGSTATS Configuration ", accept = c(".fca"), placeholder = "(Optional)"),
-        shinyDirButton("fragstats_path", "FRAGSTATS Path (Optional)", "(Optional)"),
-        shinyDirButton("output_dir", "Select Output Directory", "Please select a directory"),
-        actionButton("run_analysis", "Run QuES-B Analysis")
+        div(style = "display: flex; flex-direction: column; gap: 10px;",
+            shinyDirButton("fragstats_path", "FRAGSTATS Path (Optional)", "(Optional)"),
+            shinyDirButton("output_dir", "Select Output Directory", "Please select a directory"),
+            actionButton("run_analysis", "Run QuES-B Analysis",
+                         style = "font-size: 18px; padding: 10px 15px; background-color: #4CAF50; color: white;"),
+            hidden(
+              actionButton("open_report", "Open Report",
+                           style = "font-size: 18px; padding: 10px 15px; background-color: #008CBA; color: white;")
+            )
+        )
       ),
       mainPanel(
-        textOutput("selected_dir"),
-        verbatimTextOutput("status_messages"),
-        verbatimTextOutput("error_messages"),
-        plotOutput("result_plot")
+        tabsetPanel(
+          tabPanel("User Guide", uiOutput("user_guide")),
+          tabPanel("Analysis",
+                   textOutput("selected_dir"),
+                   verbatimTextOutput("status_messages"),
+                   verbatimTextOutput("error_messages"),
+                   plotOutput("result_plot")
+          )
+        )
       )
     )
   )
@@ -1564,6 +1582,27 @@ quesb_app <- function() {
       }
     })
 
+    # Render user guide
+    output$user_guide <- renderUI({
+      guide_path <- "05_quesb/helpfile/quesb_quick_user_guide.Rmd"
+      if (file.exists(guide_path)) {
+        html_content <- rmarkdown::render(guide_path, output_format = "html_fragment", quiet = TRUE)
+        HTML(readLines(html_content))
+      } else {
+        HTML("<p>User guide file not found.</p>")
+      }
+    })
+
+    # Function to rename uploaded file
+    rename_uploaded_file <- function(input_file) {
+      if (is.null(input_file)) return(NULL)
+
+      old_path <- input_file$datapath
+      new_path <- file.path(dirname(old_path), input_file$name)
+      file.rename(old_path, new_path)
+      return(new_path)
+    }
+
     observeEvent(input$run_analysis, {
       req(input$lc_t1, input$lulc_lut, input$contab, input$output_dir)
 
@@ -1571,27 +1610,46 @@ quesb_app <- function() {
 
       withProgress(message = 'Running QuES-B Analysis', value = 0, {
         tryCatch({
+          # Rename uploaded files
+          lc_t1_path <- rename_uploaded_file(input$lc_t1)
+          lulc_lut_path <- rename_uploaded_file(input$lulc_lut)
+          contab_path <- rename_uploaded_file(input$contab)
+          fca_path <- if (!is.null(input$fca_path)) rename_uploaded_file(input$fca_path) else NULL
+
           result <- run_ques_b(
-            lc_t1_path = input$lc_t1$datapath,
+            lc_t1_path = lc_t1_path,
             t1 = input$t1_year,
             nodata_class = input$nodata_class,
-            lulc_lut_path = input$lulc_lut$datapath,
-            contab_path = input$contab$datapath,
+            lulc_lut_path = lulc_lut_path,
+            contab_path = contab_path,
             sampling_points = input$sampling_points,
             window_size = input$window_size,
             window.shape = as.numeric(input$window_shape),
-            fca_path = if (!is.null(input$fca_path)) input$fca_path$datapath else NULL,
+            fca_path = fca_path,
             fragstats_path = if (input$fragstats_path != "") input$fragstats_path else NULL,
             output_dir = parseDirPath(volumes, input$output_dir),
             report_template_path = "05_quesb/report_template/quesb_report_template.Rmd"
           )
 
           output$status_messages <- renderText("Analysis completed successfully!")
+          showNotification("Analysis completed successfully!", type = "message")
+          shinyjs::show("open_report")
 
         }, error = function(e) {
           output$error_messages <- renderText(paste("Error in analysis:", e$message))
+          showNotification(paste("Error in analysis:", e$message), type = "error")
         })
       })
+    })
+
+    observeEvent(input$open_report, {
+      report_path <- paste0(parseDirPath(volumes, input$output_dir), "/QuES_B_report.html")
+      if (file.exists(report_path)) {
+        showNotification("Opening report...", type = "message")
+        utils::browseURL(report_path)
+      } else {
+        showNotification("Report file not found.", type = "error")
+      }
     })
   }
 

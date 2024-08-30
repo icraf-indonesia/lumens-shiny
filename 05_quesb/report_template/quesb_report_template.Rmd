@@ -220,7 +220,7 @@ ggplot() +
   theme(legend.position = "bottom")
 ```
 
-Lower TECI values, shown in darker blue colours, indicate well-integrated areas with minimal contrast between adjacent land cover types. Conversely, higher TECI values, depicted gradually in green, yellow, and ultimately red, represent more segregated areas with greater contrast between neighbouring land uses. The grey areas represent areas that are outside the dispersal radius of 1000 meters from the focal area.
+Lower TECI values, shown in darker blue colours, indicate well-integrated areas with minimal contrast between adjacent land cover types. Conversely, higher TECI values, depicted gradually in green, yellow, and ultimately red, represent more segregated areas with greater contrast between neighbouring land uses. The grey areas represent areas that are outside the dispersal radius of `r params$inputs$window_size` meters from the focal area.
 
 ## DIFA Plot
 
