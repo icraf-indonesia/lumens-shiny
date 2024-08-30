@@ -4,7 +4,7 @@
 
 # Source helper functions
 source("05_quesb/rscript/ques_biodiv_functions.r")
-check_and_install_packages(c("dplyr", "ggplot2", "caTools", "terra", "sf", "DBI", "RSQLite"))
+quesb_app()
 
 run_ques_b(
   lc_t1_path = "data/raster/tutupan_lahan_Bungo_2010r.tif",

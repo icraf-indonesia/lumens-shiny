@@ -1498,3 +1498,102 @@ run_ques_b <- function(lc_t1_path, t1, nodata_class, lulc_lut_path, contab_path,
 
   return(report_params)
 }
+
+
+#' QuES-B Analysis Shiny Application
+#'
+#' This function creates and runs a Shiny application for performing QuES-B
+#' (Quantification of Ecosystem Services - Biodiversity) analysis. The app allows users to upload
+#' land cover data and various lookup tables to perform the analysis.
+#'
+#' @return A Shiny app object
+#'
+#' @import shiny
+#' @import shinyjs
+#' @import shinyFiles
+#' @importFrom terra rast
+#' @importFrom dplyr %>%
+#' @importFrom sf st_read
+#'
+#' @export
+quesb_app <- function() {
+  # Define a list of required packages for the QuES-B analysis and Shiny app
+  required_packages <- c("terra", "dplyr", "ggplot2", "shiny", "shinyjs", "shinyFiles", "caTools", "sf", "DBI", "RSQLite")
+
+  # Check if required packages are installed, and install them if not
+  check_and_install_packages(required_packages)
+
+  ui <- fluidPage(
+    useShinyjs(),
+    titlePanel("QuES-B Analysis"),
+    sidebarLayout(
+      sidebarPanel(
+        fileInput("lc_t1", "Land Cover", accept = c(".tif", ".tiff")),
+        numericInput("t1_year", "Year", value = 2010),
+        numericInput("nodata_class", "No Data Class", value = 0),
+        fileInput("lulc_lut", "Land Use/Cover & Focal Area Lookup Table (CSV)", accept = c(".csv")),
+        fileInput("contab", "Edge Contrast Table (FSQ)", accept = c(".fsq")),
+        numericInput("sampling_points", "Sampling Points", value = 1000),
+        numericInput("window_size", "Window Size", value = 1000),
+        selectInput("window_shape", "Window Shape", choices = c("Square" = 1, "Circle" = 2), selected = 1),
+        fileInput("fca_path", "FRAGSTATS Configuration ", accept = c(".fca"), placeholder = "(Optional)"),
+        shinyDirButton("fragstats_path", "FRAGSTATS Path (Optional)", "(Optional)"),
+        shinyDirButton("output_dir", "Select Output Directory", "Please select a directory"),
+        actionButton("run_analysis", "Run QuES-B Analysis")
+      ),
+      mainPanel(
+        textOutput("selected_dir"),
+        verbatimTextOutput("status_messages"),
+        verbatimTextOutput("error_messages"),
+        plotOutput("result_plot")
+      )
+    )
+  )
+
+  server <- function(input, output, session) {
+    # Directory selection
+    volumes <- c(Home = fs::path_home(), "R Installation" = R.home(), getVolumes()())
+    shinyDirChoose(input, "output_dir", roots = volumes, session = session)
+
+    # Display selected output directory
+    output$selected_dir <- renderText({
+      if (!is.null(input$output_dir)) {
+        paste("Selected output directory:", parseDirPath(volumes, input$output_dir))
+      } else {
+        "No output directory selected"
+      }
+    })
+
+    observeEvent(input$run_analysis, {
+      req(input$lc_t1, input$lulc_lut, input$contab, input$output_dir)
+
+      showNotification("Analysis is running. Please wait...", type = "message", duration = NULL)
+
+      withProgress(message = 'Running QuES-B Analysis', value = 0, {
+        tryCatch({
+          result <- run_ques_b(
+            lc_t1_path = input$lc_t1$datapath,
+            t1 = input$t1_year,
+            nodata_class = input$nodata_class,
+            lulc_lut_path = input$lulc_lut$datapath,
+            contab_path = input$contab$datapath,
+            sampling_points = input$sampling_points,
+            window_size = input$window_size,
+            window.shape = as.numeric(input$window_shape),
+            fca_path = if (!is.null(input$fca_path)) input$fca_path$datapath else NULL,
+            fragstats_path = if (input$fragstats_path != "") input$fragstats_path else NULL,
+            output_dir = parseDirPath(volumes, input$output_dir),
+            report_template_path = "05_quesb/report_template/quesb_report_template.Rmd"
+          )
+
+          output$status_messages <- renderText("Analysis completed successfully!")
+
+        }, error = function(e) {
+          output$error_messages <- renderText(paste("Error in analysis:", e$message))
+        })
+      })
+    })
+  }
+
+  shinyApp(ui, server)
+}
