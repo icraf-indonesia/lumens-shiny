@@ -756,8 +756,8 @@ teci_analysis <- function(landuse,
   total_area_ <- landuse %>%
     create_binary_raster() %>%
     # Convert to ha
-    aggregate(., fact = c(100, 100) / res(.),
-              fun = "modal") %>%
+    suppressWarnings(aggregate(., fact = c(100, 100) / res(.),
+              fun = "modal")) %>%
     freq() %>%
     pull(count)
 
@@ -999,11 +999,11 @@ calculate_difa <- function(teci_map, focal_area, sampling_grid, total_area_lands
   )
 
   # Aggregate focal area and calculate sum for each grid cell
-  grid_focal_area <- terra::aggregate(
+  grid_focal_area <- suppressWarnings(terra::aggregate(
     focal_area,
     fact = c(100, 100) / res(focal_area),
     fun = "modal"
-  ) %>%
+  )) %>%
     terra::zonal(
       .,
       sampling_grid,
@@ -1073,6 +1073,10 @@ calculate_difa <- function(teci_map, focal_area, sampling_grid, total_area_lands
 #' @param contab_path character. Path to the contrast table (FSQ file).
 #' @param sampling_points numeric. Number of sampling points for the grid. Default is 1000.
 #' @param window_size numeric. Size of the moving window for TECI calculation in meters. Default is 1000.
+#'   This dispersal radius is used as a threshold for ecological connectivity, assuming that species
+#'   associated with the focal area can typically move or disperse up to this distance. Areas beyond
+#'   this radius are considered too far from the focal habitat to contribute significantly to its
+#'   ecological function or connectivity.
 #' @param window.shape numeric. Shape of the moving window (0 for square, 1 for circle). Default is 0.
 #' @param output_dir character. Path to the directory for output files.
 #' @param fca_path character. Path to the Fragstats model file (optional). Default is NULL.
@@ -1219,10 +1223,13 @@ format_session_info_table <- function() {
   locale_info <- strsplit(si[[3]], ";")[[1]]
   locale_info <- paste(locale_info, collapse = "<br>")
 
+  # Extract .libpaths
+  lib_paths <- .libPaths()
+
   # Combine all info into a single tibble
   session_summary <- tibble(
-    Category = c("R Version", "Platform | OS", "Locale"),
-    Details = c(r_version, platform_os, locale_info)
+    Category = c("R Version", "Platform | OS", ".libPaths", "Locale"),
+    Details = c(r_version, platform_os, lib_paths, locale_info)
   )
 
 
@@ -1278,4 +1285,76 @@ plot_categorical_raster <- function(raster_object) {
           legend.justification = c(0,0.8))
 
   return(plot_lc)
+}
+
+#' Check and Install Required Packages
+#'
+#' This function checks if a list of required packages are installed and loaded.
+#' If any packages are missing or cannot be loaded, it prompts the user to install them.
+#'
+#' @param required_packages A character vector of package names to check and potentially install.
+#'
+#' @return None. This function is called for its side effects.
+#'
+#' @details
+#' The function performs the following steps:
+#' 1. Checks if each package in the list is installed.
+#' 2. Attempts to load each installed package.
+#' 3. If any packages are missing or fail to load, prompts the user to install them.
+#' 4. If the user agrees, attempts to install and load the missing packages.
+#'
+#' @examples
+#' \dontrun{
+#' required_packages <- c("dplyr", "ggplot2", "tidyr")
+#' check_and_install_packages(required_packages)
+#' }
+#'
+#' @export
+check_and_install_packages <- function(required_packages) {
+  # Check if each package is installed and can be loaded
+  missing_packages <- character(0)
+  for (package in required_packages) {
+    if (!requireNamespace(package, quietly = TRUE)) {
+      missing_packages <- c(missing_packages, package)
+    } else {
+      tryCatch(
+        {
+          library(package, character.only = TRUE)
+          cat(paste0("Package '", package, "' is installed and loaded.\n"))
+        },
+        error = function(e) {
+          missing_packages <<- c(missing_packages, package)
+          cat(paste0("Package '", package, "' is installed but could not be loaded: ", e$message, "\n"))
+        }
+      )
+    }
+  }
+
+  # If there are missing packages, ask the user if they want to install them
+  if (length(missing_packages) > 0) {
+    cat("\nThe following packages are missing or could not be loaded:\n")
+    cat(paste0("- ", missing_packages, "\n"))
+
+    install_choice <- readline(prompt = "Do you want to install/reinstall these packages? (y/n): ")
+
+    if (tolower(install_choice) == "y") {
+      for (package in missing_packages) {
+        cat(paste0("\nAttempting to install package '", package, "'...\n"))
+        tryCatch(
+          {
+            install.packages(package)
+            library(package, character.only = TRUE)
+            cat(paste0("Package '", package, "' has been successfully installed and loaded.\n"))
+          },
+          error = function(e) {
+            cat(paste0("Failed to install package '", package, "': ", e$message, "\n"))
+          }
+        )
+      }
+    } else {
+      cat("\nPackage installation skipped. Some required packages are missing.\n")
+    }
+  } else {
+    cat("\nAll required packages are installed and loaded.\n")
+  }
 }
