@@ -2,7 +2,7 @@
 ##TA-PostgreSQL=group
 land_req=land.requirement_table
 projected_land_use="data/raster/tutupan_lahan_Bungo_2010r.tif"
-landuse_lut="data/table/Tabel_landuse_Bungo.csv"
+# landuse_lut="data/table/Tabel_landuse_Bungo.csv"
 
 library(reshape2)
 library(ggplot2)
@@ -121,45 +121,6 @@ LAB_graph<-ggplot(data=test2, aes(x=V1, y=test2, fill=V2)) +
   geom_bar(colour="black", stat="identity", position="dodge")+
   guides(fill=FALSE) + xlab("Sector") + ylab("Labour requirement") +ggtitle("Impact of LU Change to Labour")+ theme(axis.text.x  = element_text(angle=90, size=6))
 
-#WRITE REPORT
-title<-"\\b\\fs32 LUMENS-Trade-off Analysis (TA) Project Report\\b0\\fs20"
-sub_title<-"\\b\\fs28 Sub-modules 2: Regional economic-Impact of land use change\\b0\\fs20"
-test<-as.character(Sys.Date())
-date<-paste("Date : ", test, sep="")
-time_start<-paste("Processing started : ", time_start, sep="")
-time_end<-paste("Processing ended : ", eval(parse(text=(paste("Sys.time ()")))), sep="")
-line<-paste("------------------------------------------------------------------------------------------------------------------------------------------------")
-chapter1<-"\\b\\fs24 Impact of land use change to GDP \\b0\\fs20"
-
-# ==== Report 0. Cover=====
-rtffile <- RTF("TA-Landuse_scenario_report.doc", font.size=11, width = 8.267, height = 11.692, omi = c(0,0,0,0))
-# INPUT
-file.copy(paste0(LUMENS_path, "/ta_cover.png"), work_dir, recursive = FALSE)
-img_location<-paste0(work_dir, "/ta_cover.png")
-# loading the .png image to be edited
-cover <- image_read(img_location)
-# to display, only requires to execute the variable name, e.g.: "> cover"
-# adding text at the desired location
-text_submodule <- paste("Sub-Modul Ekonomi Regional\n\nSimulasi PDRB dari Perubahan Penggunaan Lahan\n", location, ", ", "Tahun ", I_O_period, sep="")
-cover_image <- image_annotate(cover, text_submodule, size = 23, gravity = "southwest", color = "white", location = "+46+220", font = "Arial")
-cover_image <- image_write(cover_image)
-# 'gravity' defines the 'baseline' anchor of annotation. "southwest" defines the text shoul be anchored on bottom left of the image
-# 'location' defines the relative location of the text to the anchor defined in 'gravity'
-# configure font type
-addPng(rtffile, cover_image, width = 8.267, height = 11.692)
-addPageBreak(rtffile, width = 8.267, height = 11.692, omi = c(1,1,1,1))
-
-addParagraph(rtffile, title)
-addParagraph(rtffile, sub_title)
-addNewLine(rtffile)
-addParagraph(rtffile, line)
-addParagraph(rtffile, date)
-addParagraph(rtffile, time_start)
-addParagraph(rtffile, time_end)
-addParagraph(rtffile, line)
-addNewLine(rtffile)
-addParagraph(rtffile, chapter1)
-addNewLine(rtffile)
 addParagraph(rtffile, "\\b\\fs20 Table 1. Land use change\\b0\\fs20.")
 addTable(rtffile,landuse_table,font.size=8)
 addNewLine(rtffile)
@@ -175,11 +136,3 @@ addTable(rtffile,Labour_table,font.size=6)
 addNewLine(rtffile)
 addPlot(rtffile,plot.fun=print, width=6.7,height=4,res=300,LAB_graph)
 done(rtffile)
-
-unlink(img_location)
-dbDisconnect(DB)
-
-#=Writing final status message (code, message)
-statuscode<-1
-statusmessage<-"TA regional economy analysis successfully completed!"
-statusoutput<-data.frame(statuscode=statuscode, statusmessage=statusmessage)
