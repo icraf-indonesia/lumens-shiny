@@ -1232,8 +1232,8 @@ format_session_info_table <- function() {
   locale_info <- strsplit(si[[3]], ";")[[1]]
   locale_info <- paste(locale_info, collapse = "<br>")
 
-  # Extract .libpaths
-  lib_paths <- .libPaths()
+  # Extract .libpaths, accomodate multiple library paths
+  lib_paths <- .libPaths() |> paste( collapse = "<br>")
 
   # Combine all info into a single tibble
   session_summary <- tibble(
