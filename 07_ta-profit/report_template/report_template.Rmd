@@ -16,6 +16,7 @@ params:
   emission_map: NA
   opcost_map: NA
   opcost_table: NA
+  opcost_curve: NA
   npv1_map: NA
   npv2_map: NA
   delta_npv: NA
@@ -48,6 +49,11 @@ The maps provided was carbon, emission and sequestration map.
 
 ```{r}
 head(params$opcost_table, n=10)
+```
+
+### Opportunity Cost Curve
+```{r}
+plot(params$opcost_curve)
 ```
 
 ### NPV Map 1

@@ -25,7 +25,8 @@ server <- function(input, output, session) {
     raster_nodata = NULL,
     cost_threshold = NULL,
     map_npv1 = NULL,
-    map_npv2 = NULL
+    map_npv2 = NULL,
+    opcost_curve = NULL
   )
   
   volumes <- c(
@@ -175,6 +176,33 @@ server <- function(input, output, session) {
       writeRaster(rv$emission_map, file.path(rv$wd, "emission_map.tif"), overwrite = TRUE)
       writeRaster(rv$opcost_map, file.path(rv$wd, "opcost_map.tif"), overwrite = TRUE)
       
+      # Generate the Opportunity Cost Curve (source: https://www.r-bloggers.com/2015/07/waterfall-plots-what-and-how/)
+      df_curve <- data.frame(
+        emission = rv$opcost_table$emrate,
+        opportunity_cost = rv$opcost_table$opcost,
+        land_use_change = rv$opcost_table$luchg
+      )
+      
+      df_grouped <- df_curve %>%
+        group_by(land_use_change) %>%
+        summarise(emission = sum(emission),
+                  opportunity_cost = sum(opportunity_cost))
+      
+      df_all <- df_grouped %>% filter(opportunity_cost != 0)
+      df_order <- df_all[order(df_all$opportunity_cost),]
+      df_order$order<-c(1:nrow(df_order))
+      
+      opcost_curve <- ggplot(df_order, aes(x=order, y=opportunity_cost)) +
+        labs(x = NULL,
+             y = "Opportunity Cost ($/ton CO2-eq)",
+             title = "Waterfall Plot for Opportunity Cost") +
+        theme_classic() %+replace%
+        theme(axis.line.x = element_blank(), axis.text.x = element_blank(), axis.ticks.x = element_blank(),
+              axis.title.y = element_text(face="bold",angle=90)) +
+        coord_cartesian(ylim = c(-5000,5000))
+      
+      rv$opcost_curve <- opcost_curve + geom_bar(stat="identity", width=0.7, position = position_dodge(width=0.4))
+      
       setProgress(1, message = "Processing Complete")
       showNotification("All outputs have been generated", type = "message")
     })
@@ -198,10 +226,6 @@ server <- function(input, output, session) {
   })
   
   # # Generate Report
-  # observeEvent(input$viewReport, {
-  #   report_content()
-  # })
-  
   report_content <- reactive({
     params <- list(
       map_carbon1 = rv$map_carbon1,
@@ -209,6 +233,7 @@ server <- function(input, output, session) {
       emission_map = rv$emission_map,
       opcost_map = rv$opcost_map,
       opcost_table = rv$opcost_table,
+      opcost_curve = rv$opcost_curve,
       npv1_map = rv$map_npv1,
       npv2_map = rv$map_npv1,
       delta_npv = rv$npv_chg_map

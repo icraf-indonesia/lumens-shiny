@@ -12,23 +12,26 @@ T2=2010
 #=====================================================
 
 #=Load library
-library(tiff)
-library(foreign)
-library(rasterVis)
-library(reshape2)
-library(plyr)
-library(lattice)
-library(latticeExtra)
-library(RColorBrewer)
-library(grid)
-library(ggplot2)
-library(spatial.tools)
-library(splitstackshape)
-library(stringr)
-library(magick)
+# library(tiff)
+# library(foreign)
+# library(rasterVis)
+# library(reshape2)
+# library(plyr)
+# library(lattice)
+# library(latticeExtra)
+# library(RColorBrewer)
+# library(grid)
+# library(ggplot2)
+# library(spatial.tools)
+# library(splitstackshape)
+# library(stringr)
+# library(magick)
+# library(hexbin)
+# library(scales)
+
 library(readr)
-library(hexbin)
-library(scales)
+library(raster)
+library(ggplot2)
 
 #Create Folder and Working Directory
 setwd(wd)
@@ -156,24 +159,30 @@ npvchgtiff<-npv_chg
 opcosttiff<-opcost
 
 #====Opportunity Cost Curve====
-# Calculate cumulative opportunity cost and emission rate
-opcost_all2$cum_opcost_g <- cumsum(opcost_all2$opcost)
-opcost_all2$cum_emrate_g <- cumsum(opcost_all2$emrate)
-
 # Plot the Opportunity Cost Curve
-ggplot(opcost_all2, aes(x=cum_opcost_g, y=cum_emrate_g)) +
-  geom_line(color="blue", size=1) +
-  labs(title="Opportunity Cost Curve", 
-       x="Cumulative Opportunity Cost", 
-       y="Cumulative Emission Rate") +
-  theme_minimal()
+df <- data.frame(
+  emission = opcost_all2$emrate,
+  opportunity_cost = opcost_all2$opcost,
+  land_use_change = opcost_all2$luchg
+)
 
-ggplot(opcost_all2, aes(x = emrate, y = opcost)) +
-  geom_col(width = 0.5) +  # Adjust width as needed
-  scale_y_log10() +  # Use a logarithmic scale for the y-axis
-  labs(
-    x = "Emission Per-Ha Area (ton CO2-eq/ha/year)",
-    y = "Opportunity Cost ($/ton CO2-eq)",
-    fill = "Soil Type"
-  ) +
-  theme_bw()  # Use a black and white theme
+df_grouped <- df %>%
+  group_by(land_use_change) %>%
+  summarise(emission = sum(emission),
+            opportunity_cost = sum(opportunity_cost))
+
+df_all <- df_grouped %>% filter(opportunity_cost != 0)
+df_order <- df_all[order(df_all$opportunity_cost),]
+df_order$order<-c(1:nrow(df_order))
+
+# Create the plot (source: https://www.r-bloggers.com/2015/07/waterfall-plots-what-and-how/)
+opcost_curve <- ggplot(df_order, aes(x=order, y=opportunity_cost)) +
+  labs(x = NULL,
+       y = "Opportunity Cost ($/ton CO2-eq)",
+       title = "Waterfall Plot for Opportunity Cost") +
+  theme_classic() %+replace%
+  theme(axis.line.x = element_blank(), axis.text.x = element_blank(), axis.ticks.x = element_blank(),
+        axis.title.y = element_text(face="bold",angle=90)) +
+  coord_cartesian(ylim = c(-5000,5000))
+
+opcost_curve <- opcost_curve + geom_bar(stat="identity", width=0.7, position = position_dodge(width=0.4))
