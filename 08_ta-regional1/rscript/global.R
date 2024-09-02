@@ -58,6 +58,9 @@ calculate_land_requirements <- function(land_distribution, land_use, fin_dem, in
   land_distribution_val <- land_distribution_t %*% landuse_area_diag
   
   land_requirement <- rowSums(land_distribution_val)
+  # land.distribution.ctot<-colSums(land.distribution.val)
+  # land.distribution.prop<-land.distribution.val %*% diag(1/land.distribution.ctot)
+  # land.distribution.prop[is.na(land.distribution.prop)]<-0
   fin_dem_rtot <- rowSums(fin_dem)
   int_con_rtot <- rowSums(int_con)
   demand <- fin_dem_rtot + int_con_rtot
@@ -88,7 +91,7 @@ create_graph <- function(sector, data, y_label, graph_title) {
   ggplot(data = data.frame(SECTOR = sector, VALUE = data), aes(x = SECTOR, y = VALUE, fill = SECTOR)) +
     geom_bar(colour = "black", stat = "identity") +
     coord_flip() +
-    guides(fill = FALSE) +
+    guides(fill = "none") +
     xlab("Sectors") +
     ylab(y_label) +
     ggtitle(graph_title)

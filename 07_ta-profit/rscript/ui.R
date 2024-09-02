@@ -11,6 +11,7 @@ page_sidebar(
     textInput("year1", "Year of T1"),
     textInput("year2", "Year of T2"),
     textInput("raster_nodata", "No Data"),
+    textInput("cost_threshold", "Cost Threshold"),
     shinyDirButton("wd", "Select working directory", "Select a folder"),
     textOutput("selected_directory"),
     actionButton("process", "Run")

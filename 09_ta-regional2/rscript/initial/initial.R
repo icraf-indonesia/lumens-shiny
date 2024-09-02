@@ -1,8 +1,7 @@
 #Impact of Land Using to Regional Economy Indicator Analysis
-##TA-PostgreSQL=group
-land_req=land.requirement_table
+land_req="data/LandReq.Rdata"
 projected_land_use="data/raster/tutupan_lahan_Bungo_2010r.tif"
-# landuse_lut="data/table/Tabel_landuse_Bungo.csv"
+
 
 library(reshape2)
 library(ggplot2)
@@ -12,37 +11,39 @@ library(magick)
 
 time_start<-paste(eval(parse(text=(paste("Sys.time ()")))), sep="")
 
-load(proj.file)
 load(land_req)
-landuse_lut=read_csv(landuse_lut)
+# landuse_lut=read_csv(landuse_lut)
 
 #READ INPUT FILE
 nodata_val<-0
 land.requirement.db<-land.requirement_table
+names(landuse_lut) <- as.character(landuse_lut[1,])
+landuse_lut <- landuse_lut[-1,]
 lc.list<-subset(landuse_lut, select=c(ID, LC))
 
 #Read land use map and calculate area of land use
 next_data_luc<-raster(projected_land_use)
 next_luc_freq<-freq(next_data_luc)
-colnames(lc_freq)<-c("ID", "COUNT")
-landuse_area<-as.data.frame(na.omit(lc_freq))
-landuse_area<-as.matrix(landuse_area$COUNT)
+landuse_area_table<-as.data.frame(na.omit(next_luc_freq))
+colnames(landuse_area_table)<-c("ID", "COUNT")
+landuse_area<-as.matrix(landuse_area_table$COUNT)
 
-next_data_luc<-raster(projected_land_use)
-next_data_luc
-next_landuse_lut<-landuse_lut
+# landuse_area_map<-raster("C:/Users/ykarimah/Downloads/Result/landuse_area0.tif")
+# landuse_area0_freq<-freq(landuse_area_map)
+landuse_area0_freq<-freq(landuse_area0)
+landuse_area0_table<-as.data.frame(na.omit(landuse_area0_freq))
+colnames(landuse_area0_table)<-c("ID", "COUNT")
+landuse_area0<-as.matrix(landuse_area0_table$COUNT)
 
-# landuse_area0<-as.data.frame(levels(landuse0))
-landuse_area<-subset(next_landuse_lut, ID != nodata_val)
-landuse_area0<-subset(landuse_lut, ID != nodata_val)
-landuse_area<-as.matrix(landuse_area$COUNT)
-landuse_area0<-as.matrix(landuse_area0$COUNT)
-landuse_table<-cbind(lc.list,landuse_area0, landuse_area)
+landuse_table<-merge(lc.list, landuse_area0_table, by="ID")
+landuse_table<-cbind(landuse_table, landuse_area)
+landuse_table$LC<-NULL
+# landuse_table<-cbind(lc.list,landuse_area0, landuse_area)
 landuse_area_diag<-diag(as.numeric(as.matrix(landuse_area)))
 colnames(landuse_table)[1] <- "LAND_USE"
 colnames(landuse_table)[2] <- "T1_HA"
 colnames(landuse_table)[3] <- "T2_HA"
-landuse_table<-edit(landuse_table)
+# landuse_table<-edit(landuse_table)
 landuse_table$CHANGE<-landuse_table$T2_HA-landuse_table$T1_HA
 
 #MODEL FINAL DEMAND
@@ -78,7 +79,7 @@ GDP_summary<-cbind(GDP,GDP.scen,fin.output.scen,GDP.diff, GDP.rate)
 GDP_summary$P_OUTPUT<-NULL
 GDP_summary$P_GDP<-NULL
 
-#calculate total GDP
+#CALCULATE TOTAL GDP
 GDP_tot_scen<-as.matrix(GDP_summary$GDP_scen)
 GDP_tot_scen<-colSums(GDP_tot_scen)
 GDP_tot_diff<-GDP_tot_scen-GDP_tot
@@ -117,22 +118,16 @@ Labour_table$Lab_scen<-test
 Labour_table$Lab_req<-Labour_table$Lab_scen-Labour_table$Lab_base
 test2<-Labour_table$Lab_req
 test2<-cbind(sector, test2)
-LAB_graph<-ggplot(data=test2, aes(x=V1, y=test2, fill=V2)) +
+LAB_graph<-ggplot(data=test2, aes(x=SECTOR, y=test2, fill=CATEGORY)) +
   geom_bar(colour="black", stat="identity", position="dodge")+
   guides(fill=FALSE) + xlab("Sector") + ylab("Labour requirement") +ggtitle("Impact of LU Change to Labour")+ theme(axis.text.x  = element_text(angle=90, size=6))
 
 addParagraph(rtffile, "\\b\\fs20 Table 1. Land use change\\b0\\fs20.")
 addTable(rtffile,landuse_table,font.size=8)
-addNewLine(rtffile)
 addPlot(rtffile,plot.fun=print, width=6.7,height=4,res=300,LC_graph)
-addNewLine(rtffile)
 addParagraph(rtffile, "\\b\\fs20 Table 2. Impact of land use change to GDP\\b0\\fs20.")
 addTable(rtffile,GDP_summary,font.size=6)
-addNewLine(rtffile)
 addPlot(rtffile,plot.fun=print, width=6.7,height=4,res=300,GDP_graph)
-addNewLine(rtffile)
 addParagraph(rtffile, "\\b\\fs20 Table 3. Impact of land use change to labour requirement\\b0\\fs20.")
 addTable(rtffile,Labour_table,font.size=6)
-addNewLine(rtffile)
 addPlot(rtffile,plot.fun=print, width=6.7,height=4,res=300,LAB_graph)
-done(rtffile)

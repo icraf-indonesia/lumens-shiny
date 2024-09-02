@@ -23,6 +23,7 @@ server <- function(input, output, session) {
     opcost_map = NULL,
     emission_map = NULL,
     raster_nodata = NULL,
+    cost_threshold = NULL,
     map_npv1 = NULL,
     map_npv2 = NULL
   )
@@ -65,6 +66,10 @@ server <- function(input, output, session) {
     rv$period <- as.numeric(input$year2) - as.numeric(input$year1)
   })
   
+  observeEvent(input$cost_threshold, {
+    rv$cost_threshold <- as.numeric(input$cost_threshold)
+  })
+  
   #### Process Data ####
   observeEvent(input$process, {
     
@@ -87,6 +92,7 @@ server <- function(input, output, session) {
       
       #Build Opcost Table
       data_em_sel <- rv$quesc_tbl
+      period<-rv$period
       data_em_sel <- data_em_sel[ which(data_em_sel$EM > 0),]
       data_em_sel<-within(data_em_sel, {
         em_rate<-((C_T1-C_T2)*(Ha*3.67))/(tot_area*period)
@@ -134,7 +140,7 @@ server <- function(input, output, session) {
       #Find Cost Threshold
       rv$opcost_table <- opcost_all
       rv$opcost_table$order<-c(1:nrow(rv$opcost_table))
-      find_x_val<-subset(rv$opcost_table, opcost_log>=log10(cost_threshold))
+      find_x_val<-subset(rv$opcost_table, opcost_log>=log10(rv$cost_threshold))
       x_val<-find_x_val$order[1]
       
       # Load land use maps and set NoData value
