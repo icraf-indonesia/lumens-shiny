@@ -1,42 +1,42 @@
-ID,LC,Classified
-1,Hutan Primer,Hutan Primer
-2,Hutan bekas tebangan kerapatan tinggi,Hutan bekas-tebangan
-3,Hutan bekas tebangan kerapatan rendah,Hutan bekas-tebangan
-4,Hutan Rawa Primer,Hutan Primer
-5,Hutan Rawa Sekunder,Hutan bekas-tebangan
-6,Hutan Rawa Primer Gambut,Hutan Primer
-7,Hutan Rawa Sekunder Gambut,Hutan bekas-tebangan
-8,Hutan Mangrove Primer,Hutan Primer
-9,Hutan Mangrove Sekunder,Hutan bekas-tebangan
-10,Agroforestri karet,Perkebunan berbasis-pohon campuran
-11,Agoroforestri kelapa/pinang,Perkebunan berbasis-pohon campuran
-12,Agroforestri kayu manis,Perkebunan berbasis-pohon campuran
-13,Agroforestri kopi,Perkebunan berbasis-pohon campuran
-14,Kebun campuran,Perkebunan berbasis-pohon campuran
-15,HTI Akasia,Perkebunan berbasis-pohon monokultur
-16,Karet monokultur,Perkebunan berbasis-pohon monokultur
-17,Kelapa sawit,Perkebunan berbasis-pohon monokultur
-18,Kelapa,Perkebunan berbasis-pohon monokultur
-19,Semak,"Semak belukar, rerumputan, dan lahan terbuka"
-20,Lahan pertanian,Lahan pertanian tanaman semusim
-21,Sawah,Lahan pertanian tanaman semusim
-22,Perkebunan teh,Perkebunan berbasis-pohon monokultur
-23,Rumput,"Semak belukar, rerumputan, dan lahan terbuka"
-24,Lahan terbuka,"Semak belukar, rerumputan, dan lahan terbuka"
-25,Pemukiman,Pemukiman dan lahan terbangun
-26,Agroforestri karet gambut,Perkebunan berbasis-pohon campuran
-27,Agoroforestri kelapa/pinang gambut,Perkebunan berbasis-pohon campuran
-29,Agroforestri kopi gambut,Perkebunan berbasis-pohon campuran
-30,Kebun campuran gambut,Perkebunan berbasis-pohon campuran
-31,HTI Akasia gambut,Perkebunan berbasis-pohon monokultur
-32,Karet monokultur gambut,Perkebunan berbasis-pohon monokultur
-33,Kelapa sawit gambut,Perkebunan berbasis-pohon monokultur
-34,Kelapa gambut,Perkebunan berbasis-pohon monokultur
-35,Semak gambut,"Semak belukar, rerumputan, dan lahan terbuka"
-36,Lahan pertanian gambut,Lahan pertanian tanaman semusim
-37,Sawah gambut,Lahan pertanian tanaman semusim
-39,Rumput gambut,"Semak belukar, rerumputan, dan lahan terbuka"
-40,Lahan terbuka gambut,"Semak belukar, rerumputan, dan lahan terbuka"
-41,Pemukiman gambut,Pemukiman dan lahan terbangun
-42,Air,Lainnya
-43,Kayu manis monokultur,Perkebunan berbasis-pohon monokultur
+ID,LC,ID_Traj,Trajectory,color_palette
+1,Hutan Primer,1,Undisturbed forest,#006600
+2,Hutan bekas tebangan kerapatan tinggi,2,Logged-over forest,#009933
+3,Hutan bekas tebangan kerapatan rendah,2,Logged-over forest,#663300
+4,Hutan Rawa Primer,1,Undisturbed forest,#996600
+5,Hutan Rawa Sekunder,2,Logged-over forest,#666633
+6,Hutan Rawa Primer Gambut,1,Undisturbed forest,#999900
+7,Hutan Rawa Sekunder Gambut,2,Logged-over forest,#e68a00
+8,Hutan Mangrove Primer,1,Undisturbed forest,#80ffbf
+9,Hutan Mangrove Sekunder,2,Logged-over forest,#ffcc99
+10,Agroforestri karet,6,Mixed tree-based plantation,#ffbf80
+11,Agoroforestri kelapa/pinang,6,Mixed tree-based plantation,#ccffe6
+12,Agroforestri kayu manis,6,Mixed tree-based plantation,#ff9900
+13,Agroforestri kopi,6,Mixed tree-based plantation,#cc00ff
+14,Kebun campuran,6,Mixed tree-based plantation,#ffff66
+15,HTI Akasia,3,Monoculture tree-based plantation,#b3b3ff
+16,Karet monokultur,3,Monoculture tree-based plantation,#ffccff
+17,Kelapa sawit,3,Monoculture tree-based plantation,#ffe6ff
+18,Kelapa,3,Monoculture tree-based plantation,#ff0000
+19,Semak,4,"Shrub, grass, and cleared land",#a6a6a6
+20,Lahan pertanian,5,Agriculture/annual crop,#0000e6
+21,Sawah,5,Agriculture/annual crop,#800000
+22,Perkebunan teh,3,Monoculture tree-based plantation,#ffffff
+23,Rumput,4,"Shrub, grass, and cleared land",#ff99ff
+24,Lahan terbuka,4,"Shrub, grass, and cleared land",#006600
+25,Pemukiman,8,Settlement and built-up area,#009933
+26,Agroforestri karet gambut,6,Mixed tree-based plantation,#663300
+27,Agoroforestri kelapa/pinang gambut,6,Mixed tree-based plantation,#996600
+29,Agroforestri kopi gambut,6,Mixed tree-based plantation,#666633
+30,Kebun campuran gambut,6,Mixed tree-based plantation,#999900
+31,HTI Akasia gambut,3,Monoculture tree-based plantation,#e68a01
+32,Karet monokultur gambut,3,Monoculture tree-based plantation,#80ffbf
+33,Kelapa sawit gambut,3,Monoculture tree-based plantation,#ffcc100
+34,Kelapa gambut,3,Monoculture tree-based plantation,#ffbf81
+35,Semak gambut,4,"Shrub, grass, and cleared land",#ccffe7
+36,Lahan pertanian gambut,5,Agriculture/annual crop,#ff9901
+37,Sawah gambut,5,Agriculture/annual crop,#cc00ff
+39,Rumput gambut,4,"Shrub, grass, and cleared land",#ffff67
+40,Lahan terbuka gambut,4,"Shrub, grass, and cleared land",#b3b3ff
+41,Pemukiman gambut,8,Settlement and built-up area,#ffccff
+42,Air,7,Others,#ffe6ff
+43,Kayu manis monokultur,3,Monoculture tree-based plantation,#ff0001

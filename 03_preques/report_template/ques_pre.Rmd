@@ -1,5 +1,5 @@
 ---
-title: "PreQUES-Land Use/Cover Change Analysis"
+title: "Pre-QuES - Land Use/Cover Change Analysis Report"
 output: 
   html_document:
     toc: true
@@ -17,6 +17,7 @@ params:
   dir_def_map_: NA
   dir_ques_pre_traj: NA
   dir_ques_pre_def: NA
+  log_params: NA
 ---
 
 ```{r setup, include=FALSE}
@@ -43,6 +44,38 @@ ques_pre_output <- readRDS(params$dir_ques_pre)
 traj_analysis_output <- readRDS(params$dir_ques_pre_traj)
 def_analysis_output <- readRDS(params$dir_ques_pre_def)
 ```
+
+<details><summary>Click here for Analysis Log</summary>
+```{r analysis-log, echo=FALSE}
+analysis_log <- tribble(
+  ~Category,                   ~Details,
+  "Analysis Start",        params$log_params$start_time,
+  "Analysis End",          params$log_params$end_time,
+  "Input Data and Parameters", "",
+  "1. Landcover map T1",      params$dir_lc_t1_,
+  "2. Year T1", as.character(time_1),
+  "3. Landcover lookup",   params$inputs$lulc_lut_path,
+  "4. Contrast table",     params$inputs$contab_path,
+  "5. NoData land-cover class", as.character(params$inputs$raster.nodata),
+  "6. Number of sampling points (n)", as.character(params$inputs$sampling_points),
+  "7. Mowing window radius (metres)", as.character(params$inputs$window_size),
+  "8. Mowing window shape", as.character(params$inputs$window.shap),
+  "9. Fragstats config file", params$inputs$fca_path,
+  "10. Fragstats directory", params$inputs$fragstats_path,
+  "Output Files", "",
+  "Output Workspace",      paste0(getwd(), params$output_dir),
+  "1. Focal Area Map",     file.path(params$output_dir, params$dir_focal_area_),
+  "2. TECI Map", file.path(params$output_dir, params$dir_teci_map),
+  "3. DIFA Table",file.path(params$output_dir, params$dir_difa_table),
+  "4. Sampling Grid",file.path(params$output_dir, params$dir_sampling_grid),
+  "Session Summary", "",
+) %>% rbind(format_session_info_table())
+
+analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
+  kable_paper("hover", full_width = F )
+```
+</details>
+
 
 # Introduction
 

@@ -1,6 +1,6 @@
-# Pre-QUES Land cover change analysis -------------------------------------
+# Pre-QuES Land cover change analysis -------------------------------------
 
-#' @title Pre-QUES Land cover change analysis
+#' @title Pre-QuES Land cover change analysis
 #' @description This function preprocesses land cover data for visualization, calculation, and summarization.
 #' It checks the consistency of input data, creates visualizations of input data, calculates land cover frequency,
 #' creates a crosstabulation of land cover changes, and summarizes results at both the landscape and planning unit level.
@@ -1810,36 +1810,10 @@ check_and_harmonise_geometries <- function(lc_t1, lc_t2, admin) {
 
   return(list(lc_t1 = lc_t1, lc_t2 = lc_t2, admin = admin))
 }
-check_and_harmonise_geometries <- function(lc_t1, lc_t2, admin) {
 
-  harmonised_layers <- character()
-  # Check lc_t2 against lc_t1
-  if (!terra::compareGeom(lc_t1, lc_t2, stopOnError = FALSE)) {
-    warning("Inconsistent geometry detected for lc_t2. Harmonizing...")
-    lc_t2 <- terra::resample(lc_t2, lc_t1, method = "near")
-    harmonised_layers <- c(harmonised_layers, "lc_t2")
-  }
-
-  # Check admin against lc_t1
-  if (!terra::compareGeom(lc_t1, admin, stopOnError = FALSE)) {
-    warning("Inconsistent geometry detected for admin. Harmonizing...")
-    admin <- terra::resample(admin, lc_t1, method = "near")
-    harmonised_layers <- c(harmonised_layers, "admin")
-  }
-
-  if (length(harmonised_layers) > 0) {
-    message("Harmonization complete. The following layers were harmonised to match lc_t1:")
-    message(paste("-", harmonised_layers, collapse = "\n"))
-  } else {
-    message("All input geometries are consistent.")
-  }
-
-  return(list(lc_t1 = lc_t1, lc_t2 = lc_t2, admin = admin))
-}
-
-#' Run Pre-QUES Analysis
+#' Run Pre-QuES Analysis
 #'
-#' This function performs the main Pre-QUES (Quantifying Ecosystem Services) analysis,
+#' This function performs the main Pre-QuES (Quantifying Ecosystem Services) analysis,
 #' including land cover change and trajectory analysis.
 #'
 #' @param lc_t1_input List. Land cover data for time point 1.
@@ -1861,7 +1835,9 @@ check_and_harmonise_geometries <- function(lc_t1, lc_t2, admin) {
 run_preques_analysis <- function(lc_t1_input, lc_t2_input, admin_z_input,
                                  lc_lookup_input, zone_lookup_input, trajectory_lookup_input,
                                  time_points, output_dir, progress_callback = NULL) {
-
+  # Run ques-b for lc
+  start_time <- Sys.time()
+  cat("Started at:", format(start_time, "%Y-%m-%d %H:%M:%S"), "\n")
   # Load lookup tables
   lc_lookup <- if(!is.null(lc_lookup_input) && file.exists(lc_lookup_input$datapath)) {
     read.csv(lc_lookup_input$datapath)
@@ -1925,15 +1901,15 @@ run_preques_analysis <- function(lc_t1_input, lc_t2_input, admin_z_input,
   lc_data$t1 <- harmonised_rasters$lc_t1
   lc_data$t2 <- harmonised_rasters$lc_t2
   admin_z <- harmonised_rasters$admin
-
-  # Run main PreQUES analysis
+ 
+  # Run main Pre-QuES analysis
   output_pre_ques <- ques_pre(
     lc_data$t1, lc_data$t2, admin_z,
     convert_to_Ha = TRUE
   )
 
-  if (!is.null(progress_callback)) progress_callback(0.5, "Main PreQUES analysis completed")
-
+  if (!is.null(progress_callback)) progress_callback(0.5, "Main Pre-QuES analysis completed")
+ 
   # Run trajectory analysis
   output_pre_ques_traj <- ques_pre_trajectory(
     lc_data$t1, lc_data$t2, admin_z, lc_lookup, lookup_trajectory,
@@ -1947,11 +1923,21 @@ run_preques_analysis <- function(lc_t1_input, lc_t2_input, admin_z_input,
     convert_to_Ha = TRUE
   )
 
-  if (!is.null(progress_callback)) progress_callback(0.7, "Trajectory analysis completed")
-
+  if (!is.null(progress_callback)) progress_callback(0.7, "Pre-QuES Trajectory analysis completed")
+  
+  # End of the script
+  end_time <- Sys.time()
+  cat("Ended at:", format(end_time, "%Y-%m-%d %H:%M:%S"), "\n")
+  
+  log_params <- list(
+    start_time = as.character(format(start_time, "%Y-%m-%d %H:%M:%S")),
+    end_time = as.character(format(end_time, "%Y-%m-%d %H:%M:%S")),
+    session_log = format_session_info_table()
+  )
+  
   # Generate and save outputs
   generate_outputs(output_pre_ques, output_pre_ques_traj, output_pre_ques_def,
-                   output_dir, lc_data, admin_z, time_points)
+                   output_dir, lc_data, admin_z, time_points, log_params)
 
   if (!is.null(progress_callback)) progress_callback(1, "Outputs generated and saved")
 
@@ -1962,12 +1948,12 @@ run_preques_analysis <- function(lc_t1_input, lc_t2_input, admin_z_input,
   ))
 }
 
-#' Generate Outputs for Pre-QUES Analysis
+#' Generate Outputs for Pre-QuES Analysis
 #'
-#' This function generates and saves various outputs from the Pre-QUES analysis,
+#' This function generates and saves various outputs from the Pre-QuES analysis,
 #' including CSV files and raster maps.
 #'
-#' @param output_pre_ques List. Output from main Pre-QUES analysis.
+#' @param output_pre_ques List. Output from main Pre-QuES analysis.
 #' @param output_pre_ques_traj List. Output from trajectory analysis.
 #' @param output_pre_ques_def List. Output from deforestation analysis.
 #' @param output_dir Character string. Directory to save output files.
@@ -1980,43 +1966,43 @@ run_preques_analysis <- function(lc_t1_input, lc_t2_input, admin_z_input,
 #'
 #' @export
 generate_outputs <- function(output_pre_ques, output_pre_ques_traj, output_pre_ques_def,
-                             output_dir, lc_data, admin_z, time_points) {
+                             output_dir, lc_data, admin_z, time_points, log_params) {
   # Create output directory if it doesn't exist
   dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 
   # Export the Pre-QuES land use change transition table
   write.csv(output_pre_ques$landscape_level$crosstab_long,
-            file.path(output_dir, "PreQUES_luc_change_transition_table.csv"),
+            file.path(output_dir, "PreQuES_luc_change_transition_table.csv"),
             row.names = FALSE)
 
   # Export Change Trajectory lookup table and raster
   cats(output_pre_ques_traj$landscape_level$luc_trajectory_map)[[1]] %>%
     rename(ChangeTrajectory = trajectory) %>%
-    write.csv(file.path(output_dir, "PreQUES_ChangeTrajectory_lookup.csv"),
+    write.csv(file.path(output_dir, "PreQuES_ChangeTrajectory_lookup.csv"),
               row.names = FALSE)
   writeRaster(output_pre_ques_traj$landscape_level$luc_trajectory_map,
-              file.path(output_dir, "PreQUES_ChangeTrajectory_map.tif"),
+              file.path(output_dir, "PreQuES_ChangeTrajectory_map.tif"),
               overwrite = TRUE)
 
   # Export Forest Change Trajectory lookup table and raster
   cats(output_pre_ques_def$landscape_level$luc_trajectory_map)[[1]] %>%
     rename(ForestChangeTrajectory = def) %>%
-    write.csv(file.path(output_dir, "PreQUES_ForestChangeTrajectory_lookup.csv"),
+    write.csv(file.path(output_dir, "PreQuES_ForestChangeTrajectory_lookup.csv"),
               row.names = FALSE)
   writeRaster(output_pre_ques_def$landscape_level$luc_trajectory_map,
-              file.path(output_dir, "PreQUES_ForestChangeTrajectory_map.tif"),
+              file.path(output_dir, "PreQuES_ForestChangeTrajectory_map.tif"),
               overwrite = TRUE)
 
-  # Generate PreQUES report
+  # Generate Pre-QuES report
   generate_preques_report(output_pre_ques, output_pre_ques_traj, output_pre_ques_def,
-                          output_dir, lc_data, admin_z, time_points)
+                          output_dir, lc_data, admin_z, time_points, log_params)
 }
 
-#' Generate Pre-QUES Report
+#' Generate Pre-QuES Report
 #'
-#' This function generates a report for the Pre-QUES analysis using R Markdown.
+#' This function generates a report for the Pre-QuES analysis using R Markdown.
 #'
-#' @param output_pre_ques List. Output from main Pre-QUES analysis.
+#' @param output_pre_ques List. Output from main Pre-QuES analysis.
 #' @param output_pre_ques_traj List. Output from trajectory analysis.
 #' @param output_pre_ques_def List. Output from deforestation analysis.
 #' @param output_dir Character string. Directory to save the report.
@@ -2028,7 +2014,7 @@ generate_outputs <- function(output_pre_ques, output_pre_ques_traj, output_pre_q
 #'
 #' @export
 generate_preques_report <- function(output_pre_ques, output_pre_ques_traj, output_pre_ques_def,
-                                    output_dir, lc_data, admin_z, time_points) {
+                                    output_dir, lc_data, admin_z, time_points, log_params) {
   # Set up temporary directory for report generation
   temp_dir <- tempdir()
   # Write raster objects to temporary directory
@@ -2047,15 +2033,23 @@ generate_preques_report <- function(output_pre_ques, output_pre_ques_traj, outpu
     output_pre_ques_def$landscape_level$luc_trajectory_map,
     a_dir = temp_dir)
 
-  # Save PreQUES output as RDS files
+  # Save Pre-QuES output as RDS files
   saveRDS(output_pre_ques, file = file.path(temp_dir, "LUMENS_ques_pre_output.rds"))
   saveRDS(output_pre_ques_traj, file = file.path(temp_dir, "LUMENS_ques_pre_traj_output.rds"))
   saveRDS(output_pre_ques_def, file = file.path(temp_dir, "LUMENS_ques_pre_def_output.rds"))
 
   # Copy report template and functions to temporary directory
-  file.copy("03_preques/report_template/ques_pre.Rmd",
-            to = file.path(temp_dir, "PreQUES_report.Rmd"), overwrite = TRUE)
-  file.copy("03_preques/rscript/functions_ques_pre.R",
+  if (file.exists("../report_template/ques_pre.Rmd")){
+    ques_pre_report_path <- "../report_template/ques_pre.Rmd"
+    helper_functions_path <- "../rscript/functions_ques_pre.R"
+  } else {
+    ques_pre_report_path <- "03_preques/report_template/ques_pre.Rmd"
+    helper_functions_path <- "03_preques/rscript/functions_ques_pre.R"
+  }
+  
+  file.copy(ques_pre_report_path,
+            to = file.path(temp_dir, "PreQuES_report.Rmd"), overwrite = TRUE)
+  file.copy(helper_functions_path,
             to = file.path(temp_dir, "functions_ques_pre.R"), overwrite = TRUE)
 
   # Prepare parameters for report rendering
@@ -2069,7 +2063,8 @@ generate_preques_report <- function(output_pre_ques, output_pre_ques_traj, outpu
     dir_ques_pre_traj = "LUMENS_ques_pre_traj_output.rds",
     dir_ques_pre_def = "LUMENS_ques_pre_def_output.rds",
     cutoff_landscape = 100,
-    cutoff_pu = 0
+    cutoff_pu = 0,
+    log_params= log_params
   )
 
   # Render the R Markdown report
@@ -2078,8 +2073,8 @@ generate_preques_report <- function(output_pre_ques, output_pre_ques_traj, outpu
 }
   
   rmarkdown::render(
-    input = file.path(temp_dir, "PreQUES_report.Rmd"),
-    output_file = "PreQUES_report.html",
+    input = file.path(temp_dir, "PreQuES_report.Rmd"),
+    output_file = "PreQuES_report.html",
     output_dir = output_dir,
     params = report_params
   )
@@ -2186,234 +2181,35 @@ process_planning_unit <- function(zone_type, zone_input, lc_t1_raster) {
 }
 
 
+format_session_info_table <- function() {
+  si <- sessionInfo()
 
-#' Pre-QuES Analysis Shiny Application
-#'
-#' This function creates and runs a Shiny application for performing Pre-QuES
-#' (Quantification of Ecosystem Services) analysis. The app allows users to upload
-#' land cover data, planning unit information, and various lookup tables to
-#' perform land use change and trajectory analysis.
-#'
-#' @description
-#' The app provides a user interface for:
-#' \itemize{
-#'   \item Uploading land cover data for two time points
-#'   \item Uploading a land cover lookup table
-#'   \item Choosing between raster and shapefile input for planning units
-#'   \item Uploading planning unit data and related lookup tables
-#'   \item Uploading trajectory rules
-#'   \item Selecting an output directory
-#'   \item Running the Pre-QuES analysis
-#'   \item Viewing analysis status and opening the output folder
-#' }
-#'
-#' @details
-#' The server-side logic handles file uploads, input validation, running the
-#' Pre-QuES analysis, and displaying results or error messages. It uses reactive
-#' values to manage the state of inputs and outputs.
-#'
-#' @note
-#' This application requires the following packages:
-#' shiny, shinyjs, shinyFiles, terra, dplyr, sf
-#'
-#' @return A Shiny app object
-#'
-#' @import shiny
-#' @import shinyjs
-#' @import shinyFiles
-#' @importFrom terra rast
-#' @importFrom dplyr %>%
-#' @importFrom sf st_read
-#'
-#' @export
-preques_app <- function() {
-  # Define a list of required packages for the Pre-QuES analysis and Shiny app
-  required_packages <- c(
-    "terra", "dplyr", "tidyterra", "ggplot2", "forcats", "stringr",
-    "cowplot", "networkD3", "scales", "purrr", "rmarkdown",
-    "kableExtra", "htmlTable", "knitr", "magrittr", "tidyr",
-    "rlang", "stats", "utils", "methods", "sf", "ggrepel",
-    "viridis", "textclean", "shiny", "shinydashboard", "shinyjs",
-    "shinyFiles"
+  # Extract R version info
+  r_version <- si$R.version[c("major", "minor", "year", "month", "day", "nickname")]
+  r_version <- paste0(
+    "R ", r_version$major, ".", r_version$minor,
+    " (", r_version$year, "-", r_version$month, "-", r_version$day, ")",
+    " '", r_version$nickname, "'"
   )
 
-  # Check if required packages are installed, and install them if not
-  check_and_install_packages(required_packages)
+  # Extract platform and OS info
+  platform_os <- paste(si$platform, "|", si[[6]])
 
-  ui <- fluidPage(
-    tags$head(
-      tags$style(HTML("
-        .shiny-input-container {width: 100% !important;}
-        .shiny-file-input-progress {width: 100% !important;}
-        .form-control {width: 100% !important;}
-        .btn {width: 100%;}
-      "))
-    ),
-    useShinyjs(),
-    titlePanel("Pre-QuES Analysis"),
-    fluidRow(
-      column(8, offset = 2,
-             fileInput("lc_t1", "Land Use/Cover T1", accept = c(".tif", ".tiff")),
-             fileInput("lc_t2", "Land Use/Cover T2", accept = c(".tif", ".tiff")),
-             fileInput("lookup_lc", "Land Use/Cover Lookup Table (CSV)", accept = c(".csv")),
-             radioButtons("zone_type", "Planning Units Input Type",
-                          choices = c("Raster" = "raster", "Shapefile" = "shapefile")),
-             conditionalPanel(
-               condition = "input.zone_type == 'raster'",
-               fileInput("zone_raster", "Planning Units (Raster)", accept = c(".tif", ".tiff")),
-               fileInput("lookup_zone", "Planning Units Lookup (CSV)", accept = c(".csv"))
-             ),
-             conditionalPanel(
-               condition = "input.zone_type == 'shapefile'",
-               fileInput("zone_shapefile", "Planning Units (Shapefile)",
-                         accept = c(".shp", ".dbf", ".prj", ".shx"), multiple = TRUE)
-             ),
-             fileInput("lookup_trajectory", "Trajectory Rules (CSV)", accept = c(".csv")),
-             numericInput("t1_year", "T1 Year", value = 1990),
-             numericInput("t2_year", "T2 Year", value = 2020),
-             shinyDirButton("output_dir", "Select Output Directory", "Please select a directory"),
-             textOutput("selected_dir"),
-             br(),
-             br(),
-             actionButton("run_analysis", "Run Pre-QuES Analysis"),
-             br(),
-             br(),
-             actionButton("open_output_folder", "Open Output Folder"),
-             br(),
-             br(),
-             textOutput("status_messages"),
-             textOutput("error_messages"),
-             textOutput("success_message")
-      )
-    )
+  # Extract locale info
+  locale_info <- strsplit(si[[3]], ";")[[1]]
+  locale_info <- paste(locale_info, collapse = "<br>")
+
+  # Extract .libpaths
+  lib_paths <- .libPaths() |> paste( collapse = "<br>")
+
+  # Combine all info into a single tibble
+  session_summary <- tibble(
+    Category = c("R Version", "Platform | OS", ".libPaths", "Locale"),
+    Details = c(r_version, platform_os, lib_paths, locale_info)
   )
 
-  server <- function(input, output, session) {
-    # Directory selection
-    volumes <- c(Home = fs::path_home(), "R Installation" = R.home(), getVolumes()())
-    shinyDirChoose(input, "output_dir", roots = volumes, session = session)
 
-    # Hide the "Open Output Folder" button initially
-    shinyjs::hide("open_output_folder")
 
-    # Reactive value to store selected output directory
-    selected_output_dir <- reactiveVal(NULL)
-
-    # Update reactive value when output directory is selected
-    observe({
-      if (!is.null(input$output_dir)) {
-        selected_output_dir(parseDirPath(volumes, input$output_dir))
-      }
-    })
-
-    # Display selected output directory
-    output$selected_dir <- renderText({
-      if (!is.null(selected_output_dir())) {
-        paste("Selected output directory:", selected_output_dir())
-      } else {
-        "No output directory selected"
-      }
-    })
-
-    # Create reactive values for inputs
-    rv <- reactiveValues(
-      lc_t1 = NULL,
-      lc_t2 = NULL,
-      lookup_lc = NULL,
-      zone_input = NULL,
-      lookup_zone = NULL,
-      lookup_trajectory = NULL
-    )
-
-    # Update reactive values when inputs change
-    observe({
-      rv$lc_t1 <- input$lc_t1
-      rv$lc_t2 <- input$lc_t2
-      rv$lookup_lc <- input$lookup_lc
-      rv$lookup_trajectory <- input$lookup_trajectory
-
-      if (input$zone_type == "raster") {
-        rv$zone_input <- input$zone_raster
-        rv$lookup_zone <- input$lookup_zone
-      } else {
-        rv$zone_input <- input$zone_shapefile
-        rv$lookup_zone <- NULL  # Will be created from shapefile
-      }
-    })
-
-    # Input validation
-    validate_inputs <- reactive({
-      validate(
-        need(rv$lc_t1, "Please upload Land Use/Cover T1 file"),
-        need(rv$lc_t2, "Please upload Land Use/Cover T2 file"),
-        need(rv$lookup_lc, "Please upload Land Use/Cover Lookup Table (CSV) file"),
-        need(input$zone_type, "Please select Planning Units Input Type"),
-        need(rv$zone_input, "Please upload Planning Units file"),
-        need(if(input$zone_type == "raster") rv$lookup_zone else TRUE, "Please upload Planning Units Lookup (CSV) file for raster input"),
-        need(rv$lookup_trajectory, "Please upload Trajectory Rules (CSV) file"),
-        need(selected_output_dir(), "Please select an output directory")
-      )
-      return(TRUE)
-    })
-
-    # Run analysis
-    observeEvent(input$run_analysis, {
-      req(validate_inputs())
-
-      showNotification("Analysis is running. Please wait...", type = "message", duration = NULL, id = "running_notification")
-      withProgress(message = 'Running Pre-QuES Analysis', value = 0, {
-        tryCatch({
-          # Load LC T1 raster
-          lc_t1_raster <- terra::rast(rv$lc_t1$datapath)
-
-          # Process planning unit input
-          zone_data <- process_planning_unit(
-            zone_type = input$zone_type,
-            zone_input = rv$zone_input,
-            lc_t1_raster = lc_t1_raster
-          )
-
-          results <- run_preques_analysis(
-            lc_t1_input = rv$lc_t1,
-            lc_t2_input = rv$lc_t2,
-            admin_z_input = zone_data$zone_raster,
-            lc_lookup_input = rv$lookup_lc,
-            zone_lookup_input = if(input$zone_type == "raster") rv$lookup_zone else zone_data$lookup_zone,
-            trajectory_lookup_input = rv$lookup_trajectory,
-            time_points = list(t1 = input$t1_year, t2 = input$t2_year),
-            output_dir = selected_output_dir(),
-            progress_callback = function(value, detail) {
-              setProgress(value = value, message = detail)
-            }
-          )
-
-          output$status_messages <- renderText("Analysis completed successfully!")
-          output$success_message <- renderText("Analysis completed successfully! You can now open the output folder.")
-          output$error_messages <- renderText(NULL)
-          shinyjs::show("open_output_folder")
-          removeNotification("running_notification")
-          showNotification("Analysis completed successfully!", type = "message")
-        }, error = function(e) {
-          output$status_messages <- renderText(paste("Error in analysis:", e$message))
-          output$error_messages <- renderText(paste("Error in analysis:", e$message))
-          output$success_message <- renderText(NULL)
-          removeNotification("running_notification")
-          showNotification("Error in analysis. Please check the error messages.", type = "error")
-        })
-      })
-    })
-
-    # Open output folder
-    observeEvent(input$open_output_folder, {
-      if (!is.null(selected_output_dir())) {
-        if (.Platform$OS.type == "windows") {
-          shell.exec(selected_output_dir())
-        } else {
-          system2("open", selected_output_dir())
-        }
-      }
-    })
-  }
-
-  shinyApp(ui, server)
+  return(session_summary)
 }
+
