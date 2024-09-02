@@ -239,7 +239,7 @@ server <- function(input, output, session) {
       delta_npv = rv$npv_chg_map
     )
     
-    output_file <- paste0("ta-profit_report_", Sys.Date(), ".html")
+    output_file <- paste0("ta-profit_report_", format(Sys.time(), "%Y-%m-%d_%H-%M-%S"), ".html")
     output_dir <- rv$wd
     rv$report_file <- paste(output_dir, output_file, sep = "/")
     

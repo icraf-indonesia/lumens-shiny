@@ -200,7 +200,7 @@ server <- function(input, output, session) {
       GDP_graph = rv$GDP_graph,
       LAB_graph = rv$LAB_graph
     )
-    output_file <- paste0("ta_regional2_report_", Sys.Date(), ".html")
+    output_file <- paste0("ta_regional2_report_", format(Sys.time(), "%Y-%m-%d_%H-%M-%S"), ".html")
     output_dir <- rv$wd
     render(
       "../report_template/report_template.Rmd",

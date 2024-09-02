@@ -250,7 +250,7 @@ server <- function(input, output, session) {
       FPD_graph = rv$FPD_graph,
       LRC_graph = rv$LRC_graph
     )
-    output_file <- paste0("ta_regional1_report_", Sys.Date(), ".html")
+    output_file <- paste0("ta_regional1_report_", format(Sys.time(), "%Y-%m-%d_%H-%M-%S"), ".html")
     output_dir <- rv$wd
     render(
       "../report_template/report_template.Rmd",
