@@ -1531,7 +1531,7 @@ quesb_app <- function() {
 
   ui <- fluidPage(
     useShinyjs(),
-    titlePanel("QuES-B Analysis"),
+    titlePanel("QuES-B Module"),
     sidebarLayout(
       sidebarPanel(
         fileInput("lc_t1", "Land Cover", accept = c(".tif", ".tiff")),
