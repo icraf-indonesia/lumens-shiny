@@ -22,7 +22,7 @@ page_sidebar(
   card(
     card_header("Guide"),
     card_body(
-      includeMarkdown("../helpfile/help.md")
+      includeMarkdown("D:/OneDrive - CIFOR-ICRAF/Documents/GitHub/lumens-shiny/01_pur1/helpfile/help.Rmd")
     )
   ),
   actionButton("viewReport", "View report", icon = icon("file-code")) 

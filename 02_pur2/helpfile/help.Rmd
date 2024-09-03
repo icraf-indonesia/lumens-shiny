@@ -1,4 +1,4 @@
-## Help Page for PUR Build Module
+## Help Page for PUR Reconcile Module
 
 ## 1. Description
 
@@ -6,7 +6,8 @@ Planning unit reconciliation is a process to resolve overlapping permits by refe
 
 ## 2. Required Data
 
-![](image/input%20data.png)
+![](image/input.png)
+
 
 ## 3. Running Model
 
@@ -18,9 +19,13 @@ Planning unit reconciliation is a process to resolve overlapping permits by refe
 
 #### Tabular data:
 
--   reference class ![](image/ref_class.png)
--   reference class of reference map ![](image/ref_mapping.png)
--   planning unit list ![](image/pu_units.png)
+Before running PUR 2 module, the reconcile action on 'PUR_unresolved_case.xlsx' need to be defined. You can use Microsoft Excel or any free spreadsheet software (e.g. Google Sheet) to do it:
+
+![](image/reconcile.png)
+
+Save file and input the tabular data
+
+![](image/tabular.png)
 
 #### Map resolution
 
@@ -28,7 +33,7 @@ Default value: 100
 
 ### 3.2 Set working directory
 
-![](image/set%20wd.png)
+![](image/set wd.png)
 
 ### 3.3 Run the module
 
@@ -38,7 +43,7 @@ Default value: 100
 
 ### 4.1 Exported data
 
-![](image/exported%20data.png)
+![](image/exported data.png)
 
 ### 4.2 Report file
 
