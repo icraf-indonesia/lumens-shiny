@@ -1,3 +1,38 @@
+### Required Library ###
+install_load <- function (package1, ...)  {
+  # convert arguments to vector
+  packages <- c(package1, ...)
+  # start loop to determine if each package is installed
+  for (package in packages) {
+    # if package is installed locally, load
+    if (package %in% rownames(installed.packages()))
+      do.call('library', list(package))
+    # if package is not installed locally, download, then load
+    else {
+      install.packages(package)
+      do.call("library", list(package))
+    }
+  }
+}
+
+install_load(
+  "shiny",
+  "shinyFiles",
+  "bslib",
+  "foreign", 
+  "raster", 
+  "terra", 
+  "dplyr", 
+  "sp", 
+  "sf", 
+  "openxlsx",
+  "shinyvalidate",
+  "remote",
+  "shinyjs",
+  "rmarkdown",
+  "tools"
+)
+
 #' Rasterize an sf MULTIPOLYGON object
 #'
 #' This function rasterizes an sf MULTIPOLYGON object to a SpatRaster object. The function also retains
@@ -116,4 +151,84 @@ check_and_install_packages <- function(required_packages) {
   } else {
     cat("\nAll required packages are installed and loaded.\n")
   }
+}
+
+# format_session_info_table function
+format_session_info_table <- function() {
+  si <- sessionInfo()
+  
+  # Extract R version info
+  r_version <- si$R.version[c("major", "minor", "year", "month", "day", "nickname")]
+  r_version <- paste0(
+    "R ", r_version$major, ".", r_version$minor,
+    " (", r_version$year, "-", r_version$month, "-", r_version$day, ")",
+    " '", r_version$nickname, "'"
+  )
+  
+  # Extract platform and OS info
+  platform_os <- paste(si$platform, "|", si[[6]])
+  
+  # Extract locale info
+  locale_info <- strsplit(si[[3]], ";")[[1]]
+  locale_info <- paste(locale_info, collapse = "<br>")
+  
+  # Extract .libpaths and combine into a single string
+  lib_paths <- paste(.libPaths(), collapse = "<br>")
+  
+  # Combine all info into a single tibble
+  session_summary <- tibble(
+    Category = c("R Version", "Platform | OS", ".libPaths", "Locale"),
+    Details = c(r_version, platform_os, lib_paths, locale_info)
+  )
+  
+  return(session_summary)
+}
+
+# plot_categorical_raster -------------------------------------------------
+
+#' Plot a categorical raster map
+#'
+#' This function takes a raster object as input and produces a ggplot. If the raster
+#' object includes a "color_pallete" column with hex color codes, these colors are
+#' used for the fill scale. Otherwise, the default `scale_fill_hypso_d()` fill scale
+#' from the tidyterra package is used.
+#'
+#' @param raster_object A raster object.
+#'
+#' @return A ggplot object.
+#' @importFrom tidyterra scale_fill_hypso_d
+#' @importFrom ggplot2 ggplot theme_bw labs theme scale_fill_manual element_text unit element_blank guides guide_legend
+#' @importFrom tidyterra geom_spatraster scale_fill_hypso_d
+#' @export
+plot_categorical_raster <- function(raster_object) {
+  # Check if raster_object has a color_pallete column and it contains hex color codes
+  if ("color_palette" %in% names(cats(raster_object)[[1]]) && all(grepl("^#[0-9A-Fa-f]{6}$", cats(raster_object)$color_pallete))) {
+    fill_scale <- scale_fill_manual(values = cats(raster_object)[[1]]$color_palette, na.value = "white")
+  } else {
+    fill_scale <- scale_fill_hypso_d()
+  }
+  if(!is.na(time(raster_object))) {
+    plot_title <- time(raster_object)
+  } else {
+    plot_title <- names(raster_object)
+  }
+  # Generate the plot
+  plot_lc <- ggplot() +
+    geom_spatraster(data = raster_object) +
+    fill_scale +
+    theme_bw() +
+    labs(title = plot_title, fill = NULL) +
+    guides(fill = guide_legend(title.position = "top", ncol=3))+
+    theme(axis.title.x = element_blank(),
+          axis.title.y = element_blank(),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          legend.title = element_text(size = 12),
+          legend.text = element_text(size = 10),
+          legend.key.height = unit(0.25, "cm"),
+          legend.key.width = unit(0.25, "cm"),
+          legend.position = "bottom",
+          legend.justification = c(0,0.8))
+  
+  return(plot_lc)
 }

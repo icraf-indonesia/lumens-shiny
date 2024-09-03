@@ -1,6 +1,6 @@
 [general]
 creator=R package 'raster'
-created=2024-08-30 16:17:38
+created=2024-09-03 16:07:12
 [data]
 datatype=FLT4S
 byteorder=little
@@ -9,9 +9,9 @@ bandorder=BIL
 categorical=TRUE
 ratnames=ID:COUNT
 rattypes=integer:numeric
-ratvalues=1:2:3:4:5:6:7:8:9:7182:43275:56568:10131:58108:146695:8102:41941:89656
+ratvalues=1:2:3:4:5:6:7:8:9:10:11:9823:48948:70917:10131:64883:154751:10878:41941:15295:2095:31996
 minvalue=1
-maxvalue=9
+maxvalue=11
 nodatavalue=-3.4e+38
 [legend]
 legendtype=

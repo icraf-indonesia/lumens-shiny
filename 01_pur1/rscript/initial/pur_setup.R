@@ -1,7 +1,8 @@
 # Planning Unit Reconciliation (PUR Setup) #1 Script
 
 # 0. Load functions and libraries -------------------------------
-
+tryCatch({
+  
 # Load custom functions
 source("01_pur1/rscript/functions_pur.R")
 
@@ -15,14 +16,13 @@ check_and_install_packages(required_packages)
 
 # Start running PUR
 start_time <- Sys.time()
-cat("Started at:", format(start_time, "%Y-%m-%d %H:%M:%S"), "\n")
 
 # 1. Define input parameters ------------------------------------
+area_name <- 'Bungo'
 
 # Define file path and parameters
 path <- list(
   ref_map = "data/vector/Pola_Ruang_Bungo_F.shp",
-  lut_ref = "data/table/pola_ruang_bungo.csv",
   ref_class = "data/table/ref_class_bungo.csv",
   ref_mapping = "data/table/ref_mapping_bungo.csv",
   pu_units = "data/table/pu_units_bungo.csv",
@@ -54,7 +54,7 @@ if (grepl("+units=m", as.character(st_crs(ref)$proj4string))){
 }
 
 # Prepare lookup data
-lookup_ref <- read.csv(path$lut_ref)
+lookup_ref <- ref_data %>% st_drop_geometry()
 colnames(lookup_ref)[ncol(lookup_ref)] <- "REFERENCE"
 ref.name <- names(ref)
 
@@ -446,32 +446,56 @@ if (nrow(unresolved_cases) != 0) {
 
 # End of the script
 end_time <- Sys.time()
+cat("Started at:", format(start_time, "%Y-%m-%d %H:%M:%S"), "\n")
 cat("Ended at:", format(end_time, "%Y-%m-%d %H:%M:%S"), "\n")
 
-# # 8. Prepare parameters for report -------------------------
-# report_params <- list(
-#   start_time = as.character(format(start_time, "%Y-%m-%d %H:%M:%S")),
-#   end_time = as.character(format(end_time, "%Y-%m-%d %H:%M:%S")),
-#   output_dir = output_dir,
-#   PUR_stack = PUR_stack,
-#   db_final2 = db_final2,
-#   database_unresolved_out = database_unresolved_out,
-#   inputs = list(
-#     ref = ref,
-#     ref_class = tabel_acuan,
-#     lookup_ref = lookup_ref,
-#     pu_lut_list = pu_lut_list
-#   )
-# )
-# 
-# # Render the R markdown report
-# if (!rmarkdown::pandoc_available()) {
-#   Sys.setenv(RSTUDIO_PANDOC = paste0(getwd(), "/pandoc"))
-# }
-# 
-# rmarkdown::render(
-#   input = "05_quesb/report_template/quesb_report_template.Rmd",
-#   output_file = "QuES_B_report.html",
-#   output_dir = output_dir,
-#   params = report_params
-# )
+# 8. Prepare parameters for report -------------------------
+report_params <- list(
+  start_time = as.character(format(start_time, "%Y-%m-%d %H:%M:%S")),
+  end_time = as.character(format(end_time, "%Y-%m-%d %H:%M:%S")),
+  output_dir = output_dir,
+  PUR_stack = PUR_stack,
+  db_final2 = db_final2,
+  database_unresolved_out = database_unresolved_out,
+  pur_unresolved_vector = pur_unresolved_vector,
+  inputs = list(
+    area_name = area_name,
+    ref = ref,
+    ref_class = tabel_acuan,
+    lookup_ref = lookup_ref,
+    pu_lut_list = pu_lut_list
+  ),
+  dir_PURdbfinal = "PUR-build_database.dbf",
+  dir_UnresolvedCase = "PUR_unresolved_case.xlsx",
+  dir_PUR1shp = "PUR_first_phase_result.shp"
+)
+
+# Prepare summary data for the report
+summary_data <- list(
+  total_area = sum(db_final2$COUNT) * Spat_res,
+  resolved_area = sum(db_final2$COUNT[db_final2$Rec_phase1b != "unresolved_case"]) * Spat_res,
+  unresolved_area = sum(db_final2$COUNT[db_final2$Rec_phase1b == "unresolved_case"]) * Spat_res,
+  resolved_percentage = (sum(db_final2$COUNT[db_final2$Rec_phase1b != "unresolved_case"]) / sum(db_final2$COUNT)) * 100,
+  unresolved_percentage = (sum(db_final2$COUNT[db_final2$Rec_phase1b == "unresolved_case"]) / sum(db_final2$COUNT)) * 100
+)
+
+report_params$summary_data <- summary_data
+
+# Render the R markdown report
+if (!rmarkdown::pandoc_available()) {
+  Sys.setenv(RSTUDIO_PANDOC = paste0(getwd(), "/pandoc"))
+}
+
+rmarkdown::render(
+  input = "01_pur1/report_template/PUR1_report.Rmd",
+  output_file = "PUR_setup_report.html",
+  output_dir = output_dir,
+  params = report_params
+)
+
+}, error = function(e) {
+  cat("An error occurred:\n")
+  print(e)
+}, finally = {
+  cat("Script execution completed.\n")
+})

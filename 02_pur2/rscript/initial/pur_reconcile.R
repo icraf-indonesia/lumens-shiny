@@ -1,18 +1,23 @@
 # Planning Unit Reconciliation (PUR Reconcile) #2 Script
 
 # 0. Load functions and libraries -------------------------------
-
+tryCatch({
+  
 # Load custom functions
 source("01_pur1/rscript/functions_pur.R")
 
 # Check and install required packages
 required_packages <- c(
-  "raster", "terra", "dplyr", "sf", "readxl"
+  "raster", "terra", "dplyr", "sf", "readxl", "ggplot2", "knitr", "kableExtra", "rmarkdown"
 )
-
+  
 check_and_install_packages(required_packages)
 
+# Start running PUR
+start_time <- Sys.time()
+
 # 1. Define input parameters ------------------------------------
+area_name <- 'Bungo' 
 
 # Define file path and parameters
 path <- list(
@@ -28,6 +33,24 @@ output_dir = "02_pur2/output/"
 # Load shapefile
 pur_sa <- path$recon_file %>% st_read %>% st_as_sf() %>% st_drop_geometry()
 sa <- path$recon_file %>% st_read()
+
+ref <- rasterise_multipolygon(sf_object = sa, raster_res = c(path$map_resolution,path$map_resolution), field = "ID")
+
+# Check and handle the projection of the reference data
+if (grepl("+units=m", as.character(st_crs(ref)$proj4string))){
+  print("Raster maps have projection in meter unit")
+  Spat_res<-res(ref)[1]*res(ref)[2]/10000
+  paste("Raster maps have ", Spat_res, " Ha spatial resolution, PUR will automatically generate data in Ha unit")
+} else if (grepl("+proj=longlat", as.character(st_crs(ref)$proj4string))){
+  print("Raster maps have projection in degree unit")
+  Spat_res<-res(ref)[1]*res(ref)[2]*(111319.9^2)/10000
+  paste("Raster maps have ", Spat_res, " Ha spatial resolution, PUR will automatically generate data in Ha unit")
+} else{
+  statuscode<-0
+  statusmessage<-"Raster map projection is unknown"
+  statusoutput<-data.frame(statuscode=statuscode, statusmessage=statusmessage)
+  quit()
+}
 
 # Define attribute ori from shp
 attribute_ori <- pur_sa %>% st_drop_geometry() %>% 
@@ -125,5 +148,56 @@ saveRDS(pur_final_recon_rast, paste0(output_dir, "/PUR_final_recon_rast.rds"))
 saveRDS(summary_PUR, paste0(output_dir, "/summary_PUR.rds"))
 
 # Save summary as PUR final lookup table
-summary_PUR$COUNT <- NULL
+colnames(summary_PUR)[2] <- "Ha"
+colnames(summary_PUR)[3] <- "Final Resolved Area"
 write.table(summary_PUR, paste0(output_dir, "PUR_final_lookup_table.csv"), quote = FALSE, row.names = FALSE, sep = ",")
+
+# End of the script
+end_time <- Sys.time()
+cat("Started at:", format(start_time, "%Y-%m-%d %H:%M:%S"), "\n")
+cat("Ended at:", format(end_time, "%Y-%m-%d %H:%M:%S"), "\n")
+
+# 6. Prepare parameters for report -------------------------
+report_params <- list(
+  start_time = as.character(format(start_time, "%Y-%m-%d %H:%M:%S")),
+  end_time = as.character(format(end_time, "%Y-%m-%d %H:%M:%S")),
+  output_dir = output_dir,
+  raster_temp = raster_temp,
+  summary_PUR = summary_PUR,
+  area_name = area_name,
+  sa = sa,
+  dir_raster_temp = paste0(output_dir, "/PUR_reconciliation_result.tif"),
+  dir_sa = paste0(output_dir, "/PUR_reconciliation_result.shp"),
+  dir_summary_PUR = paste0(output_dir, "/PUR_final_lookup_table.csv")
+)
+
+# Prepare summary data for the report
+summary_data <- list(
+  total_area = sum(pur_attribute_table$COUNT) * Spat_res,
+  resolved_area = sum(pur_attribute_table$COUNT[attribute_ori$Rec_phase1b != "unresolved_case"]) * Spat_res,
+  unresolved_area = sum(pur_attribute_table$COUNT[attribute_ori$Rec_phase1b == "unresolved_case"]) * Spat_res,
+  resolved_percentage = (sum(pur_attribute_table$COUNT[attribute_ori$Rec_phase1b != "unresolved_case"]) / sum(pur_attribute_table$COUNT)) * 100,
+  unresolved_percentage = (sum(pur_attribute_table$COUNT[attribute_ori$Rec_phase1b == "unresolved_case"]) / sum(pur_attribute_table$COUNT)) * 100
+)
+
+report_params$summary_data <- summary_data
+
+# Render the R markdown report
+if (!rmarkdown::pandoc_available()) {
+  Sys.setenv(RSTUDIO_PANDOC = paste0(getwd(), "/pandoc"))
+}
+
+rmarkdown::render(
+  input = "02_pur2/report_template/PUR2_report.Rmd",
+  output_file = "PUR_reconcile_report.html",
+  output_dir = output_dir,
+  params = report_params
+)
+
+}, error = function(e) {
+  cat("An error occurred:\n")
+  print(e)
+}, finally = {
+  cat("Script execution completed.\n")
+  
+})
