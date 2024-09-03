@@ -207,7 +207,7 @@ for (i in names(ques_pre_output[["pu_level"]])) {
 
 
 
-# Pre-QuES Land Use/Cover Trajectory Analysis (FAO)
+# Pre-QuES Land Use/Cover Trajectory Analysis (DriLUC)
 
 ## Land Use/Cover Trajectory Analysis Results at the Landscape Level
 ### Map of Land Use/Cover Change Trajectories

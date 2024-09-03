@@ -1,29 +1,29 @@
 ID,LC,ID_Traj,Trajectory,color_palette
-1,Hutan Primer,1,Undisturbed forest,#006600
+1,Hutan Primer,1,Undisturbed forest,#005500
 2,Hutan bekas tebangan kerapatan tinggi,2,Logged-over forest,#009933
-3,Hutan bekas tebangan kerapatan rendah,2,Logged-over forest,#663300
-4,Hutan Rawa Primer,1,Undisturbed forest,#996600
-5,Hutan Rawa Sekunder,2,Logged-over forest,#666633
+3,Hutan bekas tebangan kerapatan rendah,2,Logged-over forest,#999900
+4,Hutan Rawa Primer,1,Undisturbed forest,#663300
+5,Hutan Rawa Sekunder,2,Logged-over forest,#996600
 6,Hutan Rawa Primer Gambut,1,Undisturbed forest,#999900
 7,Hutan Rawa Sekunder Gambut,2,Logged-over forest,#e68a00
 8,Hutan Mangrove Primer,1,Undisturbed forest,#80ffbf
 9,Hutan Mangrove Sekunder,2,Logged-over forest,#ffcc99
-10,Agroforestri karet,6,Mixed tree-based plantation,#ffbf80
-11,Agoroforestri kelapa/pinang,6,Mixed tree-based plantation,#ccffe6
-12,Agroforestri kayu manis,6,Mixed tree-based plantation,#ff9900
-13,Agroforestri kopi,6,Mixed tree-based plantation,#cc00ff
-14,Kebun campuran,6,Mixed tree-based plantation,#ffff66
-15,HTI Akasia,3,Monoculture tree-based plantation,#b3b3ff
-16,Karet monokultur,3,Monoculture tree-based plantation,#ffccff
-17,Kelapa sawit,3,Monoculture tree-based plantation,#ffe6ff
+10,Agroforestri karet,6,Mixed tree-based plantation,#d86b00
+11,Agoroforestri kelapa/pinang,6,Mixed tree-based plantation,#ffaa7f
+12,Agroforestri kayu manis,6,Mixed tree-based plantation,#aaff7f
+13,Agroforestri kopi,6,Mixed tree-based plantation,#a9ba9d
+14,Kebun campuran,6,Mixed tree-based plantation,#ff9200
+15,HTI Akasia,3,Monoculture tree-based plantation,#00e5ff
+16,Karet monokultur,3,Monoculture tree-based plantation,#7f14b8
+17,Kelapa sawit,3,Monoculture tree-based plantation,#ff55ff
 18,Kelapa,3,Monoculture tree-based plantation,#ff0000
-19,Semak,4,"Shrub, grass, and cleared land",#a6a6a6
-20,Lahan pertanian,5,Agriculture/annual crop,#0000e6
-21,Sawah,5,Agriculture/annual crop,#800000
-22,Perkebunan teh,3,Monoculture tree-based plantation,#ffffff
-23,Rumput,4,"Shrub, grass, and cleared land",#ff99ff
-24,Lahan terbuka,4,"Shrub, grass, and cleared land",#006600
-25,Pemukiman,8,Settlement and built-up area,#009933
+19,Semak,4,"Shrub, grass, and cleared land",#ffcc99
+20,Lahan pertanian,5,Agriculture/annual crop,#ffdd00
+21,Sawah,5,Agriculture/annual crop,#ffff66
+22,Perkebunan teh,3,Monoculture tree-based plantation,#ff00ff
+23,Rumput,4,"Shrub, grass, and cleared land",#00557f
+24,Lahan terbuka,4,"Shrub, grass, and cleared land",#ff0000
+25,Pemukiman,8,Settlement and built-up area,#ffccff
 26,Agroforestri karet gambut,6,Mixed tree-based plantation,#663300
 27,Agoroforestri kelapa/pinang gambut,6,Mixed tree-based plantation,#996600
 29,Agroforestri kopi gambut,6,Mixed tree-based plantation,#666633
@@ -38,5 +38,5 @@ ID,LC,ID_Traj,Trajectory,color_palette
 39,Rumput gambut,4,"Shrub, grass, and cleared land",#ffff67
 40,Lahan terbuka gambut,4,"Shrub, grass, and cleared land",#b3b3ff
 41,Pemukiman gambut,8,Settlement and built-up area,#ffccff
-42,Air,7,Others,#ffe6ff
-43,Kayu manis monokultur,3,Monoculture tree-based plantation,#ff0001
+42,Air,7,Others,#00007f
+43,Kayu manis monokultur,3,Monoculture tree-based plantation,#ffaa00
