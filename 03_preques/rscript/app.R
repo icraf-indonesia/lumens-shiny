@@ -47,16 +47,18 @@ preques_app <- function() {
     "viridis", "textclean", "shiny", "shinydashboard", "shinyjs",
     "shinyFiles"
   )
-  
-  # Check if required packages are installed, and install them if not
-  check_and_install_packages(required_packages)
-  
+
+
   if (file.exists("functions_ques_pre.R")){
     source("functions_ques_pre.R")
   } else {
     source("03_preques/rscript/functions_ques_pre.R")
   }
-  
+
+  # Check if required packages are installed, and install them if not
+  check_and_install_packages(required_packages)
+
+
   ui <- fluidPage(
     useShinyjs(),
     titlePanel("Pre-QuES Module"),
@@ -83,6 +85,7 @@ preques_app <- function() {
 
         div(style = "display: flex; flex-direction: column; gap: 10px;",
             shinyDirButton("output_dir", "Select Output Directory", "Please select a directory"),
+            verbatimTextOutput("print_output_dir", placeholder = TRUE),
             actionButton("run_analysis", "Run Pre-QuES Analysis",
                          style = "font-size: 18px; padding: 10px 15px; background-color: #4CAF50; color: white;"),
             hidden(
@@ -108,31 +111,39 @@ preques_app <- function() {
       )
     )
   )
-  
+
   server <- function(input, output, session) {
     # Directory selection
     volumes <- c(Home = fs::path_home(), "R Installation" = R.home(), getVolumes()())
     shinyDirChoose(input, "output_dir", roots = volumes, session = session)
-    
+
     # Reactive value to store selected output directory
-    selected_output_dir <- reactiveVal(NULL)
-    
+    selected_output_dir <- reactiveVal(value = NULL)
+
     # Update reactive value when output directory is selected
     observe({
       if (!is.null(input$output_dir)) {
         selected_output_dir(parseDirPath(volumes, input$output_dir))
       }
     })
-    
+
     # Display selected output directory
     output$selected_dir <- renderText({
       if (!is.null(selected_output_dir())) {
         paste("Selected output directory:", selected_output_dir())
       } else {
-        "No output directory selected"
+       "No output directory selected"
       }
     })
-    
+
+    output$print_output_dir <- renderPrint({
+      if (!is.null(selected_output_dir())) {
+        cat(paste(selected_output_dir()))
+      } else {
+        cat("No output directory selected")
+      }
+    })
+
     # Render user guide
     output$user_guide <- renderUI({
       guide_path <- "03_preques/helpfile/preques_quick_user_guide.Rmd"
@@ -143,7 +154,7 @@ preques_app <- function() {
         HTML("<p>User guide file not found.</p>")
       }
     })
-    
+
     # Create reactive values for inputs
     rv <- reactiveValues(
       lc_t1 = NULL,
@@ -153,14 +164,14 @@ preques_app <- function() {
       lookup_zone = NULL,
       lookup_trajectory = NULL
     )
-    
+
     # Update reactive values when inputs change
     observe({
       rv$lc_t1 <- input$lc_t1
       rv$lc_t2 <- input$lc_t2
       rv$lookup_lc <- input$lookup_lc
       rv$lookup_trajectory <- input$lookup_trajectory
-      
+
       if (input$zone_type == "raster") {
         rv$zone_input <- input$zone_raster
         rv$lookup_zone <- input$lookup_zone
@@ -169,7 +180,7 @@ preques_app <- function() {
         rv$lookup_zone <- NULL  # Will be created from shapefile
       }
     })
-    
+
     # Input validation
     validate_inputs <- reactive({
       validate(
@@ -184,24 +195,24 @@ preques_app <- function() {
       )
       return(TRUE)
     })
-    
+
     # Run analysis
     observeEvent(input$run_analysis, {
       req(validate_inputs())
-      
+
       showNotification("Analysis is running. Please wait...", type = "message", duration = NULL, id = "running_notification")
       withProgress(message = 'Running Pre-QuES Analysis', value = 0, {
         tryCatch({
           # Load LC T1 raster
           lc_t1_raster <- terra::rast(rv$lc_t1$datapath)
-          
+
           # Process planning unit input
           zone_data <- process_planning_unit(
             zone_type = input$zone_type,
             zone_input = rv$zone_input,
             lc_t1_raster = lc_t1_raster
           )
-          
+
           results <- run_preques_analysis(
             lc_t1_input = rv$lc_t1,
             lc_t2_input = rv$lc_t2,
@@ -215,7 +226,7 @@ preques_app <- function() {
               setProgress(value = value, message = detail)
             }
           )
-          
+
           output$status_messages <- renderText("Analysis completed successfully!")
           output$success_message <- renderText("Analysis completed successfully! You can now open the output folder or view the report.")
           output$error_messages <- renderText(NULL)
@@ -232,7 +243,7 @@ preques_app <- function() {
         })
       })
     })
-    
+
     # Open output folder
     observeEvent(input$open_output_folder, {
       if (!is.null(selected_output_dir())) {
@@ -243,7 +254,7 @@ preques_app <- function() {
         }
       }
     })
-    
+
     # Open report
     observeEvent(input$open_report, {
       report_path <- file.path(selected_output_dir(), "PreQUES_report.html")
@@ -255,7 +266,7 @@ preques_app <- function() {
       }
     })
   }
-  
+
   shinyApp(ui, server)
 }
 

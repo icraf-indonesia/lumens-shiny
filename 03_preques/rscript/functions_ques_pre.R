@@ -1901,7 +1901,7 @@ run_preques_analysis <- function(lc_t1_input, lc_t2_input, admin_z_input,
   lc_data$t1 <- harmonised_rasters$lc_t1
   lc_data$t2 <- harmonised_rasters$lc_t2
   admin_z <- harmonised_rasters$admin
- 
+
   # Run main Pre-QuES analysis
   output_pre_ques <- ques_pre(
     lc_data$t1, lc_data$t2, admin_z,
@@ -1909,7 +1909,7 @@ run_preques_analysis <- function(lc_t1_input, lc_t2_input, admin_z_input,
   )
 
   if (!is.null(progress_callback)) progress_callback(0.5, "Main Pre-QuES analysis completed")
- 
+
   # Run trajectory analysis
   output_pre_ques_traj <- ques_pre_trajectory(
     lc_data$t1, lc_data$t2, admin_z, lc_lookup, lookup_trajectory,
@@ -1924,17 +1924,18 @@ run_preques_analysis <- function(lc_t1_input, lc_t2_input, admin_z_input,
   )
 
   if (!is.null(progress_callback)) progress_callback(0.7, "Pre-QuES Trajectory analysis completed")
-  
+
   # End of the script
   end_time <- Sys.time()
   cat("Ended at:", format(end_time, "%Y-%m-%d %H:%M:%S"), "\n")
-  
+
   log_params <- list(
     start_time = as.character(format(start_time, "%Y-%m-%d %H:%M:%S")),
     end_time = as.character(format(end_time, "%Y-%m-%d %H:%M:%S")),
-    session_log = format_session_info_table()
+    session_log = format_session_info_table(),
+    output_dir = output_dir
   )
-  
+
   # Generate and save outputs
   generate_outputs(output_pre_ques, output_pre_ques_traj, output_pre_ques_def,
                    output_dir, lc_data, admin_z, time_points, log_params)
@@ -2046,7 +2047,7 @@ generate_preques_report <- function(output_pre_ques, output_pre_ques_traj, outpu
     ques_pre_report_path <- "03_preques/report_template/ques_pre.Rmd"
     helper_functions_path <- "03_preques/rscript/functions_ques_pre.R"
   }
-  
+
   file.copy(ques_pre_report_path,
             to = file.path(temp_dir, "PreQuES_report.Rmd"), overwrite = TRUE)
   file.copy(helper_functions_path,
@@ -2069,9 +2070,9 @@ generate_preques_report <- function(output_pre_ques, output_pre_ques_traj, outpu
 
   # Render the R Markdown report
   if (rmarkdown::pandoc_available()==FALSE){
-  Sys.setenv(RSTUDIO_PANDOC=paste0(getwd(), "/pandoc")) 
+  Sys.setenv(RSTUDIO_PANDOC=paste0(getwd(), "/pandoc"))
 }
-  
+
   rmarkdown::render(
     input = file.path(temp_dir, "PreQuES_report.Rmd"),
     output_file = "PreQuES_report.html",
