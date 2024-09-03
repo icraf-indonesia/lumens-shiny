@@ -53,13 +53,13 @@ server <- function(input, output, session) {
     rv$carbon_file <- input$carbon_file$datapath
     df_c <- read.csv(rv$carbon_file)
     rv$quesc_tbl <- df_c
-    rv$tbl_carbon <- df_c %>% select(ID = 1, Carbon = 3)
+    rv$tbl_carbon <- df_c %>% dplyr::select(ID = 1, Carbon = 3)
   })
   
   observeEvent(input$npv_file, {
     rv$npv_file <- input$npv_file$datapath
     df_n <- read.csv(rv$npv_file)
-    rv$tbl_npv <- df_n %>% select(ID_LC = 1, NPV = 3)
+    rv$tbl_npv <- df_n %>% dplyr::select(ID_LC = 1, NPV = 3)
   })
   
   #### Read and Process Years ####
