@@ -16,24 +16,25 @@ install_load <- function (package1, ...)  {
 }
 
 install_load(
-  "terra",
+  "bslib",
+  "dplyr",
+  "foreign",
+  "ggplot2",
+  "magick",
+  "plotly",
+  "purrr",
+  "raster",
+  "readr",
+  "remote",
+  "reshape",
+  "reshape2",
+  "rmarkdown",
+  "sf",
   "shiny",
   "shinyFiles",
-  "bslib",
-  "raster",
-  "splitstackshape",
-  "ggplot2",
-  "foreign",
-  "reshape2",
-  "dplyr",
-  "reshape",
-  "purrr",
-  "plotly",
-  "sf",
   "shinyvalidate",
-  "remote",
-  "rmarkdown",
-  "magick"
+  "splitstackshape",
+  "terra"
 )
 
 #### Helper Functions ####
@@ -95,4 +96,62 @@ create_graph <- function(sector, data, y_label, graph_title) {
     xlab("Sectors") +
     ylab(y_label) +
     ggtitle(graph_title)
+}
+
+generate_land_distribution_prop <- function(land_use, land_distribution) {
+  lc_freq <- freq(land_use)
+  lc_freq <- as.data.frame(na.omit(lc_freq))
+  landuse_area <- as.matrix(lc_freq$count)
+  land_distribution_t <- as.matrix(land_distribution)
+  landuse_area_diag <- diag(as.numeric(landuse_area))
+  land_distribution_val <- land_distribution_t %*% landuse_area_diag
+  
+  land_requirement <- rowSums(land_distribution_val)
+  land_distribution_ctot <- colSums(land_distribution_val)
+  land_distribution_prop <- land_distribution_val %*% diag(1 / land_distribution_ctot)
+  land_distribution_prop[is.na(land_distribution_prop)] <- 0
+  
+  list(
+    land_distribution_prop = land_distribution_prop,
+    land_requirement = land_requirement,
+    land_distribution_ctot = land_distribution_ctot
+  )
+}
+
+generate_gdp_table <- function(add_val_m, sector, int_con_ctot) {
+  GDP_val <- as.data.frame(add_val_m[2,] + add_val_m[3,])
+  GDP_val_m <- as.numeric(as.matrix(GDP_val))
+  
+  OUTPUT_val <- as.data.frame(add_val_m[2,] + add_val_m[3,] + add_val_m[1,] + int_con_ctot)
+  OUTPUT_val_m <- as.numeric(as.matrix(OUTPUT_val))
+  
+  GDP <- cbind(sector, GDP_val, OUTPUT_val)
+  colnames(GDP) <- c("SECTOR", "CATEGORY", "GDP", "OUTPUT")
+  GDP$GDP_PROP <- GDP$GDP / GDP$OUTPUT
+  GDP[is.na(GDP)] <- 0
+  colnames(GDP)[5] <- "P_OUTPUT"
+  
+  GDP_tot <- colSums(as.matrix(GDP$GDP))
+  
+  list(GDP = GDP, GDP_tot = GDP_tot)
+}
+
+generate_multipliers <- function(Leontief, sector, GDP_val, fin_con, labour) {
+  # Output Multiplier
+  Out_multiplier <- colSums(Leontief)
+  Out_multiplier <- cbind(sector, Out_multiplier)
+  
+  # Income Multiplier
+  V_income <- as.matrix(GDP_val * fin_con)
+  Inc_multiplier <- Leontief %*% V_income
+  
+  # Labour Multiplier
+  labour_m <- as.matrix(labour * fin_con) / 1000000
+  Lab_multiplier <- Leontief %*% labour_m
+  
+  multiplier <- cbind(Out_multiplier, Inc_multiplier, Lab_multiplier)
+  colnames(multiplier) <- c("SECTOR", "CATEGORY", "Out.multiplier", "Inc.multiplier", "Lab.multiplier")
+  multiplier$Out.multiplier <- round(multiplier$Out.multiplier, digits = 3)
+  
+  list(multiplier = multiplier)
 }

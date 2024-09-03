@@ -16,23 +16,23 @@ install_load <- function (package1, ...)  {
 }
 
 install_load(
-  "terra",
+  "bslib",
+  "dplyr",
+  "foreign",
+  "ggplot2",
+  "plotly",
+  "purrr",
+  "raster",
+  "remote",
+  "reshape",
+  "reshape2",
+  "rmarkdown",
+  "sf",
   "shiny",
   "shinyFiles",
-  "bslib",
-  "raster",
-  "splitstackshape",
-  "ggplot2",
-  "foreign",
-  "reshape2",
-  "dplyr",
-  "reshape",
-  "purrr",
-  "plotly",
-  "sf",
   "shinyvalidate",
-  "remote",
-  "rmarkdown"
+  "splitstackshape",
+  "terra"
 )
 
 if (!("LUMENSR" %in% rownames(installed.packages()))) {
@@ -41,104 +41,121 @@ if (!("LUMENSR" %in% rownames(installed.packages()))) {
 }
 library(LUMENSR)
 
-generate_dummy_crosstab <- function(landcover, zone){
-  if(!is.data.frame(landcover)) {
-    stop("Land cover is not a data frame")
-  }
+generate_landuse_table <- function(land_req, projected_land_use, landuse_area0, landuse_lut) {
+  load(land_req)
+  next_luc_freq <- freq(projected_land_use)
+  landuse_area_table <- as.data.frame(na.omit(next_luc_freq))
+  colnames(landuse_area_table) <- c("ID", "COUNT")
+  landuse_area <- as.matrix(landuse_area_table$COUNT)
   
-  if(!is.data.frame(zone)) {
-    stop("Zone is not a data frame")
-  }
+  landuse_area0_freq <- freq(landuse_area0)
+  landuse_area0_table <- as.data.frame(na.omit(landuse_area0_freq))
+  colnames(landuse_area0_table) <- c("ID", "COUNT")
+  landuse_area0 <- as.matrix(landuse_area0_table$COUNT)
   
-  n_lc <- nrow(landcover)
-  n_pu <- nrow(zone)
+  names(landuse_lut) <- as.character(landuse_lut[1,])
+  landuse_lut <- landuse_lut[-1,]
+  lc_list <- subset(landuse_lut, select = c(ID, LC))
   
-  dummy1 <- data.frame(nPU = zone[,1], divider = n_lc*n_lc)
-  dummy1 <- expandRows(dummy1, 'divider')
+  landuse_table <- merge(lc_list, landuse_area0_table, by = "ID")
+  landuse_table <- cbind(landuse_table, landuse_area)
+  landuse_table$LC <- NULL
+  colnames(landuse_table)[1] <- "LAND_USE"
+  colnames(landuse_table)[2] <- "T1_HA"
+  colnames(landuse_table)[3] <- "T2_HA"
+  landuse_table$CHANGE <- landuse_table$T2_HA - landuse_table$T1_HA
   
-  dummy2 <- data.frame(nT1 = landcover[,1], divider = n_lc)
-  dummy2 <- expandRows(dummy2, 'divider')
-  dummy2 <- data.frame(nT1 = rep(dummy2$nT1, n_pu))
-  
-  dummy3 <- data.frame(nT2 = rep(rep(landcover[,1], n_lc), n_pu))
-  
-  lucDummy <- cbind(dummy1, dummy2, dummy3)
-  colnames(lucDummy) <- c('ID_PU', 'ID_LC1', 'ID_LC2')
-  return(lucDummy)
+  return(landuse_table)
 }
 
-spatial_sync_raster <- function(unsynced,reference,method="ngb", size_only=FALSE,raster_size,verbose=FALSE,...) {
-  if(!size_only) {
-    new_projection=projection(reference)
-    old_projection=projection(unsynced)
-    
-    new_res=res(reference)
-    old_res=res(unsynced)
-    
-    # Check for rotation
-    new_extent=bbox(reference)
-    old_extent=bbox(unsynced)
-    
-    if((new_extent[1,1] < 0 && old_extent[1,1] >=0) || (new_extent[1,1] >= 0 && old_extent[1,1] <0)) {
-      if(verbose) { message ("Rotating...") }
-      unsynced_rotated=rotate(unsynced)
-    } else
-    {
-      unsynced_rotated=unsynced
-    }
-    
-    if(new_projection!=old_projection | new_res[1] != old_res[1] | new_res[2] != old_res[2])
-    {
-      pr_extent=projectExtent(unsynced_rotated, new_projection)
-      # We need to fix the extent
-      pr_extent <- setExtent(pr_extent,extent(reference))
-      res(pr_extent)=res(reference)
-      if(new_projection!=old_projection)
-      {
-        if(verbose) { message("Projecting and resampling...") }
-        pr <- projectRaster(unsynced_rotated, pr_extent,method=method)
-      } else
-      {
-        if(verbose) { message("Same projection, resampling only...") }
-        pr <- raster::resample(unsynced_rotated, pr_extent,method=method)
-      }
-    } else
-    {
-      if(verbose) { message("Same projection and pixel size...") }
-      pr=unsynced_rotated
-    }
-    
-    if(verbose) { message("Expanding...") }
-    expanded_raster=extend(pr,reference)
-    if(verbose) { message("Cropping...") }
-    synced_raster=crop(expanded_raster,reference)
-    
-    # This in theory shouldn't be neccesasary...
-    if(verbose) { message("Fixing extents...") }
-    extent(synced_raster)=extent(reference)
-  } else {
-    #		if(missing(raster_size))
-    #		{
-    #			stop("For size_only=TRUE you must set the raster_size as c(ncol,nrow)")
-    #		} 
-    
-    unsynced_ncol=ncol(unsynced)
-    unsynced_nrow=nrow(unsynced)
-    
-    # Eventually we should preserve the pixel size		
-    unsynced_ulx=(raster_size[[1]]-unsynced_ncol)/2
-    unsynced_uly=(raster_size[[2]]-unsynced_nrow)/2
-    
-    extent(unsynced)=extent(unsynced_ulx,unsynced_ulx+unsynced_ncol,unsynced_uly,unsynced_uly+unsynced_nrow)
-    full_extent=extent(0,raster_size[[1]],0,raster_size[[2]])
-    
-    synced_raster=extend(unsynced,full_extent)
-    extent(synced_raster)=full_extent
-    res(synced_raster)=c(1,1)
-  }
-  #	if(!missing(filename))
-  #	{
-  #		writeRaster(synced_raster,...)
-  #	}
-  return(synced_raster)
+generate_land_use_change_graph <- function(landuse_table) {
+  LC_graph <- ggplot(data = landuse_table, aes(x = LAND_USE, y = CHANGE)) +
+    geom_bar(colour = "black", stat = "identity", position = "dodge") +
+    guides(fill = FALSE) + xlab("Land use") + ylab("Change") +
+    ggtitle("Land Use Change") + theme(axis.text.x = element_text(angle = 90, size = 6))
+  
+  return(LC_graph)
+}
+
+model_final_demand_and_gdp <- function(land_distribution_prop, landuse_area_diag, land_requirement_table, fin_dem, int_con, Leontief, GDP_val, demand, GDP) {
+  land_distribution_scen <- land_distribution_prop %*% landuse_area_diag
+  land_requirement_scen <- rowSums(land_distribution_scen)
+  
+  fin_dem_rtot <- rowSums(fin_dem)
+  int_con_rtot <- rowSums(int_con)
+  demand <- fin_dem_rtot + int_con_rtot
+  
+  land_requirement_coeff <- land_requirement_table$LRC
+  land_productivity_coeff <- land_requirement_table$LPC
+  fin_dem_scen <- land_requirement_scen / land_productivity_coeff
+  fin_dem_scen[is.infinite(fin_dem_scen)] <- 0
+  fin_dem_scen[is.na(fin_dem_scen)] <- 0
+  
+  # Final Demand and GDP Calculation
+  fin_output_scen <- Leontief %*% fin_dem_scen
+  fin_output_scen <- round(fin_output_scen, digits = 1)
+  colnames(fin_output_scen)[1] <- "OUTPUT_Scen"
+  
+  GDP_prop_from_output <- GDP_val / demand
+  GDP_prop_from_output[is.na(GDP_prop_from_output)] <- 0
+  GDP_scen <- GDP_prop_from_output * fin_output_scen
+  GDP_scen <- round(GDP_scen, digits = 1)
+  GDP_scen[is.na(GDP_scen)] <- 0
+  colnames(GDP_scen)[1] <- "GDP_scen"
+  
+  GDP_diff <- GDP_scen - GDP$GDP
+  GDP_diff <- round(GDP_diff, digits = 1)
+  colnames(GDP_diff)[1] <- "GDP_diff"
+  
+  GDP_rate <- GDP_diff / GDP_val
+  GDP_rate[is.na(GDP_rate)] <- 0
+  GDP_rate <- round(GDP_rate, digits = 2)
+  colnames(GDP_rate)[1] <- "GDP_rate"
+  
+  GDP_summary <- cbind(GDP, GDP_scen, fin_output_scen, GDP_diff, GDP_rate)
+  GDP_summary$P_OUTPUT <- NULL
+  GDP_summary$P_GDP <- NULL
+  
+  return(GDP_summary)
+}
+
+generate_gdp_graph <- function(GDP_summary) {
+  order_GDP_scen <- as.data.frame(GDP_summary[order(-GDP_summary$GDP_scen),])
+  order_GDP_scen10 <- head(order_GDP_scen, n = 20)
+  GDP_summary_melt <- melt(data = order_GDP_scen10, id.vars = c('SECTOR'), measure.vars = c('GDP', 'GDP_scen'))
+  
+  GDP_graph <- ggplot(data = GDP_summary_melt, aes(x = SECTOR, y = value, fill = variable)) +
+    geom_bar(colour = "black", stat = "identity", position = "dodge") +
+    guides(fill = FALSE) + xlab("Sectors") + ylab("GDP") +
+    ggtitle("Comparison of GDP Baseline and Scenario") +
+    theme(axis.text.x = element_text(angle = 90, size = 6))
+  
+  return(GDP_graph)
+}
+
+calculate_labour_impact <- function(Lab_multiplier, fin_output_scen, labour, sector) {
+  Labour_table <- Lab_multiplier
+  Labour_table$Lab.multiplier <- as.numeric(format(Labour_table$Lab.multiplier, digits = 3, width = 5))
+  Labour_table <- cbind(Labour_table, fin_output_scen)
+  Labour_table <- cbind(Labour_table, labour)
+  colnames(Labour_table)[1] <- "SECTOR"
+  colnames(Labour_table)[2] <- "CATEGORY"
+  colnames(Labour_table)[4] <- "OUT_scen"
+  colnames(Labour_table)[5] <- "Lab_base"
+  
+  Labour_table$Lab_scen <- round(Labour_table$Lab.multiplier * Labour_table$OUT_scen * 1000000, digits = 0)
+  Labour_table$Lab_req <- Labour_table$Lab_scen - Labour_table$Lab_base
+  
+  test2 <- cbind(sector, Labour_table$Lab_req)
+  
+  return(list(Labour_table = Labour_table, Labour_impact = test2))
+}
+
+generate_labour_graph <- function(Labour_impact) {
+  LAB_graph <- ggplot(data = Labour_impact, aes(x = SECTOR, y = Labour_impact[, 2], fill = CATEGORY)) +
+    geom_bar(colour = "black", stat = "identity", position = "dodge") +
+    guides(fill = FALSE) + xlab("Sector") + ylab("Labour requirement") +
+    ggtitle("Impact of LU Change to Labour") + theme(axis.text.x = element_text(angle = 90, size = 6))
+  
+  return(LAB_graph)
 }
