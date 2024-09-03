@@ -2194,7 +2194,7 @@ format_session_info_table <- function() {
   )
 
   # Extract platform and OS info
-  platform_os <- paste(si$platform, "|", si[[6]])
+  platform_os <- paste(si$platform, "|", si[[6]]) |> paste( collapse = "<br>")
 
   # Extract locale info
   locale_info <- strsplit(si[[3]], ";")[[1]]
