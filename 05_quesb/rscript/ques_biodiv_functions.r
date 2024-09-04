@@ -1524,13 +1524,16 @@ run_ques_b <- function(lc_t1_path, t1, nodata_class, lulc_lut_path, contab_path,
 #' @export
 quesb_app <- function() {
   # Define a list of required packages for the QuES-B analysis and Shiny app
-  required_packages <- c("terra", "dplyr", "ggplot2", "shiny", "shinyjs", "shinyFiles", "caTools", "sf", "DBI", "RSQLite", "rmarkdown")
+  required_packages <- c("terra", "dplyr", "ggplot2", "shiny", "shinyjs",
+                         "shinyFiles", "caTools", "sf", "DBI", "RSQLite",
+                         "rmarkdown", "bslib")
 
   # Check if required packages are installed, and install them if not
   check_and_install_packages(required_packages)
 
   ui <- fluidPage(
     useShinyjs(),
+    theme = bs_theme(version = 5),
     titlePanel("QuES-B Module"),
     sidebarLayout(
       sidebarPanel(
@@ -1582,6 +1585,18 @@ quesb_app <- function() {
       }
     })
 
+    # Directory selection for FRAGSTATS
+    shinyDirChoose(input, "fragstats_path", roots = volumes, session = session)
+
+    # Display selected FRAGSTATS directory
+    output$selected_fragstats_dir <- renderText({
+      if (!is.null(input$fragstats_path)) {
+        paste("Selected FRAGSTATS directory:", parseDirPath(volumes, input$fragstats_path))
+      } else {
+        "No FRAGSTATS directory selected (Optional)"
+      }
+    })
+
     # Render user guide
     output$user_guide <- renderUI({
       guide_path <- "05_quesb/helpfile/quesb_quick_user_guide.Rmd"
@@ -1626,7 +1641,7 @@ quesb_app <- function() {
             window_size = input$window_size,
             window.shape = as.numeric(input$window_shape),
             fca_path = fca_path,
-            fragstats_path = if (input$fragstats_path != "") input$fragstats_path else NULL,
+            fragstats_path = if (!is.null(input$fragstats_path)) parseDirPath(volumes, input$fragstats_path) else NULL,
             output_dir = parseDirPath(volumes, input$output_dir),
             report_template_path = "05_quesb/report_template/quesb_report_template.Rmd"
           )
