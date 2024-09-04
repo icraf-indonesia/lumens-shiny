@@ -35,7 +35,10 @@ install_load(
   "leafem",
   "yaml",
   "paletteer",
-  "rmarkdown"
+  "rmarkdown",
+  "shinyjs",
+  "shinyvalidate",
+  "shinyFiles"
 )
 
 if (!("abacuslib" %in% rownames(installed.packages()))) {

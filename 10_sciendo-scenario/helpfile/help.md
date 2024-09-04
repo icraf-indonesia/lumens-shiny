@@ -1,8 +1,8 @@
-# Tutorial LUMENS - SCIENDO Abacus
+# Tutorial LUMENS - SCIENDO Scenario Builder
 
 ## Table of Contents
 
-[1. Brief description of SCIENDO Abacus modelling principles](#_toc_description)
+[1. Brief description of SCIENDO Scenario Builder modelling principles](#_toc_description)
 
 [2. Preparing inputs for model simulation](#_toc_inputs)
 
@@ -18,7 +18,7 @@
 
 ## <a name="_toc_description"></a>1. Brief description of SCIENDO Abacus modelling principles
 
-SCIENDO Abacus is a sub-module of LUMENS
+SCIENDO Scenario Builder is a sub-module of LUMENS
 
 ## <a name="_toc_inputs"></a>2. Preparing inputs for model simulation
 

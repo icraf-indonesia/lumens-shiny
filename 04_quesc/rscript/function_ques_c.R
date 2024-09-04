@@ -290,5 +290,3 @@ run_quesc_analysis <- function(lc_t1_input, lc_t2_input, admin_z_input,
   
   return(out)
 }
-
-# Shiny App Related -------------------------------------------------------

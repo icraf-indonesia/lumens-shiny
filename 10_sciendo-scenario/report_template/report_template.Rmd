@@ -1,5 +1,5 @@
 ---
-title: "QUES-C Report"
+title: "SCIENDO Scenario Builder Report"
 output: 
   html_document:
     toc: true
@@ -9,20 +9,14 @@ output:
     highlight: tango
     df_print: kable
 params:
-  map_c1: NA
-  map_c2: NA
-  map_em: NA
-  map_sq: NA
-  ques_db: NA
-  p1: NA
-  p2: NA
+  final_plot: NA
+  emission_plot: NA
 ---
 
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-library(ggplot2)
-library(raster)
+library(plotly)
 library(dplyr)
 library(kableExtra)
 
@@ -52,7 +46,7 @@ format_session_info_table <- function() {
     Category = c("R Version", "Platform | OS", ".libPaths", "Locale"),
     Details = c(r_version, platform_os, lib_paths, locale_info)
   )
-  
+
   return(session_summary)
 }
 ```
@@ -67,7 +61,7 @@ analysis_log <- tribble(
   "1. Landcover map", "",
   "Output Files", "",
   "Output Workspace", "",
-  "1. Carbon Map", "",
+  "1. Focal Area Map", "",
   "Session Summary", "",
 ) %>% rbind(format_session_info_table())
 
@@ -87,41 +81,14 @@ This report presents the results of an analysis based on the provided maps and l
 
 # Results
 
-## Lookup Table Summary
-
-The uploaded lookup table contains `r nrow(params$ques_db)` rows and `r names(params$ques_db)` columns.
-
-* A brief description or summary statistics of the lookup table data can be included here.
+## Final plot
 
 ```{r}
-head(params$ques_db, n=20)
+params$final_plot
 ```
 
-The maps provided was carbon, emission and sequestration map.
-
-* Calculation or analysis details based on the results can be presented here.
-
-### Carbon map `r nrow(params$p1)`
+## Emission plot
 
 ```{r}
-plot(params$map_c1)
+params$emission_plot
 ```
-
-### Carbon map `r nrow(params$p2)`
-
-```{r}
-plot(params$map_c2)
-```
-
-### Emission map 
-
-```{r}
-plot(params$map_em)
-```
-
-### Sequestration map 
-
-```{r}
-plot(params$map_sq)
-```
-

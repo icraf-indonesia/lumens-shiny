@@ -17,7 +17,8 @@ install_load(
   "shinyvalidate",
   "remotes",
   "shinyjs",
-  "rmarkdown"
+  "rmarkdown",
+  "bslib"
 )
 
 if (!("LUMENSR" %in% rownames(installed.packages()))) {
@@ -30,6 +31,7 @@ jscode <- "shinyjs.closeWindow = function() { window.close(); }"
 
 ui <- fluidPage(
   useShinyjs(),
+  theme = bs_theme(version = 5),
   extendShinyjs(text = jscode, functions = c("closeWindow")),
   titlePanel("QUES-C Analysis"),
   sidebarLayout(

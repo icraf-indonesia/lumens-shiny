@@ -112,6 +112,7 @@ server <- function(input, output, session) {
     all_sequestration_total = 0,
     scenario_list = list(),
     
+    output_dir = NULL,
     f_plot = NULL,
     em_plot = NULL,
     report_file = NULL
@@ -628,14 +629,38 @@ server <- function(input, output, session) {
   })
 
   
-  ### QUES-C DATABASE IMPORT ##########
-  
+  ### QUES-C DATABASE IMPORT #########
   observeEvent(input$quescdb, {
-    if (is.null(input$quescdb)) {
+    inp <- input$quescdb
+    if (is.null(inp)) {
       return(NULL)
+    } else {
+      df <- read.csv(inp$datapath)
     }
     
-    v$quescdb <- read.csv(input$quescdb$datapath)
+    if (length(names(df)) == 13) {
+      v$quescdb <- df
+    } else {
+      showNotification(
+        "Please upload the correct data from the output of QUES-C module",
+        id = "submit_message", type = "error")
+      reset("quescdb")
+      return()
+    }
+  })
+  
+  iv <- InputValidator$new()
+  iv$add_rule("quescdb", sv_required(message = "Please upload QUES-C database"))
+  iv$add_rule("output_dir", sv_required(message = "Please select an output directory"))
+  observeEvent(input$processSCIENDO, {
+    if(!iv$is_valid()) {
+      iv$enable()
+      showNotification(
+        "Please correct the errors in the form and try again",
+        id = "submit_message", type = "error")
+      return()
+    }
+    
     df_lucdb <- v$quescdb
     
     v$map1_file <- NULL
@@ -669,7 +694,6 @@ server <- function(input, output, session) {
     v$map2_date <- as.Date(paste0(p$project$baseyear1, "-07-01"))
     updateNavlistPanel(session, "main_page", selected = "Projection")
   })
-  
   
 
   ### PROJECTION ######################
@@ -1805,6 +1829,23 @@ server <- function(input, output, session) {
     )
   })
   
+  volumes <- c(
+    getVolumes()()
+  )
+  
+  shinyDirChoose(
+    input, 
+    'output_dir',
+    roots = volumes,
+    allowDirCreate = F,
+    session = session
+  )
+  
+  observe({
+    if (!is.null(input$output_dir)) {
+      v$output_dir <- parseDirPath(volumes, input$output_dir)
+    }
+  })
   
   # generate report
   report_content <- reactive({
@@ -1820,14 +1861,18 @@ server <- function(input, output, session) {
       "../report_template/report_template.Rmd",
       output_file = output_file,
       output_dir = output_dir,
-      params = params,
-      envir = new.env(parent = globalenv())
+      params = params
     )
   })
   
-  observeEvent(input$viewReport, {
-    report_content()
-    file.show(v$report_file)
+  observeEvent(input$openReport, {
+    report_path <- paste0(v$report_file, "/quesc_report_", Sys.Date(), ".html")
+    if (file.exists(report_path)) {
+      showNotification("Opening report...", type = "message")
+      utils::browseURL(report_path)
+    } else {
+      showNotification("Report file not found.", type = "error")
+    }
   })
 
 }

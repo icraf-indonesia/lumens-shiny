@@ -262,6 +262,7 @@ ui <-
       secondary = "#BE191E",
       font_scale = 0.9
     ),
+    useShinyjs(),
     bg = "#FCE5E6",
     header =
       tags$head(
@@ -304,7 +305,23 @@ ui <-
       title = "Import QUES-C Database",
       id = "panel_import",
       icon = icon("database"),
-      fileInput("quescdb", "Load QuES-C Database (.csv)", accept = ".csv")
+      layout_sidebar(
+        sidebar = sidebar(
+          width = "20%",
+          open = "always",
+          fileInput("quescdb", "Load QUES-C Database (.csv)", accept = ".csv"),
+          div(style = "display: flex; flex-direction: column; gap: 10px;",
+              shinyDirButton("output_dir", "Select output directory", "Please select a directory"),
+              actionButton("processSCIENDO", "Run", 
+                           style = "font-size: 18px; padding: 10px 15px; background-color: #4CAF50; color: white;"),
+              hidden(
+                actionButton("openReport", "Open Report",
+                             style = "font-size: 18px; padding: 10px 15px; background-color: #008CBA; color: white;")
+              )
+          )
+        ),
+        includeMarkdown("../helpfile/help.md")
+      ),
     ),
     
     ### PROJECTION #############################
@@ -322,12 +339,12 @@ ui <-
     ),
 
     ### OUTPUT #############################
-    nav_panel(
-      title = "Download",
-      icon = icon("download"),
-      conditionalPanel(condition = "!output.is_matrix", please_input),
-      conditionalPanel(condition = "output.is_matrix", download_panel)
-    ),
+    # nav_panel(
+    #   title = "Download",
+    #   icon = icon("download"),
+    #   conditionalPanel(condition = "!output.is_matrix", please_input),
+    #   conditionalPanel(condition = "output.is_matrix", download_panel)
+    # ),
     
     nav_panel(
       title = "Help",
