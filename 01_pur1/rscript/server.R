@@ -9,6 +9,7 @@ server <- function(input, output, session) {
     ref_mapping = NULL,
     pu_units = NULL,
     map_resolution = NULL,
+    database_unresolved_out = NULL,
     pur_unresolved_vector = NULL
   )
   
@@ -430,19 +431,21 @@ server <- function(input, output, session) {
 
       numberx <- ncol(database_unresolved)
       numbery <- numberx - n_pu_list
-      database_unresolved_out <- database_unresolved[, c(numbery:numberx)]
+      rv$database_unresolved_out <- database_unresolved[, c(numbery:numberx)]
       dat1 <- data.frame(ID = database_unresolved$NEW_ID)
       dat2 <- data.frame(COUNT = database_unresolved$Freq)
       dat3 <- data.frame(REFERENCE = database_unresolved$REFERENCE)
-      database_unresolved_out <- cbind(dat1, database_unresolved_out, dat3, dat2)
-      database_unresolved_out$'Reconcile Action' <- "unresolved_case"
+      rv$database_unresolved_out <- cbind(dat1, rv$database_unresolved_out, dat3, dat2)
+      
+      database_unresolved_out1 <- rv$database_unresolved_out
+      database_unresolved_out1$'Reconcile Action' <- "unresolved_case"
 
       # Create the workbook
       database_unresolved_out_wb = createWorkbook()
 
       # Add worksheets
       addWorksheet(database_unresolved_out_wb, "PUR_unresolved_case")
-      writeData(database_unresolved_out_wb, sheet = "PUR_unresolved_case", x = as_tibble(database_unresolved_out), startCol = 1)
+      writeData(database_unresolved_out_wb, sheet = "PUR_unresolved_case", x = as_tibble(database_unresolved_out1), startCol = 1)
 
       addWorksheet(database_unresolved_out_wb, "drop-down_attribute", visible = FALSE)
       pur_attribute_df <- data_attribute[data_attribute$Rec_phase1b != "unresolved_case", -1]
@@ -461,7 +464,7 @@ server <- function(input, output, session) {
         wb = database_unresolved_out_wb,
         sheet = "PUR_unresolved_case",
         cols = 9,
-        rows = 2:(1+nrow(database_unresolved_out)),
+        rows = 2:(1+nrow(database_unresolved_out1)),
         type = "list",
         # value = "'drop-down_attribute'!$A$2:$A$100",
         value = paste0("'drop-down_attribute'!$A$2:$A$", nrow(pur_attribute_df)+1),
@@ -472,7 +475,7 @@ server <- function(input, output, session) {
       saveWorkbook(database_unresolved_out_wb, paste0(rv$wd,"/PUR_unresolved_case.xlsx"), overwrite = TRUE)
 
     } else {
-      database_unresolved_out <- tibble("Reconciliation result" = "There are no unresolved areas in this analysis session")
+      database_unresolved_out1 <- tibble("Reconciliation result" = "There are no unresolved areas in this analysis session")
     }
 
     # End of the script
@@ -487,7 +490,7 @@ server <- function(input, output, session) {
       output_dir = rv$wd,
       PUR_stack = PUR_stack,
       db_final2 = db_final2,
-      database_unresolved_out = database_unresolved_out,
+      database_unresolved_out = rv$database_unresolved_out,
       pur_unresolved_vector = rv$pur_unresolved_vector,
       inputs = list(
         area_name = rv$area_name,

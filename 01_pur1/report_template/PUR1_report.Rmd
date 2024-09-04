@@ -132,8 +132,6 @@ final_resolved_map <- params$pur_unresolved_vector
 plot(final_resolved_map["Rec_phase2"], main = "Unresolved Map")
 ```
 
-### Summary of Unresolved Cases
-
 ```{r key-results-table, echo=FALSE}
 summary_table <- params$db_final2 %>%
   group_by(Rec_phase1b) %>%
@@ -143,6 +141,15 @@ summary_table <- params$db_final2 %>%
   arrange(desc(Area_ha))
 
 kable(summary_table, caption = "Summary of Reconciliation Results") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+### Summary of Unresolved Cases
+
+```{r key-unresolved-table, echo=FALSE}
+summary_unresolved <- params$database_unresolved_out
+
+kable(summary_unresolved, caption = "Summary of Unresolved Cases") %>%
   kable_styling(bootstrap_options = c("striped", "hover"))
 ```
 
