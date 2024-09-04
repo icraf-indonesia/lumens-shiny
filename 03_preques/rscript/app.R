@@ -61,6 +61,7 @@ preques_app <- function() {
 
   ui <- fluidPage(
     useShinyjs(),
+    theme = bs_theme(version = 5),
     titlePanel("Pre-QuES Module"),
     sidebarLayout(
       sidebarPanel(
