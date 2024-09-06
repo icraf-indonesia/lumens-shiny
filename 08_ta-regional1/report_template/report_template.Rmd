@@ -1,5 +1,5 @@
 ---
-title: "Trade-off Analysis Regional Report"
+title: "Trade-off Analysis Regional 1 Report"
 author: "System"
 date: "`r Sys.Date()`"
 output: 
@@ -14,8 +14,8 @@ params:
   BPD_graph: NA
   FPD_graph: NA
   LRC_graph: NA
-  linkages_table: NA
-  landreq_table: NA
+  Linkages_table: NA
+  land.requirement_table: NA
 ---
 
 
@@ -35,7 +35,7 @@ This report presents the results of an analysis based on the provided maps and l
 * A brief description or summary statistics of the lookup table data can be included here.
 
 ```{r}
-head(params$linkages_table, n=20)
+head(params$Linkages_table, n=20)
 ```
 
 
@@ -47,7 +47,7 @@ The maps provided was carbon, emission and sequestration map.
 
 
 ```{r}
-head(params$landreq_table, n=20)
+head(params$land.requirement_table, n=20)
 ```
 
 ### Direct Backward Linkages graph

@@ -1,0 +1,55 @@
+Pola_Ruang,unique_id,Freq,NEW_ID,Tambang_Bungo_F,Perkebunan_Bungo_F,Hutan_Adat_Bungo_F,HTI_Bungo_F,REFERENCE,IDS,cek1,cek2,cek3,cek4,reconcile1,reconcile_attr,reconcile_attr2,Rec_phase1,Rec_phase1b,ID_rec
+1,1,7161,1,0,0,0,0,Hutan Lindung,1,0,0,0,0,0,Hutan Lindung,100,Hutan Lindung,Hutan Lindung,1
+1,10001,2513,17,0,1,0,0,Hutan Lindung,1,0,0,1,0,1,unresolved,3,Perkebunan_Bungo_F,unresolved_case,2
+1,101,21,9,2,0,0,0,Hutan Lindung,1,0,0,0,0,0,Hutan Lindung,100,Hutan Lindung,Hutan Lindung,3
+1,1010001,128,34,0,1,1,0,Hutan Lindung,1,0,1,1,0,2,unresolved,100,unresolved,unresolved_case,4
+1,1000001,2095,30,0,0,1,0,Hutan Lindung,1,0,1,0,0,1,unresolved,2,Hutan_Adat_Bungo_F,unresolved_case,5
+2,2,34572,2,0,0,0,0,Hutan Produksi,2,0,0,0,0,0,Hutan Produksi,100,Hutan Produksi,Hutan Produksi,6
+2,100000102,2492,42,2,0,0,2,Hutan Produksi,2,1,0,0,1,2,unresolved,100,unresolved,unresolved_case,7
+2,102,8828,10,2,0,0,0,Hutan Produksi,2,0,0,0,1,1,unresolved,4,Tambang_Bungo_F,unresolved_case,8
+2,100010002,3598,46,0,1,0,2,Hutan Produksi,2,1,0,0,0,1,unresolved,1,HTI_Bungo_F,unresolved_case,1
+2,1000002,469,31,0,0,1,0,Hutan Produksi,2,0,0,0,0,0,Hutan Produksi,100,Hutan Produksi,Hutan Produksi,10
+2,10102,1906,24,2,1,0,0,Hutan Produksi,2,0,0,0,1,1,unresolved,4,Tambang_Bungo_F,unresolved_case,11
+2,100010102,25,51,2,1,0,2,Hutan Produksi,2,1,0,0,1,2,unresolved,100,unresolved,unresolved_case,4
+2,10002,8234,18,0,1,0,0,Hutan Produksi,2,0,0,0,0,0,Hutan Produksi,100,Hutan Produksi,Hutan Produksi,13
+2,101000002,169,54,0,0,1,2,Hutan Produksi,2,1,0,0,0,1,unresolved,1,HTI_Bungo_F,unresolved_case,14
+2,100000002,28784,37,0,0,0,2,Hutan Produksi,2,1,0,0,0,1,unresolved,1,HTI_Bungo_F,unresolved_case,7
+3,10003,33816,19,0,1,0,0,Perkebunan,2,0,0,0,0,0,Perkebunan,100,Perkebunan,Perkebunan,8
+3,100010103,270,52,2,1,0,2,Perkebunan,2,1,0,0,1,2,unresolved,100,unresolved,unresolved_case,17
+3,1010003,649,35,0,1,1,0,Perkebunan,2,0,0,0,0,0,Perkebunan,100,Perkebunan,Perkebunan,2
+3,1000003,2440,32,0,0,1,0,Perkebunan,2,0,0,0,0,0,Perkebunan,100,Perkebunan,Perkebunan,3
+3,3,19663,3,0,0,0,0,Perkebunan,2,0,0,0,0,0,Perkebunan,100,Perkebunan,Perkebunan,4
+3,100010003,528,47,0,1,0,2,Perkebunan,2,1,0,0,0,1,unresolved,1,HTI_Bungo_F,unresolved_case,5
+3,100000103,177,43,2,0,0,2,Perkebunan,2,1,0,0,1,2,unresolved,100,unresolved,unresolved_case,6
+3,10103,8687,25,2,1,0,0,Perkebunan,2,0,0,0,1,1,unresolved,4,Tambang_Bungo_F,unresolved_case,23
+3,100000003,142,38,0,0,0,2,Perkebunan,2,1,0,0,0,1,unresolved,1,HTI_Bungo_F,unresolved_case,24
+3,103,5392,11,2,0,0,0,Perkebunan,2,0,0,0,1,1,unresolved,4,Tambang_Bungo_F,unresolved_case,25
+4,4,8428,4,0,0,0,0,Perkotaaan,3,0,0,0,0,0,Perkotaaan,100,Perkotaaan,Perkotaaan,4
+4,10004,1184,20,0,1,0,0,Perkotaaan,3,0,0,0,0,0,Perkotaaan,100,Perkotaaan,Perkotaaan,27
+4,104,250,12,2,0,0,0,Perkotaaan,3,0,0,0,0,0,Perkotaaan,100,Perkotaaan,Perkotaaan,28
+4,10104,269,26,2,1,0,0,Perkotaaan,3,0,0,0,0,0,Perkotaaan,100,Perkotaaan,Perkotaaan,29
+5,100000105,1179,44,2,0,0,2,Pertanian Lahan Basah,2,1,0,0,1,2,unresolved,100,unresolved,unresolved_case,30
+5,1010005,227,36,0,1,1,0,Pertanian Lahan Basah,2,0,0,0,0,0,Pertanian Lahan Basah,100,Pertanian Lahan Basah,Pertanian Lahan Basah,2
+5,100000005,2036,39,0,0,0,2,Pertanian Lahan Basah,2,1,0,0,0,1,unresolved,1,HTI_Bungo_F,unresolved_case,3
+5,10105,3449,27,2,1,0,0,Pertanian Lahan Basah,2,0,0,0,1,1,unresolved,4,Tambang_Bungo_F,unresolved_case,33
+5,100010105,111,53,2,1,0,2,Pertanian Lahan Basah,2,1,0,0,1,2,unresolved,100,unresolved,unresolved_case,34
+5,10005,33348,21,0,1,0,0,Pertanian Lahan Basah,2,0,0,0,0,0,Pertanian Lahan Basah,100,Pertanian Lahan Basah,Pertanian Lahan Basah,3
+5,5,24533,5,0,0,0,0,Pertanian Lahan Basah,2,0,0,0,0,0,Pertanian Lahan Basah,100,Pertanian Lahan Basah,Pertanian Lahan Basah,5
+5,100010005,25,48,0,1,0,2,Pertanian Lahan Basah,2,1,0,0,0,1,unresolved,1,HTI_Bungo_F,unresolved_case,37
+5,105,6290,13,2,0,0,0,Pertanian Lahan Basah,2,0,0,0,1,1,unresolved,4,Tambang_Bungo_F,unresolved_case,38
+6,10106,3960,28,2,1,0,0,Pertanian Lahan Kering,2,0,0,0,1,1,unresolved,4,Tambang_Bungo_F,unresolved_case,39
+6,6,92655,6,0,0,0,0,Pertanian Lahan Kering,2,0,0,0,0,0,Pertanian Lahan Kering,100,Pertanian Lahan Kering,Pertanian Lahan Kering,7
+6,100010006,3,49,0,1,0,2,Pertanian Lahan Kering,2,1,0,0,0,1,unresolved,1,HTI_Bungo_F,unresolved_case,8
+6,106,4093,14,2,0,0,0,Pertanian Lahan Kering,2,0,0,0,1,1,unresolved,4,Tambang_Bungo_F,unresolved_case,42
+6,10006,54040,22,0,1,0,0,Pertanian Lahan Kering,2,0,0,0,0,0,Pertanian Lahan Kering,100,Pertanian Lahan Kering,Pertanian Lahan Kering,43
+7,10107,466,29,2,1,0,0,Sempadan Sungai,1,0,0,1,0,1,unresolved,3,Perkebunan_Bungo_F,unresolved_case,44
+7,7,6690,7,0,0,0,0,Sempadan Sungai,1,0,0,0,0,0,Sempadan Sungai,100,Sempadan Sungai,Sempadan Sungai,7
+7,107,653,15,2,0,0,0,Sempadan Sungai,1,0,0,0,0,0,Sempadan Sungai,100,Sempadan Sungai,Sempadan Sungai,46
+7,1000007,1,33,0,0,1,0,Sempadan Sungai,1,0,1,0,0,1,unresolved,2,Hutan_Adat_Bungo_F,unresolved_case,47
+7,100000107,45,45,2,0,0,2,Sempadan Sungai,1,0,0,0,0,0,Sempadan Sungai,100,Sempadan Sungai,Sempadan Sungai,48
+7,100010007,79,50,0,1,0,2,Sempadan Sungai,1,0,0,1,0,1,unresolved,3,Perkebunan_Bungo_F,unresolved_case,49
+7,10007,2230,23,0,1,0,0,Sempadan Sungai,1,0,0,1,0,1,unresolved,3,Perkebunan_Bungo_F,unresolved_case,50
+7,100000007,714,40,0,0,0,2,Sempadan Sungai,1,0,0,0,0,0,Sempadan Sungai,100,Sempadan Sungai,Sempadan Sungai,51
+8,108,713,16,2,0,0,0,Taman Nasional Kerinci Sebelat,1,0,0,0,0,0,Taman Nasional Kerinci Sebelat,100,Taman Nasional Kerinci Sebelat,Taman Nasional Kerinci Sebelat,52
+8,8,40244,8,0,0,0,0,Taman Nasional Kerinci Sebelat,1,0,0,0,0,0,Taman Nasional Kerinci Sebelat,100,Taman Nasional Kerinci Sebelat,Taman Nasional Kerinci Sebelat,53
+8,100000008,984,41,0,0,0,2,Taman Nasional Kerinci Sebelat,1,0,0,0,0,0,Taman Nasional Kerinci Sebelat,100,Taman Nasional Kerinci Sebelat,Taman Nasional Kerinci Sebelat,54

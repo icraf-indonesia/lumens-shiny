@@ -4,19 +4,11 @@ page_sidebar(
   sidebar = sidebar(
     title = "Trade-off Analysis (Regional 2)",
     width = 600,
-    fileInput("map1_file", "Land cover map at T1", accept = c("image/tiff")),
-    fileInput("map2_file", "Land cover map at T2", accept = c("image/tiff")),
-    fileInput("mapz_file", 
-              "Planning Unit", 
-              accept = c(".shp", ".dbf", ".sbn", ".sbx", ".shx", ".prj"), 
-              multiple = T, 
-              placeholder = "All related shapefiles"),
-    fileInput("carbon_file", "Carbon stock lookup table", accept = c(".csv")),
-    textInput("map1_year", "Year of T1"),
-    textInput("map2_year", "Year of T2"),
+    fileInput("land_req_file", "Land Requirement Database", accept = c(".Rdata")),
+    fileInput("projected_land_use_file", "Projected Landuse", accept = c("image/tiff")),
     shinyDirButton("wd", "Select working directory", "Select a folder"),
     textOutput("selected_directory"),
-    actionButton("processQUESC", "Run")
+    actionButton("processTAReg2", "Run")
   ),
   
   # To display the report

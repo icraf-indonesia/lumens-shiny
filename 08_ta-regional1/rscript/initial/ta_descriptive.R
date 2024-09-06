@@ -192,4 +192,4 @@ save(int_con,
      GDP,
      Linkages_table,
      multiplier,
-     file=paste0('Descriptive', I_O_period, '.ldbase'))
+     file=paste0('LandReq', I_O_period, '.Rdata'))

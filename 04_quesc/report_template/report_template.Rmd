@@ -1,15 +1,13 @@
 ---
-title: "QuES-C Report"
-author: "System"
-date: "`r Sys.Date()`"
+title: "QUES-C Report"
 output: 
   html_document:
     toc: true
     toc_float: true
-    toc_depth: 2
+    number_sections: true
     theme: united
     highlight: tango
-    df_print: paged
+    df_print: kable
 params:
   map_c1: NA
   map_c2: NA
@@ -25,11 +23,69 @@ params:
 knitr::opts_chunk$set(echo = TRUE)
 library(ggplot2)
 library(raster)
+library(dplyr)
+library(kableExtra)
+
+format_session_info_table <- function() {
+  si <- sessionInfo()
+
+  # Extract R version info
+  r_version <- si$R.version[c("major", "minor", "year", "month", "day", "nickname")]
+  r_version <- paste0(
+    "R ", r_version$major, ".", r_version$minor,
+    " (", r_version$year, "-", r_version$month, "-", r_version$day, ")",
+    " '", r_version$nickname, "'"
+  )
+
+  # Extract platform and OS info
+  platform_os <- paste(si$platform, "|", si[[6]])
+
+  # Extract locale info
+  locale_info <- strsplit(si[[3]], ";")[[1]]
+  locale_info <- paste(locale_info, collapse = "<br>")
+
+  # Extract .libpaths, accomodate multiple library paths
+  lib_paths <- .libPaths() %>% paste( collapse = "<br>")
+
+  # Combine all info into a single tibble
+  session_summary <- tibble(
+    Category = c("R Version", "Platform | OS", ".libPaths", "Locale"),
+    Details = c(r_version, platform_os, lib_paths, locale_info)
+  )
+  
+  return(session_summary)
+}
 ```
 
-## Introduction
+<details><summary>Click here for Analysis Log</summary>
+
+```{r analysis-log, echo=FALSE}
+
+analysis_log <- tribble(
+  ~Category,                   ~Details,
+  "Input Data and Parameters", "",
+  "1. Landcover map", "",
+  "Output Files", "",
+  "Output Workspace", "",
+  "1. Carbon Map", "",
+  "Session Summary", "",
+) %>% rbind(format_session_info_table())
+
+analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
+  kable_paper("hover", full_width = F )
+```
+
+</details>
+
+# Summary
 
 This report presents the results of an analysis based on the provided maps and lookup table
+
+# Module brief description
+
+# Input data
+
+# Results
 
 ## Lookup Table Summary
 
@@ -40,9 +96,6 @@ The uploaded lookup table contains `r nrow(params$ques_db)` rows and `r names(pa
 ```{r}
 head(params$ques_db, n=20)
 ```
-
-
-## Analysis Results
 
 The maps provided was carbon, emission and sequestration map.
 
@@ -72,6 +125,3 @@ plot(params$map_em)
 plot(params$map_sq)
 ```
 
-## Conclusion
-
-* Summarize the key findings or insights from the analysis.

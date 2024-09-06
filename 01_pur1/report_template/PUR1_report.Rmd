@@ -1,0 +1,158 @@
+---
+title: "Planning Unit Reconciliation: Build - Module Report"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+    df_print: kable
+params:
+  start_time: NA
+  end_time: NA
+  output_dir: NA
+  PUR_stack: NA
+  db_final2: NA
+  database_unresolved_out: NA
+  pur_unresolved_vector: NA
+  inputs: NA
+  summary_data: NA
+  dir_PURdbfinal: NA
+  dir_UnresolvedCase: NA
+  dir_PUR1shp: NA
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = normalizePath(rprojroot::find_rstudio_root_file()))
+library(knitr)
+library(kableExtra)
+library(dplyr)
+library(ggplot2)
+library(sf)
+library(terra)
+library(raster)
+```
+
+```{r analysis-log, include=FALSE}
+# Function to safely create a tibble with consistent column lengths
+safe_tibble <- function(...) {
+  args <- list(...)
+  max_length <- max(sapply(args, length))
+  args <- lapply(args, function(x) rep(x, length.out = max_length))
+  do.call(tibble::tibble, args)
+}
+
+analysis_log <- safe_tibble(
+  Category = c(
+    "Analysis Start",
+    "Analysis End",
+    "Input Data and Parameters",
+    "1. Reference map",
+    "2. Planning Unit map",
+    "Output Files",
+    "Output Workspace",
+    "1. Planning Unit Reconciliation Setup Database Table",
+    "2. Unresolved Case table",
+    "3. Planning Unit Setup map"
+  ),
+  Details = c(
+    params$start_time,
+    params$end_time,
+    "",
+    as.character(params$inputs$ref),
+    paste(params$inputs$pu_lut_list, collapse = ", "),
+    "",
+    paste0(getwd(), params$output_dir),
+    file.path(params$output_dir, params$dir_PURdbfinal),
+    file.path(params$output_dir, params$dir_UnresolvedCase),
+    file.path(params$output_dir, params$dir_PUR1shp)
+  )
+)
+
+# Combine with session info
+session_info <- format_session_info_table()
+analysis_log <- bind_rows(analysis_log, session_info)
+
+analysis_log %>% 
+  kbl(caption = "Analysis Log", escape = FALSE) %>%
+  kable_paper("hover", full_width = F)
+```
+
+## Summary
+
+This analysis performed Planning Unit Reconciliation (PUR) on the `r params$inputs$area_name` landscape. The total area analyzed was `r format(round(params$summary_data$total_area, 2), big.mark = ",")` hectares. Of this, `r round(params$summary_data$resolved_percentage, 2)`% (`r format(round(params$summary_data$resolved_area, 2), big.mark = ",")` ha) was successfully reconciled, while `r round(params$summary_data$unresolved_percentage, 2)`% (`r format(round(params$summary_data$unresolved_area, 2), big.mark = ",")` ha) remained unresolved and requires further reconciliation action.
+
+## Module brief description
+
+Planning unit reconciliation is a process to resolve overlapping permits by referring to function reference maps. Reconciliation is done by analyzing how well the permit data matches the reference data. Permit data can include things like forest management concessions, plantation permits, mining permits, and others. Reference data can be spatial planning data or area designation data.
+
+## Input data
+
+### Reference Map 
+
+This data is used as a guide to check if the maps of planning areas match their intended use. These maps can be official maps showing land use or city planning.
+
+```{r}
+#| echo: false
+#| fig-keep: all
+#| message: false
+#| results: false
+#| warning: false
+
+plot(params$inputs$ref)
+```
+
+### Planning Unit Map
+
+Planning unit data is used to show how land use is planned in an area. These map-based data show directions for managing or changing land use in a part of the landscape.
+
+```{r reference-map, fig.width=12, fig.height=8}
+#| echo: false
+#| fig-keep: all
+#| message: false
+#| results: false
+#| warning: false
+
+PUR_stack_new <- subset(params$PUR_stack, 1:(nlyr(params$PUR_stack) - 1))
+plot(PUR_stack_new)
+```
+
+## Results
+
+### Unresolved Cases Zone Map
+
+```{r}
+#| echo: false
+#| fig-keep: all
+#| message: false
+#| results: false
+#| warning: false
+
+final_resolved_map <- params$pur_unresolved_vector
+plot(final_resolved_map["Rec_phase2"], main = "Unresolved Map")
+```
+
+```{r key-results-table, echo=FALSE}
+summary_table <- params$db_final2 %>%
+  group_by(Rec_phase1b) %>%
+  summarise(Area_ha = sum(COUNT) * (res(params$inputs$ref)[1] * res(params$inputs$ref)[2] / 10000)) %>%
+  ungroup() %>%
+  mutate(Percentage = Area_ha / sum(Area_ha) * 100) %>%
+  arrange(desc(Area_ha))
+
+kable(summary_table, caption = "Summary of Reconciliation Results") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+### Summary of Unresolved Cases
+
+```{r key-unresolved-table, echo=FALSE}
+summary_unresolved <- params$database_unresolved_out
+
+kable(summary_unresolved, caption = "Summary of Unresolved Cases") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+------------------------------------------------------------------------
+
+<font size="1"> LUMENS is free software and comes with ABSOLUTELY NO WARRANTY. Users are responsible for the results generated. Results depend on the quality of the input data ("garbage in, garbage out") and may vary or be sensitive to the parameters used. Please report any problems encountered while using LUMENS as [a GitHub issue](https://github.com/icraf-indonesia/lumens-shiny/issues). Feedback and questions are welcome [Contact Us URL]. </font size>
