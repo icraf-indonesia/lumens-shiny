@@ -90,7 +90,7 @@ download_soilgrids <- function(location_name, aoi, voi, depth, quantile) {
   variable <- paste0(URL_BASE, voi, "/", voi)
   layer <- paste(variable, depth, quantile, sep = "_")
   vrt_layer <- paste0(layer, '.vrt')
-  tif_layer <- file.path(getwd(), paste0(basename(layer), "_", location_name, '.tif'))
+  tif_layer <- file.path(getwd(), paste0(location_name,"_", basename(layer),'.tif'))
   
   # Project AOI to IGH CRS
   aoi_igh <- terra::project(aoi, IGH_CRS)
