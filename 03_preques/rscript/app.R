@@ -68,21 +68,23 @@ preques_app <- function() {
         fileInput("lc_t1", "Land Use/Cover T1", accept = c(".tif", ".tiff")),
         numericInput("t1_year", "T1 Year", value = 1990),
         fileInput("lc_t2", "Land Use/Cover T2", accept = c(".tif", ".tiff")),
-        numericInput("t2_year", "T2 Year", value = 2020),
+        numericInput("t2_year", "T2 Year", value = 2010),
         fileInput("lookup_lc", "Land Use/Cover Lookup Table (CSV)", accept = c(".csv")),
-        fileInput("lookup_trajectory", "Trajectory Rules (CSV)", accept = c(".csv")),
-        radioButtons("zone_type", "Planning Units Input Type",
-                     choices = c("Raster" = "raster", "Shapefile" = "shapefile")),
-        conditionalPanel(
-          condition = "input.zone_type == 'raster'",
-          fileInput("zone_raster", "Planning Units (Raster)", accept = c(".tif", ".tiff")),
-          fileInput("lookup_zone", "Planning Units Lookup (CSV)", accept = c(".csv"))
-        ),
-        conditionalPanel(
-          condition = "input.zone_type == 'shapefile'",
-          fileInput("zone_shapefile", "Planning Units (Shapefile)",
-                    accept = c(".shp", ".dbf", ".prj", ".shx"), multiple = TRUE)
-        ),
+        fileInput("lookup_trajectory", "Trajectory Lookup Table (CSV)", accept = c(".csv")),
+        fileInput("zone_shapefile", "Planning Units (Shapefile)",
+                  accept = c(".shp", ".dbf", ".prj", ".shx"), multiple = TRUE),
+        # radioButtons("zone_type", "Planning Units Input Type",
+        #              choices = c("Raster" = "raster", "Shapefile" = "shapefile")),
+        # conditionalPanel(
+        #   condition = "input.zone_type == 'raster'",
+        #   fileInput("zone_raster", "Planning Units (Raster)", accept = c(".tif", ".tiff")),
+        #   fileInput("lookup_zone", "Planning Units Lookup (CSV)", accept = c(".csv"))
+        # ),
+        # conditionalPanel(
+        #   condition = "input.zone_type == 'shapefile'",
+        #   fileInput("zone_shapefile", "Planning Units (Shapefile)",
+        #             accept = c(".shp", ".dbf", ".prj", ".shx"), multiple = TRUE)
+        # ),
 
         div(style = "display: flex; flex-direction: column; gap: 10px;",
             shinyDirButton("output_dir", "Select Output Directory", "Please select a directory"),
@@ -178,13 +180,16 @@ preques_app <- function() {
       rv$lookup_lc <- input$lookup_lc
       rv$lookup_trajectory <- input$lookup_trajectory
 
-      if (input$zone_type == "raster") {
-        rv$zone_input <- input$zone_raster
-        rv$lookup_zone <- input$lookup_zone
-      } else {
-        rv$zone_input <- input$zone_shapefile
-        rv$lookup_zone <- NULL  # Will be created from shapefile
-      }
+      # if (input$zone_type == "raster") {
+      #   rv$zone_input <- input$zone_raster
+      #   rv$lookup_zone <- input$lookup_zone
+      # } else {
+      #   rv$zone_input <- input$zone_shapefile
+      #   rv$lookup_zone <- NULL  # Will be created from shapefile
+      # }
+      
+      rv$zone_input <- input$zone_shapefile
+      rv$lookup_zone <- NULL  # Will be created from shapefile
     })
 
     # Input validation
@@ -193,10 +198,10 @@ preques_app <- function() {
         need(rv$lc_t1, "Please upload Land Use/Cover T1 file"),
         need(rv$lc_t2, "Please upload Land Use/Cover T2 file"),
         need(rv$lookup_lc, "Please upload Land Use/Cover Lookup Table (CSV) file"),
-        need(input$zone_type, "Please select Planning Units Input Type"),
+        #need(input$zone_type, "Please select Planning Units Input Type"),
         need(rv$zone_input, "Please upload Planning Units file"),
-        need(if(input$zone_type == "raster") rv$lookup_zone else TRUE, "Please upload Planning Units Lookup (CSV) file for raster input"),
-        need(rv$lookup_trajectory, "Please upload Trajectory Rules (CSV) file"),
+        #need(if(input$zone_type == "raster") rv$lookup_zone else TRUE, "Please upload Planning Units Lookup (CSV) file for raster input"),
+        need(rv$lookup_trajectory, "Please upload Land Use/Cover Trajectory Lookup Table (CSV) file"),
         need(selected_output_dir(), "Please select an output directory")
       )
       return(TRUE)
@@ -209,12 +214,14 @@ preques_app <- function() {
       showNotification("Analysis is running. Please wait...", type = "message", duration = NULL, id = "running_notification")
       withProgress(message = 'Running Pre-QuES Analysis', value = 0, {
         tryCatch({
+         
           # Load LC T1 raster
           lc_t1_raster <- terra::rast(rv$lc_t1$datapath)
 
           # Process planning unit input
           zone_data <- process_planning_unit(
-            zone_type = input$zone_type,
+            #zone_type = input$zone_type,
+            zone_type = "shapefile",
             zone_input = rv$zone_input,
             lc_t1_raster = lc_t1_raster
           )
@@ -224,7 +231,8 @@ preques_app <- function() {
             lc_t2_input = rv$lc_t2,
             admin_z_input = zone_data$zone_raster,
             lc_lookup_input = rv$lookup_lc,
-            zone_lookup_input = if(input$zone_type == "raster") rv$lookup_zone else zone_data$lookup_zone,
+            zone_lookup_input = zone_data$lookup_zone,
+            #zone_lookup_input = if(input$zone_type == "raster") rv$lookup_zone else zone_data$lookup_zone,
             trajectory_lookup_input = rv$lookup_trajectory,
             time_points = list(t1 = input$t1_year, t2 = input$t2_year),
             output_dir = selected_output_dir(),
