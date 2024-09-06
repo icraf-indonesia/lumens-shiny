@@ -1,27 +1,21 @@
 ---
-title: "Trade-off Analysis Regional 2 Report"
-author: "System"
-date: "`r Sys.Date()`"
+title: "Trade-off Analysis Regional 1 Report"
 output: 
   html_document:
     toc: true
     toc_float: true
-    toc_depth: 2
-    theme: united
-    highlight: tango
-    df_print: paged
+    number_sections: true
+    df_print: kable
 params:
-  LC_graph: NA
-  GDP_graph: NA
-  LAB_graph: NA
-  landuse_table: NA
-  GDP_summary: NA
-  Labour_table: NA
+  BPD_graph: NA
+  FPD_graph: NA
+  LRC_graph: NA
+  Linkages_table: NA
+  land.requirement_table: NA
 ---
 
-
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE)
 library(ggplot2)
 library(raster)
 ```
@@ -32,7 +26,9 @@ This report presents the results of an analysis based on the provided maps and l
 
 ## Lookup Table Summary
 
+
 * A brief description or summary statistics of the lookup table data can be included here.
+
 
 ## Analysis Results
 
@@ -40,25 +36,32 @@ The maps provided was carbon, emission and sequestration map.
 
 * Calculation or analysis details based on the results can be presented here.
 
+### Opportunity Cost Table
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+head(params$Linkages_table, n=20)
+```
+
+### Opportunity Cost Curve
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+head(params$land.requirement_table, n=20)
+```
+
 ### Direct Backward Linkages graph
 
-```{r}
-head(params$landuse_table, n=20)
-plot(params$LC_graph)
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+plot(params$BPD_graph)
 ```
 
 ### Direct Forward Linkages graph 
-
-```{r}
-head(params$GDP_summary, n=20)
-plot(params$GDP_graph)
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+plot(params$FPD_graph)
 ```
 
 ### Land Requirement Coefficient graph 
 
-```{r}
-head(params$Labour_table, n=20)
-plot(params$LAB_graph)
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+plot(params$LRC_graph)
 ```
 
 ## Conclusion

@@ -1,3 +1,7 @@
+---
+title: "Trade-Off Analysis (Profit)"
+---
+
 # TRADE-OFF ANALYSIS (PROFIT)
 
 ## Table of Contents

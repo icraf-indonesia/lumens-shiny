@@ -34,7 +34,8 @@ install_load(
   "shinyFiles",
   "shinyvalidate",
   "splitstackshape",
-  "terra"
+  "terra",
+  "shinyjs"
 )
 
 #### Helper Functions ####

@@ -1,23 +1,22 @@
 ---
-title: "Trade-off Analysis Regional 1 Report"
-author: "System"
-date: "`r Sys.Date()`"
+title: "Trade-off Analysis Profit Report"
 output: 
   html_document:
     toc: true
     toc_float: true
-    toc_depth: 2
-    theme: united
-    highlight: tango
-    df_print: paged
+    number_sections: true
+    df_print: kable
 params:
-  BPD_graph: NA
-  FPD_graph: NA
-  LRC_graph: NA
-  Linkages_table: NA
-  land.requirement_table: NA
+  map_carbon1: NA
+  map_carbon2: NA
+  emission_map: NA
+  opcost_map: NA
+  opcost_table: NA
+  opcost_curve: NA
+  npv1_map: NA
+  npv2_map: NA
+  delta_npv: NA
 ---
-
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
@@ -34,10 +33,6 @@ This report presents the results of an analysis based on the provided maps and l
 
 * A brief description or summary statistics of the lookup table data can be included here.
 
-```{r, echo=FALSE, warning=FALSE, message=FALSE}
-head(params$Linkages_table, n=20)
-```
-
 
 ## Analysis Results
 
@@ -45,27 +40,32 @@ The maps provided was carbon, emission and sequestration map.
 
 * Calculation or analysis details based on the results can be presented here.
 
+### Opportunity Cost Table
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
-head(params$land.requirement_table, n=20)
+head(params$opcost_table, n=10)
 ```
 
-### Direct Backward Linkages graph
-
+### Opportunity Cost Curve
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
-plot(params$BPD_graph)
+plot(params$opcost_curve)
 ```
 
-### Direct Forward Linkages graph 
+### NPV Map 1
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
-plot(params$FPD_graph)
+plot(params$npv1_map)
 ```
 
-### Land Requirement Coefficient graph 
+### NPV Map 2
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+plot(params$npv2_map)
+```
+
+### Delta NPV Map
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
-plot(params$LRC_graph)
+plot(params$delta_npv)
 ```
 
 ## Conclusion

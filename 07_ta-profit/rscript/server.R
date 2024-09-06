@@ -23,7 +23,7 @@ server <- function(input, output, session) {
     opcost_map = NULL,
     emission_map = NULL,
     raster_nodata = NULL,
-    cost_threshold = NULL,
+    # cost_threshold = NULL,
     map_npv1 = NULL,
     map_npv2 = NULL,
     opcost_curve = NULL
@@ -32,6 +32,34 @@ server <- function(input, output, session) {
   volumes <- c(
     getVolumes()()
   )
+  
+  # Set working directory
+  shinyDirChoose(
+    input, 
+    'wd',
+    roots = volumes,
+    session = session
+  )
+  
+  output$selected_directory <- renderText({
+    rv$wd <- parseDirPath(volumes, input$wd)
+    if(length(rv$wd) == 0) {
+      return()
+    } else {
+      paste0("Selected output directory: ",  rv$wd)
+    }
+  })
+  
+  output$user_guide <- renderUI({
+    guide_path <- "../helpfile/help.md"
+    if (file.exists(guide_path)) {
+      html_content <- rmarkdown::render(guide_path, output_format = "html_fragment", quiet = TRUE,
+                                        output_options = list(metadata = list(title = "Trade-Off Analysis (Profit)")))
+      HTML(readLines(html_content))
+    } else {
+      HTML("<p>User guide file not found.</p>")
+    }
+  })
   
   # Define helper functions
   is_numeric_str <- function(s) {
@@ -67,9 +95,9 @@ server <- function(input, output, session) {
     rv$period <- as.numeric(input$year2) - as.numeric(input$year1)
   })
   
-  observeEvent(input$cost_threshold, {
-    rv$cost_threshold <- as.numeric(input$cost_threshold)
-  })
+  # observeEvent(input$cost_threshold, {
+  #   rv$cost_threshold <- as.numeric(input$cost_threshold)
+  # })
   
   #### Process Data ####
   observeEvent(input$process, {
@@ -79,64 +107,56 @@ server <- function(input, output, session) {
       showNotification("Please upload all required files", type = "error")
       return()
     }
-    withProgress(message = "Processing Data", value = 0, {
-    
-      # Prepare NPV Lookup Table
-      npv_result <- prepare_npv_lookup(rv$tbl_npv, rv$quesc_tbl)
-      rv$quesc_tbl <- npv_result$quesc_tbl
-      tot_area <- npv_result$tot_area
-      
-      # Build Opportunity Cost Table
-      opcost_result <- build_opcost_table(rv$quesc_tbl, rv$period, tot_area)
-      rv$opcost_table <- opcost_result$opcost_all
-      rv$opcost_table$order<-c(1:nrow(rv$opcost_table))
-      find_x_val<-subset(rv$opcost_table, opcost_log>=log10(rv$cost_threshold))
-      x_val<-find_x_val$order[1]
-      
-      # Carbon Accounting
-      carbon_result <- carbon_accounting(rv$map1_rast, rv$map2_rast, rv$tbl_npv, rv$tbl_carbon, input$raster_nodata)
-      rv$map_carbon1 <- carbon_result$map_carbon1
-      rv$map_carbon2 <- carbon_result$map_carbon2
-      rv$emission_map <- carbon_result$emission_map
-      
-      # NPV Accounting
-      npv_result <- npv_accounting(rv$map1_rast, rv$map2_rast, rv$tbl_npv)
-      rv$map_npv1 <- npv_result$map_npv1
-      rv$map_npv2 <- npv_result$map_npv2
-      rv$npv_chg_map <- npv_result$npv_chg_map
-      
-      # Calculate Opportunity Cost Map
-      rv$opcost_map <- calculate_opcost_map(rv$npv_chg_map, rv$emission_map)
-      
-      # Generate Output Maps
-      generate_output_maps(rv$map_carbon1, rv$map_carbon2, rv$emission_map, rv$opcost_map, rv$wd)
-      
-      # Generate the Opportunity Cost Curve (source: https://www.r-bloggers.com/2015/07/waterfall-plots-what-and-how/)
-      rv$opcost_curve <- generate_opportunity_cost_curve(rv$opcost_table)
-      
-      setProgress(1, message = "Processing Complete")
-      showNotification("All outputs have been generated", type = "message")
+    withProgress(message = "Running TA Profit Analysis", value = 0, {
+      tryCatch({
+        # Prepare NPV Lookup Table
+        npv_result <- prepare_npv_lookup(rv$tbl_npv, rv$quesc_tbl)
+        rv$quesc_tbl <- npv_result$quesc_tbl
+        tot_area <- npv_result$tot_area
+        
+        # Build Opportunity Cost Table
+        opcost_result <- build_opcost_table(rv$quesc_tbl, rv$period, tot_area)
+        rv$opcost_table <- opcost_result$opcost_all
+        rv$opcost_table$order<-c(1:nrow(rv$opcost_table))
+        # find_x_val<-subset(rv$opcost_table, opcost_log>=log10(rv$cost_threshold))
+        # x_val<-find_x_val$order[1]
+        
+        # Carbon Accounting
+        carbon_result <- carbon_accounting(rv$map1_rast, rv$map2_rast, rv$tbl_npv, rv$tbl_carbon, input$raster_nodata)
+        rv$map_carbon1 <- carbon_result$map_carbon1
+        rv$map_carbon2 <- carbon_result$map_carbon2
+        rv$emission_map <- carbon_result$emission_map
+        
+        # NPV Accounting
+        npv_result <- npv_accounting(rv$map1_rast, rv$map2_rast, rv$tbl_npv)
+        rv$map_npv1 <- npv_result$map_npv1
+        rv$map_npv2 <- npv_result$map_npv2
+        rv$npv_chg_map <- npv_result$npv_chg_map
+        
+        # Calculate Opportunity Cost Map
+        rv$opcost_map <- calculate_opcost_map(rv$npv_chg_map, rv$emission_map)
+        
+        # Generate Output Maps
+        generate_output_maps(rv$map_carbon1, rv$map_carbon2, rv$emission_map, rv$opcost_map, rv$wd)
+        
+        # Generate the Opportunity Cost Curve (source: https://www.r-bloggers.com/2015/07/waterfall-plots-what-and-how/)
+        rv$opcost_curve <- generate_opportunity_cost_curve(rv$opcost_table)
+        
+        setProgress(1, message = "Processing Complete")
+        showNotification("All outputs have been generated", type = "message")
+        
+        output$status_messages <- renderText("Analysis completed successfully!")
+        showNotification("Analysis completed successfully!", type = "message")
+        shinyjs::show("viewReport")
+        
+      }, error = function(e) {
+        output$error_messages <- renderText(paste("Error in analysis:", e$message))
+        showNotification(paste("Error in analysis:", e$message), type = "error")
+      })
     })
   })
   
-  # Set working directory
-  shinyDirChoose(
-    input, 
-    'wd',
-    roots = volumes,
-    session = session
-  )
-  
-  output$selected_directory <- renderText({
-    rv$wd <- parseDirPath(volumes, input$wd)
-    if(length(rv$wd) == 0) {
-      return()
-    } else {
-      paste0("Selected output directory: ",  rv$wd)
-    }
-  })
-  
-  # # Generate Report
+  # Generate Report
   report_content <- reactive({
     params <- list(
       map_carbon1 = rv$map_carbon1,
@@ -149,21 +169,22 @@ server <- function(input, output, session) {
       npv2_map = rv$map_npv1,
       delta_npv = rv$npv_chg_map
     )
-    
+
     output_file <- paste0("ta-profit_report_", format(Sys.time(), "%Y-%m-%d_%H-%M-%S"), ".html")
     output_dir <- rv$wd
     rv$report_file <- paste(output_dir, output_file, sep = "/")
-    
+
     render(
-      "../report_template/report_template.Rmd",
+      "../report_template/ta-profit_report.Rmd",
       output_file = output_file,
       output_dir = output_dir,
       params = params,
       envir = new.env(parent = globalenv())
     )
   })
-  
+
   observeEvent(input$viewReport, {
+    showNotification("Opening report...", type = "message")
     file.show(report_content())
   })
 }

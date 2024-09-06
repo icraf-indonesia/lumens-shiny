@@ -24,7 +24,7 @@ params:
 
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE)
 library(ggplot2)
 library(raster)
 ```
@@ -47,29 +47,29 @@ The maps provided was carbon, emission and sequestration map.
 
 ### Opportunity Cost Table
 
-```{r}
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
 head(params$opcost_table, n=10)
 ```
 
 ### Opportunity Cost Curve
-```{r}
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
 plot(params$opcost_curve)
 ```
 
 ### NPV Map 1
 
-```{r}
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
 plot(params$npv1_map)
 ```
 
 ### NPV Map 2
-```{r}
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
 plot(params$npv2_map)
 ```
 
 ### Delta NPV Map
 
-```{r}
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
 plot(params$delta_npv)
 ```
 
