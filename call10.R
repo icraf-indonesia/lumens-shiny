@@ -1,0 +1,1 @@
+shiny::runApp('10_sciendo-scenario/rscript/', launch.browser = T, port = 875)

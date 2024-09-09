@@ -1,0 +1,45 @@
+## Help Page for PUR Build Module
+
+## 1. Description
+
+Planning unit reconciliation is a process to resolve overlapping permits by referring to function reference maps. Reconciliation is done by analyzing how well the permit data matches the reference data. Permit data can include things like forest management concessions, plantation permits, mining permits, and others. Reference data can be spatial planning data or area designation data.
+
+## 2. Required Data
+
+![](image/input%20data.png)
+
+## 3. Running Model
+
+### 3.1 Input data
+
+#### Shapefile data (select all related shapefile):
+
+![](image/shapefile.png)
+
+#### Tabular data:
+
+-   reference class ![](image/ref_class.png)
+-   reference class of reference map ![](image/ref_mapping.png)
+-   planning unit list ![](image/pu_units.png)
+
+#### Map resolution
+
+Default value: 100
+
+### 3.2 Set working directory
+
+![](image/set%20wd.png)
+
+### 3.3 Run the module
+
+![](image/run.png)
+
+## 4. Output
+
+### 4.1 Exported data
+
+![](image/exported%20data.png)
+
+### 4.2 Report file
+
+![](image/report.png)

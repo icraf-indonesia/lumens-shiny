@@ -1,0 +1,73 @@
+---
+title: "Planning Unit Reconciliation Report"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+params:
+  start_time: NA
+  end_time: NA
+  output_dir: NA
+  raster_temp: NA
+  summary_PUR: NA
+  area_name: NA
+  sa: NA
+  dir_raster_temp: NA
+  dir_sa: NA
+  dir_summary_PUR: NA
+  summary_data: NA
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+library(knitr)
+library(kableExtra)
+library(dplyr)
+library(ggplot2)
+library(sf)
+library(terra)
+library(raster)
+```
+
+## Summary
+
+This analysis performed Planning Unit Reconciliation (PUR) on the `r params$area_name` landscape. The total area analyzed was `r format(round(params$summary_data$total_area, 2), big.mark = ",")` hectares.
+
+## Module brief description
+
+Planning unit reconciliation is a process to resolve overlapping permits by referring to function reference maps. Reconciliation is done by analyzing how well the permit data matches the reference data. Permit data can include things like forest management concessions, plantation permits, mining permits, and others. Reference data can be spatial planning data or area designation data.
+
+## Results
+
+### Reconciliation Results Map
+```{r}
+#| echo: false
+#| fig-keep: all
+#| message: false
+#| results: false
+#| warning: false
+
+resolved_map <- params$sa
+plot(resolved_map["resolved"], main = "Resolved Map")
+```
+
+### Reconciliation Data Summary
+
+```{r}
+table_recon <- params$summary_PUR
+
+kable(table_recon, caption = "Summary of Final Reconciliation Results") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+The table below summarizes the final reconciliation results:
+
+## Final Outputs
+The following files were generated during the reconciliation process:
+
+- Reconciliation Raster: `r params$dir_raster_temp`
+- Reconciliation Shapefile: `r params$dir_sa`
+- Summary CSV File: `r params$dir_summary_PUR`
+
+These files can be found in the output directory specified above.
