@@ -31,7 +31,6 @@ calculate_ls <- function(slope, aspect) {
   return(ls)
 }
 
-
 # 4. Calculation of C (Van der Knijff et al, 2000) ------------------------
 
 calculate_c_knijff <- function(ndvi) {
@@ -53,6 +52,17 @@ calculate_c_lc <- function(lc) {
   }
   return(c)
 }
+
+# 6. Sync geometric properties --------------------------------------------
+
+syncGeom <- function(input, ref){
+  input %>% 
+    # rast() %>%
+    crop(ref) %>% 
+    resample(ref) %>% 
+    `*`(ref)
+}
+
 
 
 #' Download SoilGrids data
@@ -132,3 +142,4 @@ download_soilgrids <- function(location_name, aoi, voi, depth, quantile) {
   
   return(downloaded_soil_map)
 }
+
