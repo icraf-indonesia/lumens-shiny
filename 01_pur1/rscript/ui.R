@@ -4,7 +4,6 @@ page_sidebar(
   sidebar = sidebar(
     title = "Planning Unit Reconciliation (PUR) Build",
     width = 600,
-    textInput("area_name", "Area Name"),
     fileInput("ref_map", 
               "Reference Map", 
               accept = c(".shp", ".dbf", ".sbn", ".sbx", ".shx", ".prj"), 
@@ -14,7 +13,7 @@ page_sidebar(
     fileInput("ref_mapping", "Reference Class of Reference Map", accept = c(".csv"), placeholder = "input your csv file"),
     fileInput("pu_units", "List of Planning Units", accept = c(".csv"), placeholder = "input your csv file"),
     textInput("map_resolution", "Map Resolution"),
-    shinyDirButton("wd", "Select Working Directory", "Select a folder"),
+    shinyDirButton("wd", "Select Output Directory", "Select a folder"),
     textOutput("selected_directory"),
     actionButton("process", "Run PUR Build")
     ),

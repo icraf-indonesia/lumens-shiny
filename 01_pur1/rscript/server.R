@@ -3,7 +3,6 @@ server <- function(input, output, session) {
   rv <- reactiveValues(
     wd = "",
     report_file = NULL,
-    area_name = NULL,
     ref_map = NULL,
     ref_class = NULL,
     ref_mapping = NULL,
@@ -20,9 +19,9 @@ server <- function(input, output, session) {
   }  
   
   #### File Inputs ####
-  observeEvent(input$area_name, {
-    rv$area_name <- as.character(input$area_name)
-  })
+  # observeEvent(input$area_name, {
+  #   rv$area_name <- as.character(input$area_name)
+  # })
   
   observeEvent(input$ref_map, {
     shp <- input$ref_map
@@ -493,7 +492,7 @@ server <- function(input, output, session) {
       database_unresolved_out = rv$database_unresolved_out,
       pur_unresolved_vector = rv$pur_unresolved_vector,
       inputs = list(
-        area_name = rv$area_name,
+        # area_name = rv$area_name,
         ref = ref,
         ref_class = tabel_acuan,
         lookup_ref = lookup_ref,

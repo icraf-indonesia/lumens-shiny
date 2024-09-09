@@ -80,7 +80,7 @@ analysis_log %>%
 
 ## Summary
 
-This analysis performed Planning Unit Reconciliation (PUR) on the `r params$inputs$area_name` landscape. The total area analyzed was `r format(round(params$summary_data$total_area, 2), big.mark = ",")` hectares. Of this, `r round(params$summary_data$resolved_percentage, 2)`% (`r format(round(params$summary_data$resolved_area, 2), big.mark = ",")` ha) was successfully reconciled, while `r round(params$summary_data$unresolved_percentage, 2)`% (`r format(round(params$summary_data$unresolved_area, 2), big.mark = ",")` ha) remained unresolved and requires further reconciliation action.
+The total area of interest is `r format(round(params$summary_data$total_area, 2), big.mark = ",")` hectares. Of this, `r round(params$summary_data$resolved_percentage, 2)`% (`r format(round(params$summary_data$resolved_area, 2), big.mark = ",")` ha) was successfully reconciled, while `r round(params$summary_data$unresolved_percentage, 2)`% (`r format(round(params$summary_data$unresolved_area, 2), big.mark = ",")` ha) remained unresolved and requires further reconciliation action.
 
 ## Module brief description
 
