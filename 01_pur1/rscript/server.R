@@ -520,10 +520,18 @@ server <- function(input, output, session) {
       Sys.setenv(RSTUDIO_PANDOC = paste0(getwd(), "/pandoc"))
     }
     
-    output_file <- "PUR_setup_report.html"
-
+    output_file <- "PUR_build_report.html"
+    
+    if (file.exists("01_pur1/report_template/PUR1_report.Rmd")) {
+      path_report <- "01_pur1/report_template/PUR1_report.Rmd"
+    } else if (file.exists("../report_template/PUR1_report.Rmd")) {
+      path_report <- "../report_template/PUR1_report.Rmd"
+    } else {
+      error("No template file for PUR build module is found.")
+    }
+    
     rmarkdown::render(
-      input = "D:/OneDrive - CIFOR-ICRAF/Documents/GitHub/lumens-shiny/01_pur1/report_template/PUR1_report.Rmd",
+      input = path_report,
       output_file = output_file,
       output_dir = rv$wd,
       params = report_params
