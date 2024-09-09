@@ -1,6 +1,7 @@
 page_sidebar(
   title = "Land Use Planning for Multiple Environmental Services (LUMENS)",
   theme = bs_theme(version = 5),
+  useShinyjs(),  # Add this line to enable shinyjs
   sidebar = sidebar(
     title = "Planning Unit Reconciliation (PUR) Build",
     width = 600,
@@ -13,11 +14,21 @@ page_sidebar(
     fileInput("ref_mapping", "Reference Class of Reference Map", accept = c(".csv"), placeholder = "input your csv file"),
     fileInput("pu_units", "List of Planning Units", accept = c(".csv"), placeholder = "input your csv file"),
     textInput("map_resolution", "Map Resolution"),
-    shinyDirButton("wd", "Select Output Directory", "Select a folder"),
-    textOutput("selected_directory"),
-    actionButton("process", "Run PUR Build")
-    ),
-# To display the report
+    div(style = "display: flex; flex-direction: column; gap: 10px;",
+        shinyDirButton("wd", "Select Output Directory", "Please select a directory"),
+        verbatimTextOutput("selected_directory", placeholder = TRUE),
+        actionButton("process", "Run PUR Build",
+                     style = "font-size: 18px; padding: 10px 15px; background-color: #4CAF50; color: white;"),
+        hidden(
+          actionButton("open_report", "Open Report",
+                       style = "font-size: 18px; padding: 10px 15px; background-color: #008CBA; color: white;")
+        ),
+        hidden(
+          actionButton("open_output_folder", "Open Output Folder",
+                       style = "font-size: 18px; padding: 10px 15px; background-color: #008CBA; color: white;")
+        )
+    )
+  ),
   card(
     card_header("Guide"),
     card_body(
@@ -29,10 +40,5 @@ page_sidebar(
         HTML("<p>User guide file not found.</p>")
       }
     )
-  ),
-  actionButton("viewReport", "View report", icon = icon("file-code")) 
+  )
 )
-
-
-
-
