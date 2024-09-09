@@ -27,7 +27,13 @@ page_sidebar(
   card(
     card_header("Guide"),
     card_body(
-      includeMarkdown("D:/OneDrive - CIFOR-ICRAF/Documents/GitHub/lumens-shiny/02_pur2/helpfile/help.Rmd")
+      if (file.exists("02_pur2/helpfile/help.Rmd")) {
+        includeMarkdown("02_pur2/helpfile/help.Rmd")
+      } else if (file.exists("../helpfile/help.Rmd")) {
+        includeMarkdown("../helpfile/help.Rmd")
+      } else {
+        HTML("<p>User guide file not found.</p>")
+      }
     )
   ),
   actionButton("viewReport", "View report", icon = icon("file-code")) 
