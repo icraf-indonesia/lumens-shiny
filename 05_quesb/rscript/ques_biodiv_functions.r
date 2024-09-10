@@ -286,8 +286,8 @@ setupTECIParameters <- function(landuse,
   params$classdesc <- normalizePath(classdesc)
   params$cont_fsq <- normalizePath(cont_fsq)
   fca <- if(is.null(fca)) {
-    warning("fca is NULL. Using default value: 05_quesb/rscript/teciuf.fca")
-    "05_quesb/rscript/teciuf.fca"
+    warning("fca is NULL. Using default value: teciuf.fca")
+    "teciuf.fca"
   } else fca
   params$fca <- normalizePath(fca)
   params$adjacent_only <- adjacent_only
@@ -1478,7 +1478,7 @@ run_ques_b <- function(lc_t1_path, t1, nodata_class, lulc_lut_path, contab_path,
   )
 
   # Prepare parameters for report rendering
-  report_params$inputs$fca_path <- if(is.null(fca_path)) {"05_quesb/rscript/teciuf.fca"} else {fca_path}
+  report_params$inputs$fca_path <- if(is.null(fca_path)) {"teciuf.fca"} else {fca_path}
 
   if (is.null(report_params$inputs$fragstats_path)) {
     program_files <- c("C:/Program Files/", "C:/Program Files (x86)/")
@@ -1643,7 +1643,7 @@ quesb_app <- function() {
             fca_path = fca_path,
             fragstats_path = if (!is.null(input$fragstats_path)) parseDirPath(volumes, input$fragstats_path) else NULL,
             output_dir = parseDirPath(volumes, input$output_dir),
-            report_template_path = "05_quesb/report_template/quesb_report_template.Rmd"
+            report_template_path = "../report_template/quesb_report_template.Rmd"
           )
 
           output$status_messages <- renderText("Analysis completed successfully!")
