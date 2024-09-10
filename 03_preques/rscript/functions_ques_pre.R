@@ -1810,32 +1810,6 @@ check_and_harmonise_geometries <- function(lc_t1, lc_t2, admin) {
 
   return(list(lc_t1 = lc_t1, lc_t2 = lc_t2, admin = admin))
 }
-check_and_harmonise_geometries <- function(lc_t1, lc_t2, admin) {
-
-  harmonised_layers <- character()
-  # Check lc_t2 against lc_t1
-  if (!terra::compareGeom(lc_t1, lc_t2, stopOnError = FALSE)) {
-    warning("Inconsistent geometry detected for lc_t2. Harmonizing...")
-    lc_t2 <- terra::resample(lc_t2, lc_t1, method = "near")
-    harmonised_layers <- c(harmonised_layers, "lc_t2")
-  }
-
-  # Check admin against lc_t1
-  if (!terra::compareGeom(lc_t1, admin, stopOnError = FALSE)) {
-    warning("Inconsistent geometry detected for admin. Harmonizing...")
-    admin <- terra::resample(admin, lc_t1, method = "near")
-    harmonised_layers <- c(harmonised_layers, "admin")
-  }
-
-  if (length(harmonised_layers) > 0) {
-    message("Harmonization complete. The following layers were harmonised to match lc_t1:")
-    message(paste("-", harmonised_layers, collapse = "\n"))
-  } else {
-    message("All input geometries are consistent.")
-  }
-
-  return(list(lc_t1 = lc_t1, lc_t2 = lc_t2, admin = admin))
-}
 
 #' Run Pre-QUES Analysis
 #'
@@ -2074,9 +2048,9 @@ generate_preques_report <- function(output_pre_ques, output_pre_ques_traj, outpu
 
   # Render the R Markdown report
   if (rmarkdown::pandoc_available()==FALSE){
-  Sys.setenv(RSTUDIO_PANDOC=paste0(getwd(), "/pandoc")) 
+  Sys.setenv(RSTUDIO_PANDOC=paste0(getwd(), "/pandoc"))
 }
-  
+
   rmarkdown::render(
     input = file.path(temp_dir, "PreQUES_report.Rmd"),
     output_file = "PreQUES_report.html",

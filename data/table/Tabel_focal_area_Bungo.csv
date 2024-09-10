@@ -1,0 +1,24 @@
+Value,Class,FocalArea,color_palette
+0,No data,0,#ffffff
+1,Primary Forest,1,#005500
+2,High-density logged forest,0,#009933
+3,Low-density logged forest,0,#999900
+4,Primary Swamp Forest,0,#663300
+5,Logged over swamp Forest,0,#996600
+10,Rubber agroforestry,0,#d86b00
+11,Coconut/betelnut  agroforestry,0,#ffaa7f
+12,Cinnamon agroforestry,0,#aaff7f
+13,Coffee agroforestry,0,#a9ba9d
+14,Mixed garden,0,#ff9200
+15,Acacia plantation,0,#00e5ff
+16,Rubber monoculture,0,#7f14b8
+17,Oil palm,0,#ff55ff
+19,Shrubland,0,#ffcc99
+20,Agricultural land,0,#ffdd00
+21,Rice field,0,#ffff66
+22,Tea plantation,0,#ff00ff
+23,Grassland,0,#00557f
+24,Open land,0,#ff0000
+25,Settlement,0,#ffccff
+42,Water,0,#00007f
+43,Cinnamon monoculture,0,#ffaa00
