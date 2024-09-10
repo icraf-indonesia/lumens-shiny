@@ -93,7 +93,7 @@ The uploaded lookup table contains `r nrow(params$ques_db)` rows and `r names(pa
 
 * A brief description or summary statistics of the lookup table data can be included here.
 
-```{r}
+```{r, echo=FALSE}
 head(params$ques_db, n=20)
 ```
 
@@ -103,25 +103,25 @@ The maps provided was carbon, emission and sequestration map.
 
 ### Carbon map `r nrow(params$p1)`
 
-```{r}
+```{r, echo=FALSE}
 plot(params$map_c1)
 ```
 
 ### Carbon map `r nrow(params$p2)`
 
-```{r}
+```{r, echo=FALSE}
 plot(params$map_c2)
 ```
 
 ### Emission map 
 
-```{r}
+```{r, echo=FALSE}
 plot(params$map_em)
 ```
 
 ### Sequestration map 
 
-```{r}
+```{r, echo=FALSE}
 plot(params$map_sq)
 ```
 
