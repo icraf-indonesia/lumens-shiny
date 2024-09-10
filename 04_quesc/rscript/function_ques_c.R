@@ -176,7 +176,7 @@ generate_quesc_report <- function(output_quesc, dir) {
   output_file <- paste0("quesc_report_", Sys.Date(), ".html")
   
   rmarkdown::render(
-    "../report_template/report_template.Rmd",
+    "../report_template/quesc_report_template.Rmd",
     output_file = output_file,
     output_dir = dir,
     params = report_params
