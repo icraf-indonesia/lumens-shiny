@@ -18,7 +18,9 @@ install_load(
   "remotes",
   "shinyjs",
   "rmarkdown",
-  "bslib"
+  "bslib",
+  "lattice",
+  "rasterVis"
 )
 
 if (!("LUMENSR" %in% rownames(installed.packages()))) {
@@ -106,6 +108,16 @@ server <- function(input, output, session) {
     return(!is.na(as.integer(as.character(s))))
   }
   
+  # Function to rename uploaded file
+  rename_uploaded_file <- function(input_file) {
+    if (is.null(input_file)) return(NULL)
+    
+    old_path <- input_file$datapath
+    new_path <- file.path(dirname(old_path), input_file$name)
+    file.rename(old_path, new_path)
+    return(new_path)
+  }
+  
   #### Read file inputs ####
   lapply(lc_list, function(id) {
     inputs <- paste0(id, "_file")
@@ -114,8 +126,8 @@ server <- function(input, output, session) {
     df <- paste0(id, "_df")
     
     observeEvent(input[[inputs]], {
-      rv[[files]] <- input[[inputs]]
-      rv[[rasters]] <- rv[[files]]$datapath %>% raster() 
+      rv[[files]] <- rename_uploaded_file(input[[inputs]])
+      rv[[rasters]] <- rv[[files]] %>% raster() 
     })
   })
   
@@ -216,7 +228,12 @@ server <- function(input, output, session) {
     
     withProgress(message = "Running QUES-C Analysis", value = 0, {
       tryCatch({
+        c_lookup_path <- rename_uploaded_file(input$carbon_file)
         results <- run_quesc_analysis(
+          lc_t1_path = rv$map1_file,
+          lc_t2_path = rv$map2_file,
+          admin_z_path = rv$mapz_file,
+          c_lookup_path = c_lookup_path,
           lc_t1_input = rv$map1_rast,
           lc_t2_input = rv$map2_rast,
           admin_z_input = rv$mapz_rast,

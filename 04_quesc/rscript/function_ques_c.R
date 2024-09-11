@@ -1,3 +1,32 @@
+format_session_info_table <- function() {
+  si <- sessionInfo()
+  
+  # Extract R version info
+  r_version <- si$R.version[c("major", "minor", "year", "month", "day", "nickname")]
+  r_version <- paste0(
+    "R ", r_version$major, ".", r_version$minor,
+    " (", r_version$year, "-", r_version$month, "-", r_version$day, ")",
+    " '", r_version$nickname, "'"
+  )
+  
+  # Extract platform and OS info
+  platform_os <- paste(si$platform, "|", si[[6]])
+  
+  # Extract locale info
+  locale_info <- strsplit(si[[3]], ";")[[1]]
+  locale_info <- paste(locale_info, collapse = "<br>")
+  
+  # Extract .libpaths, accomodate multiple library paths
+  lib_paths <- .libPaths() |> paste( collapse = "<br>")
+  
+  # Combine all info into a single tibble
+  session_summary <- tibble(
+    Category = c("R Version", "Platform | OS", ".libPaths", "Locale"),
+    Details = c(r_version, platform_os, lib_paths, locale_info)
+  )
+  return(session_summary)
+}
+
 ### Required Library ####
 #' Install Required Library
 #' 
@@ -165,13 +194,17 @@ generate_dummy_crosstab <- function(landcover, zone){
 #' @export
 generate_quesc_report <- function(output_quesc, dir) {
   report_params <- list(
+    start_time = output_quesc$start_time,
+    end_time = output_quesc$end_time,
     map_c1 = output_quesc$map_c1,
     map_c2 = output_quesc$map_c2,
     map_em = output_quesc$map_em,
     map_sq = output_quesc$map_sq,
     ques_db = output_quesc$ques_db,
     p1 = output_quesc$p1,
-    p2 = output_quesc$p2
+    p2 = output_quesc$p2,
+    inputs = output_quesc$inputs,
+    session_log = output_quesc$session_log
   )
   output_file <- paste0("quesc_report_", Sys.Date(), ".html")
   
@@ -203,9 +236,12 @@ generate_quesc_report <- function(output_quesc, dir) {
 #' @importFrom terra writeRaster
 #' 
 #' @export
-run_quesc_analysis <- function(lc_t1_input, lc_t2_input, admin_z_input,
+run_quesc_analysis <- function(lc_t1_path, lc_t2_path, admin_z_path, c_lookup_path,
+                               lc_t1_input, lc_t2_input, admin_z_input,
                                c_lookup_input, zone_lookup_input,
                                time_points, output_dir, progress_callback = NULL) {
+  start_time <- Sys.time()
+  cat("Started at:", format(start_time, "%Y-%m-%d %H:%M:%S"), "\n")
   
   map1_rast <- lc_t1_input %>% spatial_sync_raster(admin_z_input)
   map2_rast <- lc_t2_input %>% spatial_sync_raster(admin_z_input)
@@ -260,14 +296,29 @@ run_quesc_analysis <- function(lc_t1_input, lc_t2_input, admin_z_input,
     LU_CHG = do.call(paste, c(df_lucdb[c(time_points$t1, time_points$t2)], sep = " to "))
   )
   
+  end_time <- Sys.time()
+  cat("Ended at:", format(end_time, "%Y-%m-%d %H:%M:%S"), "\n")
+  
+  session_log <- format_session_info_table()
+  
   out <- list(
+    start_time = as.character(format(start_time, "%Y-%m-%d %H:%M:%S")),
+    end_time = as.character(format(end_time, "%Y-%m-%d %H:%M:%S")),
     map_c1 = map_carbon1,
     map_c2 = map_carbon2,
     map_em = map_emission,
     map_sq = map_sequestration,
     ques_db = df_lucdb,
     p1 = time_points$t1,
-    p2 = time_points$t2
+    p2 = time_points$t2,
+    inputs = list(
+      lc_t1_path = lc_t1_path,
+      lc_t2_path = lc_t2_path,
+      admin_z_path = admin_z_path,
+      c_lookup_path = c_lookup_path,
+      output_dir = output_dir
+    ),
+    session_log = session_log
   )
   
   if (!is.null(progress_callback)) progress_callback(0.9, "outputs generated and saved")
