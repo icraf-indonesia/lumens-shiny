@@ -1,0 +1,198 @@
+---
+title: "QUES-H RUSLE - Module Report"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+    df_print: kable
+params:
+  start_time: NA
+  end_time: NA
+  output_dir: NA
+  dem: NA
+  pu: NA
+  rainfall: NA
+  soil: NA
+  landcover: NA
+  r: NA
+  k: NA
+  ls: NA
+  c: NA
+  p: NA
+  a: NA
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = normalizePath(rprojroot::find_rstudio_root_file()))
+library(knitr)
+library(kableExtra)
+library(dplyr)
+library(ggplot2)
+library(sf)
+library(terra)
+library(raster)
+```
+
+## Summary
+
+
+
+## Module brief description
+
+QuES-H (Quantification of Ecosystem Services) is a hydrological assessment module that analyzes hydrological environmental services. The current version features a soil erosion risk module based on the Revised Universal Soil Loss Equation (RUSLE), with plans to expand its capabilities to include additional hydrological analyses in the future.
+
+## Input data
+
+### Total Annual Precipitation Map 
+
+Represents the total rainfall for each pixel over a year (mm/year)
+
+```{r}
+#| echo: false
+#| fig-keep: all
+#| message: false
+#| results: false
+#| warning: false
+
+plot(params$rainfall)
+```
+
+### Digital Elevation Model (DEM) Map 
+
+Represents the terrain elevation (meters above sea level)
+
+```{r}
+#| echo: false
+#| fig-keep: all
+#| message: false
+#| results: false
+#| warning: false
+
+plot(params$dem)
+```
+
+### Soil Properties Maps 
+
+Represents the soil characteristic, defined by Clay content (%), Silt content (%), Sand content (%), and Soil organic content (g/kg)
+
+```{r}
+#| echo: false
+#| fig-keep: all
+#| message: false
+#| results: false
+#| warning: false
+
+plot(params$soil)
+```
+
+### Land Cover Map 
+
+Categorical raster with each pixel value corresponds to a land cover class
+
+```{r}
+#| echo: false
+#| fig-keep: all
+#| message: false
+#| results: false
+#| warning: false
+
+plot(params$landcover)
+```
+
+### Planning Unit Map
+
+A polygon shapefile of administrative or management zones.
+
+```{r reference-map, fig.width=12, fig.height=8}
+#| echo: false
+#| fig-keep: all
+#| message: false
+#| results: false
+#| warning: false
+
+plot(params$pu)
+```
+
+## Results
+
+### Factor of RUSLE
+
+#### R Factor: Rainfall Erosivity
+
+```{r}
+#| echo: false
+#| fig-keep: all
+#| message: false
+#| results: false
+#| warning: false
+
+plot(params$r)
+```
+
+#### K Factor: Soil Erodibility
+
+```{r}
+#| echo: false
+#| fig-keep: all
+#| message: false
+#| results: false
+#| warning: false
+
+plot(params$k)
+```
+
+#### LS Factor: Length and Steepness
+
+```{r}
+#| echo: false
+#| fig-keep: all
+#| message: false
+#| results: false
+#| warning: false
+
+plot(params$ls)
+```
+
+#### C Factor: Cover Management
+
+```{r}
+#| echo: false
+#| fig-keep: all
+#| message: false
+#| results: false
+#| warning: false
+
+plot(params$c)
+```
+
+#### P Factor: Practice Management
+
+```{r}
+#| echo: false
+#| fig-keep: all
+#| message: false
+#| results: false
+#| warning: false
+
+plot(params$p)
+```
+
+### Estimation of Soil Erosion
+
+```{r}
+#| echo: false
+#| fig-keep: all
+#| message: false
+#| results: false
+#| warning: false
+
+levelplot(a, margin = FALSE, main = "Mean Annual Erosion")
+
+hist(a, xlim = c(0, 10000), main = "Histogramm of mean annual erosion (arbitary input layers)")
+```
+
+------------------------------------------------------------------------
+
+<font size="1"> LUMENS is free software and comes with ABSOLUTELY NO WARRANTY. Users are responsible for the results generated. Results depend on the quality of the input data ("garbage in, garbage out") and may vary or be sensitive to the parameters used. Please report any problems encountered while using LUMENS as [a GitHub issue](https://github.com/icraf-indonesia/lumens-shiny/issues). Feedback and questions are welcome [Contact Us URL]. </font size>
