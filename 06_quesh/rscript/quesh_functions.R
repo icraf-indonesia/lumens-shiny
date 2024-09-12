@@ -284,4 +284,3 @@ check_and_install_packages <- function(required_packages) {
     cat("\nAll required packages are installed and loaded.\n")
   }
 }
-
