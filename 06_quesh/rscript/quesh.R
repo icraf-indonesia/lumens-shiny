@@ -153,13 +153,13 @@ writeRaster(c_factor, paste0(output_dir, "c_factor.tif"), overwrite = TRUE)
 
 slope_pct <- tan(slope_deg * pi / 180) * 100
 
-# There are 3 option for practice factor according to Shin (1999)
-# You can choose the applied practice: Contouring; Strip Cropping; Terracing
+# There are 3 option for practice management according to Shin (1999)
+# You can choose the applied practices: Contouring; Strip Cropping; Terracing
 # change the parameter by the following order p_user <- c([contouring], [strip cropping], [terracing])
 # The value of 1 means the corresponding practice applied and 0 means not applied
 # If the value all 0, it means the P factor will be define as 1 (no practice applied)
 
-p_user <- c(1, 0, 1) # change the value with 0 or 1 by this order: c([contouring], [strip cropping], [terracing])
+p_user <- c(1, 0, 0) # change the value with 0 or 1 by this order: c([contouring], [strip cropping], [terracing])
 
 p_factor <- calculate_p_shin(
   slope_pct = slope_pct, 
