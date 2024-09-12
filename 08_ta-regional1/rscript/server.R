@@ -20,10 +20,16 @@ server <- function(input, output, session) {
     BPD_graph = NULL,
     FPD_graph = NULL,
     LRC_graph = NULL,
+    PRS_graph = NULL,
+    GDP_graph = NULL,
+    OMPL_graph = NULL,
+    IMPL_graph = NULL,
+    LMPL_graph = NULL,
     Linkages_table = NULL,
     land.requirement_table = NULL,
     P.sector = NULL,
-    GDP_graph = NULL
+    P.sector.selected = NULL,
+    GDP = NULL
   )
   
   volumes <- c(
@@ -124,7 +130,17 @@ server <- function(input, output, session) {
         # Create Linkages Table
         Linkages_table <- create_linkages_table(sector, DBL, DFL)
         rv$Linkages_table <- Linkages_table
-        PRS_graph<-ggplot(Linkages_table, aes(x=BPD, y=FPD, color=CATEGORY)) + geom_point(shape=19, size=5) + geom_hline(aes(yintercept=1), colour="#BB0000", linetype="dashed") + geom_vline(aes(xintercept=1), colour="#BB0000", linetype="dashed")
+        PRS_graph<-ggplot(Linkages_table, aes(x=DBL, y=DFL, color=CATEGORY)) + geom_point(shape=19, size=5) + geom_hline(aes(yintercept=1), colour="#BB0000", linetype="dashed") + geom_vline(aes(xintercept=1), colour="#BB0000", linetype="dashed")
+        
+        #SELECTION OF PRIMARY SECTOR
+        P.sector<-cbind(sector,DBL,DFL)
+        colnames (P.sector) [1]<-"Sectors"
+        P.sector.selected <- P.sector[ which(P.sector$DBL >= 1),]
+        P.sector.selected <- P.sector.selected[ which(P.sector.selected$DFL >= 1),]
+        colnames(P.sector.selected)[1] <- "SECTOR"
+        colnames(P.sector.selected)[2] <- "CATEGORY"
+        rownames(P.sector.selected)<-NULL
+        rv$P.sector <- P.sector
         
         # Calculate Land Requirements
         land.requirement_table <- calculate_land_requirements(land_distribution, land_use, fin_dem, int_con.m, sector)
@@ -135,17 +151,7 @@ server <- function(input, output, session) {
         BPD_graph <- create_graph(sector, DBL, "DBL", "Direct Backward Linkages")
         FPD_graph <- create_graph(sector, DFL, "DFL", "Direct Forward Linkages")
         LRC_graph <- create_graph(sector, land.requirement_table$LRC, "LRC", "Land Requirement Coefficient")
-        GDP_graph <- create_graph(sector, GDP, "GDP", "Gross Domestic Product")
-        # GDP_graph<-ggplot(data=order_GDP10, aes(x=SECTOR, y=GDP, fill=SECTOR)) + 
-        #   geom_bar(colour="black", stat="identity")+ coord_flip() +  
-        #   guides(fill=FALSE) + xlab("Sectors") + ylab("GDP") 
-        
-        rv$BPD_graph <- BPD_graph
-        rv$FPD_graph <- FPD_graph
-        rv$LRC_graph <- LRC_graph
-        rv$PRS_graph <- PRS_graph
-        rv$GDP_graph <- GDP_graph
-        
+   
         # Generate Land Distribution Prop
         lc_freq <- freq(land_use)
         lc_freq <- as.data.frame(na.omit(lc_freq))
@@ -158,17 +164,6 @@ server <- function(input, output, session) {
         land_distribution_ctot<-colSums(land_distribution_val)
         land.distribution.prop<-land_distribution_val %*% diag(1/land_distribution_ctot)
         land.distribution.prop[is.na(land.distribution.prop)]<-0
-        
-        #SELECTION OF PRIMARY SECTOR
-        P.sector<-cbind(DBL,DFL)
-        colnames (P.sector) [1]<-"Sectors"
-        P.sector[4]<-NULL
-        P.sector[4]<-NULL
-        P.sector.selected <- P.sector[ which(P.sector$DBL >= 1),]
-        P.sector.selected <- P.sector.selected[ which(P.sector.selected$DFL >= 1),]
-        colnames(P.sector.selected)[1] <- "SECTOR"
-        colnames(P.sector.selected)[2] <- "CATEGORY"
-        rv$P.sector <- P.sector
         
         # Generate GDP
         GDP.val<-as.data.frame(add_val.m[2,]+add_val.m[3,])
@@ -187,13 +182,20 @@ server <- function(input, output, session) {
         colnames(GDP)[5] <- "P_OUTPUT"
         GDP_tot<-as.matrix(GDP$GDP)
         GDP_tot<-colSums(GDP_tot)
+        GDP$P_GDP<-round((GDP$GDP/GDP_tot), digits=2)
+        rownames(GDP)<-NULL
+        order_GDP <- as.data.frame(GDP[order(-GDP$GDP),])
+        order_GDP10<-head(order_GDP,n=20)
+        GDP_graph<-ggplot(data=order_GDP10, aes(x=SECTOR, y=GDP, fill=SECTOR)) +
+          geom_bar(colour="black", stat="identity")+ coord_flip() +
+          guides(fill="none") + xlab("Sectors") + ylab("GDP")
         
         #OUTPUT MULTIPLIER 
         Out.multiplier<-colSums(Leontief)
         Out.multiplier<-cbind(sector,Out.multiplier)
         order_Out.multiplier <- as.data.frame(Out.multiplier[order(-Out.multiplier$Out.multiplier),])
         order_Out.multiplier <-head(order_Out.multiplier,n=20)
-        OMPL_graph<-ggplot(data=order_Out.multiplier, aes(x=V1, y=Out.multiplier, fill=V2)) + 
+        OMPL_graph<-ggplot(data=order_Out.multiplier, aes(x=SECTOR, y=Out.multiplier, fill=CATEGORY)) + 
           geom_bar(colour="black", stat="identity")+ coord_flip() +  
           guides(fill=FALSE) + xlab("Sectors") + ylab("Output multiplier")
         
@@ -205,7 +207,7 @@ server <- function(input, output, session) {
         colnames(Inc.multiplier)[3]<-"Inc.multiplier"
         order_Inc.multiplier <- as.data.frame(Inc.multiplier[order(-Inc.multiplier$Inc.multiplier),])
         order_Inc.multiplier <-head(order_Inc.multiplier,n=20)
-        IMPL_graph<-ggplot(data=order_Inc.multiplier, aes(x=V1, y=Inc.multiplier, fill=V2)) + 
+        IMPL_graph<-ggplot(data=order_Inc.multiplier, aes(x=SECTOR, y=Inc.multiplier, fill=CATEGORY)) + 
           geom_bar(colour="black", stat="identity")+ coord_flip() +  
           guides(fill=FALSE) + xlab("Sectors") + ylab("Income multiplier") 
         
@@ -220,13 +222,24 @@ server <- function(input, output, session) {
         multiplier$Out.multiplier<-round(multiplier$Out.multiplier, digits=3)
         Lab.multiplier<-cbind(sector,Lab.multiplier)
         colnames(Lab.multiplier)[3]<-"Lab.multiplier"
-        Inc.multiplier<-cbind(sector,Inc.multiplier)
-        colnames(Inc.multiplier)[3]<-"Inc.multiplier"
-        order_Inc.multiplier <- as.data.frame(Inc.multiplier[order(-Inc.multiplier$Inc.multiplier),])
-        order_Inc.multiplier <-head(order_Inc.multiplier,n=20)
-        IMPL_graph<-ggplot(data=order_Inc.multiplier, aes(x=V1, y=Inc.multiplier, fill=V2)) + 
+        order_Lab.multiplier <- as.data.frame(Lab.multiplier[order(-Lab.multiplier$Lab.multiplier),])
+        order_Lab.multiplier <-head(order_Lab.multiplier,n=20)
+        LMPL_graph<-ggplot(data=order_Lab.multiplier, aes(x=SECTOR, y=Lab.multiplier, fill=CATEGORY)) + 
           geom_bar(colour="black", stat="identity")+ coord_flip() +  
-          guides(fill=FALSE) + xlab("Sectors") + ylab("Income multiplier") 
+          guides(fill=FALSE) + xlab("Sectors") + ylab("Labour multiplier")
+        colnames(multiplier)[4]<-"Inc.multiplier"
+        
+        rv$GDP <- GDP
+        rv$P.sector.selected <- P.sector.selected
+        rv$BPD_graph <- BPD_graph
+        rv$FPD_graph <- FPD_graph
+        rv$LRC_graph <- LRC_graph
+        rv$PRS_graph <- PRS_graph
+        rv$GDP_graph <- GDP_graph
+        rv$multiplier <- multiplier
+        rv$OMPL_graph <- OMPL_graph
+        rv$IMPL_graph <- IMPL_graph
+        rv$LMPL_graph <- LMPL_graph
         
         # Return Results
         list(
@@ -235,6 +248,11 @@ server <- function(input, output, session) {
           BPD_graph = BPD_graph,
           FPD_graph = FPD_graph,
           LRC_graph = LRC_graph,
+          PRS_graph = PRS_graph,
+          GDP_graph = GDP_graph,
+          OMPL_graph = OMPL_graph,
+          IMPL_graph = IMPL_graph,
+          LMPL_graph = LMPL_graph,
           sector = sector,
           int_con = int_con,
           add_val = add_val,
@@ -288,56 +306,27 @@ server <- function(input, output, session) {
     })
   })
   
-  addTable(rtffile,land.requirement_table,font.size=7.5)
-  
-  addParagraph(rtffile, "\\b\\fs20 Table 1. Sectoral linkages\\b0\\fs20.")
-  addTable(rtffile,Linkages_table,font.size=8)
-  
-  addPlot(rtffile,plot.fun=print, width=5,height=3,res=300,BPD_graph)
-  addParagraph(rtffile, "\\b\\fs20 Figure 1. Ten sectors with highest Backward power of dispersion\\b0\\fs20.")
-  
-  addPlot(rtffile,plot.fun=print, width=5,height=3,res=300,FPD_graph)
-  addParagraph(rtffile, "\\b\\fs20 Figure 2. Ten sectors with highest Forward power of dispersion\\b0\\fs20.")
-  
-  addPlot(rtffile,plot.fun=print, width=6,height=4,res=300,PRS_graph)
-  addParagraph(rtffile, "\\b\\fs20 Figure 3. Sectoral typology based on linkages analysis\\b0\\fs20.")
-  
-  addParagraph(rtffile, "\\b\\fs20 Table 2. Primary sectors based on potential linkage\\b0\\fs20.")
-  addTable(rtffile,P.sector.selected,font.size=8)
-  
-  addParagraph(rtffile, "\\b\\fs20 Table 3. Sectoral GDP\\b0\\fs20.")
-  addTable(rtffile,GDP,font.size=8)
-  
-  addPlot(rtffile,plot.fun=print, width=5,height=3,res=300,GDP_graph)
-  addParagraph(rtffile, "\\b\\fs20 Figure 4. Twenty sectors with highest GDP\\b0\\fs20.")
-  
-  addParagraph(rtffile, "\\b\\fs20 Table 4. Sectoral multiplier\\b0\\fs20.")
-  addTable(rtffile,multiplier,font.size=8)
-  
-  addPlot(rtffile,plot.fun=print, width=5,height=3,res=300,OMPL_graph)
-  addParagraph(rtffile, "\\b\\fs20 Figure 5. Twenty sectors with highest Output multiplier\\b0\\fs20.")
-  
-  addPlot(rtffile,plot.fun=print, width=5,height=3,res=300,IMPL_graph)
-  addParagraph(rtffile, "\\b\\fs20 Figure 6. Twenty sectors with highest Income multiplier\\b0\\fs20.")
-  
-  addPlot(rtffile,plot.fun=print, width=5,height=3,res=300,LMPL_graph)
-  addParagraph(rtffile, "\\b\\fs20 Figure 5. Twenty sectors with highest Labour multiplier\\b0\\fs20.")
-  
   #### Report Generation ####
   report_content <- reactive({
     params <- list(
-      Linkages_table = rv$Linkages_table,
-      land.requirement_table = rv$land.requirement_table,
       BPD_graph = rv$BPD_graph,
       FPD_graph = rv$FPD_graph,
-      LRC_graph = rv$LRC_graph,
+      Linkages_table = rv$Linkages_table,
+      PRS_graph = rv$PRS_graph,
+      P.sector.selected = rv$P.sector.selected,
       GDP = rv$GDP,
-      
+      GDP_graph = rv$GDP_graph,
+      multiplier = rv$multiplier,
+      OMPL_graph = rv$OMPL_graph,
+      IMPL_graph = rv$IMPL_graph,
+      LMPL_graph = rv$LMPL_graph,
+      land.requirement_table = rv$land.requirement_table,
+      LRC_graph = rv$LRC_graph
     )
     output_file <- paste0("ta_regional1_report_", format(Sys.time(), "%Y-%m-%d_%H-%M-%S"), ".html")
     output_dir <- rv$wd
     render(
-      "../report_template/report_template.Rmd",
+      "../report_template/ta-regional1_report.Rmd",
       output_file = output_file,
       output_dir = output_dir,
       params = params,

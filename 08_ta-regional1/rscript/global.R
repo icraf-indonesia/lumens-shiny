@@ -35,7 +35,8 @@ install_load(
   "shinyvalidate",
   "splitstackshape",
   "terra",
-  "shinyjs"
+  "shinyjs",
+  "DT"
 )
 
 #### Helper Functions ####
@@ -87,10 +88,11 @@ calculate_land_requirements <- function(land_distribution, land_use, fin_dem, in
 }
 
 create_graph <- function(sector, data, y_label, graph_title) {
-  sector <- as.data.frame(sector$SECTOR)
-  colnames(sector) <- "SECTOR"
+  # sector <- as.data.frame(sector$SECTOR)
+  sector <- as.data.frame(sector)
+  colnames(sector) <- c("SECTOR","CATEGORY")
   # Function to create a graph
-  ggplot(data = data.frame(SECTOR = sector, VALUE = data), aes(x = SECTOR, y = VALUE, fill = SECTOR)) +
+  ggplot(data = data.frame(SECTOR = sector, VALUE = data), aes(x = SECTOR.SECTOR, y = VALUE, fill = SECTOR.CATEGORY)) +
     geom_bar(colour = "black", stat = "identity") +
     coord_flip() +
     guides(fill = "none") +

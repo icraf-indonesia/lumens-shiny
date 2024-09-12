@@ -5,7 +5,8 @@ fluidPage(
   sidebarLayout(
     sidebarPanel(
       fileInput("land_req_file", "Land Requirement Database", accept = c(".Rdata")),
-      fileInput("projected_land_use_file", "Projected Landuse", accept = c("image/tiff")),
+      fileInput("sciendo_db", "SCIENDO Database", accept = c(".csv")),
+      # fileInput("projected_land_use_file", "Projected Landuse", accept = c("image/tiff")),
       div(style = "display: flex; flex-direction: column; gap: 10px;",
           shinyDirButton("wd", "Select Output Directory", "Please select a directory"),
           textOutput("selected_directory"),

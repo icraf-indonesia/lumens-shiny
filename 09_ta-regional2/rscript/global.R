@@ -32,6 +32,7 @@ install_load(
   "shinyFiles",
   "shinyvalidate",
   "splitstackshape",
+  "shinyjs",
   "terra"
 )
 

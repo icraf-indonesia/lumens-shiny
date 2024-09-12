@@ -65,7 +65,13 @@ plot(params$npv2_map)
 ### Delta NPV Map
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
-plot(params$delta_npv)
+# plot(params$delta_npv)
+color_palette <- c("darkred", "white", "darkgreen")
+plot(params$delta_npv, 
+       col = color_palette,   
+       colNA = "grey",        
+       main = "NPV Change",
+       legend.args = list(text = NULL, side = 4, font = 2, line = 2.5, cex = 1.2))
 ```
 
 ## Conclusion
