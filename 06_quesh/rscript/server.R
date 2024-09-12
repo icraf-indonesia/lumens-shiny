@@ -1,16 +1,18 @@
+library(shiny)
+
 server <- function(input, output, session) {
   rv <- reactiveValues(
     wd = "",
     report_file = NULL,
-    rainfall_file: NULL,
-    dem_file: NULL,
-    sand_file: NULL,
-    silt_file: NULL,
-    clay_file: NULL,
-    orgc_file: NULL,
-    lc_dir: NULL,
-    pu_file: NULL,
-    c_ref_file: NULL,
+    rainfall_file = NULL,
+    dem_file = NULL,
+    sand_file = NULL,
+    silt_file = NULL,
+    clay_file = NULL,
+    orgc_file = NULL,
+    lc_dir = NULL,
+    pu_file = NULL,
+    c_ref_file = NULL
   )
   
   volumes <- c(getVolumes()())
@@ -55,6 +57,7 @@ server <- function(input, output, session) {
   observeEvent(input$c_ref_file, {
     rv$c_ref_file <- input$c_ref_file
   })
+  
   
   #### Process data ####
   observeEvent(input$process, {
@@ -232,9 +235,9 @@ server <- function(input, output, session) {
         start_time = as.character(format(start_time, "%Y-%m-%d %H:%M:%S")),
         end_time = as.character(format(end_time, "%Y-%m-%d %H:%M:%S")),
         output_dir = rv$wd,
-        dem = dem,
-        pu = pu,
-        rainfall = rainfall_annual,
+        dem = rv$dem,
+        pu = rv$pu,
+        rainfall = rv$rainfall_annual,
         soil = soil_stack,
         landcover = landcover,
         r = r,

@@ -1,4 +1,8 @@
-page_sidebar(
+library(shiny)
+library(bslib)
+
+ui <- fluidPage(
+  page_sidebar(
   title = "Land Use Planning for Multiple Environmental Services (LUMENS)",
   theme = bs_theme(version = 5),
   sidebar = sidebar(
@@ -8,7 +12,7 @@ page_sidebar(
     fileInput("dem_file", "Digital Elevation Model (DEM)", accept = c(".tif"), placeholder = "input your raster file"),
     fileInput("sand_file", "Sand Content Map", accept = c(".tif"), placeholder = "input your raster file"),
     fileInput("silt_file", "Silt Content Map", accept = c(".tif"), placeholder = "input your raster file"),
-    fileInput("clay_file", "clay Content Map", accept = c(".tif"), placeholder = "input your raster file"),
+    fileInput("clay_file", "Clay Content Map", accept = c(".tif"), placeholder = "input your raster file"),
     fileInput("orgc_file", "Organic Content Map", accept = c(".tif"), placeholder = "input your raster file"),
     fileInput("lc_dir", "Land Cover Map", accept = c(".tif"), placeholder = "input your raster file"),
     fileInput("pu_file", "Planning Unit Map", accept = c(".tif"), placeholder = "input your raster file"),
@@ -21,8 +25,9 @@ page_sidebar(
   card(
     card_header("Guide"),
     card_body(
-      includeMarkdown("06_quesh/report_template/quesh_report.Rmd")
+      includeMarkdown("06_quesh/helpfile/quesh_quick_user_guide.Rmd")
     )
   ),
   actionButton("viewReport", "View report", icon = icon("file-code")) 
+  )
 )
