@@ -20,9 +20,9 @@ library(maps)
 
 # 1. Input Data -----------------------------------------------------------
 
-# aoi_file <- "data/data_quesh/Base_map.tif" # boundary map AOI
+aoi_file <- "data/data_quesh/Base_map.tif" %>% rast()# boundary map AOI
 dem_file <- "data/data_quesh/SRTM_Bungo.tif" # raster file of DEM
-rainfall_file <- "data/data_quesh/climate/prec_monthly_1970-2000_wc2.1/prec_bungo/" # raster file of rainfall
+rainfall_file <- "data/data_quesh/rainfall_annual_bungo_wc2.1.tif" # raster file of rainfall
 
 sand_file <- "data/raster/soil/bungo_sand_0-5cm_mean.tif" # raster file
 silt_file <- "data/raster/soil/bungo_silt_0-5cm_mean.tif" 
@@ -44,17 +44,17 @@ wd <- "data/data_quesh/" # define working directory
 dem <- rast(dem_file)
 slope <- terrain(dem, v = "slope", unit="radians")   # calculate slope from DEM
 aspect <- terrain(dem, v = "aspect", unit="radians") # calculate aspect from slope
-# hill_shade <- hillShade(slope = slope, aspect = aspect) # calculate hill shade
 
 # define rainfall parameter
-rainfall <-
-  list.files(path = paste0(rainfall_file),
-             pattern = ".tif",
-             full.names = TRUE) 
-rainfall %>% rast()
-rainfall_annual <-sum(rast(rainfall)) #average of 12 months rainfall
-
-writeRaster(rainfall_annual, "data/data_quesh/rainfall_annual_bungo_wc2.1.tif")
+rainfall_annual <- rast(rainfall_file)
+# rainfall <-
+#   list.files(path = paste0(rainfall_file),
+#              pattern = ".tif",
+#              full.names = TRUE) 
+# rainfall %>% rast()
+# rainfall_annual <-sum(rast(rainfall)) #average of 12 months rainfall
+# 
+# writeRaster(rainfall_annual, "data/data_quesh/rainfall_annual_bungo_wc2.1.tif", overwrite = TRUE)
 # define soil properties parameters
 sand <- rast(sand_file)
 silt <- rast(silt_file)
@@ -71,18 +71,6 @@ summary(r_moore)
 hist(r_moore, main = "Histogramm of rainfall erosivity after Moore")
 
 writeRaster(r_moore, "data/data_quesh/r_factor_bungo.tif", overwrite = TRUE)
-# Prepare R factor - Rainfall Erosivity (GloREDDa - Panagos et al, 2017)
-# r_gloreda <- get_glored(aoi)
-# plot(r_gloreda)
-# summary(r_gloreda)
-# hist(r_gloreda, main = "Histogramm of rainfall erosivity after GloREDa")
-# 
-# r_layer <- stack(list(Moore = r_moore, GloREDa = r_gloreda)) # create a combined raster stack
-# levelplot(r_layer, main = "Rainfall erosivity R")
-# r_diff <- calc(r_layer, fun = diff) # calculate the difference between the two R layers
-# levelplot(r_diff, margin = FALSE, par.settings = RdBuTheme,
-#           main = "Difference GloREDa - Moore")
-
 
 # 4. K - Soil Erodibility Data Preparation --------------------------------
 
@@ -97,20 +85,14 @@ k_williams <- calculate_k_williams(
 plot(k_williams)
 
 writeRaster(k_williams, "data/data_quesh/k_factor_bungo.tif", overwrite = TRUE)
+
 # 5. LS - Length & Steepnes Data Preparation ------------------------------
 
-# Prepare LS factor - Slope length and steepness (Schmidt et al, 2019)
-# ls_schmidt <- ls_alpine(dem = dem)
-# plot(ls_schmidt)
-
 # Prepare LS factor - LUMENS
-# ls_calc <- calculate_ls(
-#   slope = slope,
-#   aspect = aspect
-# )
-ls1 <- (1 + (sin(slope * pi / 180) / 0.0896)^1.3)
-ls2 <- ((sin((aspect - 180) * pi / 180) + 0.5) / 1.5)^0.6
-ls_calc <- ls1 * ls2
+ls_calc <- calculate_ls(
+  slope = slope,
+  aspect = aspect
+)
 
 plot(ls_calc)
 
@@ -119,31 +101,21 @@ writeRaster(ls_calc, "data/data_quesh/ls_factor_bungo.tif", overwrite = TRUE)
 
 # Prepare C factor - Cover Management Using Landcover
 c_ref1 <- read.csv(c_ref_file)
-c_ref <- c_ref1[-2]
-# lc <- list.files(paste0(lc_dir), full = TRUE, pattern = ".tif$")
-# c <- app(lc, calculate_c_lc)
 
 landcover1 <- rast(lc_dir)
-
 landcover <- syncGeom(input = landcover1, ref = aoi_file)
 
-lc_factor <- as.factor(landcover)
-levels(landcover) <- c_ref
-c_usda <- landcover
-# c_usda <- catalyze(lc_factor)
+raster.nodata <- 0
+landcover[landcover == raster.nodata] <- NA
+c_ref2 <- as.matrix(c_ref1[,1])
+c_ref3 <- as.matrix(c_ref1[,3])
+c_ref4 <- cbind(c_ref2, c_ref3)
+c_ref4 <- rbind(c_ref4, c(0, NA))
+c_factor <- classify(landcover, c_ref4)
 
-plot(c_usda)
+plot(c_factor)
 
-writeRaster(c_usda, "data/data_quesh/c_factor_bungo.tif", overwrite = TRUE)
-# for (i in 1:length(lc)) {
-#   landcover <- rast(lc[i])
-#   lc_factor <- as.factor(landcover)
-#   levels(lc_factor) <- c_ref
-#   c <- catalyze(lc_factor)
-# }
-# 
-# c$Landcover <-  NULL
-# c <- project(c, aoi)
+writeRaster(c_factor, "data/data_quesh/c_factor_bungo.tif", overwrite = TRUE)
 
 # 7. P - Practice Factor Data Preparation ---------------------------------
 
@@ -198,10 +170,11 @@ writeRaster(c_usda, "data/data_quesh/c_factor_bungo.tif", overwrite = TRUE)
 r <- r_moore
 k <- k_williams
 ls <- ls_calc
-c <- lc_factor
-p <- 1
+c <- c_factor
+p <- p_user
 
 a <- r*k*ls*c*p
-plot(a)
+levelplot(a, margin = FALSE, main = "Mean Annual Erosion")
+hist(a, xlim = c(0, 10000), main = "Histogramm of mean annual erosion (arbitary input layers)")
 
-writeRaster(a, filename = "data/data_quesh/erosion_estimate.tif")
+writeRaster(a, filename = "data/data_quesh/mean_annual_erosion.tif", overwrite = TRUE)
