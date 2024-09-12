@@ -18,9 +18,7 @@ install_load(
   "remotes",
   "shinyjs",
   "rmarkdown",
-  "bslib",
-  "lattice",
-  "rasterVis"
+  "bslib"
 )
 
 if (!("LUMENSR" %in% rownames(installed.packages()))) {

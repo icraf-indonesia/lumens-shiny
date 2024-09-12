@@ -27,6 +27,153 @@ format_session_info_table <- function() {
   return(session_summary)
 }
 
+plot_quesc_results <- function(map, legend, low, high, title_size = 8, text_size = 8, height = 0.375, width = 0.375, ...) {
+  p <- gplot(map, maxpixels = 100000) + 
+    geom_raster(aes(fill = value)) + 
+    coord_equal() +
+    scale_fill_gradient(name = legend, low = low, high = high, guide = "colourbar", ...) +
+    theme(plot.title = element_text(lineheight = 5, face = "bold")) +
+    theme(axis.title.x = element_blank(), axis.title.y = element_blank(),
+          panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+          legend.title = element_text(size = title_size),
+          legend.text = element_text(size = text_size),
+          legend.key.height = unit(height, "cm"),
+          legend.key.width = unit(width, "cm"))
+  
+  
+  return(p)
+}
+
+summary_of_emission_calculation <- function(quescdb, zone, map_em, map_sq, period) {
+  az <- quescdb %>% 
+    melt(id.vars=c('ID_PU', 'PU'), measure.vars=c('Ha')) %>%
+    dcast(formula = ID_PU + PU ~ ., fun.aggregate = sum) %>%
+    dplyr::rename(
+      ID = 1,
+      Ha = 3
+    )
+  
+  ze <- map_em %>% 
+    raster() %>%
+    zonal(zone, 'sum') %>%
+    as.data.frame() %>%
+    dplyr::rename(
+      ID = 1,
+      TOTAL_EM = 2
+    )
+  zs <- map_sq %>%
+    raster() %>%
+    zonal(zone, 'sum') %>% 
+    as.data.frame() %>%
+    dplyr::rename(
+      ID = 1,
+      TOTAL_SQ = 2
+    )
+  
+  zc <- az %>% 
+    left_join(ze, by = "ID") %>% 
+    left_join(zs, by = "ID") %>% 
+    mutate(
+      NET_EM = TOTAL_EM - TOTAL_SQ
+    ) %>% 
+    mutate(
+      NET_EM_RATE = round(NET_EM / Ha / 5, 2)
+    ) %>% 
+    mutate(
+      TOTAL_EM = round(TOTAL_EM, 2),
+      TOTAL_SQ = round(TOTAL_SQ, 2),
+      NET_EM = round(NET_EM, 2)
+    )
+  
+  total_area <- sum(az$Ha)
+  total_emission <- sum(zc$TOTAL_EM)
+  total_sequestration <- sum(zc$TOTAL_SQ)
+  total_net_emission <- total_emission - total_sequestration
+  total_rate_emission <- total_net_emission / period
+  total_rate_emission_ha <- total_rate_emission / total_area
+  
+  summary_df <- data.frame(
+    ID = c(1:7),
+    Category = c("Periode", 
+                 "Total area (ha)", 
+                 "Total Emisi (Ton CO2-eq)", 
+                 "Total Sequestrasi (Ton CO2-eq)", 
+                 "Emisi Bersih (Ton CO2-eq)", 
+                 "Laju Emisi (Ton CO2-eq/tahun)",
+                 "Laju emisi per-unit area (Ton CO2-eq/ha.tahun)"),
+    # Category = c("Period", 
+    #              "Total area (ha)", 
+    #              "Total emission (tonne CO2-eq)", 
+    #              "Total sequestration (tonne CO2-eq)", 
+    #              "Net emission (tonne CO2-eq)", 
+    #              "Emission rate (tonne CO2-eq/year)",
+    #              "Emission rate per-unit area (tonne CO2-eq/ha.year)"),
+    Summary = as.character(
+      c(paste0(period_2, "-", period_1),
+        round(total_area, 2),
+        round(total_emission, 2),
+        round(total_sequestration, 2),
+        round(total_net_emission, 2),
+        round(total_rate_emission, 2),
+        round(total_rate_emission_ha, 2))
+    )
+  )
+  
+  out <- list(
+    area_zone = az,
+    zone_emission = ze,
+    zone_sequestration = zs,
+    zone_carbon = zc,
+    total_area = total_area,
+    total_emission = total_emission,
+    total_sequestration = total_sequestration,
+    total_net_emission = total_net_emission,
+    total_rate_emission = total_rate_emission,
+    total_rate_emission_ha = total_rate_emission_ha,
+    summary_df = summary_df
+  )
+  
+  return(out)
+}
+
+zonal_statistic_database <- function() {
+  period <- (period_2 - period_1)
+  data_zone <- area_zone
+  data_zone$Z_CODE <- toupper(abbreviate(data_zone$PU))
+  data_zone$Rate_seq <- data_zone$Rate_em <- data_zone$Avg_C_t2 <- data_zone$Avg_C_t1 <- 0
+  for(a in 1:nrow(area_zone)){
+    i <- area_zone$PU[a]
+    data_z <- quescdb[which(quescdb$PU == i),]
+    data_zone <- within(data_zone, {Avg_C_t1<-ifelse(data_zone$PU == i, sum(data_z$C_T1*data_z$Ha)/sum(data_z$Ha),Avg_C_t1)}) 
+    data_zone <- within(data_zone, {Avg_C_t2<-ifelse(data_zone$PU == i, sum(data_z$C_T2*data_z$Ha)/sum(data_z$Ha),Avg_C_t2)}) 
+    data_zone <- within(data_zone, {Rate_em<-ifelse(data_zone$PU == i, sum(data_z$EM)/(sum(data_z$Ha)*period),Rate_em)}) 
+    data_zone <- within(data_zone, {Rate_seq<-ifelse(data_zone$PU == i, sum(data_z$SQ)/(sum(data_z$Ha)*period),Rate_seq)}) 
+  }
+  
+  
+  data_merge_sel <- quescdb[ which((quescdb$EM + quescdb$SQ) > 0), ]
+  order_sq <- quescdb[order(-quescdb$SQ), ] %>% as.data.frame()
+  order_em <- quescdb[order(-quescdb$EM), ] %>% as.data.frame()
+  
+  # total emission
+  tb_em_total <- order_em$LU_CHG %>% 
+    cbind( as.data.frame( round(order_em$EM, digits=3) ) ) %>% 
+    as.data.frame() %>%
+    dplyr::rename(
+      LU_CHG = 1,
+      EM = 2
+    ) %>%
+    aggregate(EM ~ LU_CHG, FUN = sum) %>%
+    mutate(
+      LU_CODE = as.factor(toupper(abbreviate(LU_CHG, minlength=5, strict=FALSE, method = "both"))),
+      PERCENTAGE = as.numeric(format(round((EM / sum(tb_em_total$EM) * 100),2), nsmall=2))
+    ) %>%
+    dplyr::arrange(desc(EM)) %>%
+    dplyr::relocate(LU_CODE) 
+  
+  tb_em_total_10 <- tb_em_total %>% head(n=10)
+}
+
 ### Required Library ####
 #' Install Required Library
 #' 

@@ -27,50 +27,27 @@ knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_knit$set(root.dir = normalizePath(rprojroot::find_rstudio_root_file()))
 ```
 
-```{r load_lib_func, include=FALSE}
-library(ggplot2)
-library(raster)
-library(dplyr)
-library(kableExtra)
-library(LUMENSR)
-library(lattice)
-library(rasterVis)
-
-format_session_info_table <- function() {
-  si <- sessionInfo()
-
-  # Extract R version info
-  r_version <- si$R.version[c("major", "minor", "year", "month", "day", "nickname")]
-  r_version <- paste0(
-    "R ", r_version$major, ".", r_version$minor,
-    " (", r_version$year, "-", r_version$month, "-", r_version$day, ")",
-    " '", r_version$nickname, "'"
-  )
-
-  # Extract platform and OS info
-  platform_os <- paste(si$platform, "|", si[[6]])
-
-  # Extract locale info
-  locale_info <- strsplit(si[[3]], ";")[[1]]
-  locale_info <- paste(locale_info, collapse = "<br>")
-
-  # Extract .libpaths, accomodate multiple library paths
-  lib_paths <- .libPaths() %>% paste( collapse = "<br>")
-
-  # Combine all info into a single tibble
-  session_summary <- tibble(
-    Category = c("R Version", "Platform | OS", ".libPaths", "Locale"),
-    Details = c(r_version, platform_os, lib_paths, locale_info)
-  )
-  
-  return(session_summary)
+```{r load_library, include=FALSE}
+source("../rscript/function_ques_c.R")
+install_load(
+  "raster",
+  "ggplot2",
+  "dplyr",
+  "reshape",
+  "lattice",
+  "rasterVis",
+  "kableExtra"
+)
+if (!("LUMENSR" %in% rownames(installed.packages()))) {
+  install_github("icraf-indonesia/LUMENSR", force = T)
+  do.call("library", list("LUMENSR"))
 }
+library(LUMENSR)
 ```
 
 <details><summary>Click here for Analysis Log</summary>
 
 ```{r analysis-log, echo=FALSE}
-
 analysis_log <- tribble(
   ~Category,                      ~Details,
   "Analysis Start",               params$start_time,
@@ -99,27 +76,8 @@ analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
 
 # Summary
 
-This report presents the results of an analysis based on the provided maps and lookup table.
-
-## Summary of Emission Calculation
-
-
-
-## Summary of Emission Calculation by Planning Unit
-
-
-
-# Module brief description
-
-- QUES-C describes the estimation of carbon stock for various land use types in a region using Stock Difference method, where the dynamics of carbon stock are based on the amount of carbon stock at two different points in time.
-
-- Emission is obtained from the reduction in carbon stock in a land area due to land use changes from a land use type with high carbon stock to a land use type with low carbon stock.
-
-- Sequestration is obtained from the increase in carbon stock in a land area due to land use changes from a land use type with low carbon stock to a land use type with high carbon stock.
-
-# Input data {.tabset}
-
 ```{r input-data, echo=FALSE, message=FALSE, warning=FALSE}
+period <- as.numeric(params$p2) - as.numeric(params$p1)
 zone_sf <- params$inputs$admin_z_path %>% st_read()
 zone <- zone_sf %>% rasterise_multipolygon(raster_res = c(100, 100), field = "IDS")
 df_pu <- data.frame(ID_PU = zone_sf[[1]], PU = zone_sf[[2]])
@@ -138,6 +96,39 @@ lc_t2 <- lc_t2 %>% rast() %>%
 zone <- zone_rst %>% rast() %>%
   add_legend_to_categorical_raster(., lookup_table = df_pu)
 ```
+
+This report presents the results of an analysis based on the provided maps and lookup table.
+
+## Summary of Emission Calculation
+
+```{r summary_emission, echo=FALSE}
+s <- summary_of_emission_calculation(
+  quescdb = params$ques_db,
+  zone = zone_rst, 
+  map_em = params$map_em, 
+  map_sq = params$map_sq, 
+  period = period
+)
+s$summary_df
+```
+
+
+## Summary of Emission Calculation by Planning Unit
+
+```{r summary_emission_by_pu, echo=FALSE}
+
+```
+
+
+# Module brief description
+
+- QUES-C describes the estimation of carbon stock for various land use types in a region using Stock Difference method, where the dynamics of carbon stock are based on the amount of carbon stock at two different points in time.
+
+- Emission is obtained from the reduction in carbon stock in a land area due to land use changes from a land use type with high carbon stock to a land use type with low carbon stock.
+
+- Sequestration is obtained from the increase in carbon stock in a land area due to land use changes from a land use type with low carbon stock to a land use type with high carbon stock.
+
+# Input data {.tabset}
 
 ## Land-Use/Cover Map in `r params$p1`
 
@@ -186,17 +177,18 @@ Carbon map illustrating the distribution and amount of carbon stored in land use
 ```{r carbon_map_t1, echo=FALSE, message=FALSE, warning=FALSE}
 y <- ceiling(minmax(params$map_c1)[2] / 100)
 y <- y * 100
-gplot(params$map_c1, maxpixels = 100000) + 
-  geom_raster(aes(fill = value)) + 
-  coord_equal() +
-  scale_fill_gradient(name = "Carbon density" , low = "#FFCC66", high = "#003300", limits = c(0, y), breaks = c(0, 10, 20, 50, 100, 200, 300), guide = "colourbar") +
-  theme(plot.title = element_text(lineheight = 5, face = "bold")) +
-  theme(axis.title.x = element_blank(), axis.title.y = element_blank(),
-        panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
-        legend.title = element_text(size = 8),
-        legend.text = element_text(size = 7),
-        legend.key.height = unit(1.5, "cm"),
-        legend.key.width = unit(0.375, "cm"))
+plot_quesc_results(
+  map = params$map_c1, 
+  legend = "Carbon density", 
+  low = "#FFCC66", 
+  high = "#003300", 
+  limits = c(0,y), 
+  breaks = c(0,10,20,50,100,200,300), 
+  title_size = 8, 
+  text_size = 7, 
+  height = 1.5, 
+  width = 0.375
+)
 ```
 
 ## Carbon density map in `r nrow(params$p2)` (in tonne-C/ha)
@@ -204,17 +196,18 @@ gplot(params$map_c1, maxpixels = 100000) +
 Carbon map illustrating the distribution and amount of carbon stored in land use/cover data at T2.
 
 ```{r carbon_map_t2, echo=FALSE}
-gplot(params$map_c2, maxpixels = 100000) + 
-  geom_raster(aes(fill = value)) + 
-  coord_equal() +
-  scale_fill_gradient(name = "Carbon density" , low = "#FFCC66", high = "#003300", limits = c(0, y), breaks = c(0, 10, 20, 50, 100, 200, 300), guide = "colourbar") +
-  theme(plot.title = element_text(lineheight = 5, face = "bold")) +
-  theme(axis.title.x = element_blank(), axis.title.y = element_blank(),
-        panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
-        legend.title = element_text(size = 8),
-        legend.text = element_text(size = 7),
-        legend.key.height = unit(1.5, "cm"),
-        legend.key.width = unit(0.375, "cm"))
+plot_quesc_results(
+  map = params$map_c2, 
+  legend = "Carbon density", 
+  low = "#FFCC66", 
+  high = "#003300", 
+  limits = c(0,y), 
+  breaks = c(0,10,20,50,100,200,300), 
+  title_size = 8, 
+  text_size = 7, 
+  height = 1.5, 
+  width = 0.375
+)
 ```
 
 ## Emission map in `r params$p1`-`r params$p2`
@@ -222,17 +215,12 @@ gplot(params$map_c2, maxpixels = 100000) +
 Emission map illustrating a decrease in carbon stock amount from land use/cover T1 to land use/cover T2.
 
 ```{r emission_map, echo=FALSE}
-gplot(params$map_em, maxpixels = 100000) + 
-  geom_raster(aes(fill = value)) + 
-  coord_equal() +
-  scale_fill_gradient(name = "Emission (tonne CO2-eq)", low = "#FFCC66", high = "#FF0000", guide = "colourbar") +
-  theme(plot.title = element_text(lineheight = 5, face = "bold")) +
-  theme(axis.title.x = element_blank(), axis.title.y = element_blank(),
-        panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
-        legend.title = element_text(size = 8),
-        legend.text = element_text(size = 8),
-        legend.key.height = unit(0.375, "cm"),
-        legend.key.width = unit(0.375, "cm"))
+plot_quesc_results(
+  map = params$map_em, 
+  legend = "Emission (tonne CO2-eq)", 
+  low = "#FFCC66", 
+  high = "#FF0000"
+)
 ```
 
 ## Sequestration map in `r params$p1`-`r params$p2`
@@ -240,16 +228,11 @@ gplot(params$map_em, maxpixels = 100000) +
 Sequestration map illustrating an increase in carbon stock amount from land use/cover T1 to land use/cover T2.
 
 ```{r sequestration_map, echo=FALSE}
-gplot(params$map_sq, maxpixels = 100000) + 
-  geom_raster(aes(fill=value)) + 
-  coord_equal() +
-  scale_fill_gradient(name = "Sequestration (tonne CO2-eq)",low = "#FFCC66", high = "#000033", guide = "colourbar") +
-  theme(plot.title = element_text(lineheight = 5, face = "bold")) +
-  theme(axis.title.x = element_blank(), axis.title.y = element_blank(),
-        panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
-        legend.title = element_text(size = 8),
-        legend.text = element_text(size = 8),
-        legend.key.height = unit(0.375, "cm"),
-        legend.key.width = unit(0.375, "cm"))
+plot_quesc_results(
+  map = params$map_sq, 
+  legend = "Sequestration (tonne CO2-eq)", 
+  low = "#FFCC66", 
+  high = "#000033"
+)
 ```
 
