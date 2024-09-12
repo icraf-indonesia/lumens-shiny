@@ -5,11 +5,10 @@ server <- function(input, output, session) {
     land_req = NULL,
     projected_land_use = NULL,
     sciendo_db = NULL,
-    GDP_summary = NULL,
     Labour_table = NULL,
-    LC_graph = NULL,
-    GDP_graph = NULL,
-    LAB_graph = NULL
+    LAB_graph = NULL,
+    GDP_scen_df = NULL,
+    GDP_totals_graph = NULL
   )
   
   volumes <- c(
@@ -60,9 +59,6 @@ server <- function(input, output, session) {
     
     withProgress(message = 'Running TA Regional 2 Analysis', value = 0, {
       tryCatch({
-        
-        browser()
-        
         nodata_val<-0
         land.requirement.db<-land.requirement_table
         names(landuse_lut) <- as.character(landuse_lut[1,])
@@ -95,24 +91,9 @@ server <- function(input, output, session) {
         }
         rv$landuse_table <- landuse_table
         
-        # Reshape the data for ggplot
-        landuse_melted <- melt(landuse_table, id.vars = "LAND_USE", 
-                               measure.vars = grep("CHANGE_T", colnames(landuse_table), value = TRUE), 
-                               variable.name = "Period", value.name = "Change")
-
-        LC_graph <- ggplot(data = landuse_melted, aes(x = LAND_USE, y = Change, fill = Period)) +
-          geom_bar(colour = "black", stat = "identity", position = "dodge") +
-          guides(fill = guide_legend(title = "Period")) +  # Add a legend for periods
-          xlab("Land Use") + 
-          ylab("Change in Area (ha)") + 
-          ggtitle("Land Use Change Over Time") +
-          theme(axis.text.x = element_text(angle = 90, size = 6))
-        rv$LC_graph<-LC_graph
-        
         # Initialize results storage
-        GDP_summary_list <- list()
-        GDP_graph_list <- list()
-        GDP_overall_list <- list()
+        GDP_scen.list <- list()
+        GDP_totals_scen.list <- list()
         
         # Loop through each period and perform the calculations
         for (t in 1:sim_periods) {
@@ -160,54 +141,44 @@ server <- function(input, output, session) {
           GDP.scen <- as.data.frame(GDP.scen)
           colnames(GDP.scen)[1] <- "GDP_scen"
           
-          GDP.diff <- GDP.scen - GDP$GDP
-          GDP.diff <- round(GDP.diff, digits = 1)
-          colnames(GDP.diff)[1] <- "GDP_diff"
-          
-          GDP.rate <- GDP.diff / GDP.val
-          GDP.rate[is.na(GDP.rate)] <- 0
-          GDP.rate <- round(GDP.rate, digits = 2)
-          colnames(GDP.rate)[1] <- "GDP_rate"
-          
-          GDP_summary <- cbind(GDP, GDP.scen, fin.output.scen, GDP.diff, GDP.rate)
+          # Combine GDP and GDP_scen columns
+          GDP_summary <- cbind(GDP, GDP.scen)
           GDP_summary$P_OUTPUT <- NULL
           GDP_summary$P_GDP <- NULL
           
           # CALCULATE TOTAL GDP
-          GDP_tot_scen <- colSums(as.matrix(GDP_summary$GDP_scen), na.rm = TRUE)
-          GDP_tot_diff <- GDP_tot_scen - GDP_tot
-          GDP_tot_rate <- GDP_tot_diff / GDP_tot
+          GDP_tot_scen <- sum(GDP_summary$GDP_scen, na.rm = TRUE)
           
-          GDP_overall <- cbind(
-            rbind("Total GDP", "Scenario GDP", "GDP difference", "Rate of difference"),
-            rbind(GDP_tot, GDP_tot_scen, GDP_tot_diff, GDP_tot_rate)
-          )
-          
-          # Store the GDP summary and overall results for this period
-          GDP_summary_list[[t]] <- GDP_summary
-          GDP_overall_list[[t]] <- GDP_overall
-          
-          # Generate a GDP graph for this period
-          order_GDP_scen <- as.data.frame(GDP_summary[order(-GDP_summary$GDP_scen), ])
-          order_GDP_scen10 <- head(order_GDP_scen, n = 20)
-          
-          GDP_summary_melt <- melt(data = order_GDP_scen10, id.vars = c('SECTOR'), measure.vars = c('GDP', 'GDP_scen'))
-          GDP_graph <- ggplot(data = GDP_summary_melt, aes(x = SECTOR, y = value, fill = variable)) +
-            geom_bar(colour = "black", stat = "identity", position = "dodge") +
-            guides(fill = "none") + xlab("Sectors") + ylab("GDP") +
-            ggtitle(paste("Comparison of GDP Baseline and Scenario - Period", t)) +
-            theme(axis.text.x = element_text(angle = 90, size = 6))
-          
-          GDP_graph_list[[t]] <- GDP_graph
+          # Store the GDP summary, overall results, and the graphs for this period
+          GDP_scen.list[[t]] <- GDP.scen
+          GDP_totals_scen.list[[t]] <- GDP_tot_scen
         }
         
-        # Initialize an empty list to store all GDP graphs
-        rv$GDP_graph <- list()
+        #Tabel perbandingan GDP setiap sektor untuk semua timeseries
+        GDP_scen <- data.frame(
+          Sector = GDP$SECTOR, 
+          Category = GDP$CATEGORY,
+          GDP_bau = GDP$GDP,                 
+          purrr::map_dfc(GDP_scen.list, ~.x)
+        )
+        period_names <- paste0("Period_", seq_len(length(GDP_scen.list)))
+        colnames(GDP_scen)[4:(3+length(period_names))] <- period_names
+        GDP_scen_df <- as.data.frame(GDP_scen)
+        rownames(GDP_scen_df)<-NULL
+        rv$GDP_scen_df <- GDP_scen_df
         
-        # Loop through each period and store the corresponding graph in rv$GDP_graph
-        for (t in 1:n_periods) {
-          rv$GDP_graph[[t]] <- GDP_graph_list[[t]]
-        }
+        # Barchart total GDP untuk semua time series(t)
+        GDP_totals_df <- data.frame(
+          Period = paste("Period", seq_len(length(GDP_totals_scen.list))),
+          GDP_totals = unlist(GDP_totals_scen.list)
+        )
+        GDP_totals_df <- rbind(data.frame(Period = "BAU", GDP_totals = GDP_tot), GDP_totals_df)
+        GDP_totals_graph <- ggplot(data = GDP_totals_df, aes(x = Period, y = GDP_totals)) +
+          geom_bar(stat = "identity", position = "dodge", colour = "black") +
+          labs(x = "Period", y = "GDP Value") +
+          ggtitle(paste("BAU vs Scenario GDP Total")) +
+          theme(axis.text.x = element_text(angle = 45, hjust = 1))
+        rv$GDP_totals_graph <- GDP_totals_graph
         
         #CALCULATE TOTAL LABOUR
         Labour_table<-Lab.multiplier
@@ -235,11 +206,10 @@ server <- function(input, output, session) {
         # Return Results
         list(
           landuse_table = landuse_table,
-          GDP_summary = GDP_summary,
           Labour_table = Labour_table,
-          LC_graph = LC_graph,
-          GDP_graph = GDP_graph,
-          LAB_graph = LAB_graph
+          LAB_graph = LAB_graph,
+          GDP_totals_graph = GDP_totals_graph,
+          GDP_scen_df = GDP_scen_df
         )
         
         output$status_messages <- renderText("Analysis completed successfully!")
@@ -258,16 +228,16 @@ server <- function(input, output, session) {
   report_content <- reactive({
     params <- list(
       landuse_table = rv$landuse_table,
-      GDP_summary = rv$GDP_summary,
       Labour_table = rv$Labour_table,
-      LC_graph = rv$LC_graph,
-      GDP_graph = rv$GDP_graph,
-      LAB_graph = rv$LAB_graph
+      LAB_graph = rv$LAB_graph,
+      GDP_totals_graph = rv$GDP_totals_graph,
+      GDP_scen_df = rv$GDP_scen_df
+      
     )
     output_file <- paste0("ta_regional2_report_", format(Sys.time(), "%Y-%m-%d_%H-%M-%S"), ".html")
     output_dir <- rv$wd
     render(
-      "../report_template/report_template.Rmd",
+      "../report_template/ta-regional2_report.Rmd",
       output_file = output_file,
       output_dir = output_dir,
       params = params,

@@ -7,16 +7,16 @@ output:
     number_sections: true
     df_print: kable
 params:
-  LC_graph: NA
-  GDP_graph: NA
   LAB_graph: NA
   landuse_table: NA
-  GDP_summary: NA
   Labour_table: NA
+  GDP_totals_graph : NA
+  GDP_scen_df: NA
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
+library(knitr)
 library(ggplot2)
 library(raster)
 ```
@@ -35,27 +35,16 @@ The maps provided was carbon, emission and sequestration map.
 
 * Calculation or analysis details based on the results can be presented here.
 
-### Direct Backward Linkages graph
+### GDP Each Sector
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
-head(params$landuse_table, n=20)
-plot(params$LC_graph)
+knitr::kable(params$GDP_scen_df)
 ```
 
-### Direct Forward Linkages graph 
-
+### GDP Total
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
-head(params$GDP_summary, n=20)
-plot(params$GDP_graph)
+plot(params$GDP_totals_graph)
 ```
-
-### Land Requirement Coefficient graph 
-
-```{r, echo=FALSE, warning=FALSE, message=FALSE}
-head(params$Labour_table, n=20)
-plot(params$LAB_graph)
-```
-
 ## Conclusion
 
 * Summarize the key findings or insights from the analysis.

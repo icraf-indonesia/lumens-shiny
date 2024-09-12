@@ -130,7 +130,10 @@ server <- function(input, output, session) {
         # Create Linkages Table
         Linkages_table <- create_linkages_table(sector, DBL, DFL)
         rv$Linkages_table <- Linkages_table
-        PRS_graph<-ggplot(Linkages_table, aes(x=DBL, y=DFL, color=CATEGORY)) + geom_point(shape=19, size=5) + geom_hline(aes(yintercept=1), colour="#BB0000", linetype="dashed") + geom_vline(aes(xintercept=1), colour="#BB0000", linetype="dashed")
+        PRS_graph<-ggplot(Linkages_table, aes(x=DBL, y=DFL, color=CATEGORY)) + 
+          geom_point(shape=19, size=5) + 
+          geom_hline(aes(yintercept=1), colour="#BB0000", linetype="dashed") + 
+          geom_vline(aes(xintercept=1), colour="#BB0000", linetype="dashed")
         
         #SELECTION OF PRIMARY SECTOR
         P.sector<-cbind(sector,DBL,DFL)
@@ -184,11 +187,18 @@ server <- function(input, output, session) {
         GDP_tot<-colSums(GDP_tot)
         GDP$P_GDP<-round((GDP$GDP/GDP_tot), digits=2)
         rownames(GDP)<-NULL
+        
+        GDP_tot <- sum(GDP$GDP)
+        GDP$P_GDP <- round((GDP$GDP / GDP_tot), digits = 2)
+        total_row <- data.frame(SECTOR = "Total", CATEGORY = "", GDP = GDP_tot, OUTPUT = "", P_OUTPUT = "", P_GDP = "")
+        GDP <- rbind(GDP, total_row)
+        rownames(GDP) <- NULL
+        
         order_GDP <- as.data.frame(GDP[order(-GDP$GDP),])
         order_GDP10<-head(order_GDP,n=20)
-        GDP_graph<-ggplot(data=order_GDP10, aes(x=SECTOR, y=GDP, fill=SECTOR)) +
+        GDP_graph<-ggplot(data=order_GDP10, aes(x=SECTOR, y=GDP, fill=CATEGORY)) +
           geom_bar(colour="black", stat="identity")+ coord_flip() +
-          guides(fill="none") + xlab("Sectors") + ylab("GDP")
+          xlab("Sectors") + ylab("GDP")
         
         #OUTPUT MULTIPLIER 
         Out.multiplier<-colSums(Leontief)
@@ -197,7 +207,7 @@ server <- function(input, output, session) {
         order_Out.multiplier <-head(order_Out.multiplier,n=20)
         OMPL_graph<-ggplot(data=order_Out.multiplier, aes(x=SECTOR, y=Out.multiplier, fill=CATEGORY)) + 
           geom_bar(colour="black", stat="identity")+ coord_flip() +  
-          guides(fill=FALSE) + xlab("Sectors") + ylab("Output multiplier")
+          xlab("Sectors") + ylab("Output multiplier")
         
         #INCOME MULTIPLIER
         V.income<-as.matrix(GDP.val*fin_con)
@@ -209,7 +219,7 @@ server <- function(input, output, session) {
         order_Inc.multiplier <-head(order_Inc.multiplier,n=20)
         IMPL_graph<-ggplot(data=order_Inc.multiplier, aes(x=SECTOR, y=Inc.multiplier, fill=CATEGORY)) + 
           geom_bar(colour="black", stat="identity")+ coord_flip() +  
-          guides(fill=FALSE) + xlab("Sectors") + ylab("Income multiplier") 
+          xlab("Sectors") + ylab("Income multiplier") 
         
         #LABOUR MULTIPLIER
         labour.m<-as.matrix(labour*fin_con)
@@ -226,7 +236,7 @@ server <- function(input, output, session) {
         order_Lab.multiplier <-head(order_Lab.multiplier,n=20)
         LMPL_graph<-ggplot(data=order_Lab.multiplier, aes(x=SECTOR, y=Lab.multiplier, fill=CATEGORY)) + 
           geom_bar(colour="black", stat="identity")+ coord_flip() +  
-          guides(fill=FALSE) + xlab("Sectors") + ylab("Labour multiplier")
+          xlab("Sectors") + ylab("Labour multiplier")
         colnames(multiplier)[4]<-"Inc.multiplier"
         
         rv$GDP <- GDP
@@ -266,7 +276,10 @@ server <- function(input, output, session) {
           GDP = GDP,
           GDP.val = GDP.val,
           GDP_tot = GDP_tot,
+          Prop_GDP = GDP$P_OUTPUT,
           Lab.multiplier = Lab.multiplier,
+          Out.multiplier = Out.multiplier,
+          Inc.multiplier = Inc.multiplier,
           landuse_area0 = landuse_area0
         )
         
@@ -284,6 +297,8 @@ server <- function(input, output, session) {
              GDP.val,
              GDP_tot,
              Lab.multiplier,
+             Out.multiplier,
+             Inc.multiplier,
              land_distribution_ctot,
              land.requirement_table,
              land.distribution.prop,

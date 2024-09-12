@@ -95,7 +95,6 @@ create_graph <- function(sector, data, y_label, graph_title) {
   ggplot(data = data.frame(SECTOR = sector, VALUE = data), aes(x = SECTOR.SECTOR, y = VALUE, fill = SECTOR.CATEGORY)) +
     geom_bar(colour = "black", stat = "identity") +
     coord_flip() +
-    guides(fill = "none") +
     xlab("Sectors") +
     ylab(y_label) +
     ggtitle(graph_title)
