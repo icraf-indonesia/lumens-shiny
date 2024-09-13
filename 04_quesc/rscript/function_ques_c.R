@@ -1,3 +1,52 @@
+summary_text_en <- c("Period",
+               "Total area (ha)",
+               "Total emission (tonne CO2-eq)",
+               "Total sequestration (tonne CO2-eq)",
+               "Nett emission (tonne CO2-eq)",
+               "Emission rate (tonne CO2-eq/year)",
+               "Emission rate per-unit area (tonne CO2-eq/ha.year)")
+
+summary_text_id <- c("Periode", 
+                     "Total area (ha)", 
+                     "Total Emisi (Ton CO2-eq)", 
+                     "Total Sekuestrasi (Ton CO2-eq)", 
+                     "Emisi Bersih (Ton CO2-eq)", 
+                     "Laju Emisi (Ton CO2-eq/tahun)",
+                     "Laju emisi per-unit area (Ton CO2-eq/ha.tahun)")
+
+summary_zonal_text_en <- list(ID = 1,
+                          "Planning Unit" = 2, 
+                          "Area (Ha)" = 3, 
+                          "Carbon Avg. (Periode 1)" = 4, 
+                          "Carbon Avg. (Periode 2)" = 5, 
+                          "Nett Emission" = 6, 
+                          "Emission Rate" = 7
+                          )
+summary_zonal_text_id <- list( ID = 1,
+                          "Unit Perencanaan" = 2, 
+                          "Luas (Ha)" = 3, 
+                          "Rerata Karbon Periode 1" = 4, 
+                          "Rerata Karbon Periode 2" = 5, 
+                          "Emisi bersih" = 6, 
+                          "Laju emisi" = 7
+                          )
+summary_zona_carbon_text_en <- list(ID = 1,
+                                    "Planning Unit" = 2, 
+                                    "Area (Ha)" = 3, 
+                                    "Total emission (tonne CO2-eq)" = 4, 
+                                    "Total sequestration (tonne CO2-eq)" = 5, 
+                                    "Nett Emission (tonne CO2-eq)" = 6, 
+                                    "Emission Rate (tonne CO2-eq)" = 7
+)
+summary_zona_carbon_text_id <- list(ID = 1,
+                                    "Unit perencanaan" = 2, 
+                                    "Luas (Ha)" = 3, 
+                                    "Total emisi (ton CO2-eq)" = 4, 
+                                    "Total sekuestrasi (ton CO2-eq)" = 5, 
+                                    "Emisi bersih (ton CO2-eq)" = 6, 
+                                    "Laju emisi (ton CO2-eq)" = 7
+)
+  
 format_session_info_table <- function() {
   si <- sessionInfo()
   
@@ -45,6 +94,7 @@ plot_quesc_results <- function(map, legend, low, high, title_size = 8, text_size
 }
 
 summary_of_emission_calculation <- function(quescdb, zone, map_em, map_sq, period) {
+  p <- as.numeric(period$p2) - as.numeric(period$p1)
   az <- quescdb %>% 
     melt(id.vars=c('ID_PU', 'PU'), measure.vars=c('Ha')) %>%
     dcast(formula = ID_PU + PU ~ ., fun.aggregate = sum) %>%
@@ -77,45 +127,48 @@ summary_of_emission_calculation <- function(quescdb, zone, map_em, map_sq, perio
       NET_EM = TOTAL_EM - TOTAL_SQ
     ) %>% 
     mutate(
-      NET_EM_RATE = round(NET_EM / Ha / 5, 2)
+      NET_EM_RATE = round(NET_EM / Ha / p, 2)
     ) %>% 
     mutate(
       TOTAL_EM = round(TOTAL_EM, 2),
       TOTAL_SQ = round(TOTAL_SQ, 2),
       NET_EM = round(NET_EM, 2)
+    ) 
+  
+  zc_plot <- zc %>% ggplot(aes(x = reorder(PU, -NET_EM_RATE), y = (zc$NET_EM_RATE))) + 
+    geom_bar(stat = "identity", fill = "red") +
+    geom_text(data = zc, aes(label = round(NET_EM_RATE, 1)), size = 4) +
+    ggtitle(paste("Average of nett emission ", period$p1,"-", period$p2)) +
+    guides(fill = FALSE) + 
+    ylab("CO2-eq/ha.yr") +
+    theme(plot.title = element_text(lineheight = 5, face = "bold")) +
+    theme(axis.title.x = element_blank(), axis.text.x = element_text(angle = 20),
+          panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+  
+  zc <- zc %>% 
+    dplyr::rename(
+      unlist(summary_zona_carbon_text_en)
     )
   
   total_area <- sum(az$Ha)
   total_emission <- sum(zc$TOTAL_EM)
   total_sequestration <- sum(zc$TOTAL_SQ)
   total_net_emission <- total_emission - total_sequestration
-  total_rate_emission <- total_net_emission / period
+  total_rate_emission <- total_net_emission / p
   total_rate_emission_ha <- total_rate_emission / total_area
   
   summary_df <- data.frame(
     ID = c(1:7),
-    Category = c("Periode", 
-                 "Total area (ha)", 
-                 "Total Emisi (Ton CO2-eq)", 
-                 "Total Sequestrasi (Ton CO2-eq)", 
-                 "Emisi Bersih (Ton CO2-eq)", 
-                 "Laju Emisi (Ton CO2-eq/tahun)",
-                 "Laju emisi per-unit area (Ton CO2-eq/ha.tahun)"),
-    # Category = c("Period", 
-    #              "Total area (ha)", 
-    #              "Total emission (tonne CO2-eq)", 
-    #              "Total sequestration (tonne CO2-eq)", 
-    #              "Net emission (tonne CO2-eq)", 
-    #              "Emission rate (tonne CO2-eq/year)",
-    #              "Emission rate per-unit area (tonne CO2-eq/ha.year)"),
+    Category = summary_text_en,
     Summary = as.character(
-      c(paste0(period_2, "-", period_1),
+      c(paste0(period$p1, "-", period$p2),
         round(total_area, 2),
         round(total_emission, 2),
         round(total_sequestration, 2),
         round(total_net_emission, 2),
         round(total_rate_emission, 2),
-        round(total_rate_emission_ha, 2))
+        round(total_rate_emission_ha, 2)
+        )
     )
   )
   
@@ -124,6 +177,7 @@ summary_of_emission_calculation <- function(quescdb, zone, map_em, map_sq, perio
     zone_emission = ze,
     zone_sequestration = zs,
     zone_carbon = zc,
+    plot_zone_carbon = zc_plot,
     total_area = total_area,
     total_emission = total_emission,
     total_sequestration = total_sequestration,
@@ -136,22 +190,56 @@ summary_of_emission_calculation <- function(quescdb, zone, map_em, map_sq, perio
   return(out)
 }
 
-zonal_statistic_database <- function() {
-  period <- (period_2 - period_1)
+zonal_statistic_database <- function(quescdb, period) {
+  area_zone <- quescdb %>% 
+    melt(id.vars=c('ID_PU', 'PU'), measure.vars=c('Ha')) %>%
+    dcast(formula = ID_PU + PU ~ ., fun.aggregate = sum) %>%
+    dplyr::rename(
+      ID = 1,
+      Ha = 3
+    )
+  
   data_zone <- area_zone
   data_zone$Z_CODE <- toupper(abbreviate(data_zone$PU))
   data_zone$Rate_seq <- data_zone$Rate_em <- data_zone$Avg_C_t2 <- data_zone$Avg_C_t1 <- 0
   for(a in 1:nrow(area_zone)){
     i <- area_zone$PU[a]
-    data_z <- quescdb[which(quescdb$PU == i),]
-    data_zone <- within(data_zone, {Avg_C_t1<-ifelse(data_zone$PU == i, sum(data_z$C_T1*data_z$Ha)/sum(data_z$Ha),Avg_C_t1)}) 
-    data_zone <- within(data_zone, {Avg_C_t2<-ifelse(data_zone$PU == i, sum(data_z$C_T2*data_z$Ha)/sum(data_z$Ha),Avg_C_t2)}) 
-    data_zone <- within(data_zone, {Rate_em<-ifelse(data_zone$PU == i, sum(data_z$EM)/(sum(data_z$Ha)*period),Rate_em)}) 
-    data_zone <- within(data_zone, {Rate_seq<-ifelse(data_zone$PU == i, sum(data_z$SQ)/(sum(data_z$Ha)*period),Rate_seq)}) 
+    data_z <- quescdb[which(quescdb$PU == i), ]
+    data_zone <- within(data_zone, {
+      Avg_C_t1 <- ifelse(data_zone$PU == i,
+                         sum(data_z$C_T1 * data_z$Ha) / sum(data_z$Ha),
+                         Avg_C_t1)
+    }) 
+    data_zone <- within(data_zone, {
+      Avg_C_t2 <- ifelse(data_zone$PU == i,
+                         sum(data_z$C_T2 * data_z$Ha) / sum(data_z$Ha),
+                         Avg_C_t2)
+    })
+    data_zone <- within(data_zone, {
+      Rate_em <- ifelse(data_zone$PU == i, 
+                        sum(data_z$EM) / (sum(data_z$Ha) * period), 
+                        Rate_em)
+    })
+    data_zone <- within(data_zone, {
+      Rate_seq <- ifelse(data_zone$PU == i, 
+                         sum(data_z$SQ) / (sum(data_z$Ha) * period), 
+                         Rate_seq)
+    }) 
   }
   
+  data_zone_df <- data_zone %>% 
+    select(-Z_CODE) %>%
+    mutate(
+      Avg_C_t1 = round(Avg_C_t1, 2),
+      Avg_C_t2 = round(Avg_C_t2, 2),
+      Rate_em = round(Rate_em, 2),
+      Rate_seq = round(Rate_seq, 2)
+    ) %>%
+    dplyr::rename(
+      unlist(summary_zonal_text_en)
+    )
   
-  data_merge_sel <- quescdb[ which((quescdb$EM + quescdb$SQ) > 0), ]
+  # data_merge_sel <- quescdb[ which((quescdb$EM + quescdb$SQ) > 0), ]
   order_sq <- quescdb[order(-quescdb$SQ), ] %>% as.data.frame()
   order_em <- quescdb[order(-quescdb$EM), ] %>% as.data.frame()
   
@@ -165,13 +253,135 @@ zonal_statistic_database <- function() {
     ) %>%
     aggregate(EM ~ LU_CHG, FUN = sum) %>%
     mutate(
-      LU_CODE = as.factor(toupper(abbreviate(LU_CHG, minlength=5, strict=FALSE, method = "both"))),
-      PERCENTAGE = as.numeric(format(round((EM / sum(tb_em_total$EM) * 100),2), nsmall=2))
+      LU_CODE = as.factor(toupper(abbreviate(LU_CHG, minlength=5, strict=FALSE, method = "both")))
     ) %>%
     dplyr::arrange(desc(EM)) %>%
     dplyr::relocate(LU_CODE) 
   
-  tb_em_total_10 <- tb_em_total %>% head(n=10)
+  tb_em_total_10 <- tb_em_total %>%
+    mutate(
+      PERCENTAGE = as.numeric(format(round((EM / sum(tb_em_total$EM) * 100),2), nsmall=2))
+    ) %>%
+    head(n=10)
+  
+  largest_emission <- tb_em_total_10 %>% 
+    ggplot(aes(x = reorder(LU_CODE, -EM), y = (EM))) +
+    geom_bar(stat = "identity", fill = "blue") +
+    geom_text(data = tb_em_total_10, aes(x=LU_CODE, y=EM, label = round(EM, 1)), size = 3, vjust = 0.1) +
+    ggtitle(paste("Largest sources of emission")) + 
+    guides(fill = FALSE) + 
+    ylab("CO2-eq") +
+    theme(plot.title = element_text(lineheight = 5, face = "bold")) + 
+    scale_y_continuous() +
+    theme(axis.title.x = element_blank(), axis.text.x = element_text(size = 8),
+          panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+  
+  # zonal emission
+  tb_em_zonal <- as.data.frame(NULL)
+  for (i in 1:nrow(area_zone)){
+    tryCatch({
+      tb_em <- order_em$PU %>% 
+        cbind(order_em$LU_CHG, as.data.frame( round(order_em$EM, digits=3) ) ) %>% 
+        as.data.frame() %>%
+        dplyr::rename(
+          PU = 1,
+          LU_CHG = 2,
+          EM = 3
+        )
+      
+      a <- area_zone$PU[i] 
+      tb_em_z <- tb_em %>% 
+        dplyr::filter(PU == a) %>% 
+        as.data.frame() %>%
+        aggregate(EM ~ PU + LU_CHG, FUN=sum) %>%
+        mutate(
+          LU_CODE = as.factor(toupper(abbreviate(LU_CHG, minlength=5, strict=FALSE, method = "both")))
+        ) %>%
+        dplyr::arrange(desc(EM)) %>%
+        dplyr::relocate(LU_CODE, .before = LU_CHG) 
+      tb_em_z_10 <- tb_em_z %>% 
+        mutate(
+          PERCENTAGE = as.numeric(format(round((EM / sum(tb_em_z$EM) * 100),2), nsmall=2)) 
+        ) %>% 
+        head(n=10)
+      tb_em_zonal <- tb_em_zonal %>% rbind(tb_em_z_10)
+    }, error=function(e){cat("ERROR :",conditionMessage(e), "\n")})
+  }
+  
+  # total sequestration
+  tb_sq_total <- order_sq$LU_CHG %>% 
+    cbind( as.data.frame( round(order_sq$EM, digits=3) ) ) %>% 
+    as.data.frame() %>%
+    dplyr::rename(
+      LU_CHG = 1,
+      SQ = 2
+    ) %>%
+    aggregate(SQ ~ LU_CHG, FUN = sum) %>%
+    mutate(
+      LU_CODE = as.factor(toupper(abbreviate(LU_CHG, minlength=5, strict=FALSE, method = "both")))
+    ) %>%
+    dplyr::arrange(desc(SQ)) %>%
+    dplyr::relocate(LU_CODE) 
+  
+  tb_sq_total_10 <- tb_sq_total %>% 
+    mutate(
+      PERCENTAGE = as.numeric(format(round((SQ / sum(tb_sq_total$SQ) * 100),2), nsmall=2))
+    ) %>%
+    head(n=10)
+  
+  largest_sequestration <- tb_sq_total_10 %>% 
+    ggplot(aes(x = reorder(LU_CODE, -SQ), y = (SQ))) +
+    geom_bar(stat = "identity", fill = "green") +
+    geom_text(data = tb_sq_total_10, aes(x=LU_CODE, y=SQ, label = round(SQ, 1)), size = 3, vjust = 0.1) +
+    ggtitle(paste("Largest sources of sequestration")) + 
+    guides(fill = FALSE) + 
+    ylab("CO2-eq") +
+    theme(plot.title = element_text(lineheight = 5, face = "bold")) + 
+    scale_y_continuous() +
+    theme(axis.title.x = element_blank(), axis.text.x = element_text(size = 8),
+          panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+  
+  # zonal sequestration
+  tb_sq_zonal <- as.data.frame(NULL)
+  for (i in 1:nrow(area_zone)){
+    tryCatch({
+      tb_sq <- order_sq$PU %>% 
+        cbind(order_sq$LU_CHG, as.data.frame( round(order_sq$SQ, digits=3) ) ) %>% 
+        as.data.frame() %>%
+        dplyr::rename(
+          PU = 1,
+          LU_CHG = 2,
+          SQ = 3
+        )
+      
+      a <- area_zone$PU[i] 
+      tb_sq_z <- tb_sq %>% 
+        dplyr::filter(PU == a) %>% 
+        as.data.frame() %>%
+        aggregate(SQ ~ PU + LU_CHG, FUN=sum) %>%
+        mutate(
+          LU_CODE = as.factor(toupper(abbreviate(LU_CHG, minlength=5, strict=FALSE, method = "both")))
+        ) %>%
+        dplyr::arrange(desc(SQ)) %>%
+        dplyr::relocate(LU_CODE, .before = LU_CHG) 
+      tb_sq_z_10 <- tb_sq_z %>% 
+        mutate(
+          PERCENTAGE = as.numeric(format(round((SQ / sum(tb_sq_z$SQ) * 100),2), nsmall=2))
+        ) %>%
+        head(n=10)
+      tb_sq_zonal <- tb_sq_zonal %>% rbind(tb_sq_z_10)
+    }, error=function(e){cat("ERROR :",conditionMessage(e), "\n")})
+  }
+  
+  out <- list(
+    data_zone_df = data_zone_df,
+    tb_em_total_10 = tb_em_total_10,
+    largest_emission = largest_emission,
+    tb_em_zonal = tb_em_zonal,
+    tb_sq_total_10 = tb_sq_total_10,
+    largest_sequestration = largest_sequestration,
+    tb_sq_zonal = tb_sq_zonal
+  )
 }
 
 ### Required Library ####
