@@ -24,11 +24,14 @@ params:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-knitr::opts_knit$set(root.dir = normalizePath(rprojroot::find_rstudio_root_file()))
+```
+
+
+```{r load function, include=FALSE, error=TRUE, warning=TRUE, message=TRUE}
+source("../rscript/function_ques_c.R")
 ```
 
 ```{r load_library, include=FALSE}
-source("04_quesc/rscript/function_ques_c.R")
 install_load(
   "raster",
   "ggplot2",
@@ -58,8 +61,8 @@ analysis_log <- tribble(
   "1. Landcover map at T1",       params$inputs$lc_t1_path,
   "2. Landcover map at T2",       params$inputs$lc_t2_path,
   "3. Planning unit",             params$inputs$admin_z_path,
-  "4. Year of T1",                params$p1,
-  "5. Year of T2",                params$p2,
+  "4. Year of T1",                as.character(params$p1),
+  "5. Year of T2",                as.character(params$p2),
   "6. Carbon stock lookup table", params$input$c_lookup_path,
   "Output Workspace",             params$input$output_dir,
   "1. Carbon Map at T1",          paste0(params$input$output_dir, "/carbon_map_t1.tif"),
@@ -67,7 +70,7 @@ analysis_log <- tribble(
   "3. Emission Map",              paste0(params$input$output_dir, "/emission_map.tif"),
   "4. Sequestration Map",         paste0(params$input$output_dir, "/sequestration_map.tif"),
   "5. QUES-C Database",           paste0(params$input$output_dir, "/quesc_database.csv"),
-  "Session Summary",              "",
+  "Session Summary",              ""
 ) %>% rbind(params$session_log)
 
 analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
@@ -103,7 +106,7 @@ This report presents the results of an analysis based on the provided maps and l
 
 ## Summary of Emission Calculation
 
-```{r summary_emission, echo=FALSE}
+```{r summary_emission, echo=FALSE, message=FALSE, warning=FALSE}
 s <- summary_of_emission_calculation(
   quescdb = params$ques_db,
   zone = zone_rst, 
@@ -114,7 +117,6 @@ s <- summary_of_emission_calculation(
 s$summary_df %>% kbl(caption = "Summary of Emission Calculation", escape = F) %>%
   kable_paper("hover", full_width = F)
 ```
-
 
 ## Summary of Emission Calculation by Planning Unit
 
@@ -316,6 +318,12 @@ plot_quesc_results(
 
 ## The Largest Source of Emission  {.tabset}
 
+### Plot
+
+```{r plot_largest_em, echo=FALSE}
+z$largest_emission
+```
+
 ### Table
 
 ```{r tbl_largest_em, echo=FALSE}
@@ -323,23 +331,17 @@ z$tb_em_total_10 %>% kbl(caption = "The Largest Source of Emission", escape = F)
   kable_paper("hover", full_width = F)
 ```
 
+## The Largest Source of Sequestration  {.tabset}
+
 ### Plot
 
-```{r plot_largest_em, echo=FALSE}
-z$largest_emission
+```{r plot_largest_sq, echo=FALSE}
+z$largest_sequestration
 ```
-
-## The Largest Source of Sequestration  {.tabset}
 
 ### Table
 
 ```{r tbl_largest_sq, echo=FALSE}
 z$tb_sq_total_10 %>% kbl(caption = "The Largest Source of Sequestration", escape = F) %>%
   kable_paper("hover", full_width = F)
-```
-
-### Plot
-
-```{r plot_largest_sq, echo=FALSE}
-z$largest_sequestration
 ```

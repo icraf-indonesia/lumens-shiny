@@ -59,7 +59,8 @@ format_session_info_table <- function() {
   )
   
   # Extract platform and OS info
-  platform_os <- paste(si$platform, "|", si[[6]])
+  # platform_os <- paste(si$platform, "|", si[[6]]) 
+  platform_os <- paste(si$platform)
   
   # Extract locale info
   locale_info <- strsplit(si[[3]], ";")[[1]]
@@ -135,7 +136,7 @@ summary_of_emission_calculation <- function(quescdb, zone, map_em, map_sq, perio
       NET_EM = round(NET_EM, 2)
     ) 
   
-  zc_plot <- zc %>% ggplot(aes(x = reorder(PU, -NET_EM_RATE), y = (zc$NET_EM_RATE))) + 
+  zc_plot <- zc %>% ggplot(aes(x = reorder(PU, -NET_EM_RATE), y = (NET_EM_RATE))) + 
     geom_bar(stat = "identity", fill = "red") +
     geom_text(data = zc, aes(label = round(NET_EM_RATE, 1)), size = 4) +
     ggtitle(paste("Average of nett emission ", period$p1,"-", period$p2)) +
@@ -145,17 +146,17 @@ summary_of_emission_calculation <- function(quescdb, zone, map_em, map_sq, perio
     theme(axis.title.x = element_blank(), axis.text.x = element_text(angle = 20),
           panel.grid.major = element_blank(), panel.grid.minor = element_blank())
   
-  zc <- zc %>% 
-    dplyr::rename(
-      unlist(summary_zona_carbon_text_en)
-    )
-  
   total_area <- sum(az$Ha)
   total_emission <- sum(zc$TOTAL_EM)
   total_sequestration <- sum(zc$TOTAL_SQ)
   total_net_emission <- total_emission - total_sequestration
   total_rate_emission <- total_net_emission / p
   total_rate_emission_ha <- total_rate_emission / total_area
+  
+  zc <- zc %>% 
+    dplyr::rename(
+      unlist(summary_zona_carbon_text_en)
+    )
   
   summary_df <- data.frame(
     ID = c(1:7),
