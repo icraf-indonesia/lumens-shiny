@@ -1,0 +1,246 @@
+---
+title: "QuES-B Report"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+    df_print: kable
+params:
+  start_time: NA
+  end_time: NA
+  output_dir: NA
+  total_area: NA
+  dir_teci_map: NA
+  dir_focal_area_: NA
+  dir_sampling_grid: NA
+  dir_difa_table: NA
+  difa_table: NA
+  difa_score: NA
+  inputs: NA
+  session_log: NA
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load function, include=FALSE, error=TRUE, warning=TRUE, message=TRUE}
+source("../rscript/ques_biodiv_functions.r")
+```
+
+```{r load_libraries, include=FALSE}
+check_and_install_packages(
+  c(
+    "dplyr",
+    "ggplot2",
+    "caTools",
+    "terra",
+    "sf",
+    "stringr",
+    "kableExtra",
+    "tidyr",
+    "tidyterra",
+    "ggnewscale"
+  )
+)
+```
+
+
+
+<details><summary>Click here for Analysis Log</summary>
+
+```{r analysis-log, echo=FALSE}
+
+analysis_log <- tribble(
+  ~Category,                   ~Details,
+  "Analysis Start",        params$start_time,
+  "Analysis End",          params$end_time,
+  "Input Data and Parameters", "",
+  "1. Landcover map",      params$inputs$lc_t1_path,
+  "2. Year", as.character(params$inputs$t1),
+  "3. Landcover lookup",   params$inputs$lulc_lut_path,
+  "4. Contrast table",     params$inputs$contab_path,
+  "5. NoData land-cover class", as.character(params$inputs$raster.nodata),
+  "6. Number of sampling points (n)", as.character(params$inputs$sampling_points),
+  "7. Mowing window radius (metres)", as.character(params$inputs$window_size),
+  "8. Mowing window shape", as.character(params$inputs$window.shap),
+  "9. Fragstats config file", params$inputs$fca_path,
+  "10. Fragstats directory", params$inputs$fragstats_path,
+  "Output Files", "",
+  "Output Workspace",      paste0(getwd(), params$output_dir),
+  "1. Focal Area Map",     file.path(params$output_dir, params$dir_focal_area_),
+  "2. TECI Map", file.path(params$output_dir, params$dir_teci_map),
+  "3. DIFA Table",file.path(params$output_dir, params$dir_difa_table),
+  "4. Sampling Grid",file.path(params$output_dir, params$dir_sampling_grid),
+  "Session Summary", "",
+) %>% rbind(format_session_info_table())
+
+analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
+  kable_paper("hover", full_width = F )
+```
+</details>
+
+
+```{r check_focal_area, message=FALSE, warning=FALSE, include=FALSE}
+# Prepare land cover data for time 1
+lc_t1_map <- prepare_lc_data(
+  params$inputs$lc_t1_path,
+  year = params$inputs$t1,
+  lookup_table = read.csv(params$inputs$lulc_lut_path)
+)
+
+# Set the no-data flag for the raster
+NAflag(lc_t1_map) <- params$inputs$raster.nodata
+
+# Read the land use/land cover lookup table
+lut <- read.csv(params$inputs$lulc_lut_path)
+
+# Extract the name of the focal area
+# Assumes 3rd column is FocalArea and 2nd column is Class name
+focal_area_name <- lut %>%
+  filter(.[[3]] == 1) %>% 
+  pull(2)
+
+# Calculate focal area estimates
+focal_area_estimates <- lc_t1_map %>%
+  # Aggregate raster to reduce resolution
+  suppressWarnings(aggregate(fact = c(100, 100) / res(.), fun = "modal")) %>%
+  # Calculate frequency of each class
+  freq() %>%
+  # Convert to tibble for easier manipulation
+  as_tibble() %>%
+  # Rename columns for clarity
+  rlang::set_names(c("layer", "Class", "Area")) %>%
+  # Filter for focal area only
+  filter(Class %in% focal_area_name) %>%
+  # Convert to list for easier access in R Markdown
+  as.list()
+
+fa_value <- focal_area_estimates$Area %>% as.numeric()
+total_area <- params$total_area %>% as.numeric()
+```
+
+# Summary
+
+The focal area of interest is `r focal_area_estimates$Class`. It is estimated to cover `r  scales::label_comma()(fa_value)` hectares within the overall landscape, which spans `r  scales::label_comma()(total_area)` hectares. The Degree of Integration of Focal Area (DIFA) Index for this landscape is `r params$difa_score`%.
+
+# Module brief description
+
+- QUES-B (Quantification of Ecosystem Services - Biodiversity) describes biodiversity conditions at the landscape scale with a focus on the composition and configuration of a focal area, which is carried out by calculating the Degree of Integration of Focal Area (DIFA) Index.
+
+- A focal area refers to the habitat of taxa of interest or areas that harbour rich biodiversity. Users can define these focal areas by selecting specific land cover classes that represent habitats of taxa of interest or areas known to support high biodiversity.
+
+- The Total Edge Contrast Index (TECI) map is a key component of QUES-B, illustrating the spatial distribution of focal area fragmentation and integration across the landscape by measuring the contrast between adjacent land cover types.
+
+- DIFA Index aims to quantify how well integrated a focal area is within a landscape, which indicates the landscape's capacity to conserve biodiversity.
+
+- QUES-B enables the comparison of the integration of focal areas across various zones or landscapes, assessment of temporal changes in habitat integration, and identification of vulnerable areas for conservation prioritisation.
+
+
+# Input data
+
+## Land-Use/Cover Map in `r params$inputs$t1` {.tabset}
+
+### Land Use/Cover Map
+
+```{r input-data, echo=FALSE, message=FALSE, warning=FALSE}
+plot_categorical_raster(lc_t1_map)
+```
+
+### Land Use/Cover Lookup Table
+
+```{r Land Use/Cover Lookup Table, echo=FALSE}
+read.csv(params$inputs$lulc_lut_path) %>% 
+  kbl(caption = "Land Use/Cover Lookup Table", escape = FALSE) %>%
+  kable_paper("hover", full_width = F )
+```
+
+<font size="2"> **\***Land-use/cover class that represents important habitat or refugia for the taxon of interests is assigned `FocalArea = 0` .</font size>
+
+
+### Edge Contrast Matrix
+
+A table defining contrast weights between different land use/cover types. Values range from 0 (identical) to 1 (maximum contrast).
+
+```{r Edge Contrast Matrix, echo=FALSE}
+contrast_table <- read.csv(params$inputs$contab_pat, skip = 2)
+colnames(contrast_table) <- read.csv(params$inputs$lulc_lut_path) %>% rename(Value=1) %>% filter(!Value %in% 0) %>% pull(2)
+rownames(contrast_table)<- read.csv(params$inputs$lulc_lut_path) %>% rename(Value=1) %>%  filter(!Value %in% 0) %>% pull(2)
+
+contrast_table %>% round(digits = 3) %>% 
+  kbl(caption = "Edge Contrast Matrix", escape = FALSE) %>%
+  kable_paper("hover", full_width = F )
+```
+
+# Results
+
+<!-- Brief explanation of how to interpret the presented data at the landscape level. -->
+
+<!-- Standard text, mandatory for all LUMENS Module -->
+
+## Focal Area Map
+
+Focal area map illustrates the distribution of selected habitats of high biodiversity importance, that is `r focal_area_estimates$Class` (shown in dark green) within the landscape. The map is overlaid with a sampling grid where each cell represents an area of `r report_params$inputs$window_size^2/10000` hectares.
+
+```{r focal_area, echo=FALSE, message=FALSE, warning=FALSE}
+fa <- file.path(params$output_dir, params$dir_focal_area) %>% rast() %>% terra::as.factor()
+
+fill_scale <- scale_fill_manual(values = rev(c("0"= "#f9ffe3","1"= "darkgreen")), na.value = "white",
+                                labels = c('Others', 'Focal Area'), na.translate = F )
+                    
+sampling_grid <- file.path(output_dir,params$dir_sampling_grid) %>% st_read(quiet=TRUE)
+ggplot() +
+    geom_spatraster(data = fa) +
+    geom_sf(data = sampling_grid, fill=NA)+
+    coord_sf()+
+    fill_scale +
+    theme_bw() +
+    theme(legend.position = "bottom", 
+          legend.title = element_blank(), 
+          legend.key = element_rect(colour='grey32'))+
+   guides(fill = guide_legend(reverse=T))
+```
+
+## TECI Map
+
+TECI map illustrates the spatial distribution of Total Edge Contrast Index (TECI) values across the study area, representing `r focal_area_estimates$Class` fragmentation and integration within the landscape.
+
+```{r teci_map, echo=FALSE, message=FALSE, warning=FALSE}
+teci_map <- file.path(params$output_dir, params$dir_teci_map) %>% rast() 
+basemap<- fa %>% classify(cbind(0,1)) %>% as.factor()
+
+ggplot() +
+  geom_spatraster(data = basemap, show.legend = FALSE)+
+  scale_fill_manual(name ="Basemap", values = c("1"="lightgrey"), na.value = "transparent")+
+  ggnewscale::new_scale_fill()+
+  geom_spatraster(data = teci_map, inherit.aes = FALSE) +
+  scale_fill_viridis_c(name ="TECI", limits=c(0, 100),
+    option = "H", na.value = "transparent")+
+  theme_bw() +
+  guides(colour=guide_legend(title = "TECI"))+
+  theme(legend.position = "bottom")
+```
+
+Lower TECI values, shown in darker blue colours, indicate well-integrated areas with minimal contrast between adjacent land cover types. Conversely, higher TECI values, depicted gradually in green, yellow, and ultimately red, represent more segregated areas with greater contrast between neighbouring land uses. The grey areas represent areas that are outside the dispersal radius of `r params$inputs$window_size` meters from the focal area.
+
+## DIFA Plot
+
+This graph illustrates the Degree of Integration of Focal Area (DIFA) Index, which measures how well integrated the focal habitat is within the landscape. The DIFA score for this landscape is is `r params$difa_score`%.
+
+```{r key-results-maps, echo=FALSE}
+# Create DIFA plot
+ggplot(params$difa_table, aes(x = TECI, y = FocalArea, xend = 100, yend = 100)) +
+    geom_area(alpha = 0.8) +
+    labs(x = "DIFA", y = "Cumulative Focal Area (%)") +
+    theme_bw() +
+    labs(caption = paste("DIFA Score = ", params$difa_score))
+```
+
+The x-axis represents the Total Edge Contrast Index (TECI), while the y-axis shows the cumulative proportion of focal area. The curve depicts the relationship between habitat fragmentation (TECI) and habitat amount. The area under this curve determines the DIFA score, ranging from 0 to 100%. Higher scores indicate better habitat integration.
+
+------------------------------------------------------------------------
+
+<!-- Mandatory closing statement for all module -->
+
+<font size="1"> LUMENS is free software and comes with ABSOLUTELY NO WARRANTY. Users are responsible for the results generated. Results depend on the quality of the input data ("garbage in, garbage out") and may vary or be sensitive to the parameters used. Please report any problems encountered while using LUMENS as [a GitHub issue](https://github.com/icraf-indonesia/lumens-shiny/issues). Feedback and questions are welcome [Contact Us URL]. </font size>

@@ -1,0 +1,1 @@
+shiny::runApp('08_ta-regional1/rscript/', launch.browser = T, port = 875)
