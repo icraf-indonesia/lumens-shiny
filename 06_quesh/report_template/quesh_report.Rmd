@@ -21,6 +21,7 @@ params:
   c: NA
   p: NA
   a: NA
+  df: NA
 ---
 
 ```{r setup, include=FALSE}
@@ -188,9 +189,30 @@ plot(params$p)
 #| results: false
 #| warning: false
 
-levelplot(a, margin = FALSE, main = "Mean Annual Erosion")
+plot(params$a)
 
-hist(a, xlim = c(0, 10000), main = "Histogramm of mean annual erosion (arbitary input layers)")
+ggplot(params$df, aes(x = `Soil Erosion Rates`)) +
+    geom_bar(aes(y = `Area (Ha)`), stat = "identity", fill = "blue", alpha = 0.6) +
+    geom_text(aes(y = `Area (Ha)`, label = scales::comma(`Area (Ha)`)), 
+              vjust = -0.5, color = "black", size = 4) +
+    geom_line(aes(y = `Percentage (%)` * max(params$df$`Area (Ha)`) / max(params$df$`Percentage (%)`)), 
+              group = 1, color = "red", size = 1.2) +
+    geom_point(aes(y = `Percentage (%)` * max(params$df$`Area (Ha)`) / max(params$df$`Percentage (%)`)), 
+               color = "red", size = 3) +
+    scale_y_continuous(
+      name = "Area (Ha)",
+      labels = scales::comma,
+      sec.axis = sec_axis(~ . * max(params$df$`Percentage (%)`) / max(params$df$`Area (Ha)`), 
+                          name = "Percentage (%)", labels = scales::comma)
+    ) +
+    labs(title = "Soil Erosion Rates: Area (Ha) and Percentage (%)",
+         x = "Soil Erosion Rates") +
+    theme_minimal() +
+    theme(
+      axis.title.y = element_text(color = "blue"),
+      axis.title.y.right = element_text(color = "red"),
+      axis.text.x = element_text(angle = 45, hjust = 1)
+    )
 ```
 
 ------------------------------------------------------------------------

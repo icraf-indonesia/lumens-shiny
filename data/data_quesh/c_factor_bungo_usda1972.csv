@@ -1,42 +1,42 @@
-ID,LC,C_factor
-1,Hutan Primer,0.004
-2,Hutan bekas tebangan kerapatan tinggi,0.004
-3,Hutan bekas tebangan kerapatan rendah,0.004
-4,Hutan Rawa Primer,0.004
-5,Hutan Rawa Sekunder,0.004
-6,Hutan Rawa Primer Gambut,0.004
-7,Hutan Rawa Sekunder Gambut,0.004
-8,Hutan Mangrove Primer,0.004
-9,Hutan Mangrove Sekunder,0.004
-10,Agroforestri karet,0.03
-11,Agoroforestri kelapa/pinang,0.03
-12,Agroforestri kayu manis,0.03
-13,Agroforestri kopi,0.03
-14,Kebun campuran,0.03
-15,HTI Akasia,0.03
-16,Karet monokultur,0.03
-17,Kelapa sawit,0.03
-18,Kelapa,0.4
-19,Semak,0.4
-20,Lahan pertanian,0.4
-21,Sawah,0.4
-22,Perkebunan teh,0.4
-23,Rumput,0.4
-24,Lahan terbuka,1
-25,Pemukiman,0
-26,Agroforestri karet gambut,0.03
-27,Agoroforestri kelapa/pinang gambut,0.03
-29,Agroforestri kopi gambut,0.03
-30,Kebun campuran gambut,0.03
-31,HTI Akasia gambut,0.03
-32,Karet monokultur gambut,0.03
-33,Kelapa sawit gambut,0.03
-34,Kelapa gambut,0.4
-35,Semak gambut,0.4
-36,Lahan pertanian gambut,0.4
-37,Sawah gambut,0.4
-39,Rumput gambut,1
-40,Lahan terbuka gambut,1
-41,Pemukiman gambut,0
-42,Air,0
-43,Kayu manis monokultur,0.03
+ID,C_factor,LC
+1,0.004,Hutan Primer
+2,0.004,Hutan bekas tebangan kerapatan tinggi
+3,0.004,Hutan bekas tebangan kerapatan rendah
+4,0.004,Hutan Rawa Primer
+5,0.004,Hutan Rawa Sekunder
+6,0.004,Hutan Rawa Primer Gambut
+7,0.004,Hutan Rawa Sekunder Gambut
+8,0.004,Hutan Mangrove Primer
+9,0.004,Hutan Mangrove Sekunder
+10,0.03,Agroforestri karet
+11,0.03,Agoroforestri kelapa/pinang
+12,0.03,Agroforestri kayu manis
+13,0.03,Agroforestri kopi
+14,0.03,Kebun campuran
+15,0.03,HTI Akasia
+16,0.03,Karet monokultur
+17,0.03,Kelapa sawit
+18,0.4,Kelapa
+19,0.4,Semak
+20,0.4,Lahan pertanian
+21,0.4,Sawah
+22,0.4,Perkebunan teh
+23,0.4,Rumput
+24,1,Lahan terbuka
+25,0,Pemukiman
+26,0.03,Agroforestri karet gambut
+27,0.03,Agoroforestri kelapa/pinang gambut
+29,0.03,Agroforestri kopi gambut
+30,0.03,Kebun campuran gambut
+31,0.03,HTI Akasia gambut
+32,0.03,Karet monokultur gambut
+33,0.03,Kelapa sawit gambut
+34,0.4,Kelapa gambut
+35,0.4,Semak gambut
+36,0.4,Lahan pertanian gambut
+37,0.4,Sawah gambut
+39,1,Rumput gambut
+40,1,Lahan terbuka gambut
+41,0,Pemukiman gambut
+42,0,Air
+43,0.03,Kayu manis monokultur

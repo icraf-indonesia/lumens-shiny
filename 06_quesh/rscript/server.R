@@ -12,7 +12,8 @@ server <- function(input, output, session) {
     orgc_file = NULL,
     lc_dir = NULL,
     pu_file = NULL,
-    c_ref_file = NULL
+    c_ref_file = NULL,
+    map_resolution = NULL
   )
   
   volumes <- c(getVolumes()())
@@ -75,6 +76,14 @@ server <- function(input, output, session) {
       req(rv$pu_file, message = "Please upload the planning unit map.")
       req(rv$c_ref_file, message = "Please upload the c factor attribute table.")
       
+      # Prepare the planning unit
+      pu1 <- st_read(rv$pu_file)
+      pu <- rasterise_multipolygon(
+        sf_object = pu1, 
+        raster_res = c(rv$map_resolution, rv$map_resolution), 
+        field = paste0(colnames(st_drop_geometry(pu1[1])))
+      )
+      
       # 2. R - Rainfall erosivity preparation -----------------------------------------------------
       
       # Define R factor data
@@ -107,62 +116,26 @@ server <- function(input, output, session) {
       
       # 4. LS - Length and steepnes preparation --------------------------------
       
-      # Define LS factor data
-      dem <- syncGeom(input = rv$dem_file, ref = rv$pu_file)
-      slope_deg <- terrain(dem, v = "slope", unit="degree")  
-      slope_rad <- terrain(dem, v = "slope", unit="radians") 
-      aspect <- terrain(dem, v = "aspect", unit="radians") 
-      flow_acc <- terrain(dem, v = "flowdir")
-      
-      # Calculate LS factor by Previous LUMENS Script
-      # ls_factor <- calculate_ls(
-      #   slope = slope_rad,
-      #   aspect = aspect
-      # )
+      dem <- syncGeom(input = rv$dem_file, ref = pu)
       
       # Calculate LS factor by Moore & Burch (1986) - BRIN 
-      # ls_factor <- calculate_ls_moore(
-      #   dem = dem,
-      #   slope = slope_rad,
-      #   flow_acc = flow_acc
-      # )
-      
-      # Calculate LS Factor by Moore and Burch (1986) and Moore and Wilson (1992)
-      # m <- 0.4  # value can range between 0.4 and 0.6
-      # n <- 1.3  # value can range between 1.22 and 1.3
-      # 
-      # ls_factor <- ((flow_acc / 22.13)^m) * ((sin(slope) / 0.0896)^n) # use radians slope
-      
-      # Calculate LS factor by Wischmeier and Smith (1978)
-      # Function to classify 'm' based on the slope angle (β)
-      calculate_m <- function(slope_val) {
-        if (is.na(slope_val)) {
-          return(NA)
-        } else if (slope_val > 0.05) {
-          return(0.5)
-        } else if (slope_val > 0.03) {
-          return(0.4)
-        } else if (slope_val > 0.01) {
-          return(0.3)
-        } else {
-          return(0.2)
-        }
-      }
-      
-      m <- app(slope_rad, fun = function(x) sapply(x, calculate_m))
-      ls_factor <- ((flow_acc / 22.13)^m) * (65.4 * (sin(slope_rad)^2) + 4.5 * sin(slope_rad) + 0.0654) # use radians slope
+      ls_factor <- calculate_ls_moore(dem = dem)
       
       writeRaster(ls_factor, paste0(rv$wd, "ls_factor.tif"), overwrite = TRUE)
       
       # 5. C - Cover management preparation -------------------------------------
       
       # Define C factor data
-      c_ref <- read.csv(rv$c_ref_file)
-      landcover <- syncGeom(input = rv$lc_dir, ref = rv$pu_file)
+      c_ref <- readr::read_csv(rv$c_ref_file)
+      landcover <- rast(rv$lc_dir)
+      landcover_c <- landcover
+      lookup_lc <-landcover_c %>% freq() %>%
+        select(ID=value) %>%
+        left_join(c_ref, by="ID") %>% select(-LC)
       
-      lc <- as.factor(landcover)
-      reclass_matrix <- as.matrix(c_ref[, c("ID", "C_factor")])
-      c_factor <- classify(landcover, reclass_matrix, others = 1)
+      levels(landcover_c)[[1]] <- lookup_lc
+      
+      c_factor <- landcover_c %>% as.numeric(1) %>% resample(pu, method="near")
       
       # Method 1
       # c_factor_lookup <- setNames(c_ref$C_factor, c_ref$ID)
@@ -191,7 +164,7 @@ server <- function(input, output, session) {
       
       
       # 6. P - Practice factor preparation --------------------------------------
-      
+      slope_deg <- terrain(dem, v = "slope", unit="degree") 
       slope_pct <- tan(slope_deg * pi / 180) * 100
       
       # There are 3 option for practice management according to Shin (1999)
@@ -224,20 +197,57 @@ server <- function(input, output, session) {
       
       writeRaster(a, filename = paste0(rv$wd, "soil_erosion.tif"), overwrite = TRUE)
       
+      # 8. Data Visualization ---------------------------------------------------
+      
+      # Landcover preparation
+      lc_class <-landcover %>% freq() %>%
+        select(ID=value) %>%
+        left_join(c_ref, by="ID") %>% select(-C_factor)
+      levels(landcover)[[1]] <- lc_class
+      
+      # Reclassify erosion rates based on China National Standard (2008)
+      breaks <- c(-Inf, 5, 25, 50, 80, 150, Inf)
+      labels <- c("Slight (< 5 ton/ha/yr)", 
+                  "Mild (5-25 ton/ha/yr)", 
+                  "Moderate (25-50 ton/ha/yr)", 
+                  "Strong (50-80 ton/ha/yr)", 
+                  "Very strong (80-150 ton/ha/yr)", 
+                  "Severe (> 150 ton/ha/yr)")
+      rcl_matrix <- cbind(breaks[-length(breaks)], breaks[-1], 1:(length(breaks)-1))
+      
+      erosion_classified <- classify(a, rcl = rcl_matrix)
+      levels(erosion_classified) <- data.frame(id=1:6, category=labels)
+      plot(erosion_classified)
+      
+      writeRaster(erosion_classified, filename = paste0(output_dir, "soil_erosion_reclass.tif"), overwrite = TRUE)
+      
+      # Create dataset
+      erosion_db <- data.frame(erosion_classified) %>%
+        group_by(across(everything())) %>% 
+        summarise(count = n())
+      colnames(erosion_db, do.NULL = FALSE)
+      colnames(erosion_db) <- c("Soil Erosion Rates","Area (Ha)")
+      erosion_db$`Area (Ha)`*(10000/(path$map_resolution^2))
+      erosion_db$`Percentage (%)` <- (erosion_db$`Area (Ha)`/sum(erosion_db$`Area (Ha)`))*100
+      
+      # hist_erosion(df = erosion_db)
+      
+      write.csv(erosion_db, file = paste0(output_dir, "soil_erosion.csv"))
+      
       # End of the script
       end_time <- Sys.time()
       cat("Started at:", format(start_time, "%Y-%m-%d %H:%M:%S"), "\n")
       cat("Ended at:", format(end_time, "%Y-%m-%d %H:%M:%S"), "\n")
       
-      # 8. 8. Prepare parameters for report -------------------------------------
+      # 9. Prepare parameters for report -------------------------------------
       
       report_params <- list(
         start_time = as.character(format(start_time, "%Y-%m-%d %H:%M:%S")),
         end_time = as.character(format(end_time, "%Y-%m-%d %H:%M:%S")),
-        output_dir = rv$wd,
-        dem = rv$dem,
-        pu = rv$pu,
-        rainfall = rv$rainfall_annual,
+        output_dir = output_dir,
+        dem = dem,
+        pu = pu,
+        rainfall = rainfall_annual,
         soil = soil_stack,
         landcover = landcover,
         r = r,
@@ -245,7 +255,9 @@ server <- function(input, output, session) {
         ls = ls,
         c = c,
         p = p,
-        a = a
+        a = erosion_classified,
+        df = erosion_db, 
+        map_resolution = map_resolution
       )
       
       # Render the R markdown report

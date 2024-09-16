@@ -32,13 +32,13 @@ install_load(
   "tools",
   "magrittr", 
   "lattice", 
-  "rasterVis"
+  "rasterVis",
+  "classInt", 
+  "ggplot2", 
+  "scales"
 )
 
-### Data Preparation for RUSLE Modelling ###
-
-
-# 1. Calculation of R (Moore, 1979) ---------------------------------------
+# Calculation of R (Moore, 1979) ---------------------------------------
 
 calculate_r_moore <- function(p) {
   ke <- 11.46*p - 2226
@@ -48,7 +48,7 @@ calculate_r_moore <- function(p) {
 }
 
 
-# 2. Calculation of K (Williams, 1995) ------------------------------------
+# Calculation of K (Williams, 1995) ------------------------------------
 
 calculate_k_williams <- function(sndprc, sltprc, clyprc, orcprc){
   a <- (0.2 + 0.3*exp(-0.0256*sndprc*(1 - sltprc/100)))
@@ -60,13 +60,17 @@ calculate_k_williams <- function(sndprc, sltprc, clyprc, orcprc){
   return(k)
 }
 
-# 3. Calculation of LS  ----------------------------------------------------
+# Calculation of LS  ----------------------------------------------------
 
 # Calculate LS by (Moore & Burch, 1986) - BRIN
-calculate_ls_moore <- function(dem, slope, flow_acc) {
+calculate_ls_moore <- function(dem) {
+  slope_deg <- terrain(dem, v = "slope", unit="degree") 
+  flow_acc <- terrain(dem, v = "flowdir")
   cell_size <- res(dem)[1]
   slope_length <- flow_acc * cell_size
-  ls_factor <- (slope_length / 22.13)^0.4 * (0.01745 * sin(slope * pi / 180) / 0.0896)^1.3 * 1.6
+  # ls <- (slope_length / 22.13)^0.4 * ((0.01745 * sin(slope_deg)) / 0.0896)^1.3 * 1.6 => BRIN
+  intermediate_values <- abs((0.01745 * sin(slope_deg)) / 0.0896) # prevent negative or zero slope values from causing calculation issues
+  ls_factor <- (slope_length / 22.13)^0.4 * (intermediate_values)^1.3
   return(ls_factor)
 }
 
@@ -77,7 +81,7 @@ calculate_ls <- function(slope, aspect) {
   return(ls)
 }
 
-# 4. Calculation of C (Van der Knijff et al, 2000) ------------------------
+# Calculation of C (Van der Knijff et al, 2000) ------------------------
 
 calculate_c_knijff <- function(ndvi) {
   alpha <- 2 # as suggested by Knijff 2000
@@ -87,7 +91,7 @@ calculate_c_knijff <- function(ndvi) {
 }
 
 
-# 5. Calculation of C using landcover -------------------------------------
+# Calculation of C using landcover -------------------------------------
 
 calculate_c_lc <- function(landcover, c_ref) {
   landcover[landcover == path$raster.nodata] <- NA
@@ -100,7 +104,7 @@ calculate_c_lc <- function(landcover, c_ref) {
   return(c_factor)
 }
 
-# 6. Sync geometric properties --------------------------------------------
+# Sync geometric properties --------------------------------------------
 
 syncGeom <- function(input, ref){
   ref1 <- rast(ref) %>% 
@@ -113,7 +117,7 @@ syncGeom <- function(input, ref){
 }
 
 
-# 7. Calculation of P factor  ---------------------------------------------
+# Calculation of P factor  ---------------------------------------------
 
 calculate_p_shin <- function(slope_pct, p_user){
   p_factor_combined <- slope_pct
@@ -171,6 +175,35 @@ calculate_p_shin <- function(slope_pct, p_user){
   return(p_factor_combined)
 }
 
+
+# Plot Histogram of Soil Erosion Rate -------------------------------------
+hist_erosion <- function(df) {
+  ggplot(df, aes(x = `Soil Erosion Rates`)) +
+    geom_bar(aes(y = `Area (Ha)`), stat = "identity", fill = "blue", alpha = 0.6) +
+    geom_text(aes(y = `Area (Ha)`, label = scales::comma(`Area (Ha)`)), 
+              vjust = -0.5, color = "black", size = 4) + 
+    geom_line(aes(y = `Percentage (%)` * max(df$`Area (Ha)`) / max(df$`Percentage (%)`)), 
+              group = 1, color = "red", size = 1.2) +
+    geom_point(aes(y = `Percentage (%)` * max(df$`Area (Ha)`) / max(df$`Percentage (%)`)), 
+               color = "red", size = 3) +
+    scale_y_continuous(
+      name = "Area (Ha)",
+      labels = scales::comma,  
+      sec.axis = sec_axis(~ . * max(df$`Percentage (%)`) / max(df$`Area (Ha)`), 
+                          name = "Percentage (%)", labels = scales::comma)
+    ) +
+    labs(title = "Soil Erosion Rates: Area (Ha) and Percentage (%)",
+         x = "Soil Erosion Rates") +
+    theme_minimal() +
+    theme(
+      axis.title.y = element_text(color = "blue"),
+      axis.title.y.right = element_text(color = "red"),
+      axis.text.x = element_text(angle = 45, hjust = 1)  # Rotate x-axis labels
+    )
+}
+
+
+# Download Soil Data ------------------------------------------------------
 
 #' Download SoilGrids data
 #'
@@ -320,4 +353,51 @@ check_and_install_packages <- function(required_packages) {
   } else {
     cat("\nAll required packages are installed and loaded.\n")
   }
+}
+
+#' Rasterize an sf MULTIPOLYGON object
+#'
+#' This function rasterizes an sf MULTIPOLYGON object to a SpatRaster object. The function also retains
+#' an attribute table from the sf object, by assigning categorical ID values to the raster values.
+#' The rasterized SpatRaster object will also contain a legend derived from the attribute table of the sf object.
+#'
+#' @param sf_object An sf MULTIPOLYGON object. It must contain an attribute table, with at least one categorical ID (numeric).
+#' @param raster_res A numeric vector specifying the resolution of the raster. Default is c(100,100).
+#' @param field A character string specifying the field name to be used for rasterization from the sf object. Default is "ID".
+#' @return A SpatRaster object that is a rasterized version of the input sf object, with a legend derived from the attribute table of the sf object.
+#' @importFrom sf st_drop_geometry st_geometry_type st_crs
+#' @importFrom terra vect ext rast rasterize levels
+#' @export
+#' @examples
+#' rasterise_multipolygon(sf_object = ntt_admin, raster_res = c(100,100), field = "ID")
+rasterise_multipolygon <- function(sf_object, raster_res = c(100,100), field = "ID"){
+  
+  # Error checking
+  if (!inherits(sf_object, "sf")) stop("sf_object must be an sf object.")
+  if (!all(sf::st_geometry_type(sf_object) == "MULTIPOLYGON")) stop("All features in sf_object must be MULTIPOLYGONs.")  # Check if sf_object has UTM projection
+  if (!grepl("\\+proj=utm", st_crs(sf_object)$proj4string)) stop("sf_object must have UTM projection system.")
+  if (is.null(sf::st_drop_geometry(sf_object)) || !(field %in% names(sf::st_drop_geometry(sf_object)))) stop("sf_object must contain an attribute table with at least one numeric/factor column.")
+  if (!is.numeric(sf_object[[field]]) && !is.factor(sf_object[[field]])) stop("The field must be numeric or a factor.")
+  
+  # Convert the sf object to a SpatVector
+  spatvect <- terra::vect(sf_object)
+  
+  # Define the extent based on the SpatVector
+  raster_extent <- terra::ext(spatvect)
+  
+  # Create an empty SpatRaster based on the extent, resolution, and CRS
+  raster_template <- terra::rast(raster_extent, resolution = raster_res, crs = terra::crs(spatvect))
+  
+  # Rasterize the SpatVector based on the SpatRaster template
+  # Specify the field in the rasterize function
+  rasterised_spatraster <- terra::rasterize(spatvect, raster_template, field = field)
+  
+  # Convert the 'Kabupaten' column of the sf_object to a lookup_table
+  lookup_table <- sf::st_drop_geometry(sf_object)
+  
+  # Add legend to the rasterized SpatRaster using the lookup_table
+  levels(rasterised_spatraster) <- lookup_table
+  
+  # Return the rasterized SpatRaster with legend
+  return(rasterised_spatraster)
 }
