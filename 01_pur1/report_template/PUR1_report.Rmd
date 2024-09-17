@@ -140,8 +140,9 @@ summary_table <- params$db_final2 %>%
   mutate(Percentage = Area_ha / sum(Area_ha) * 100) %>%
   arrange(desc(Area_ha))
 
-kable(summary_table, caption = "Summary of Reconciliation Results") %>%
-  kable_styling(bootstrap_options = c("striped", "hover"))
+DT::datatable(summary_table)
+# kable(summary_table, caption = "Summary of Reconciliation Results") %>%
+#   kable_styling(bootstrap_options = c("striped", "hover"))
 ```
 
 ### Summary of Unresolved Cases
@@ -149,8 +150,9 @@ kable(summary_table, caption = "Summary of Reconciliation Results") %>%
 ```{r key-unresolved-table, echo=FALSE}
 summary_unresolved <- params$database_unresolved_out
 
-kable(summary_unresolved, caption = "Summary of Unresolved Cases") %>%
-  kable_styling(bootstrap_options = c("striped", "hover"))
+DT::datatable(summary_unresolved)
+# kable(summary_unresolved, caption = "Summary of Unresolved Cases") %>%
+#   kable_styling(bootstrap_options = c("striped", "hover"))
 ```
 
 ------------------------------------------------------------------------

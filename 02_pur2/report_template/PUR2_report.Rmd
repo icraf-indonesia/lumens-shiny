@@ -53,8 +53,9 @@ plot(resolved_map["Rec_phase2"], main = "Resolved Map")
 ```{r}
 table_recon <- params$summary_PUR
 
-kable(table_recon, caption = "Summary of Final Reconciliation Results") %>%
-  kable_styling(bootstrap_options = c("striped", "hover"))
+DT::datatable(table_recon)
+# kable(table_recon, caption = "Summary of Final Reconciliation Results") %>%
+#   kable_styling(bootstrap_options = c("striped", "hover"))
 ```
 
 The table below summarizes the final reconciliation results:

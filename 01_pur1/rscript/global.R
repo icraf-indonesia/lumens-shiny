@@ -30,7 +30,8 @@ install_load(
   "remote",
   "shinyjs",
   "rmarkdown",
-  "tools"
+  "tools",
+  "DT"
 )
 
 #' Rasterize an sf MULTIPOLYGON object
