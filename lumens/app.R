@@ -38,17 +38,17 @@ server <- function(input, output) {
     system("rscript.exe call05.R")
   })
   
-  observeEvent(input$prequesButton, {
+  observeEvent(input$taProfitButton, {
     showNotification("Running TA Profitability", type = "message")
     system("rscript.exe call07.R")
   })
   
-  observeEvent(input$prequesButton, {
+  observeEvent(input$re1Button, {
     showNotification("Running TA RE 1", type = "message")
     system("rscript.exe call08.R")
   })
   
-  observeEvent(input$prequesButton, {
+  observeEvent(input$re2Button, {
     showNotification("Running TA RE 2", type = "message")
     system("rscript.exe call09.R")
   })  

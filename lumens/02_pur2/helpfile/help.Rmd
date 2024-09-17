@@ -1,0 +1,50 @@
+## Help Page for PUR Reconcile Module
+
+## 1. Description
+
+Planning unit reconciliation is a process to resolve overlapping permits by referring to function reference maps. Reconciliation is done by analyzing how well the permit data matches the reference data. Permit data can include things like forest management concessions, plantation permits, mining permits, and others. Reference data can be spatial planning data or area designation data.
+
+## 2. Required Data
+
+![](image/input.png)
+
+
+## 3. Running Model
+
+### 3.1 Input data
+
+#### Shapefile data (select all related shapefile):
+
+![](image/shapefile.png)
+
+#### Tabular data:
+
+Before running PUR 2 module, the reconcile action on 'PUR_unresolved_case.xlsx' need to be defined. You can use Microsoft Excel or any free spreadsheet software (e.g. Google Sheet) to do it:
+
+![](image/reconcile.png)
+
+Save file and input the tabular data
+
+![](image/tabular.png)
+
+#### Map resolution
+
+Default value: 100
+
+### 3.2 Set working directory
+
+![](image/set wd.png)
+
+### 3.3 Run the module
+
+![](image/run.png)
+
+## 4. Output
+
+### 4.1 Exported data
+
+![](image/exported data.png)
+
+### 4.2 Report file
+
+![](image/report.png)

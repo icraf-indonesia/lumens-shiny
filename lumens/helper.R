@@ -7,3 +7,5 @@ if(rmarkdown::pandoc_available() == FALSE) {
     )
   )
 }
+
+jscode <- "shinyjs.closeWindow = function() { window.close(); }"

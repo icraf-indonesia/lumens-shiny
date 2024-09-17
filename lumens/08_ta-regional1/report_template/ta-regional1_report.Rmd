@@ -1,0 +1,117 @@
+---
+title: "Trade-off Analysis Regional 1 Report"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+    df_print: kable
+params:
+  BPD_graph: NA
+  FPD_graph: NA
+  LRC_graph: NA
+  Linkages_table: NA
+  land.requirement_table: NA
+  PRS_graph : NA 
+  GDP : NA 
+  GDP_graph : NA 
+  multiplier : NA
+  OMPL_graph : NA 
+  IMPL_graph : NA 
+  LMPL_graph : NA 
+  P.sector.selected : NA
+---
+
+```{r setup, include = FALSE, warning = FALSE, message = FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(knitr)
+library(ggplot2)
+library(raster)
+```
+
+## Introduction
+
+This report presents the results of an analysis based on the provided maps and lookup table
+
+## Lookup Table Summary
+
+* A brief description or summary statistics of the lookup table data can be included here.
+
+## Analysis Results
+
+The maps provided was carbon, emission and sequestration map.
+
+* Calculation or analysis details based on the results can be presented here.
+
+## Analysis of Sectoral Linkages 
+### Table 1. Sectoral linkages
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+knitr::kable(params$Linkages_table)
+```
+
+### Direct Backward Linkages graph
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+plot(params$BPD_graph)
+```
+
+### Direct Forward Linkages graph 
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+plot(params$FPD_graph)
+```
+
+### Sectoral typology based on linkages analysis
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+plot(params$PRS_graph)
+```
+
+### Primary sectors based on potential linkage
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+knitr::kable(params$P.sector.selected)
+```
+
+## Analysis of GDP 
+### Sectoral GDP Table
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+knitr::kable(params$GDP)
+```
+
+### GDP graph 
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+plot(params$GDP_graph)
+```
+
+## Analysis of multiplier 
+### Sectoral Multiplier
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+knitr::kable(params$multiplier)
+```
+
+### Output Multiplier
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+plot(params$OMPL_graph)
+```
+
+### Input Multiplier
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+plot(params$IMPL_graph)
+```
+
+### Labour Multiplier
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+plot(params$LMPL_graph)
+```
+
+### Land Requirement Table
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+knitr::kable(params$land.requirement_table)
+```
+
+### Land Requirement Coefficient Graph 
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+plot(params$LRC_graph)
+```
+
+## Conclusion
+
+* Summarize the key findings or insights from the analysis.

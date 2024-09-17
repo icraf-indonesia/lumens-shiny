@@ -1,4 +1,2 @@
-# Load Pre-QuES analysis functions
-source("03_preques/rscript/functions_ques_pre.R")          
-# Launch the Pre-QuES Shiny application
-preques_app()
+# Load Pre-QuES analysis functions 
+shiny::runApp('03_preques/rscript/', launch.browser = T, port = 875)

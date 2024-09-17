@@ -1,0 +1,79 @@
+---
+title: "Trade-off Analysis Profit Report"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+    df_print: kable
+params:
+  map_carbon1: NA
+  map_carbon2: NA
+  emission_map: NA
+  opcost_map: NA
+  opcost_table: NA
+  opcost_curve: NA
+  npv1_map: NA
+  npv2_map: NA
+  delta_npv: NA
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(ggplot2)
+library(raster)
+```
+
+## Introduction
+
+This report presents the results of an analysis based on the provided maps and lookup table
+
+## Lookup Table Summary
+
+
+* A brief description or summary statistics of the lookup table data can be included here.
+
+
+## Analysis Results
+
+The maps provided was carbon, emission and sequestration map.
+
+* Calculation or analysis details based on the results can be presented here.
+
+### Opportunity Cost Table
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+head(params$opcost_table, n=10)
+```
+
+### Opportunity Cost Curve
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+plot(params$opcost_curve)
+```
+
+### NPV Map 1
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+plot(params$npv1_map)
+```
+
+### NPV Map 2
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+plot(params$npv2_map)
+```
+
+### Delta NPV Map
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+# plot(params$delta_npv)
+color_palette <- c("darkred", "white", "darkgreen")
+plot(params$delta_npv, 
+       col = color_palette,   
+       colNA = "grey",        
+       main = "NPV Change",
+       legend.args = list(text = NULL, side = 4, font = 2, line = 2.5, cex = 1.2))
+```
+
+## Conclusion
+
+* Summarize the key findings or insights from the analysis.

@@ -1,5 +1,5 @@
 ---
-title: "PreQUES-Land Use/Cover Change Analysis"
+title: "Pre-QuES - Land Use/Cover Change Analysis Report"
 output: 
   html_document:
     toc: true
@@ -17,6 +17,7 @@ params:
   dir_def_map_: NA
   dir_ques_pre_traj: NA
   dir_ques_pre_def: NA
+  log_params: NA
 ---
 
 ```{r setup, include=FALSE}
@@ -30,8 +31,14 @@ library(terra)
 library(ggplot2)
 library(tidyterra)
 library(dplyr)
-source("functions_ques_pre.R")
+```
 
+
+```{r load function, include=FALSE, error=TRUE, warning=TRUE, message=TRUE}
+source("../rscript/functions_ques_pre.R")
+```
+
+```{r init, include=FALSE}
 lc_t1_ <- rast(params$dir_lc_t1_)
 lc_t2_ <- rast(params$dir_lc_t2_)
 admin_ <- rast(params$dir_admin_)
@@ -41,8 +48,34 @@ time_2 <- terra::time(lc_t2_)
 ques_pre_output <- readRDS(params$dir_ques_pre)
 
 traj_analysis_output <- readRDS(params$dir_ques_pre_traj)
-def_analysis_output <- readRDS(params$dir_ques_pre_def)
+# def_analysis_output <- readRDS(params$dir_ques_pre_def)
 ```
+
+<details><summary>Click here for Analysis Log</summary>
+```{r analysis-log, echo=FALSE}
+
+analysis_log <- tribble(
+  ~Category,                   ~Details,
+  "Analysis Start",        params$log_params$start_time,
+  "Analysis End",          params$log_params$end_time,
+  "Input Data and Parameters", "",
+  "1. Landcover map T1",      params$dir_lc_t1_,
+  "2. Year T1", as.character(time_1),
+  "3. Landcover map T2",      params$dir_lc_t2_,
+  "4. Year T2",      as.character(time_2),
+  #"5. Landcover lookup",   params$inputs$lulc_lut_path,
+  "5. Planning unit map", params$dir_admin_,
+  "Outputs", "",
+  "Output Workspace",      params$log_params$output_dir,
+  "Session Summary", "",
+) %>% rbind(format_session_info_table())
+
+analysis_log %>% 
+  kbl(caption = "Analysis Log", escape = FALSE) %>%
+  kable_paper("hover", full_width = F )
+```
+</details>
+
 
 # Introduction
 
@@ -59,7 +92,7 @@ Pre-QuES is a land use change assessment module that provides key information to
 
 2.  **Integrating Planning Unit maps**: The analysis then integrates planning unit information. This step allows us to observe land cover change trends within each planning unit class, providing a more nuanced understanding of regional changes.
 
-# Data Used
+# Data Used 
 
 Here are the data components used in the land change analysis:
 
@@ -71,21 +104,23 @@ Here are the data components used in the land change analysis:
 
 -   **Planning Unit Class Reference Table**: Attribute table defining the classification scheme and characteristics of different planning unit types.
 
-## Land Use/Cover Map for Year `r time_1`
+## Land Cover Maps {.tabset}
+
+### Year `r time_1` 
 
 
 ```{r}
 plot_categorical_raster(lc_t1_)
 ```
 
-## Land Use/Cover Map for Year `r time_2`
+### Year `r time_2`
 
 
 ```{r}
 plot_categorical_raster(lc_t2_)
 ```
 
-## Reference Table of The Land Use/Cover Maps
+### Lookup Table
 
 ```{r}
 kable(ques_pre_output[["input_dataviz"]][["tbl_lookup_lc_t2"]], 
@@ -93,13 +128,15 @@ kable(ques_pre_output[["input_dataviz"]][["tbl_lookup_lc_t2"]],
   kable_styling(bootstrap_options = c("striped", "hover"))
 ```
 
-## Planning Unit Map
+## Planning Unit Map {.tabset}
+
+### Map
 
 ```{r}
 plot_categorical_raster(admin_)
 ```
 
-## Reference Table of The Planning Unit Map
+### Lookup Table
 
 ```{r}
 kable(ques_pre_output[["input_dataviz"]][["tbl_lookup_admin"]], 
@@ -109,51 +146,55 @@ kable(ques_pre_output[["input_dataviz"]][["tbl_lookup_admin"]],
 
 # Pre-QuES Analysis Results at the Landscape Level
 
-## Land Use/Cover Composition
+## Land Use/Cover Composition {.tabset}
 
 ### Table
 
 ```{r}
-kable(ques_pre_output[["input_dataviz"]][["lc_composition_tbl"]], 
-      caption = "Land Use/Cover Composition") %>%
+ques_pre_output[["input_dataviz"]][["lc_composition_tbl"]] %>%
+  #mutate_if(is.numeric, easy_to_read_numbers) %>%
+  kable(caption = "Land Use/Cover Composition") %>%
   kable_styling(bootstrap_options = c("striped", "hover"))
 ```
 
 ### Graph
 
-```{r}
+```{r echo=FALSE}
 ques_pre_output[["input_dataviz"]][["lc_composition_barplot"]]
 ```
 
 ## Overall Land Use/Cover Dynamics
 
-```{r}
+```{r echo=FALSE}
 ques_pre_output[["landscape_level"]][["sankey_landscape"]]
 ```
 
 *Only changes above `r params$cutoff_landscape` pixels are displayed.*
 
-## Snapshot of Land Use/Cover Changes
+## Snapshot of Land Use/Cover Changes 
 
 *Without considering unchanged/stable land cover.*
 
-```{r}
+```{r echo=FALSE}
 ques_pre_output[["landscape_level"]][["sankey_landscape_chg_only"]]
 ```
 
 *Only changes above `r params$cutoff_landscape` pixels are displayed.*
 
-### Table of Top 10 Types of Land Use/Cover Changes
+## Top 10 Types of Land Use/Cover Changes {.tabset}
 
-```{r}
-kable(ques_pre_output[["landscape_level"]][["luc_top_10_tbl"]], 
-      caption = "Top 10 Types of Land Use/Cover Changes") %>%
+### Table
+
+```{r echo=FALSE}
+ques_pre_output[["landscape_level"]][["luc_top_10_tbl"]] %>%
+  mutate_if(is.numeric, easy_to_read_numbers) %>%
+  kable(caption = "Top 10 Types of Land Use/Cover Changes") %>%
   kable_styling(bootstrap_options = c("striped", "hover"))
 ```
 
-### Graph of Top 10 Types of Land Use/Cover Changes
+### Graph
 
-```{r}
+```{r echo=FALSE}
 ques_pre_output[["landscape_level"]][["luc_top_10_barplot"]]
 ```
 
@@ -161,10 +202,11 @@ ques_pre_output[["landscape_level"]][["luc_top_10_barplot"]]
 
 ```{r child_document, echo=FALSE, fig.keep='all', results='asis'}
 for (i in names(ques_pre_output[["pu_level"]])) {
-  cat("## ", i, "\n\n")
+  cat("## ", i, "{.tabset} \n\n")
   
   cat("### Top 10 Types of Land Use/Cover Changes in", i, "\n\n")
-  tabel_pu <- ques_pre_output[["pu_level"]][[i]][["luc_top_pu"]] %>% 
+  tabel_pu <- ques_pre_output[["pu_level"]][[i]][["luc_top_pu"]] %>%
+    mutate_if(is.numeric, easy_to_read_numbers) %>%
     kable() %>% 
     kable_styling(bootstrap_options = c("striped", "hover")) 
   cat(sprintf(tabel_pu))
@@ -180,7 +222,7 @@ for (i in names(ques_pre_output[["pu_level"]])) {
 
 
 
-# Pre-QuES Land Use/Cover Trajectory Analysis (FAO)
+# Pre-QuES Land Use/Cover Trajectory Analysis
 
 ## Land Use/Cover Trajectory Analysis Results at the Landscape Level
 ### Map of Land Use/Cover Change Trajectories
@@ -190,24 +232,26 @@ traj_map <- rast(params$dir_traj_map_)
 
 lookup_traj <-
   cats(traj_map)[[1]] %>%
-  left_join(color_landuse_trajectories(), by = "trajectory")
+  left_join(color_landuse_trajectories(), by = "value")
 
 levels(traj_map) <- lookup_traj
+set.names(traj_map, "Land Use/Cover Trajectory")
 
 traj_map %>% 
   plot_categorical_raster()
 ```
 
-### Summary of Pre-QuES Land Use/Cover Change Trajectories
+### Summary of Pre-QuES Land Use/Cover Change Trajectories {.tabset}
 
-#### Graph
+#### Table
 ```{r}
 traj_analysis_output$landscape_level$table_traj_area %>%
+  mutate_if(is.numeric, easy_to_read_numbers) %>% 
   kable() %>%
   kable_styling(bootstrap_options = c("striped", "hover"))
 ```
 
-#### Table
+#### Graph
 ```{r}
 traj_analysis_output$landscape_level$barplot_traj
 ```
@@ -219,12 +263,13 @@ traj_analysis_output$landscape_level$barplot_traj
 render_child <- function(results_list, i) {
   res = knitr::knit_child(
    text = c(
-     "### `r i`",
+     "### `r i` {.tabset}",
      "",
      "#### Table of Land Use/Cover Change Trajectories in `r i`",
      "```{r}",
      "#| echo: false",
      "results_list[[i]][['traj_tbl_pu']] %>%",
+     "mutate_if(is.numeric, easy_to_read_numbers) %>%",
      "  kable() %>%",
      "  kable_styling(bootstrap_options = c('striped', 'hover'))",
      "```",
@@ -247,12 +292,12 @@ for (i in names(traj_analysis_output[["pu_level"]])) {
 }
 ```
 
-# Pre-QuES Land Use/Cover Trajectory Analysis (Deforestation and Degradation)
+<!-- # Pre-QuES Land Use/Cover Trajectory Analysis (Deforestation and Degradation) -->
 
-## Land Use/Cover Trajectory Analysis Results at the Landscape Level
-### Map of Land Use/Cover Change Trajectories (Deforestation and Degradation)
+<!-- ## Land Use/Cover Trajectory Analysis Results at the Landscape Level -->
+<!-- ### Map of Land Use/Cover Change Trajectories (Deforestation and Degradation) -->
 
-```{r}
+```{r eval=FALSE, include=FALSE}
 def_map <- rast(params$dir_def_map_)
 lookup_def <-
   cats(def_map)[[1]] %>%
@@ -265,23 +310,27 @@ def_map %>%
 ```
 
 
-### Summary of Pre-QuES Land Use/Cover Change Trajectories (Deforestation and Degradation)
-```{r}
+<!-- ### Summary of Pre-QuES Land Use/Cover Change Trajectories (Deforestation and Degradation) -->
+```{r eval=FALSE, include=FALSE}
 def_analysis_output$landscape_level$table_traj_area %>%
   kable() %>%
   kable_styling(bootstrap_options = c("striped", "hover"))
 ```
 
-#### Graph
-```{r}
+<!-- #### Graph -->
+```{r eval=FALSE, include=FALSE}
 def_analysis_output$landscape_level$barplot_traj
 ```
 
 
-## Pre-QuES Land Use/Cover Change Trajectories Analysis Results at the Planning Unit Level (Deforestation and Degradation)
-```{r child_document_traj_def, echo=FALSE, fig.keep='all', results='asis'}
+<!-- ## Pre-QuES Land Use/Cover Change Trajectories Analysis Results at the Planning Unit Level (Deforestation and Degradation) -->
+```{r child_document_traj_def, eval=FALSE, fig.keep='all', include=FALSE, results='asis'}
 for (i in names(def_analysis_output[["pu_level"]])) {
   render_child(results_list = def_analysis_output[["pu_level"]], i = i)
 }
 ```
+------------------------------------------------------------------------
 
+<!-- Mandatory closing statement for all module -->
+
+<font size="1"> LUMENS is free software and comes with ABSOLUTELY NO WARRANTY. Users are responsible for the results generated. Results depend on the quality of the input data ("garbage in, garbage out") and may vary or be sensitive to the parameters used. Please report any problems encountered while using LUMENS as [a GitHub issue](https://github.com/icraf-indonesia/lumens-shiny/issues). Feedback and questions are welcome [Contact Us URL]. </font size>
