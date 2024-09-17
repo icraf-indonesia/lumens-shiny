@@ -4,7 +4,7 @@
 tryCatch({
 
 # Load custom functions
-source("06_quesh/rscript/quesh_functions.R")
+source("06_quesh/rscript/initial/quesh_functions.R")
 
 required_packages <- c(
   "terra", "sf", "magrittr", "dplyr", "lattice", "rasterVis", "classInt", "ggplot2", "scales"
@@ -193,8 +193,7 @@ report_params <- list(
   c = c,
   p = p,
   a = erosion_classified,
-  df = erosion_db, 
-  map_resolution = map_resolution
+  df = erosion_db
 )
 
 # Render the R markdown report

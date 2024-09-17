@@ -1,5 +1,3 @@
-library(shiny)
-
 server <- function(input, output, session) {
   rv <- reactiveValues(
     wd = "",
@@ -24,39 +22,73 @@ server <- function(input, output, session) {
   
   #### File Inputs ####
   observeEvent(input$rainfall_file, {
-    rv$rainfall_file <- input$rainfall_file
+    rv$rainfall_file <- input$rainfall_file$datapath
   })
   
   observeEvent(input$dem_file, {
-    rv$dem_file <- input$dem_file
+    rv$dem_file <- input$dem_file$datapath
   })
   
   observeEvent(input$sand_file, {
-    rv$sand_file <- input$sand_file
+    rv$sand_file <- input$sand_file$datapath
   })
   
   observeEvent(input$silt_file, {
-    rv$silt_file <- input$silt_file
+    rv$silt_file <- input$silt_file$datapath
   })
   
   observeEvent(input$clay_file, {
-    rv$clay_file <- input$clay_file
+    rv$clay_file <- input$clay_file$datapath
   })
   
   observeEvent(input$orgc_file, {
-    rv$orgc_file <- input$orgc_file
+    rv$orgc_file <- input$orgc_file$datapath
   })
   
   observeEvent(input$lc_dir, {
-    rv$lc_dir <- input$lc_dir
+    rv$lc_dir <- input$lc_dir$datapath
   })
+  
+  # observeEvent(input$pu_file, {
+  #   rv$pu_file <- input$pu_file$datapath
+  # })
   
   observeEvent(input$pu_file, {
-    rv$pu_file <- input$pu_file
+    shp <- input$pu_file
+    if (is.null(shp)) return()
+    
+    required_files <- c("shp", "shx", "dbf") # Optionally include "prj"
+    
+    # Ensure all necessary shapefile components are uploaded
+    uploaded_files <- tools::file_ext(shp$name)
+    if (!all(required_files %in% uploaded_files)) {
+      showNotification("Incomplete shapefile. Please upload all required components: .shp, .shx, .dbf", type = "error")
+      return()
+    }
+    
+    prev_wd <- getwd()
+    uploaded_dir <- dirname(shp$datapath[1])
+    setwd(uploaded_dir)
+    
+    for (i in 1:nrow(shp)) {
+      file.rename(shp$datapath[i], shp$name[i])
+    }
+    
+    setwd(prev_wd)
+    
+    rv$pu_file <- paste(uploaded_dir, shp$name[grep(pattern = "*.shp$", shp$name)], sep = "/")
+    
+    if (is.null(rv$pu_file) || !file.exists(rv$pu_file)) {
+      showNotification("Shapefile not found or is invalid", type = "error")
+      return()
+    }
+    
+    # Further processing with the shapefile
   })
   
+  
   observeEvent(input$c_ref_file, {
-    rv$c_ref_file <- input$c_ref_file
+    rv$c_ref_file <- input$c_ref_file$datapath
   })
   
   
@@ -75,7 +107,7 @@ server <- function(input, output, session) {
       req(rv$lc_dir, message = "Please upload the land cover map.")
       req(rv$pu_file, message = "Please upload the planning unit map.")
       req(rv$c_ref_file, message = "Please upload the c factor attribute table.")
-      
+
       # Prepare the planning unit
       pu1 <- st_read(rv$pu_file)
       pu <- rasterise_multipolygon(
@@ -136,29 +168,6 @@ server <- function(input, output, session) {
       levels(landcover_c)[[1]] <- lookup_lc
       
       c_factor <- landcover_c %>% as.numeric(1) %>% resample(pu, method="near")
-      
-      # Method 1
-      # c_factor_lookup <- setNames(c_ref$C_factor, c_ref$ID)
-      # 
-      # replace_with_c_factor <- function(x) {
-      #   c_factor_lookup[as.character(x)] 
-      # }
-      # 
-      # c_factor_raster <- app(landcover, replace_with_c_factor)
-      
-      # Method 2
-      # landcover_c <- landcover
-      # c_ref2 <- as.matrix(c_ref[,1])
-      # c_ref3 <- as.matrix(c_ref[,3])
-      # c_ref4 <- cbind(c_ref2, c_ref3)
-      # c_ref4 <- rbind(c_ref4, c(0, NA))
-      # c_factor <- classify(landcover_c, c_ref4)
-      
-      # Calculate C factor
-      # calculate_c_lc(
-      #   landcover = landcover,
-      #   c_ref = c_ref
-      # )
       
       writeRaster(c_factor, paste0(rv$wd, "c_factor.tif"), overwrite = TRUE)
       
