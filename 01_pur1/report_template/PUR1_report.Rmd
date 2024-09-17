@@ -119,7 +119,7 @@ Planning unit data is used to show how land use is planned in an area. These map
 
 PUR_stack_new <- subset(params$PUR_stack, 1:(nlyr(params$PUR_stack)-1))
 zone1 <- subset(params$PUR_stack, nlyr(params$PUR_stack))
-zone <- zone1 %>% classify(cbind(1:length(unique(values(zone))), 1))
+zone <- zone1 %>% classify(cbind(1:length(unique(values(zone1))), 1))
 zone_poly <- as.polygons(zone)
 
 for (i in 1:nlyr(PUR_stack_new)) {
