@@ -45,6 +45,7 @@ knitr::kable(params$GDP_scen_df)
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 plot(params$GDP_totals_graph)
 ```
-## Conclusion
+
+### Conclusion
 
 * Summarize the key findings or insights from the analysis.
