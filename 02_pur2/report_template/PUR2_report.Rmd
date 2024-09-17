@@ -45,23 +45,17 @@ Planning unit reconciliation is a process to resolve overlapping permits by refe
 #| warning: false
 
 resolved_map <- params$sa
-plot(resolved_map["Rec_phase2"], main = "Resolved Map")
+plot(resolved_map["Rec_phase2"])
 ```
 
 ### Reconciliation Data Summary
 
+The table below summarizes the final reconciliation results:
+
 ```{r}
 table_recon <- params$summary_PUR
 
-DT::datatable(table_recon)
+DT::datatable(table_recon, colnames=c("ID", "Class", "Area (Ha)"))
 # kable(table_recon, caption = "Summary of Final Reconciliation Results") %>%
 #   kable_styling(bootstrap_options = c("striped", "hover"))
 ```
-
-The table below summarizes the final reconciliation results:
-
-## Final Outputs
-The following files were generated during the reconciliation process:
-
-- PUR Reconciliation Result Shapefile with complete attributes: `r params$dir_sa`
-- PUR Reconciliation Result CSV table with complete attributes: `r params$dir_summary_PUR`

@@ -4,7 +4,7 @@
 tryCatch({
   
 # Load custom functions
-source("01_pur1/rscript/functions_pur.R")
+source("01_pur1/rscript/initial/functions_pur.R")
 
 # Check and install required packages
 required_packages <- c(
