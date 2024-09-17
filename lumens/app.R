@@ -6,10 +6,14 @@ ui <- htmlTemplate("index.html",
                    button03 = actionButton("prequesButton", "Pre-QUES"),
                    button04 = actionButton("quescButton", "QUES-C"),
                    button05 = actionButton("quesbButton", "QUES-B"),
-                   button07 = actionButton("taProfitButton", "Profitability"),
-                   button08 = actionButton("re1Button", "RE-1"),
-                   button09 = actionButton("re2Button", "RE-2"),
-                   button10 = actionButton("scenarioBuilderButton", "RE-Desc")
+                   button06 = actionButton("queshButton", "QUES-H"),
+                   button07 = actionButton("taProfitButton", "LU Profitability"),
+                   button08 = actionButton("reDescButton", "RE Descriptive"),
+                   button09 = actionButton("reProjButton", "RE Projection"),
+                   button10 = actionButton("scenarioBuilderButton", "Scenario Builder"),
+                   button11 = actionButton("trinModelButton", "Train Model"),
+                   button12 = actionButton("simulateBuilderButton", "Simulate"),
+                   button13 = actionButton("lasemButton", "LASEM")
 )
 
 server <- function(input, output) {
@@ -38,24 +42,44 @@ server <- function(input, output) {
     system("rscript.exe call05.R")
   })
   
+  observeEvent(input$queshButton, {
+    showNotification("Running QUES-H", type = "message")
+    system("rscript.exe call06.R")
+  })
+  
   observeEvent(input$taProfitButton, {
-    showNotification("Running TA Profitability", type = "message")
+    showNotification("Running LU Profitability", type = "message")
     system("rscript.exe call07.R")
   })
   
-  observeEvent(input$re1Button, {
-    showNotification("Running TA RE 1", type = "message")
+  observeEvent(input$reDescButton, {
+    showNotification("Running RE Descriptive", type = "message")
     system("rscript.exe call08.R")
   })
   
-  observeEvent(input$re2Button, {
-    showNotification("Running TA RE 2", type = "message")
+  observeEvent(input$reProjButton, {
+    showNotification("Running RE Projection", type = "message")
     system("rscript.exe call09.R")
   })  
   
   observeEvent(input$scenarioBuilderButton, {
     showNotification("Running SCIENDO Scenario Builder", type = "message")
     system("rscript.exe call10.R")
+  })
+  
+  observeEvent(input$trinModelButton, {
+    showNotification("Running SCIENDO Train Model", type = "message")
+    system("rscript.exe call11.R")
+  })
+  
+  observeEvent(input$simulateBuilderButton, {
+    showNotification("Running SCIENDO Simulate", type = "message")
+    system("rscript.exe call12.R")
+  })
+  
+  observeEvent(input$lasemButton, {
+    showNotification("Running LASEM", type = "message")
+    system("rscript.exe call13.R")
   })
 }
 
