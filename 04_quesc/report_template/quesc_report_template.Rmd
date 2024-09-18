@@ -164,6 +164,8 @@ plot_categorical_raster(zone)
 
 ## Carbon Stock Lookup Table
 
+The carbon stock being considered is time-averaged above ground carbon stock.
+
 ```{r Carbon Stock Lookup Table, echo=FALSE}
 read.csv(params$inputs$c_lookup_path) %>% 
   kbl(caption = "Carbon Stock Lookup Table", escape = FALSE) %>%
@@ -259,8 +261,8 @@ s$plot_zone_carbon
 ## Average Carbon Density in `r params$p1`
 
 ```{r avg carbon density 1, echo=FALSE}
-reclassify_matrix <- as.matrix(z$data_zone_df[, 1]) %>% 
-    cbind(., as.matrix(z$data_zone_df[, 4])) %>%
+reclassify_matrix <- as.matrix(z$data_zone[, 1]) %>% 
+    cbind(., as.matrix(z$data_zone[, 4])) %>%
     rbind(., c(0, NA))
 z_avg_c1 <- zone %>% classify(reclassify_matrix)
 plot_quesc_results(
@@ -274,8 +276,8 @@ plot_quesc_results(
 ## Average Carbon Density in `r params$p2`
 
 ```{r avg carbon density 2, echo=FALSE}
-reclassify_matrix <- as.matrix(z$data_zone_df[, 1]) %>% 
-    cbind(., as.matrix(z$data_zone_df[, 5])) %>%
+reclassify_matrix <- as.matrix(z$data_zone[, 1]) %>% 
+    cbind(., as.matrix(z$data_zone[, 5])) %>%
     rbind(., c(0, NA))
 z_avg_c2 <- zone %>% classify(reclassify_matrix)
 plot_quesc_results(
@@ -289,8 +291,8 @@ plot_quesc_results(
 ## Average Emission Rate
 
 ```{r avg emission rate, echo=FALSE}
-reclassify_matrix <- as.matrix(z$data_zone_df[, 1]) %>% 
-    cbind(., as.matrix(z$data_zone_df[, 6])) %>%
+reclassify_matrix <- as.matrix(z$data_zone[, 1]) %>% 
+    cbind(., as.matrix(z$data_zone[, 6])) %>%
     rbind(., c(0, NA))
 z_em_rate <- zone %>% classify(reclassify_matrix)
 plot_quesc_results(
@@ -304,8 +306,8 @@ plot_quesc_results(
 ## Average Sequestration Rate
 
 ```{r avg sequestration rate, echo=FALSE}
-reclassify_matrix <- as.matrix(z$data_zone_df[, 1]) %>% 
-    cbind(., as.matrix(z$data_zone_df[, 7])) %>%
+reclassify_matrix <- as.matrix(z$data_zone[, 1]) %>% 
+    cbind(., as.matrix(z$data_zone[, 7])) %>%
     rbind(., c(0, NA))
 z_sq_rate <- zone %>% classify(reclassify_matrix)
 plot_quesc_results(
@@ -327,7 +329,7 @@ z$largest_emission
 ### Table
 
 ```{r tbl_largest_em, echo=FALSE}
-z$tb_em_total_10 %>% kbl(caption = "The Largest Source of Emission", escape = F) %>%
+z$tb_em_total_10_summary %>% kbl(caption = "The Largest Source of Emission", escape = F) %>%
   kable_paper("hover", full_width = F)
 ```
 
@@ -342,6 +344,13 @@ z$largest_sequestration
 ### Table
 
 ```{r tbl_largest_sq, echo=FALSE}
-z$tb_sq_total_10 %>% kbl(caption = "The Largest Source of Sequestration", escape = F) %>%
+z$tb_sq_total_10_summary %>% kbl(caption = "The Largest Source of Sequestration", escape = F) %>%
   kable_paper("hover", full_width = F)
 ```
+
+
+------------------------------------------------------------------------
+
+<!-- Mandatory closing statement for all module -->
+
+<font size="1"> LUMENS is free software and comes with ABSOLUTELY NO WARRANTY. Users are responsible for the results generated. Results depend on the quality of the input data ("garbage in, garbage out") and may vary or be sensitive to the parameters used. Please report any problems encountered while using LUMENS as [a GitHub issue](https://github.com/icraf-indonesia/lumens-shiny/issues). Feedback and questions are welcome [Contact Us URL]. </font size>

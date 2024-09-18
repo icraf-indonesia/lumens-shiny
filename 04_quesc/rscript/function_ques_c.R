@@ -77,6 +77,13 @@ format_session_info_table <- function() {
   return(session_summary)
 }
 
+print_area <- function(x){
+  format(x, digits=15, big.mark=",")
+}
+print_rate <- function(x){
+  format(x, digits=15, nsmall=2, decimal.mark=".", big.mark=",")
+}
+
 plot_quesc_results <- function(map, legend, low, high, title_size = 8, text_size = 8, height = 0.375, width = 0.375, ...) {
   p <- gplot(map, maxpixels = 100000) + 
     geom_raster(aes(fill = value)) + 
@@ -154,6 +161,8 @@ summary_of_emission_calculation <- function(quescdb, zone, map_em, map_sq, perio
   total_rate_emission_ha <- total_rate_emission / total_area
   
   zc <- zc %>% 
+    mutate(Ha = print_area(Ha)) %>%
+    mutate_if(is.numeric, print_rate) %>%
     dplyr::rename(
       unlist(summary_zona_carbon_text_en)
     )
@@ -163,13 +172,13 @@ summary_of_emission_calculation <- function(quescdb, zone, map_em, map_sq, perio
     Category = summary_text_en,
     Summary = as.character(
       c(paste0(period$p1, "-", period$p2),
-        round(total_area, 2),
-        round(total_emission, 2),
-        round(total_sequestration, 2),
-        round(total_net_emission, 2),
-        round(total_rate_emission, 2),
-        round(total_rate_emission_ha, 2)
-        )
+        print_area(round(total_area, 2)),
+        print_rate(round(total_emission, 2)),
+        print_rate(round(total_sequestration, 2)),
+        print_rate(round(total_net_emission, 2)),
+        print_rate(round(total_rate_emission, 2)),
+        print_rate(round(total_rate_emission_ha, 2))
+      )
     )
   )
   
@@ -228,14 +237,16 @@ zonal_statistic_database <- function(quescdb, period) {
     }) 
   }
   
-  data_zone_df <- data_zone %>% 
+  data_zone_ori <- data_zone %>% 
     select(-Z_CODE) %>%
     mutate(
       Avg_C_t1 = round(Avg_C_t1, 2),
       Avg_C_t2 = round(Avg_C_t2, 2),
       Rate_em = round(Rate_em, 2),
       Rate_seq = round(Rate_seq, 2)
-    ) %>%
+    ) 
+  data_zone_summary <- data_zone_ori %>% 
+    mutate_if(is.numeric, print_rate) %>% 
     dplyr::rename(
       unlist(summary_zonal_text_en)
     )
@@ -264,6 +275,14 @@ zonal_statistic_database <- function(quescdb, period) {
       PERCENTAGE = as.numeric(format(round((EM / sum(tb_em_total$EM) * 100),2), nsmall=2))
     ) %>%
     head(n=10)
+  tb_em_total_10_summary <- tb_em_total_10 %>%
+    mutate(EM = print_rate(EM)) %>%
+    dplyr::rename(
+      "Land Use Code" = LU_CODE,
+      "Land Use Change" = LU_CHG,
+      "Total Emission" = EM,
+      "Percentage" = PERCENTAGE
+    )
   
   largest_emission <- tb_em_total_10 %>% 
     ggplot(aes(x = reorder(LU_CODE, -EM), y = (EM))) +
@@ -329,6 +348,14 @@ zonal_statistic_database <- function(quescdb, period) {
       PERCENTAGE = as.numeric(format(round((SQ / sum(tb_sq_total$SQ) * 100),2), nsmall=2))
     ) %>%
     head(n=10)
+  tb_sq_total_10_summary <- tb_sq_total_10 %>%
+    mutate(SQ = print_rate(SQ)) %>%
+    dplyr::rename(
+      "Land Use Code" = LU_CODE,
+      "Land Use Change" = LU_CHG,
+      "Total Emission" = SQ,
+      "Percentage" = PERCENTAGE
+    )
   
   largest_sequestration <- tb_sq_total_10 %>% 
     ggplot(aes(x = reorder(LU_CODE, -SQ), y = (SQ))) +
@@ -375,11 +402,14 @@ zonal_statistic_database <- function(quescdb, period) {
   }
   
   out <- list(
-    data_zone_df = data_zone_df,
+    data_zone = data_zone_ori,
+    data_zone_df = data_zone_summary,
     tb_em_total_10 = tb_em_total_10,
+    tb_em_total_10_summary = tb_em_total_10_summary,
     largest_emission = largest_emission,
     tb_em_zonal = tb_em_zonal,
     tb_sq_total_10 = tb_sq_total_10,
+    tb_sq_total_10_summary = tb_sq_total_10_summary,
     largest_sequestration = largest_sequestration,
     tb_sq_zonal = tb_sq_zonal
   )
