@@ -1,180 +1,216 @@
-### RUSLE Model for QuES-H Module ###
+# QUES-H RUSLE Script
 
-# 0. Load Library ---------------------------------------------------------
-
-# call the rusle functions
-source("06_quesh/rscript/quesh_functions.R")
-
-# load library
-library(raster)
-library(rasterVis)
-library(rusleR)
-library(Rsagacmd)
-library(terra)
-library(magrittr)
-library(dplyr)
-library(maps)
-
-# initiate a saga object
-# saga <- saga_gis(raster_backend = "terra")
-
-# 1. Input Data -----------------------------------------------------------
-
-aoi_file <- "data/data_quesh/Base_map.tif" %>% rast()# boundary map AOI
-dem_file <- "data/data_quesh/SRTM_Bungo.tif" # raster file of DEM
-rainfall_file <- "data/data_quesh/rainfall_annual_bungo_wc2.1.tif" # raster file of rainfall
-
-sand_file <- "data/raster/soil/bungo_sand_0-5cm_mean.tif" # raster file
-silt_file <- "data/raster/soil/bungo_silt_0-5cm_mean.tif" 
-clay_file <- "data/raster/soil/bungo_clay_0-5cm_mean.tif" 
-orgc_file <- "data/raster/soil/bungo_soc_0-5cm_mean.tif" 
-
-lc_dir <- "data/raster/tutupan_lahan_Bungo_2010r.tif" # landcover directory that consist of time series land cover map
-
-c_ref_file <- "data/data_quesh/c_factor_bungo_usda1972.csv" # csv file contained cover management factor for each landcover class
-p_ref_file <- "06_quesh/data/slope_p-factor.csv" # csv file contained P factor values for slope
-p_user <- 1
-
-wd <- "data/data_quesh/" # define working directory
-
-# 2. Define Parameters ----------------------------------------------------
-
-# aoi <- vect(aoi_file) # define boundary
-
-dem <- rast(dem_file)
-slope <- terrain(dem, v = "slope", unit="radians")   # calculate slope from DEM
-aspect <- terrain(dem, v = "aspect", unit="radians") # calculate aspect from slope
-
-# define rainfall parameter
-rainfall_annual <- rast(rainfall_file)
-# rainfall <-
-#   list.files(path = paste0(rainfall_file),
-#              pattern = ".tif",
-#              full.names = TRUE) 
-# rainfall %>% rast()
-# rainfall_annual <-sum(rast(rainfall)) #average of 12 months rainfall
-# 
-# writeRaster(rainfall_annual, "data/data_quesh/rainfall_annual_bungo_wc2.1.tif", overwrite = TRUE)
-# define soil properties parameters
-sand <- rast(sand_file)
-silt <- rast(silt_file)
-clay <- rast(clay_file)
-orgc <- rast(orgc_file)
-
-# 3. R - Rainfall Erosivity Data Preparation ------------------------------------------
-
-# Prepare R factor - Rainfall Erosivity (Moore, 1979)
-r_moore <- calculate_r_moore(p = rainfall_annual)
-
-plot(r_moore)
-summary(r_moore)
-hist(r_moore, main = "Histogramm of rainfall erosivity after Moore")
-
-writeRaster(r_moore, "data/data_quesh/r_factor_bungo.tif", overwrite = TRUE)
-
-# 4. K - Soil Erodibility Data Preparation --------------------------------
-
-# Prepare K factor - Soil Erodibility (Williams, 1995)
-k_williams <- calculate_k_williams(
-  sndprc = sand, 
-  sltprc = silt, 
-  clyprc = clay, 
-  orcprc = orgc
-)
-
-plot(k_williams)
-
-writeRaster(k_williams, "data/data_quesh/k_factor_bungo.tif", overwrite = TRUE)
-
-# 5. LS - Length & Steepnes Data Preparation ------------------------------
-
-# Prepare LS factor - LUMENS
-ls_calc <- calculate_ls(
-  slope = slope,
-  aspect = aspect
-)
-
-plot(ls_calc)
-
-writeRaster(ls_calc, "data/data_quesh/ls_factor_bungo.tif", overwrite = TRUE)
-# 6. C - Cover Management Data Preparation --------------------------------
-
-# Prepare C factor - Cover Management Using Landcover
-c_ref1 <- read.csv(c_ref_file)
-
-landcover1 <- rast(lc_dir)
-landcover <- syncGeom(input = landcover1, ref = aoi_file)
-
-raster.nodata <- 0
-landcover[landcover == raster.nodata] <- NA
-c_ref2 <- as.matrix(c_ref1[,1])
-c_ref3 <- as.matrix(c_ref1[,3])
-c_ref4 <- cbind(c_ref2, c_ref3)
-c_ref4 <- rbind(c_ref4, c(0, NA))
-c_factor <- classify(landcover, c_ref4)
-
-plot(c_factor)
-
-writeRaster(c_factor, "data/data_quesh/c_factor_bungo.tif", overwrite = TRUE)
-
-# 7. P - Practice Factor Data Preparation ---------------------------------
-
-# Prepare P factor
-# p_ref <- read.csv(p_ref_file)
-# 
-# if(p_user == 2){
-#   slope_perc <- tan(slope * pi / 180) * 100
-#   labels <- as.character(1:length(breakpoints))
-#   slope_rec <- cut(slope_perc, breaks = breakpoints, right = TRUE, labels = labels)
-#   # slope_rec <- classify(slope_perc, c(-Inf, 7, 1, 7, 11.3, 2, 11.3, 17.6, 3, 17.6, 26.8, 4, 26.8, Inf, 5))
-#   is.factor(slope_rec)
-#   slope_rec2 <- as.factor(slope_rec)
-#   is.factor(slope_rec2)
-#   levels(slope_rec2) <- p_ref
-#   P <- catalyze(slope_rec2)
-# } else if(p_user == 3){
-#   lc_lookup <- lc_legend
-#   lc_lookup$p_factor <- 0
-#   lc_lookup$not_to_be_filled <- NA
-#   lc_lookup_p <- qpcR:::cbind.na(lc_lookup, slope_managed)
-#   lc_lookup_p <- edit(lc_lookup_p)
-#   levels(lc) <- lc_lookup_p
-#   p_class <- deratify(lc, 'p_factor')
-#   slope_perc <- tan(slope * pi / 180) * 100
-#   slope_rec <- classify(slope_perc, 
-#                         c(-Inf, 7, 1, 
-#                           7, 11.3, 2, 
-#                           11.3, 17.6, 3, 
-#                           17.6, 26.8, 4, 
-#                           26.8, Inf, 5))
-#   extent(p_class) == extent(slope_rec)
-#   P <- p_class
-#   P[p_class == 1 | p_class == 3] <- 1
-#   P[p_class == 2 & slope_rec == 10] <- 0.5
-#   P[p_class == 2 & slope_rec == 11] <- 0.75
-#   P[p_class == 2 & slope_rec == 12] <- 0.9
-#   P[p_class == 4] <- 0
-# } else {
-#   P <- 1
-# }
-# 
-# if (p_user ==! 1) {
-#   P <- project(P, aoi)
-# } else {
-#   P <- 1
-# }
-
-# 8. Calculate Soil Erosion RUSLE -----------------------------------------
-
-# redefine input parameters
-r <- r_moore
-k <- k_williams
-ls <- ls_calc
-c <- c_factor
-p <- p_user
-
-a <- r*k*ls*c*p
-levelplot(a, margin = FALSE, main = "Mean Annual Erosion")
-hist(a, xlim = c(0, 10000), main = "Histogramm of mean annual erosion (arbitary input layers)")
-
-writeRaster(a, filename = "data/data_quesh/mean_annual_erosion.tif", overwrite = TRUE)
+# 0. Load functions and libraries -----------------------------------------
+tryCatch({
+  
+  # Load custom functions
+  source("06_quesh/rscript/initial/quesh_functions.R")
+  
+  required_packages <- c(
+    "terra", "sf", "magrittr", "dplyr", "lattice", "rasterVis", "classInt", "ggplot2", "scales"
+  )
+  
+  check_and_install_packages(required_packages)
+  
+  # Start running QUES-H
+  start_time <- Sys.time()
+  
+  # 1. Define input parameters ----------------------------------------------
+  
+  # Define file path and parameters
+  path <- list(
+    pu_file = "data/vector/unit_perencanaan_bungo.shp", # boundary map AOI
+    dem_file = "data/data_quesh/SRTM_Bungo.tif", # raster file of DEM
+    rainfall_file = "data/data_quesh/rainfall_annual_bungo_wc2.1.tif", # raster file of rainfall
+    sand_file = "data/raster/soil/bungo_sand_0-5cm_mean.tif", # raster file
+    silt_file = "data/raster/soil/bungo_silt_0-5cm_mean.tif", 
+    clay_file = "data/raster/soil/bungo_clay_0-5cm_mean.tif", 
+    orgc_file = "data/raster/soil/bungo_soc_0-5cm_mean.tif",
+    lc_dir = "data/raster/tutupan_lahan_Bungo_2010r.tif", # landcover directory that consist of time series land cover map
+    c_ref_file = "data/data_quesh/c_factor_bungo_usda1972.csv", # csv file contained cover management factor for each landcover class
+    map_resolution = 100
+  )
+  
+  output_dir = "06_quesh/output/"
+  
+  # Prepare the planning unit
+  pu1 <- st_read(path$pu_file)
+  pu <- rasterise_multipolygon(
+    sf_object = pu1, 
+    raster_res = c(path$map_resolution, path$map_resolution), 
+    field = paste0(colnames(st_drop_geometry(pu1[1])))
+  )
+  
+  # 2. R - Rainfall erosivity preparation -----------------------------------------------------
+  
+  # Define R factor data
+  rainfall_annual <- syncGeom(input = path$rainfall_file, ref = pu)
+  
+  # Calculate R factor - Rainfall Erosivity (Moore, 1979)
+  r_factor <- calculate_r_moore(p = rainfall_annual)
+  
+  writeRaster(r_factor, paste0(output_dir, "r_factor.tif"), overwrite = TRUE)
+  
+  # 3. K - Soil erodibility preparation -------------------------------------
+  
+  # Define K factor data
+  sand <- syncGeom(input = path$sand_file, ref = pu)
+  silt <- syncGeom(input = path$silt_file, ref = pu)
+  clay <- syncGeom(input = path$clay_file, ref = pu)
+  orgc <- syncGeom(input = path$orgc_file, ref = pu)
+  
+  soil_stack <- c(sand, silt, clay, orgc)
+  
+  # Calculate K factor - Soil Erodibility (Williams, 1995)
+  k_factor <- calculate_k_williams(
+    sndprc = sand, 
+    sltprc = silt, 
+    clyprc = clay, 
+    orcprc = orgc
+  )
+  
+  writeRaster(k_factor, paste0(output_dir, "k_factor.tif"), overwrite = TRUE)
+  
+  # 4. LS - Length and steepnes preparation --------------------------------
+  
+  # Define LS factor data
+  dem <- syncGeom(input = path$dem_file, ref = pu)
+  slope_deg <- terrain(dem, v = "slope", unit="degree")  
+  
+  # Calculate LS factor by Moore & Burch (1986) - BRIN 
+  ls_factor <- calculate_ls_moore(dem = dem)
+  
+  writeRaster(ls_factor, paste0(output_dir, "ls_factor.tif"), overwrite = TRUE)
+  
+  # 5. C - Cover management preparation -------------------------------------
+  
+  # Define C factor data
+  c_ref <- readr::read_csv(path$c_ref_file)
+  landcover <- rast(path$lc_dir)
+  landcover_c <- landcover
+  lookup_lc <-landcover_c %>% freq() %>%
+    select(ID=value) %>%
+    left_join(c_ref, by="ID") %>% select(-LC)
+  
+  levels(landcover_c)[[1]] <- lookup_lc
+  
+  c_factor <- landcover_c %>% as.numeric(1) %>% resample(pu, method="near")
+  
+  writeRaster(c_factor, paste0(output_dir, "c_factor.tif"), overwrite = TRUE)
+  
+  
+  # 6. P - Practice factor preparation --------------------------------------
+  
+  slope_pct <- tan(slope_deg * pi / 180) * 100
+  
+  # There are 3 option for practice management according to Shin (1999)
+  # You can choose the applied practices: Contouring; Strip Cropping; Terracing
+  # change the parameter by the following order p_user <- c([contouring], [strip cropping], [terracing])
+  # The value of 1 means the corresponding practice applied and 0 means not applied
+  # If the value all 0, it means the P factor will be define as 1 (no practice applied)
+  
+  p_user <- c(1, 0, 0) # change the value with 0 or 1 by this order: c([contouring], [strip cropping], [terracing])
+  
+  p_factor <- calculate_p_shin(
+    slope_pct = slope_pct, 
+    p_user = p_user
+  )
+  
+  writeRaster(p_factor, paste0(output_dir, "p_factor.tif"), overwrite = TRUE)
+  
+  # 7. Calculate soil erosion RUSLE ----------------------------------------------------
+  
+  # Redefine input parameters
+  
+  r <- r_factor
+  k <- k_factor
+  ls <- ls_factor
+  c <- c_factor
+  p <- p_factor
+  
+  # Calculate RUSLE
+  a <- r*k*ls*c
+  
+  writeRaster(a, filename = paste0(output_dir, "soil_erosion.tif"), overwrite = TRUE)
+  
+  # 8. Data Visualization ---------------------------------------------------
+  
+  # Landcover preparation
+  lc_class <-landcover %>% freq() %>%
+    select(ID=value) %>%
+    left_join(c_ref, by="ID") %>% select(-C_factor)
+  levels(landcover)[[1]] <- lc_class
+  
+  # Reclassify erosion rates based on China National Standard (2008)
+  breaks <- c(-Inf, 5, 25, 50, 80, 150, Inf)
+  labels <- c("Slight (< 5 ton/ha/yr)", 
+              "Mild (5-25 ton/ha/yr)", 
+              "Moderate (25-50 ton/ha/yr)", 
+              "Strong (50-80 ton/ha/yr)", 
+              "Very strong (80-150 ton/ha/yr)", 
+              "Severe (> 150 ton/ha/yr)")
+  rcl_matrix <- cbind(breaks[-length(breaks)], breaks[-1], 1:(length(breaks)-1))
+  
+  erosion_classified <- classify(a, rcl = rcl_matrix)
+  levels(erosion_classified) <- data.frame(id=1:6, category=labels)
+  plot(erosion_classified)
+  
+  writeRaster(erosion_classified, filename = paste0(output_dir, "soil_erosion_reclass.tif"), overwrite = TRUE)
+  
+  # Create dataset
+  erosion_db <- data.frame(erosion_classified) %>%
+    group_by(across(everything())) %>% 
+    summarise(count = n())
+  colnames(erosion_db, do.NULL = FALSE)
+  colnames(erosion_db) <- c("Soil Erosion Rates","Area (Ha)")
+  erosion_db$`Area (Ha)`*(10000/(path$map_resolution^2))
+  erosion_db$`Percentage (%)` <- (erosion_db$`Area (Ha)`/sum(erosion_db$`Area (Ha)`))*100
+  
+  # hist_erosion(df = erosion_db)
+  
+  write.csv(erosion_db, file = paste0(output_dir, "soil_erosion.csv"))
+  
+  # End of the script
+  end_time <- Sys.time()
+  cat("Started at:", format(start_time, "%Y-%m-%d %H:%M:%S"), "\n")
+  cat("Ended at:", format(end_time, "%Y-%m-%d %H:%M:%S"), "\n")
+  
+  
+  # 9. Prepare parameters for report -------------------------------------
+  
+  report_params <- list(
+    start_time = as.character(format(start_time, "%Y-%m-%d %H:%M:%S")),
+    end_time = as.character(format(end_time, "%Y-%m-%d %H:%M:%S")),
+    output_dir = output_dir,
+    dem = dem,
+    pu = pu,
+    rainfall = rainfall_annual,
+    soil = soil_stack,
+    landcover = landcover,
+    r = r,
+    k = k,
+    ls = ls,
+    c = c,
+    p = p,
+    a = erosion_classified,
+    df = erosion_db
+  )
+  
+  # Render the R markdown report
+  if (!rmarkdown::pandoc_available()) {
+    Sys.setenv(RSTUDIO_PANDOC = paste0(getwd(), "/pandoc"))
+  }
+  
+  rmarkdown::render(
+    input = "06_quesh/report_template/quesh_report.Rmd",
+    output_file = "QUES-H_report.html",
+    output_dir = output_dir,
+    params = report_params
+  )
+  
+}, error = function(e) {
+  cat("An error occurred:\n")
+  print(e)
+}, finally = {
+  cat("Script execution completed.\n")
+})

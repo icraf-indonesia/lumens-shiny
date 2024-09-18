@@ -1,69 +1,3 @@
-# Calculation of R (Moore, 1979) ---------------------------------------
-
-calculate_r_moore <- function(p) {
-  ke <- 11.46*p - 2226
-  r <- 0.029*ke - 26
-  r_si <- 17.02*r # Conversion from imperial to SI units
-  return(r_si)
-}
-
-
-# Calculation of K (Williams, 1995) ------------------------------------
-
-calculate_k_williams <- function(sndprc, sltprc, clyprc, orcprc){
-  a <- (0.2 + 0.3*exp(-0.0256*sndprc*(1 - sltprc/100)))
-  b <- (sltprc/(clyprc + sltprc))^0.3
-  c <- 1 - (0.25*orcprc)/(orcprc + exp(3.72 - 2.95*orcprc))
-  sn1 <- 1 - sndprc/100
-  d <- 1 - (0.7*sn1)/(sn1 + exp(-5.51 + 22.9*sn1))
-  k <- 0.1317*a*b*c*d
-  return(k)
-}
-
-# Calculation of LS  ----------------------------------------------------
-
-# Calculate LS by (Moore & Burch, 1986) - BRIN
-calculate_ls_moore <- function(dem) {
-  slope_deg <- terrain(dem, v = "slope", unit="degree") 
-  flow_acc <- terrain(dem, v = "flowdir")
-  cell_size <- res(dem)[1]
-  slope_length <- flow_acc * cell_size
-  # ls <- (slope_length / 22.13)^0.4 * ((0.01745 * sin(slope_deg)) / 0.0896)^1.3 * 1.6 => BRIN
-  intermediate_values <- abs((0.01745 * sin(slope_deg)) / 0.0896) # prevent negative or zero slope values from causing calculation issues
-  ls_factor <- (slope_length / 22.13)^0.4 * (intermediate_values)^1.3
-  return(ls_factor)
-}
-
-# Calculate LS by previous LUMENS RUSLE Script
-calculate_ls <- function(slope, aspect) {
-  ls <- (1 + (sin(slope * pi / 180) / 0.0896)^1.3) *
-    ((sin((aspect - 180) * pi / 180) + 0.5) / 1.5)^0.6
-  return(ls)
-}
-
-# Calculation of C (Van der Knijff et al, 2000) ------------------------
-
-calculate_c_knijff <- function(ndvi) {
-  alpha <- 2 # as suggested by Knijff 2000
-  beta <- 1 # as suggested by Knijff 2000
-  c <- min(exp(-alpha * (ndvi/(beta - ndvi))), 1)
-  return(c)
-}
-
-
-# Calculation of C using landcover -------------------------------------
-
-calculate_c_lc <- function(landcover, c_ref) {
-  landcover[landcover == path$raster.nodata] <- NA
-  landcover_c <- landcover
-  c_ref2 <- as.matrix(c_ref[,1])
-  c_ref3 <- as.matrix(c_ref[,3])
-  c_ref4 <- cbind(c_ref2, c_ref3)
-  c_ref4 <- rbind(c_ref4, c(0, NA))
-  c_factor <- classify(landcover_c, c_ref4)
-  return(c_factor)
-}
-
 # Sync geometric properties --------------------------------------------
 
 syncGeom <- function(input, ref){
@@ -76,6 +10,90 @@ syncGeom <- function(input, ref){
     `*`(ref1)
 }
 
+# Calculation of R (Moore, 1979) ---------------------------------------
+
+calculate_r_moore <- function(rainfall) {
+  ke <- 11.46*rainfall - 2226
+  r <- 0.029*ke - 26
+  r_factor <- 17.02*r # Conversion from imperial to SI units
+  return(r_factor)
+}
+
+# Calculation of K (Williams, 1995) ------------------------------------
+
+calculate_k_williams <- function(sndprc, sltprc, clyprc, orcprc){
+  a <- (0.2 + 0.3*exp(-0.0256*sndprc*(1 - sltprc/100)))
+  b <- (sltprc/(clyprc + sltprc))^0.3
+  c <- 1 - (0.25*orcprc)/(orcprc + exp(3.72 - 2.95*orcprc))
+  sn1 <- 1 - sndprc/100
+  d <- 1 - (0.7*sn1)/(sn1 + exp(-5.51 + 22.9*sn1))
+  k_factor <- 0.1317*a*b*c*d
+  return(k_factor)
+}
+
+# Calculation of LS (Moore & Burch, 1986) - BRIN ----------------------------------------------------
+
+calculate_ls_moore <- function(dem) {
+  slope_deg <- terrain(dem, v = "slope", unit="degree") 
+  flow_acc <- terrain(dem, v = "flowdir")
+  cell_size <- res(dem)[1]
+  slope_length <- flow_acc * cell_size
+  # ls <- (slope_length / 22.13)^0.4 * ((0.01745 * sin(slope_deg)) / 0.0896)^1.3 * 1.6 => BRIN
+  intermediate_values <- abs((0.01745 * sin(slope_deg)) / 0.0896) # prevent negative or zero slope values from causing calculation issues
+  ls_factor <- (slope_length / 22.13)^0.4 * (intermediate_values)^1.3
+  return(ls_factor)
+}
+
+# Calculate C by landcover ------------------------------------------------
+
+calculate_c_lc <- function(landcover = landcover, c_ref = c_ref){
+  landcover_c <- landcover
+  lookup_lc <-landcover_c %>% freq() %>%
+    select(ID=value) %>%
+    left_join(c_ref, by="ID") %>% select(-LC)
+  levels(landcover_c)[[1]] <- lookup_lc
+  c_factor <- landcover_c %>% as.numeric(1) %>% resample(pu, method="near")
+}
+
+# QuES-H RUSLE Function ---------------------------------------------------
+
+quesh_rusle_calc <- function(rainfall, sand, silt, clay, orgc, dem, landcover, c_ref, p_factor){
+  # R factor calculation
+  ke <- 11.46*rainfall - 2226
+  r <- 0.029*ke - 26
+  r_factor <- 17.02*r # Conversion from imperial to SI units
+  
+  # K factor calculation
+  a <- (0.2 + 0.3*exp(-0.0256*sand*(1 - silt/100)))
+  b <- (silt/(clay + silt))^0.3
+  c <- 1 - (0.25*orgc)/(orgc + exp(3.72 - 2.95*orgc))
+  sn1 <- 1 - sand/100
+  d <- 1 - (0.7*sn1)/(sn1 + exp(-5.51 + 22.9*sn1))
+  k_factor <- 0.1317*a*b*c*d
+  
+  # LS factor calculation
+  slope_deg <- terrain(dem, v = "slope", unit="degree") 
+  flow_acc <- terrain(dem, v = "flowdir")
+  cell_size <- res(dem)[1]
+  slope_length <- flow_acc * cell_size
+  # ls <- (slope_length / 22.13)^0.4 * ((0.01745 * sin(slope_deg)) / 0.0896)^1.3 * 1.6 => BRIN
+  intermediate_values <- abs((0.01745 * sin(slope_deg)) / 0.0896) # prevent negative or zero slope values from causing calculation issues
+  ls_factor <- (slope_length / 22.13)^0.4 * (intermediate_values)^1.3
+  
+  # C factor calculation
+  landcover_c <- landcover
+  lookup_lc <-landcover_c %>% freq() %>%
+    select(ID=value) %>%
+    left_join(c_ref, by="ID") %>% select(-LC)
+  levels(landcover_c)[[1]] <- lookup_lc
+  c_factor <- landcover_c %>% as.numeric(1) %>% resample(pu, method="near")
+  
+  # Erosion calculation
+  a <- r_factor*k_factor*ls_factor*c_factor*p_factor
+  
+  out <- list(a, r_factor, k_factor, ls_factor, c_factor)
+  return(out)
+}
 
 # Calculation of P factor  ---------------------------------------------
 
@@ -134,7 +152,6 @@ calculate_p_shin <- function(slope_pct, p_user){
   }
   return(p_factor_combined)
 }
-
 
 # Plot Histogram of Soil Erosion Rate -------------------------------------
 hist_erosion <- function(df) {
