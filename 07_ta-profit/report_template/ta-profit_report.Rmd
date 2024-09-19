@@ -7,6 +7,7 @@ output:
     number_sections: true
     df_print: kable
 params:
+  session_log: NA
   map_carbon1: NA
   map_carbon2: NA
   emission_map: NA
@@ -16,13 +17,50 @@ params:
   npv1_map: NA
   npv2_map: NA
   delta_npv: NA
+  map1_file_path: NULL
+  map2_file_path: NULL
+  npv_file_path: NULL
+  carbon_file_path: NULL
+  year1: NULL
+  year2: NULL
+  raster_nodata: NULL
+  output_dir: NULL
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
+library(knitr)
+library(kableExtra)
+library(tidyr)
+library(pkgdown)
 library(ggplot2)
-library(raster)
 ```
+
+<details><summary>Click here for Analysis Log</summary>
+
+```{r analysis-log, echo=FALSE}
+
+analysis_log <- tribble(
+  ~Category,                   ~Details,
+  # "Analysis Start",        params$start_time,
+  # "Analysis End",          params$end_time,
+  "Input Data and Parameters", "",
+  "Land Cover (t1)",      params$map1_file_path,
+  "Land Cover (t2)",   params$map2_file_path,
+  "Profitability data",   params$npv_file_path,
+  "Carbon stock data",   params$carbon_file_path,
+  "Year 1", as.character(params$year1),
+  "Year 2", as.character(params$year2),
+  "NoData land-cover class", as.character(params$raster_nodata),
+  "Output Files", "",
+  "Output Workspace",      paste0(getwd(), " | ", params$output_dir),
+  "Session Summary", "",
+) %>% rbind(format_session_info_table())
+
+analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
+  kable_paper("hover", full_width = F )
+```
+</details>
 
 ## Introduction
 
