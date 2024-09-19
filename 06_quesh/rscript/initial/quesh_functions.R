@@ -10,6 +10,30 @@ syncGeom <- function(input, ref){
     `*`(ref1)
 }
 
+# Categorized landcover based on its class --------------------------------
+
+lc_class_categorize <- function(landcover, c_ref) {
+  lc_class <-landcover %>% freq() %>%
+    select(ID=value) %>%
+    left_join(c_ref, by="ID") %>% select(-C_factor)
+  levels(landcover)[[1]] <- lc_class
+  return(landcover)
+}
+
+
+# Create dataset erosion result -------------------------------------------
+
+erosion_dataset <- function(erosion_classified){
+  erosion_db <- data.frame(erosion_classified) %>%
+    group_by(across(everything())) %>% 
+    summarise(count = n())
+  colnames(erosion_db, do.NULL = FALSE)
+  colnames(erosion_db) <- c("Soil Erosion Rates","Area (Ha)")
+  erosion_db$`Area (Ha)`*(10000/(path$map_resolution^2))
+  erosion_db$`Percentage (%)` <- (erosion_db$`Area (Ha)`/sum(erosion_db$`Area (Ha)`))*100
+  return(erosion_db)
+}
+
 # Calculation of R (Moore, 1979) ---------------------------------------
 
 calculate_r_moore <- function(rainfall) {
@@ -57,7 +81,7 @@ calculate_c_lc <- function(landcover = landcover, c_ref = c_ref){
 
 # QuES-H RUSLE Function ---------------------------------------------------
 
-quesh_rusle_calc <- function(rainfall, sand, silt, clay, orgc, dem, landcover, c_ref, p_factor){
+quesh_rusle_calc <- function(rainfall, sand, silt, clay, orgc, dem, landcover_t1, landcover_t2, c_ref, p_factor, multiseries){
   # R factor calculation
   ke <- 11.46*rainfall - 2226
   r <- 0.029*ke - 26
@@ -76,22 +100,54 @@ quesh_rusle_calc <- function(rainfall, sand, silt, clay, orgc, dem, landcover, c
   flow_acc <- terrain(dem, v = "flowdir")
   cell_size <- res(dem)[1]
   slope_length <- flow_acc * cell_size
-  # ls <- (slope_length / 22.13)^0.4 * ((0.01745 * sin(slope_deg)) / 0.0896)^1.3 * 1.6 => BRIN
-  intermediate_values <- abs((0.01745 * sin(slope_deg)) / 0.0896) # prevent negative or zero slope values from causing calculation issues
+  intermediate_values <- abs((0.01745 * sin(slope_deg)) / 0.0896)
   ls_factor <- (slope_length / 22.13)^0.4 * (intermediate_values)^1.3
   
   # C factor calculation
-  landcover_c <- landcover
-  lookup_lc <-landcover_c %>% freq() %>%
-    select(ID=value) %>%
-    left_join(c_ref, by="ID") %>% select(-LC)
-  levels(landcover_c)[[1]] <- lookup_lc
-  c_factor <- landcover_c %>% as.numeric(1) %>% resample(pu, method="near")
+  calculate_c_factor <- function(landcover) {
+    landcover_c <- landcover
+    lookup_lc <- landcover_c %>% freq() %>%
+      select(ID=value) %>%
+      left_join(c_ref, by="ID") %>% select(-LC)
+    levels(landcover_c)[[1]] <- lookup_lc
+    c_factor <- landcover_c %>% as.numeric(1) %>% resample(pu, method="near")
+    return(c_factor)
+  }
   
   # Erosion calculation
-  a <- r_factor*k_factor*ls_factor*c_factor*p_factor
+  calculate_erosion <- function(c_factor) {
+    r_factor*k_factor*ls_factor*c_factor*p_factor
+  }
   
-  out <- list(a, r_factor, k_factor, ls_factor, c_factor)
+  # Calculate for one or two time series based on is_two_series parameter
+  if (multiseries == 0 || is.null(landcover_t2)) {
+    c_factor_t1 <- calculate_c_factor(landcover_t1)
+    erosion_t1 <- calculate_erosion(c_factor_t1)
+    
+    out <- list(
+      erosion = erosion_t1,
+      r_factor = r_factor,
+      k_factor = k_factor,
+      ls_factor = ls_factor,
+      c_factor = c_factor_t1
+    )
+  } else {
+    c_factor_t1 <- calculate_c_factor(landcover_t1)
+    c_factor_t2 <- calculate_c_factor(landcover_t2)
+    erosion_t1 <- calculate_erosion(c_factor_t1)
+    erosion_t2 <- calculate_erosion(c_factor_t2)
+    
+    out <- list(
+      erosion_t1 = erosion_t1,
+      erosion_t2 = erosion_t2,
+      r_factor = r_factor,
+      k_factor = k_factor,
+      ls_factor = ls_factor,
+      c_factor_t1 = c_factor_t1,
+      c_factor_t2 = c_factor_t2
+    )
+  }
+  
   return(out)
 }
 

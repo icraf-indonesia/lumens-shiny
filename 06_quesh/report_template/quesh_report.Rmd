@@ -52,6 +52,7 @@ Represents the total rainfall for each pixel over a year (mm/year)
 #| message: false
 #| results: false
 #| warning: false
+#| fig.width: 15
 
 plot(params$rainfall)
 ```
@@ -66,6 +67,7 @@ Represents the terrain elevation (meters above sea level)
 #| message: false
 #| results: false
 #| warning: false
+#| fig.width: 15
 
 plot(params$dem)
 ```
@@ -80,6 +82,7 @@ Represents the soil characteristic, defined by Clay content (%), Silt content (%
 #| message: false
 #| results: false
 #| warning: false
+#| fig.width: 15
 
 plot(params$soil)
 ```
@@ -94,7 +97,7 @@ Categorical raster with each pixel value corresponds to a land cover class
 #| message: false
 #| results: false
 #| warning: false
-#| fig.width: 10
+#| fig.width: 15
 
 plot(params$landcover)
 ```
@@ -109,7 +112,7 @@ A polygon shapefile of administrative or management zones.
 #| message: false
 #| results: false
 #| warning: false
-#| fig.width: 10
+#| fig.width: 15
 
 plot(params$pu)
 ```
@@ -126,6 +129,7 @@ plot(params$pu)
 #| message: false
 #| results: false
 #| warning: false
+#| fig.width: 15
 
 plot(params$r)
 ```
@@ -138,6 +142,7 @@ plot(params$r)
 #| message: false
 #| results: false
 #| warning: false
+#| fig.width: 15
 
 plot(params$k)
 ```
@@ -150,6 +155,7 @@ plot(params$k)
 #| message: false
 #| results: false
 #| warning: false
+#| fig.width: 15
 
 plot(params$ls)
 ```
@@ -162,6 +168,7 @@ plot(params$ls)
 #| message: false
 #| results: false
 #| warning: false
+#| fig.width: 15
 
 plot(params$c)
 ```
@@ -174,6 +181,7 @@ plot(params$c)
 #| message: false
 #| results: false
 #| warning: false
+#| fig.width: 15
 
 plot(params$p)
 ```
@@ -186,32 +194,32 @@ plot(params$p)
 #| message: false
 #| results: false
 #| warning: false
-#| fig.width: 10
+#| fig.width: 15
 
 plot(params$a)
 
-# ggplot(params$df, aes(x = `Soil Erosion Rates`)) +
-#     geom_bar(aes(y = `Area (Ha)`), stat = "identity", fill = "blue", alpha = 0.6) +
-#     geom_text(aes(y = `Area (Ha)`, label = scales::comma(`Area (Ha)`)), 
-#               vjust = -0.5, color = "black", size = 4) +
-#     geom_line(aes(y = `Percentage (%)` * max(params$df$`Area (Ha)`) / max(params$df$`Percentage (%)`)), 
-#               group = 1, color = "red", size = 1.2) +
-#     geom_point(aes(y = `Percentage (%)` * max(params$df$`Area (Ha)`) / max(params$df$`Percentage (%)`)), 
-#                color = "red", size = 3) +
-#     scale_y_continuous(
-#       name = "Area (Ha)",
-#       labels = scales::comma,
-#       sec.axis = sec_axis(~ . * max(params$df$`Percentage (%)`) / max(params$df$`Area (Ha)`), 
-#                           name = "Percentage (%)", labels = scales::comma)
-#     ) +
-#     labs(title = "Soil Erosion Rates: Area (Ha) and Percentage (%)",
-#          x = "Soil Erosion Rates") +
-#     theme_minimal() +
-#     theme(
-#       axis.title.y = element_text(color = "blue"),
-#       axis.title.y.right = element_text(color = "red"),
-#       axis.text.x = element_text(angle = 45, hjust = 1)
-#     )
+ggplot(params$df, aes(x = `Soil Erosion Rates`)) +
+    geom_bar(aes(y = `Area (Ha)`), stat = "identity", fill = "blue", alpha = 0.6) +
+    geom_text(aes(y = `Area (Ha)`, label = scales::comma(`Area (Ha)`)),
+              vjust = -0.5, color = "black", size = 4) +
+    geom_line(aes(y = `Percentage (%)` * max(params$df$`Area (Ha)`) / max(params$df$`Percentage (%)`)),
+              group = 1, color = "red", size = 1.2) +
+    geom_point(aes(y = `Percentage (%)` * max(params$df$`Area (Ha)`) / max(params$df$`Percentage (%)`)),
+               color = "red", size = 3) +
+    scale_y_continuous(
+      name = "Area (Ha)",
+      labels = scales::comma,
+      sec.axis = sec_axis(~ . * max(params$df$`Percentage (%)`) / max(params$df$`Area (Ha)`),
+                          name = "Percentage (%)", labels = scales::comma)
+    ) +
+    labs(title = "Soil Erosion Rates: Area (Ha) and Percentage (%)",
+         x = "Soil Erosion Rates") +
+    theme_minimal() +
+    theme(
+      axis.title.y = element_text(color = "blue"),
+      axis.title.y.right = element_text(color = "red"),
+      axis.text.x = element_text(angle = 45, hjust = 1)
+    )
 ```
 
 ------------------------------------------------------------------------
