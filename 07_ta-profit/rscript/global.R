@@ -22,7 +22,6 @@ install_load(
   "ggplot2",
   "plotly",
   "purrr",
-  "raster",
   "readr",
   "remote",
   "reshape",
@@ -42,6 +41,94 @@ if (!("LUMENSR" %in% rownames(installed.packages()))) {
   do.call("library", list("LUMENSR"))
 }
 library(LUMENSR)
+
+format_session_info_table <- function() {
+  si <- sessionInfo()
+  
+  # Extract R version info
+  r_version <- si$R.version[c("major", "minor", "year", "month", "day", "nickname")]
+  r_version <- paste0(
+    "R ", r_version$major, ".", r_version$minor,
+    " (", r_version$year, "-", r_version$month, "-", r_version$day, ")",
+    " '", r_version$nickname, "'"
+  )
+  
+  # Extract platform and OS info
+  platform_os <- paste(si$platform, "|", si$running)
+  
+  # Extract locale info, limit to first few locales if too many
+  locale_info <- strsplit(si$locale, ";")[[1]]
+  locale_info <- paste(locale_info, collapse = "<br>")
+  
+  # Extract .libPaths, limit the number of paths displayed
+  lib_paths <- paste(.libPaths(), collapse = "<br>")
+  
+  # Combine all info into a single tibble
+  session_summary <- tibble(
+    Category = c("R Version", "Platform | OS", ".libPaths", "Locale"),
+    Details = c(r_version, platform_os, lib_paths, locale_info)
+  )
+  
+  return(session_summary)
+}
+
+rename_uploaded_file <- function(input_file) {
+  if (is.null(input_file)) return(NULL)
+  
+  old_path <- input_file$datapath
+  new_path <- file.path(dirname(old_path), input_file$name)
+  file.rename(old_path, new_path)
+  return(new_path)
+}
+
+check_and_install_packages <- function(required_packages) {
+  # Check if each package is installed and can be loaded
+  missing_packages <- character(0)
+  for (package in required_packages) {
+    if (!requireNamespace(package, quietly = TRUE)) {
+      missing_packages <- c(missing_packages, package)
+    } else {
+      tryCatch(
+        {
+          library(package, character.only = TRUE)
+          cat(paste0("Package '", package, "' is installed and loaded.\n"))
+        },
+        error = function(e) {
+          missing_packages <<- c(missing_packages, package)
+          cat(paste0("Package '", package, "' is installed but could not be loaded: ", e$message, "\n"))
+        }
+      )
+    }
+  }
+  
+  # If there are missing packages, ask the user if they want to install them
+  if (length(missing_packages) > 0) {
+    cat("\nThe following packages are missing or could not be loaded:\n")
+    cat(paste0("- ", missing_packages, "\n"))
+    
+    install_choice <- readline(prompt = "Do you want to install/reinstall these packages? (y/n): ")
+    
+    if (tolower(install_choice) == "y") {
+      for (package in missing_packages) {
+        cat(paste0("\nAttempting to install package '", package, "'...\n"))
+        tryCatch(
+          {
+            install.packages(package)
+            library(package, character.only = TRUE)
+            cat(paste0("Package '", package, "' has been successfully installed and loaded.\n"))
+          },
+          error = function(e) {
+            cat(paste0("Failed to install package '", package, "': ", e$message, "\n"))
+          }
+        )
+      }
+    } else {
+      cat("\nPackage installation skipped. Some required packages are missing.\n")
+    }
+  } else {
+    cat("\nAll required packages are installed and loaded.\n")
+  }
+}
 
 prepare_npv_lookup <- function(tbl_npv, quesc_tbl) {
   lookup_n <- tbl_npv
@@ -99,15 +186,15 @@ build_opcost_table <- function(quesc_tbl, period, tot_area) {
 }
 
 carbon_accounting <- function(map1_rast, map2_rast, tbl_npv, tbl_carbon, raster_nodata) {
-  NAvalue(map1_rast) <- as.numeric(raster_nodata)
-  NAvalue(map2_rast) <- as.numeric(raster_nodata)
+  NAflag(map1_rast) <- as.numeric(raster_nodata)
+  NAflag(map2_rast) <- as.numeric(raster_nodata)
   
   names(tbl_carbon)[names(tbl_carbon) == "ID"] <- "ID_LC"
   merged_data <- merge(tbl_npv, tbl_carbon, by = "ID_LC")
   reclassify_matrix <- as.matrix(merged_data[, c("ID_LC", "Carbon")])
   
-  map_carbon1 <- reclassify(map1_rast, reclassify_matrix)
-  map_carbon2 <- reclassify(map2_rast, reclassify_matrix)
+  map_carbon1 <- terra::classify(map1_rast, reclassify_matrix)
+  map_carbon2 <- terra::classify(map2_rast, reclassify_matrix)
   
   chk_em <- map_carbon1 > map_carbon2
   emission_map <- ((map_carbon1 - map_carbon2) * 3.67) * chk_em
@@ -118,8 +205,8 @@ carbon_accounting <- function(map1_rast, map2_rast, tbl_npv, tbl_carbon, raster_
 npv_accounting <- function(map1_rast, map2_rast, tbl_npv) {
   npv_matrix <- as.matrix(tbl_npv[, c("ID_LC", "NPV")])
   
-  map_npv1 <- reclassify(map1_rast, npv_matrix)
-  map_npv2 <- reclassify(map2_rast, npv_matrix)
+  map_npv1 <- terra::classify(map1_rast, npv_matrix)
+  map_npv2 <- terra::classify(map2_rast, npv_matrix)
   
   npv_chg_map <- map_npv2 - map_npv1
   

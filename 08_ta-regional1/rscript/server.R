@@ -31,7 +31,17 @@ server <- function(input, output, session) {
     land.requirement_table = NULL,  # Land requirement table
     P.sector = NULL,  # Primary sector data
     P.sector.selected = NULL,  # Selected primary sectors
-    GDP = NULL  # GDP data
+    GDP = NULL,  # GDP data,
+    int_con_path = NULL,  # Intermediate consumption path
+    add_val_path = NULL,  # Added value path
+    fin_dem_path = NULL,  # Final demand path
+    fin_dem_struc_path = NULL,  # Final demand structure path
+    add_val_struc_path = NULL,  # Added value structure path
+    sector_path = NULL,  # Sector path
+    labour_path = NULL,  # Labour path
+    land_distribution_path = NULL,  # Land distribution path
+    land_use_path = NULL,  # Land use raster path
+    landuse_table_path = NULL  # Land use lookup table path
   )
   
   volumes <- c(
@@ -76,7 +86,7 @@ server <- function(input, output, session) {
       file <- input[[paste0(id, "_file")]]
       if (!is.null(file)) {
         rv[[paste0(id, "_data")]] <- if(id == "land_use") {
-          raster(file$datapath)
+          rast(file$datapath)
         } else {
           read.csv(file$datapath, header = FALSE)
         }
@@ -107,7 +117,7 @@ server <- function(input, output, session) {
       save_location <- file.path(rv$wd, "landuse_area0.tif")
       tryCatch({
         writeRaster(rv$land_use_data, save_location, overwrite = TRUE)
-        landuse_area0 <- raster(save_location)
+        landuse_area0 <- rast(save_location)
         rv$landuse_area0 <- landuse_area0
       })
     
@@ -282,6 +292,19 @@ server <- function(input, output, session) {
         rv$OMPL_graph <- OMPL_graph
         rv$IMPL_graph <- IMPL_graph
         rv$LMPL_graph <- LMPL_graph
+        rv$sector_path <- rename_uploaded_file(input$sector_file)
+        rv$int_con_path <- rename_uploaded_file(input$int_con_file)
+        rv$fin_dem_struc_path <- rename_uploaded_file(input$fin_dem_struc_file)
+        rv$fin_dem_path <- rename_uploaded_file(input$fin_dem_file)
+        rv$add_val_struc_path <- rename_uploaded_file(input$add_val_struc_file)
+        rv$add_val_path <- rename_uploaded_file(input$add_val_file)
+        rv$labour_path <- rename_uploaded_file(input$labour_file)
+        rv$land_distribution_path <- rename_uploaded_file(input$land_distribution_file)
+        rv$land_use_path <- rename_uploaded_file(input$land_use_file)
+        rv$landuse_table_path <- rename_uploaded_file(input$landuse_table_file)
+        rv$unit <- input$unit
+        rv$location <- input$location
+        rv$I_O_period <- input$I_O_period
         
         # Return Results
         list(
@@ -370,7 +393,22 @@ server <- function(input, output, session) {
       IMPL_graph = rv$IMPL_graph,
       LMPL_graph = rv$LMPL_graph,
       land.requirement_table = rv$land.requirement_table,
-      LRC_graph = rv$LRC_graph
+      LRC_graph = rv$LRC_graph,
+      session_log = format_session_info_table(),
+      sector_path = rv$sector_path,
+      int_con_path = rv$int_con_path,
+      fin_dem_struc_path = rv$fin_dem_struc_path,
+      fin_dem_path = rv$fin_dem_path,
+      add_val_struc_path = rv$add_val_struc_path,
+      add_val_path = rv$add_val_path,
+      labour_path = rv$labour_path,
+      land_distribution_path = rv$land_distribution_path,
+      land_use_path = rv$land_use_path,
+      landuse_table_path = rv$landuse_table_path,
+      unit = rv$unit,
+      location = rv$location,
+      I_O_period = rv$I_O_period,
+      output_dir = rv$wd
     )
     output_file <- paste0("ta_regional1_report_", format(Sys.time(), "%Y-%m-%d_%H-%M-%S"), ".html")
     output_dir <- rv$wd

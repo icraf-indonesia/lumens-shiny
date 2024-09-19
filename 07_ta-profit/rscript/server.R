@@ -82,13 +82,13 @@ server <- function(input, output, session) {
   #' Load and process the first map file, converting it to a raster format
   observeEvent(input$map1_file, {
     rv$map1_file <- input$map1_file$datapath
-    rv$map1_rast <- raster(rv$map1_file)
+    rv$map1_rast <- rast(rv$map1_file)
   })
   
   #' Load and process the second map file, converting it to a raster format
   observeEvent(input$map2_file, {
     rv$map2_file <- input$map2_file$datapath
-    rv$map2_rast <- raster(rv$map2_file)
+    rv$map2_rast <- rast(rv$map2_file)
   })
   
   #' Load the carbon data file and process it into a table format for analysis
@@ -156,6 +156,14 @@ server <- function(input, output, session) {
         #' Generate the opportunity cost curve for visualization
         rv$opcost_curve <- generate_opportunity_cost_curve(rv$opcost_table)
         
+        rv$map1_file_path <- rename_uploaded_file(input$map1_file)
+        rv$map2_file_path <- rename_uploaded_file(input$map2_file)
+        rv$npv_file_path <- rename_uploaded_file(input$npv_file)
+        rv$carbon_file_path <- rename_uploaded_file(input$carbon_file)
+        rv$year1 <- input$year1
+        rv$year2 <- input$year2
+        rv$raster_nodata <- input$raster_nodata
+        
         #' Indicate that the process has completed successfully
         setProgress(1, message = "Processing Complete")
         showNotification("All outputs have been generated", type = "message")
@@ -177,6 +185,7 @@ server <- function(input, output, session) {
   #' Create a reactive function to generate the final report after the analysis is complete
   report_content <- reactive({
     params <- list(
+      session_log = format_session_info_table(),
       map_carbon1 = rv$map_carbon1,
       map_carbon2 = rv$map_carbon2,
       emission_map = rv$emission_map,
@@ -185,7 +194,15 @@ server <- function(input, output, session) {
       opcost_curve = rv$opcost_curve,
       npv1_map = rv$map_npv1,
       npv2_map = rv$map_npv1,
-      delta_npv = rv$npv_chg_map
+      delta_npv = rv$npv_chg_map,
+      map1_file_path = rv$map1_file_path,
+      map2_file_path = rv$map2_file_path,
+      npv_file_path = rv$npv_file_path,
+      carbon_file_path = rv$carbon_file_path,
+      year1 = rv$year1,
+      year2 = rv$year2,
+      raster_nodata = rv$raster_nodata,
+      output_dir = rv$wd
     )
     
     output_file <- paste0("ta-profit_report_", format(Sys.time(), "%Y-%m-%d_%H-%M-%S"), ".html")

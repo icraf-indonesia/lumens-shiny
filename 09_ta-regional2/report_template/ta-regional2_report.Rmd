@@ -23,7 +23,6 @@ params:
 knitr::opts_chunk$set(echo = FALSE)
 library(knitr)
 library(ggplot2)
-library(raster)
 library(kableExtra)
 ```
 

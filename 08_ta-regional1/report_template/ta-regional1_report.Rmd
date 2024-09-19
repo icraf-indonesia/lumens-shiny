@@ -20,14 +20,61 @@ params:
   IMPL_graph : NA 
   LMPL_graph : NA 
   P.sector.selected : NA
+  session_log: NA
+  int_con_path : NA  
+  add_val_path : NA  
+  fin_dem_path : NA
+  fin_dem_struc_path : NA
+  add_val_struc_path : NA
+  sector_path : NA
+  labour_path : NA
+  land_distribution_path : NA
+  land_use_path : NA
+  landuse_table_path : NA
+  unit: NA
+  location: NA
+  I_O_period : NA
+  output_dir: NA
 ---
 
 ```{r setup, include = FALSE, warning = FALSE, message = FALSE}
 knitr::opts_chunk$set(echo = FALSE)
 library(knitr)
+library(kableExtra)
 library(ggplot2)
-library(raster)
 ```
+
+<details><summary>Click here for Analysis Log</summary>
+
+```{r analysis-log, echo=FALSE}
+
+analysis_log <- tribble(
+  ~Category,                   ~Details,
+  # "Analysis Start",        params$start_time,
+  # "Analysis End",          params$end_time,
+  "Input Data and Parameters", "",
+  "Sector table",      params$sector_path,
+  "Intermediate Demand table",   params$int_con_path,
+  "Final Demand Component table",   params$fin_dem_struc_path,
+  "Final Demand table",   params$fin_dem_path,
+  "Added Value Component table",      params$add_val_struc_path,
+  "Added Value table",   params$add_val_path,
+  "Labour table",   params$labour_path,
+  "Land Distribution table",   params$land_distribution_path,
+  "Land Use map",   params$land_use_path,
+  "Land Use Lookup table",   params$landuse_table_path,
+  "Unit", as.character(params$unit),
+  "Location", as.character(params$location),
+  "IO Period", as.character(params$I_O_period),
+  "Output Files", "",
+  "Output Workspace",      paste0(getwd(), " | ", params$output_dir),
+  "Session Summary", "",
+) %>% rbind(format_session_info_table())
+
+analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
+  kable_paper("hover", full_width = F )
+```
+</details>
 
 ## Introduction
 

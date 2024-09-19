@@ -42,6 +42,55 @@ if (!("LUMENSR" %in% rownames(installed.packages()))) {
 }
 library(LUMENSR)
 
+check_and_install_packages <- function(required_packages) {
+  # Check if each package is installed and can be loaded
+  missing_packages <- character(0)
+  for (package in required_packages) {
+    if (!requireNamespace(package, quietly = TRUE)) {
+      missing_packages <- c(missing_packages, package)
+    } else {
+      tryCatch(
+        {
+          library(package, character.only = TRUE)
+          cat(paste0("Package '", package, "' is installed and loaded.\n"))
+        },
+        error = function(e) {
+          missing_packages <<- c(missing_packages, package)
+          cat(paste0("Package '", package, "' is installed but could not be loaded: ", e$message, "\n"))
+        }
+      )
+    }
+  }
+  
+  # If there are missing packages, ask the user if they want to install them
+  if (length(missing_packages) > 0) {
+    cat("\nThe following packages are missing or could not be loaded:\n")
+    cat(paste0("- ", missing_packages, "\n"))
+    
+    install_choice <- readline(prompt = "Do you want to install/reinstall these packages? (y/n): ")
+    
+    if (tolower(install_choice) == "y") {
+      for (package in missing_packages) {
+        cat(paste0("\nAttempting to install package '", package, "'...\n"))
+        tryCatch(
+          {
+            install.packages(package)
+            library(package, character.only = TRUE)
+            cat(paste0("Package '", package, "' has been successfully installed and loaded.\n"))
+          },
+          error = function(e) {
+            cat(paste0("Failed to install package '", package, "': ", e$message, "\n"))
+          }
+        )
+      }
+    } else {
+      cat("\nPackage installation skipped. Some required packages are missing.\n")
+    }
+  } else {
+    cat("\nAll required packages are installed and loaded.\n")
+  }
+}
+
 format_session_info_table <- function() {
   si <- sessionInfo()
   
