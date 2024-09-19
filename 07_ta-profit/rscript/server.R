@@ -206,4 +206,14 @@ server <- function(input, output, session) {
     showNotification("Opening report...", type = "message")
     file.show(report_content())
   })
+  
+  session$onSessionEnded(function() {
+    stopApp()
+  })
+  
+  observeEvent(input$returnButton, {
+    js$closeWindow()
+    message("Return to main menu!")
+    # shinyjs::delay(1000, stopApp())
+  })
 }

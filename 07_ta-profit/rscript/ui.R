@@ -1,6 +1,7 @@
 fluidPage(
   useShinyjs(),
   theme = bs_theme(version = 5),
+  extendShinyjs(text = jscode, functions = c("closeWindow")),
   titlePanel("Trade-off Analysis (Profit)"),
   sidebarLayout(
     sidebarPanel(
@@ -19,7 +20,9 @@ fluidPage(
           hidden(
             actionButton("viewReport", "View Report",
                          style = "font-size: 18px; padding: 10px 15px; background-color: #008CBA; color: white;")
-          )
+          ),
+          actionButton("returnButton", "Return to Main Menu", 
+                       style = "font-size: 18px; padding: 10px 15px; background-color: #FA8072; color: white;")
       )
     ),
     mainPanel(
