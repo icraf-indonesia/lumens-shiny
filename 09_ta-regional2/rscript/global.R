@@ -42,8 +42,74 @@ if (!("LUMENSR" %in% rownames(installed.packages()))) {
 }
 library(LUMENSR)
 
+format_session_info_table <- function() {
+  si <- sessionInfo()
+  
+  # Extract R version info
+  r_version <- si$R.version[c("major", "minor", "year", "month", "day", "nickname")]
+  r_version <- paste0(
+    "R ", r_version$major, ".", r_version$minor,
+    " (", r_version$year, "-", r_version$month, "-", r_version$day, ")",
+    " '", r_version$nickname, "'"
+  )
+  
+  # Extract platform and OS info
+  platform_os <- paste(si$platform, "|", si$running)
+  
+  # Extract locale info, limit to first few locales if too many
+  locale_info <- strsplit(si$locale, ";")[[1]]
+  locale_info <- paste(locale_info, collapse = "<br>")
+  
+  # Extract .libPaths, limit the number of paths displayed
+  lib_paths <- paste(.libPaths(), collapse = "<br>")
+  
+  # Combine all info into a single tibble
+  session_summary <- tibble(
+    Category = c("R Version", "Platform | OS", ".libPaths", "Locale"),
+    Details = c(r_version, platform_os, lib_paths, locale_info)
+  )
+  
+  return(session_summary)
+}
+
+rename_uploaded_file <- function(input_file) {
+  if (is.null(input_file)) return(NULL)
+  
+  old_path <- input_file$datapath
+  new_path <- file.path(dirname(old_path), input_file$name)
+  file.rename(old_path, new_path)
+  return(new_path)
+}
+
+# Function to calculate totals and create a data frame for a given variable
+create_totals_df <- function(GDP, GDP_values, multiplier, period_name) {
+  output_tot_list <- list()
+  
+  for (i in 1:ncol(GDP_values)) {
+    GDP_value <- GDP_values[[i]]
+    output_sector <- GDP_value * GDP$P_OUTPUT
+    sector_total <- output_sector * multiplier
+    total <- sum(as.numeric(sector_total), na.rm = TRUE)
+    output_tot_list[[i]] <- total
+  }
+  
+  df <- data.frame(
+    Period = c(period_name, paste("Period", seq_len(length(output_tot_list) - 1))),
+    Total = unlist(output_tot_list)
+  )
+  return(df)
+}
+
+# Function to create bar plot based on totals
+create_bar_plot <- function(df, title) {
+  ggplot(data = df, aes(x = Period, y = Total)) +
+    geom_bar(stat = "identity", position = "dodge", colour = "black") +
+    labs(x = "Period", y = "Total Value") +
+    ggtitle(title) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+}
+
 generate_landuse_table <- function(land_req, projected_land_use, landuse_area0, landuse_lut) {
-  load(land_req)
   next_luc_freq <- freq(projected_land_use)
   landuse_area_table <- as.data.frame(na.omit(next_luc_freq))
   colnames(landuse_area_table) <- c("ID", "COUNT")

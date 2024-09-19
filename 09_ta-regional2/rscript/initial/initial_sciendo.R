@@ -7,6 +7,7 @@ library(ggplot2)
 library(raster)
 library(foreign)
 library(magick)
+library(dplyr)
 
 load(land_req)
 
@@ -205,6 +206,74 @@ GDP_totals_graph <- ggplot(data = GDP_totals_df, aes(x = Period, y = GDP_totals)
   geom_bar(stat = "identity", position = "dodge", colour = "black") +
   labs(x = "Period", y = "GDP Value") +
   ggtitle(paste("BAU vs Scenario GDP Total")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Initialize empty lists to store results for each period
+output_tot_list <- list()
+income_tot_list <- list()
+labour_tot_list <- list()
+
+db_GDP <- data.frame(GDP_scen_df %>% select(-Sector, -Category))
+rownames(db_GDP)<-NULL
+
+# Loop over each period (assuming same length for all lists)
+for (i in 1:ncol(db_GDP)) {
+  # Extract data for the current period
+  GDP_p.output <- GDP$P_OUTPUT
+  GDP_value <- db_GDP[[i]]
+  
+  # Output per sector
+  output_sector <- GDP_value * GDP_p.output
+  db_output <- data.frame(cbind(GDP$SECTOR, output_sector))
+  colnames(db_output) <- c("Sector", "Output")
+  output_tot <- sum(as.numeric(db_output$Output), na.rm = TRUE)
+  
+  # Income per sector
+  income_sector <- output_sector * Inc.multiplier$Inc.multiplier
+  db_income <- data.frame(cbind(GDP$SECTOR, income_sector))
+  colnames(db_income) <- c("Sector", "Income")
+  income_tot <- sum(as.numeric(db_income$Income), na.rm = TRUE)
+  
+  # Labour per sector
+  labour_sector <- output_sector * Lab.multiplier$Lab.multiplier
+  db_labour <- data.frame(cbind(GDP$SECTOR, labour_sector))
+  colnames(db_labour) <- c("Sector", "Labour")
+  labour_tot <- sum(as.numeric(db_labour$Labour), na.rm = TRUE)
+  
+  # Store results for the current period
+  output_tot_list[[i]] <- output_tot
+  income_tot_list[[i]] <- income_tot
+  labour_tot_list[[i]] <- labour_tot
+}
+
+db_output_total <- data.frame(
+  Period = c("Period BAU", paste("Period", seq_len(length(output_tot_list) - 1))),
+  Output_total = unlist(output_tot_list)
+)
+output_total_graph <- ggplot(data = db_output_total, aes(x = Period, y = Output_total)) +
+  geom_bar(stat = "identity", position = "dodge", colour = "black") +
+  labs(x = "Period", y = "GDP Value") +
+  ggtitle(paste("BAU vs Scenario Output Total")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+db_income_total <- data.frame(
+  Period = c("Period BAU", paste("Period", seq_len(length(income_tot_list) - 1))),
+  Output_total = unlist(income_tot_list)
+)
+income_total_graph <- ggplot(data = db_income_total, aes(x = Period, y = Output_total)) +
+  geom_bar(stat = "identity", position = "dodge", colour = "black") +
+  labs(x = "Period", y = "GDP Value") +
+  ggtitle(paste("BAU vs Scenario Output Total")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+db_labour_total <- data.frame(
+  Period = c("Period BAU", paste("Period", seq_len(length(labour_tot_list) - 1))),
+  Output_total = unlist(labour_tot_list)
+)
+labour_total_graph <- ggplot(data = db_labour_total, aes(x = Period, y = Output_total)) +
+  geom_bar(stat = "identity", position = "dodge", colour = "black") +
+  labs(x = "Period", y = "GDP Value") +
+  ggtitle(paste("BAU vs Scenario Output Total")) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 #CALCULATE TOTAL LABOUR

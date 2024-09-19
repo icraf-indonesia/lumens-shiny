@@ -7,11 +7,16 @@ output:
     number_sections: true
     df_print: kable
 params:
-  LAB_graph: NA
+  session_log: NA
   landuse_table: NA
-  Labour_table: NA
-  GDP_totals_graph : NA
+  GDP_totals_graph: NA
   GDP_scen_df: NA
+  output_total_graph: NA
+  income_total_graph: NA
+  labour_total_graph: NA
+  output_dir: NA
+  land_req_path: NA
+  sciendo_db_path: NA
 ---
 
 ```{r setup, include=FALSE}
@@ -19,7 +24,29 @@ knitr::opts_chunk$set(echo = FALSE)
 library(knitr)
 library(ggplot2)
 library(raster)
+library(kableExtra)
 ```
+
+<details><summary>Click here for Analysis Log</summary>
+
+```{r analysis-log, echo=FALSE}
+
+analysis_log <- tribble(
+  ~Category,                   ~Details,
+  # "Analysis Start",        params$start_time,
+  # "Analysis End",          params$end_time,
+  "Input Data and Parameters", "",
+  "Land Requirement Database",      params$land_req_path,
+  "SCIENDO Database",   params$sciendo_db_path,
+  "Output Files", "",
+  "Output Workspace",      paste0(getwd(), " | ", params$output_dir),
+  "Session Summary", "",
+) %>% rbind(format_session_info_table())
+
+analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
+  kable_paper("hover", full_width = F )
+```
+</details>
 
 ## Introduction
 
@@ -44,6 +71,21 @@ knitr::kable(params$GDP_scen_df)
 ### GDP Total
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 plot(params$GDP_totals_graph)
+```
+
+### Output Total
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+plot(params$output_total_graph)
+```
+
+### Income Total
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+plot(params$income_total_graph)
+```
+
+### Labour Total
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+plot(params$labour_total_graph)
 ```
 
 ### Conclusion
