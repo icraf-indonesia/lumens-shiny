@@ -7,7 +7,7 @@ tryCatch({
 source("06_quesh/rscript/initial/quesh_functions.R")
 
 required_packages <- c(
-  "terra", "sf", "magrittr", "dplyr", "lattice", "rasterVis", "classInt", "ggplot2", "scales"
+  "terra", "sf", "magrittr", "dplyr", "lattice", "rasterVis", "classInt", "ggplot2", "scales", "DT"
 )
 
 check_and_install_packages(required_packages)
@@ -29,7 +29,7 @@ path <- list(
   lc_t1_file = "data/raster/tutupan_lahan_Bungo_2005r.tif", # landcover directory that consist of time series land cover map
   lc_t2_file = "data/raster/tutupan_lahan_Bungo_2010r.tif",
   c_ref_file = "data/data_quesh/c_factor_bungo_usda1972.csv", # csv file contained cover management factor for each landcover class
-  multiseries = 1, # 1 mean include the multiple time series analysis
+  multiseries = 0, # 1 mean include the multiple time series analysis
   practice = 0, # 1 mean practice factor included, 0 mean not included
   practice_file = "path", # raster file of p factor
   t1 = 2005,
@@ -51,6 +51,7 @@ sand <- syncGeom(input = path$sand_file, ref = pu)
 silt <- syncGeom(input = path$silt_file, ref = pu)
 clay <- syncGeom(input = path$clay_file, ref = pu)
 orgc <- syncGeom(input = path$orgc_file, ref = pu)
+soil_stack <- c(sand, silt, clay, orgc)
 
 # Prepare LS factor input
 dem <- syncGeom(input = path$dem_file, ref = pu)
@@ -63,6 +64,7 @@ if (path$multiseries == 1){
   landcover_t2 <- rast(path$lc_t2_file)
   landcover_t1_viz <- lc_class_categorize(landcover = landcover_t1, c_ref = c_ref)
   landcover_t2_viz <- lc_class_categorize(landcover = landcover_t2, c_ref = c_ref)
+  landcover_stack <- c(landcover_t1_viz, landcover_t2_viz)
 } else {
   landcover_t1 <- rast(path$lc_t1_file)
   landcover_t1_viz <- lc_class_categorize(landcover = landcover_t1, c_ref = c_ref)
@@ -111,12 +113,14 @@ if (path$multiseries == 1){
   ls_factor <- a[[5]]
   c_factor_t1 <- a[[6]]
   c_factor_t2 <- a[[7]]
+  c_factor_stack <- c(c_factor_t1, c_factor_t2)
   
   # Reclassify erosion rate
   erosion_classified_t1 <- classify(erosion_t1, rcl = rcl_matrix)
   erosion_classified_t2 <- classify(erosion_t2, rcl = rcl_matrix)
   levels(erosion_classified_t1) <- data.frame(id=1:6, category=labels)
   levels(erosion_classified_t2) <- data.frame(id=1:6, category=labels)
+  erosion_stack <- c(erosion_classified_t1, erosion_classified_t2)
   
   # Create dataset of erosion estimation
   erosion_db_t1 <- erosion_dataset(erosion_classified = erosion_classified_t1)
@@ -145,6 +149,46 @@ if (path$multiseries == 1){
   e_labels <- c("Erosion risk decrease", "No erosion risk changes", "Erosion risk increase")
   levels(e_diff_classified) <- data.frame(id=1:3, category=e_labels)
   
+  # Export the results
+  writeRaster(r_factor, paste0(output_dir, "r_factor.tif"), overwrite = TRUE)
+  writeRaster(k_factor, paste0(output_dir, "k_factor.tif"), overwrite = TRUE)
+  writeRaster(ls_factor, paste0(output_dir, "ls_factor.tif"), overwrite = TRUE)
+  writeRaster(c_factor_t1, paste0(output_dir, "c_factor", paste0(path$t1), ".tif"), overwrite = TRUE)
+  writeRaster(c_factor_t2, paste0(output_dir, "c_factor", paste0(path$t2), ".tif"), overwrite = TRUE)
+  writeRaster(erosion_t1, filename = paste0(output_dir, "soil_erosion", paste0(path$t1), ".tif"), overwrite = TRUE)
+  writeRaster(erosion_t2, filename = paste0(output_dir, "soil_erosion", paste0(path$t2), ".tif"), overwrite = TRUE)
+  writeRaster(erosion_classified_t1, filename = paste0(output_dir, "soil_erosion_reclass", paste0(path$t1), ".tif"), overwrite = TRUE)
+  writeRaster(erosion_classified_t2, filename = paste0(output_dir, "soil_erosion_reclass", paste0(path$t2), ".tif"), overwrite = TRUE)
+  write.csv(erosion_db, file = paste0(output_dir, "soil_erosion", paste0(path$t1), "-", paste0(path$t2), ".csv"))
+  
+  # End of the script
+  end_time <- Sys.time()
+  cat("Started at:", format(start_time, "%Y-%m-%d %H:%M:%S"), "\n")
+  cat("Ended at:", format(end_time, "%Y-%m-%d %H:%M:%S"), "\n")
+  
+  # Prepare parameters for report
+  report_params <- list(
+    start_time = as.character(format(start_time, "%Y-%m-%d %H:%M:%S")),
+    end_time = as.character(format(end_time, "%Y-%m-%d %H:%M:%S")),
+    output_dir = output_dir,
+    dem = dem,
+    pu = pu,
+    rainfall = rainfall,
+    soil = soil_stack,
+    landcover = landcover_stack,
+    t1 = path$t1,
+    t2 = path$t2,
+    r = r_factor,
+    k = k_factor,
+    ls = ls_factor,
+    c = c_factor_stack,
+    p = p_factor,
+    a = erosion_stack,
+    e_diff = e_diff_classified,
+    df = erosion_db,
+    multiseries = path$multiseries
+  )
+  
 } else {
   
   # Redefined the results
@@ -160,49 +204,45 @@ if (path$multiseries == 1){
   
   # Create dataset of erosion estimation
   erosion_db_t1 <- erosion_dataset(erosion_classified = erosion_classified_t1)
+  
+  # Export the results
+  writeRaster(r_factor, paste0(output_dir, "r_factor.tif"), overwrite = TRUE)
+  writeRaster(k_factor, paste0(output_dir, "k_factor.tif"), overwrite = TRUE)
+  writeRaster(ls_factor, paste0(output_dir, "ls_factor.tif"), overwrite = TRUE)
+  writeRaster(c_factor, paste0(output_dir, "c_factor", paste0(path$t1), ".tif"), overwrite = TRUE)
+  writeRaster(erosion_t1, filename = paste0(output_dir, "soil_erosion", paste0(path$t1), ".tif"), overwrite = TRUE)
+  writeRaster(erosion_classified_t1, filename = paste0(output_dir, "soil_erosion_reclass", paste0(path$t1), ".tif"), overwrite = TRUE)
+  write.csv(erosion_db_t1, file = paste0(output_dir, "soil_erosion", paste0(path$t1), ".csv"))
+  
+  # End of the script
+  end_time <- Sys.time()
+  cat("Started at:", format(start_time, "%Y-%m-%d %H:%M:%S"), "\n")
+  cat("Ended at:", format(end_time, "%Y-%m-%d %H:%M:%S"), "\n")
+  
+  # Prepare parameters for report
+  report_params <- list(
+    start_time = as.character(format(start_time, "%Y-%m-%d %H:%M:%S")),
+    end_time = as.character(format(end_time, "%Y-%m-%d %H:%M:%S")),
+    output_dir = output_dir,
+    dem = dem,
+    pu = pu,
+    rainfall = rainfall,
+    soil = soil_stack,
+    landcover = landcover_t1_viz,
+    t1 = path$t1,
+    t2 = path$t2,
+    r = r_factor,
+    k = k_factor,
+    ls = ls_factor,
+    c = c_factor,
+    p = p_factor,
+    a = erosion_classified_t1,
+    df = erosion_db_t1,
+    multiseries = path$multiseries
+  )
 }
 
-# Export Results -----------------------------------------------------------
-
-writeRaster(r_factor, paste0(output_dir, "r_factor.tif"), overwrite = TRUE)
-writeRaster(k_factor, paste0(output_dir, "k_factor.tif"), overwrite = TRUE)
-writeRaster(ls_factor, paste0(output_dir, "ls_factor.tif"), overwrite = TRUE)
-writeRaster(c_factor_t1, paste0(output_dir, "c_factor", paste0(path$t1), ".tif"), overwrite = TRUE)
-writeRaster(c_factor_t2, paste0(output_dir, "c_factor", paste0(path$t2), ".tif"), overwrite = TRUE)
-writeRaster(erosion_t1, filename = paste0(output_dir, "soil_erosion", paste0(path$t1), ".tif"), overwrite = TRUE)
-writeRaster(erosion_t2, filename = paste0(output_dir, "soil_erosion", paste0(path$t2), ".tif"), overwrite = TRUE)
-writeRaster(erosion_classified_t1, filename = paste0(output_dir, "soil_erosion_reclass", paste0(path$t1), ".tif"), overwrite = TRUE)
-writeRaster(erosion_classified_t2, filename = paste0(output_dir, "soil_erosion_reclass", paste0(path$t2), ".tif"), overwrite = TRUE)
-write.csv(erosion_db_t1, file = paste0(output_dir, "soil_erosion", paste0(path$t1), ".csv"))
-write.csv(erosion_db_t2, file = paste0(output_dir, "soil_erosion", paste0(path$t2), ".csv"))
-
-# End of the script
-end_time <- Sys.time()
-cat("Started at:", format(start_time, "%Y-%m-%d %H:%M:%S"), "\n")
-cat("Ended at:", format(end_time, "%Y-%m-%d %H:%M:%S"), "\n")
-
-
 # 9. Prepare parameters for report -------------------------------------
-
-soil_stack <- c(sand, silt, clay, orgc)
-
-report_params <- list(
-  start_time = as.character(format(start_time, "%Y-%m-%d %H:%M:%S")),
-  end_time = as.character(format(end_time, "%Y-%m-%d %H:%M:%S")),
-  output_dir = output_dir,
-  dem = dem,
-  pu = pu,
-  rainfall = rainfall,
-  soil = soil_stack,
-  landcover = landcover,
-  r = r_factor,
-  k = k_factor,
-  ls = ls_factor,
-  c = c_factor,
-  p = p_factor,
-  a = erosion_classified,
-  df = erosion_db
-)
 
 # Render the R markdown report
 if (!rmarkdown::pandoc_available()) {

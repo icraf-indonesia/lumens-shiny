@@ -15,6 +15,8 @@ params:
   rainfall: NA
   soil: NA
   landcover: NA
+  t1: NA
+  t2: NA
   r: NA
   k: NA
   ls: NA
@@ -22,6 +24,8 @@ params:
   p: NA
   a: NA
   df: NA
+  e_diff: NA
+  multiseries: NA
 ---
 
 ```{r setup, include=FALSE}
@@ -196,9 +200,20 @@ plot(params$p)
 #| warning: false
 #| fig.width: 15
 
-plot(params$a)
-
-ggplot(params$df, aes(x = `Soil Erosion Rates`)) +
+if (params$multiseries == 1){
+  plot(params$a)
+  DT::datatable(params$df, 
+              colnames = c("Soil Erosion Rates", 
+                           paste0("Area (Ha) ", params$t1), 
+                           paste0("Percentage (%) ", params$t1), 
+                           paste0("Area (Ha) ", params$t2), 
+                           paste0("Percentage (%) ", params$t2)))
+  plot(params$e_diff)
+} else {
+  plot(params$a)
+  DT::datatable(params$df, colnames = c("Soil Erosion Rates", "Area (Ha)", "Percentage (%)"))
+  
+  ggplot(params$df, aes(x = `Soil Erosion Rates`)) +
     geom_bar(aes(y = `Area (Ha)`), stat = "identity", fill = "blue", alpha = 0.6) +
     geom_text(aes(y = `Area (Ha)`, label = scales::comma(`Area (Ha)`)),
               vjust = -0.5, color = "black", size = 4) +
@@ -220,6 +235,7 @@ ggplot(params$df, aes(x = `Soil Erosion Rates`)) +
       axis.title.y.right = element_text(color = "red"),
       axis.text.x = element_text(angle = 45, hjust = 1)
     )
+}
 ```
 
 ------------------------------------------------------------------------
