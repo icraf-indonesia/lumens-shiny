@@ -28,8 +28,6 @@ if (!("LUMENSR" %in% rownames(installed.packages()))) {
 }
 library(LUMENSR)
 
-jscode <- "shinyjs.closeWindow = function() { window.close(); }"
-
 ui <- fluidPage(
   useShinyjs(),
   theme = bs_theme(version = 5),
@@ -38,17 +36,18 @@ ui <- fluidPage(
   sidebarLayout(
     sidebarPanel(
       fileInput("map1_file", "Land cover map at T1", accept = c("image/tiff")),
+      textInput("map1_year", "Year of T1", value = "1990"),
       fileInput("map2_file", "Land cover map at T2", accept = c("image/tiff")),
+      textInput("map2_year", "Year of T2", value = "2000"),
+      fileInput("carbon_file", "Carbon stock lookup table", accept = c(".csv")),
       fileInput("mapz_file", 
                 "Planning Unit", 
                 accept = c(".shp", ".dbf", ".sbn", ".sbx", ".shx", ".prj"), 
                 multiple = T, 
                 placeholder = "All related shapefiles"),
-      fileInput("carbon_file", "Carbon stock lookup table", accept = c(".csv")),
-      textInput("map1_year", "Year of T1"),
-      textInput("map2_year", "Year of T2"),
       div(style = "display: flex; flex-direction: column; gap: 10px;",
           shinyDirButton("wd", "Select output directory", "Please select a directory"),
+          verbatimTextOutput("print_output_dir", placeholder = TRUE),
           actionButton("processQUESC", "Run", 
                        style = "font-size: 18px; padding: 10px 15px; background-color: #4CAF50; color: white;"),
           hidden(
@@ -62,7 +61,7 @@ ui <- fluidPage(
     mainPanel(
       tabsetPanel(
         tabPanel("User Guide", includeMarkdown("../helpfile/quesc_help.md")),
-        tabPanel("Analysis",
+        tabPanel("Log",
                  textOutput("selected_directory"),         
                  verbatimTextOutput("status_messages"),
                  verbatimTextOutput("error_messages"),
@@ -205,6 +204,14 @@ server <- function(input, output, session) {
     }
   })
   
+  output$print_output_dir <- renderPrint({
+    if(!is.null(rv$wd)) {
+      cat(paste(rv$wd))
+    } else {
+      cat("No output directory selected")
+    }
+  })
+  
   # Input validation
   iv <- InputValidator$new()
   iv$add_rule("map1_file", sv_required(message = "Please upload land cover map at T1"))
@@ -255,7 +262,7 @@ server <- function(input, output, session) {
         rv$tbl_quesc <- results$ques_db
         rv$period_year <- as.numeric(results$p1) - as.numeric(results$p2)
         
-        output$status_messages <- renderText("Analysis completed successfully!")
+        output$status_messages <- renderText("STATUS: Analysis completed successfully!")
         output$success_message <- renderText("Analysis completed successfully! You can now open the output folder.")
         output$error_messages <- renderText(NULL)
         removeNotification("running_notification")

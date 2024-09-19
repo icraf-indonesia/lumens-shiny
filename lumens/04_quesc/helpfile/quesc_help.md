@@ -4,7 +4,7 @@ The Quantification of Environmental Services for Carbon (QUES-C) module calculat
 
 # Key Concepts:
 
-1.  **Carbon stock dynamics analysis** is carried out for carbon stock changes in an area during one period, using *Stock Difference* method.
+1.  **Carbon stock dynamics analysis** is carried out for carbon stock changes in an area during one period, using *Stock Difference* method. The carbon stock being considered is time-averaged above ground carbon stock.
 2.  **Emissions** are calculated as the decrease of carbon stock amount due to land cover change if the amount of the initial carbon stock is higher than that upon land use change.
 3.  **Sequestration** is calculated as the amount of carbon stock addition due to land cover change (meaning that the carbon stock in the initial land use is lower than that upon land use change)
 

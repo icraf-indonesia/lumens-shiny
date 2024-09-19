@@ -9,14 +9,11 @@ params:
   start_time: NA
   end_time: NA
   output_dir: NA
-  raster_temp: NA
   summary_PUR: NA
-  area_name: NA
   sa: NA
-  dir_raster_temp: NA
   dir_sa: NA
   dir_summary_PUR: NA
-  summary_data: NA
+  total_area: NA
 ---
 
 ```{r setup, include=FALSE}
@@ -27,12 +24,11 @@ library(dplyr)
 library(ggplot2)
 library(sf)
 library(terra)
-library(raster)
 ```
 
 ## Summary
 
-This analysis performed Planning Unit Reconciliation (PUR) on the `r params$area_name` landscape. The total area analyzed was `r format(round(params$summary_data$total_area, 2), big.mark = ",")` hectares.
+The total area analyzed was `r format(round(params$total_area, 2), big.mark = ",")` hectares.
 
 ## Module brief description
 
@@ -49,25 +45,17 @@ Planning unit reconciliation is a process to resolve overlapping permits by refe
 #| warning: false
 
 resolved_map <- params$sa
-plot(resolved_map["resolved"], main = "Resolved Map")
+plot(resolved_map["Rec_phase2"])
 ```
 
 ### Reconciliation Data Summary
 
+The table below summarizes the final reconciliation results:
+
 ```{r}
 table_recon <- params$summary_PUR
 
-kable(table_recon, caption = "Summary of Final Reconciliation Results") %>%
-  kable_styling(bootstrap_options = c("striped", "hover"))
+DT::datatable(table_recon, colnames=c("ID", "Class", "Area (Ha)"))
+# kable(table_recon, caption = "Summary of Final Reconciliation Results") %>%
+#   kable_styling(bootstrap_options = c("striped", "hover"))
 ```
-
-The table below summarizes the final reconciliation results:
-
-## Final Outputs
-The following files were generated during the reconciliation process:
-
-- Reconciliation Raster: `r params$dir_raster_temp`
-- Reconciliation Shapefile: `r params$dir_sa`
-- Summary CSV File: `r params$dir_summary_PUR`
-
-These files can be found in the output directory specified above.

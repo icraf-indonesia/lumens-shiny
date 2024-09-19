@@ -8,8 +8,6 @@ required_packages <- c("terra", "dplyr", "ggplot2", "shiny", "shinyjs",
 # Check if required packages are installed, and install them if not
 check_and_install_packages(required_packages)
 
-jscode <- "shinyjs.closeWindow = function() { window.close(); }"
-
 ui <- fluidPage(
   useShinyjs(),
   theme = bs_theme(version = 5),
