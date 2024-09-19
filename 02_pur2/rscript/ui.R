@@ -1,6 +1,7 @@
 ui <- fluidPage(
   useShinyjs(),
   theme = bs_theme(version = 5),
+  extendShinyjs(text = jscode, functions = c("closeWindow")),
   titlePanel("PUR Reconcile Module"),
   sidebarLayout(
     sidebarPanel(
@@ -22,7 +23,9 @@ ui <- fluidPage(
           hidden(
             actionButton("open_output_folder", "Open Output Folder",
                          style = "font-size: 18px; padding: 10px 15px; background-color: #008CBA; color: white;")
-          )
+          ),
+          actionButton("returnButton", "Return to Main Menu", 
+                       style = "font-size: 18px; padding: 10px 15px; background-color: #FA8072; color: white;") 
       )
     ),
     mainPanel(
