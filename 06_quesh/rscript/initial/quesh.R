@@ -30,7 +30,7 @@ path <- list(
   lc_t2_file = "data/raster/tutupan_lahan_Bungo_2010r.tif",
   c_ref_file = "data/table/c_factor_bungo_usda1972.csv", # csv file contained cover management factor for each landcover class
   multiseries = 1, # 1 mean include the multiple time series analysis
-  practice = 0, # 1 mean practice factor included, 0 mean not included
+  practice = 0, # 1 mean practice factor included (user input their own P factor raster in practice_file), 0 mean not included: automatically generate p_factor map with value 1
   practice_file = "path", # raster file of p factor
   t1 = 2005,
   t2 = 2010,

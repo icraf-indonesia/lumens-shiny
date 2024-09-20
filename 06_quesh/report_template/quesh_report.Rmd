@@ -39,9 +39,7 @@ library(knitr)
 library(kableExtra)
 library(dplyr)
 library(ggplot2)
-library(sf)
 library(terra)
-library(raster)
 library(DT)
 ```
 
@@ -204,7 +202,9 @@ if (params$multiseries == 1) {
                  paste0("Percentage (%) ", params$t1), 
                  paste0("Area (Ha) ", params$t2), 
                  paste0("Percentage (%) ", params$t2)),
-    options = list(pageLength = 10, autoWidth = TRUE)
+    options = list(pageLength = 10, autoWidth = TRUE),
+    caption = htmltools::tags$caption(
+      style = 'caption-side: top; text-align: left; color:black;  font-size:150% ;', 'Soil Erosion Rates in ', paste0(params$t1), 'and', paste0(params$t2))
   ) %>%
     formatRound(
       columns = c("Percentage (%) T1", "Percentage (%) T2"),
@@ -214,7 +214,9 @@ if (params$multiseries == 1) {
   datatable(
     params$e_table,
     colnames = c("", "Soil Erosion Rates", "Area (Ha)", "Percentage (%)"),
-    options = list(pageLength = 10, autoWidth = TRUE)
+    options = list(pageLength = 10, autoWidth = TRUE),
+    caption = htmltools::tags$caption(
+      style = 'caption-side: top; text-align: left; color:black;  font-size:150% ;', 'Soil Erosion Rates')
   ) %>%
     formatRound(
       columns = "Percentage (%)",
@@ -237,7 +239,9 @@ if (params$multiseries == 1){
 if (params$multiseries == 1) {
   datatable(
     params$e_diff_table,
-    colnames = c("Soil Erosion Changes", "Area (Ha)", "Percentage (%)")
+    colnames = c("Soil Erosion Changes", "Area (Ha)", "Percentage (%)"),
+    caption = htmltools::tags$caption(
+      style = 'caption-side: top; text-align: left; color:black;  font-size:150% ;', 'Soil Erosion Changes in ', paste0(params$t1), '-', paste0(params$t2))
   ) %>%
     formatRound(
       columns = "Percentage (%)",
