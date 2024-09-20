@@ -6,6 +6,7 @@ output:
     toc_float: true
     number_sections: true
     df_print: kable
+    self_contained: true
 params:
   start_time: NA
   end_time: NA
@@ -23,7 +24,7 @@ params:
   c: NA
   p: NA
   a: NA
-  df: NA
+  e_table: NA
   e_diff: NA
   multiseries: NA
 ---
@@ -38,6 +39,7 @@ library(ggplot2)
 library(sf)
 library(terra)
 library(raster)
+library(DT)
 ```
 
 ## Module brief description
@@ -202,39 +204,47 @@ plot(params$p)
 
 if (params$multiseries == 1){
   plot(params$a)
-  DT::datatable(params$df, 
+  
+  renderDataTable({
+    datatable(params$e_table, 
               colnames = c("Soil Erosion Rates", 
                            paste0("Area (Ha) ", params$t1), 
                            paste0("Percentage (%) ", params$t1), 
                            paste0("Area (Ha) ", params$t2), 
                            paste0("Percentage (%) ", params$t2)))
+  })
+  
   plot(params$e_diff)
 } else {
   plot(params$a)
-  DT::datatable(params$df, colnames = c("Soil Erosion Rates", "Area (Ha)", "Percentage (%)"))
   
-  ggplot(params$df, aes(x = `Soil Erosion Rates`)) +
-    geom_bar(aes(y = `Area (Ha)`), stat = "identity", fill = "blue", alpha = 0.6) +
-    geom_text(aes(y = `Area (Ha)`, label = scales::comma(`Area (Ha)`)),
-              vjust = -0.5, color = "black", size = 4) +
-    geom_line(aes(y = `Percentage (%)` * max(params$df$`Area (Ha)`) / max(params$df$`Percentage (%)`)),
-              group = 1, color = "red", size = 1.2) +
-    geom_point(aes(y = `Percentage (%)` * max(params$df$`Area (Ha)`) / max(params$df$`Percentage (%)`)),
-               color = "red", size = 3) +
-    scale_y_continuous(
-      name = "Area (Ha)",
-      labels = scales::comma,
-      sec.axis = sec_axis(~ . * max(params$df$`Percentage (%)`) / max(params$df$`Area (Ha)`),
-                          name = "Percentage (%)", labels = scales::comma)
-    ) +
-    labs(title = "Soil Erosion Rates: Area (Ha) and Percentage (%)",
-         x = "Soil Erosion Rates") +
-    theme_minimal() +
-    theme(
-      axis.title.y = element_text(color = "blue"),
-      axis.title.y.right = element_text(color = "red"),
-      axis.text.x = element_text(angle = 45, hjust = 1)
-    )
+  renderDataTable({
+    datatable(params$e_table, 
+              colnames = c("Soil Erosion Rates", "Area (Ha)", "Percentage (%)"))
+  })
+  
+  # ggplot(params$df, aes(x = `Soil Erosion Rates`)) +
+  #   geom_bar(aes(y = `Area (Ha)`), stat = "identity", fill = "blue", alpha = 0.6) +
+  #   geom_text(aes(y = `Area (Ha)`, label = scales::comma(`Area (Ha)`)),
+  #             vjust = -0.5, color = "black", size = 4) +
+  #   geom_line(aes(y = `Percentage (%)` * max(params$df$`Area (Ha)`) / max(params$df$`Percentage (%)`)),
+  #             group = 1, color = "red", size = 1.2) +
+  #   geom_point(aes(y = `Percentage (%)` * max(params$df$`Area (Ha)`) / max(params$df$`Percentage (%)`)),
+  #              color = "red", size = 3) +
+  #   scale_y_continuous(
+  #     name = "Area (Ha)",
+  #     labels = scales::comma,
+  #     sec.axis = sec_axis(~ . * max(params$df$`Percentage (%)`) / max(params$df$`Area (Ha)`),
+  #                         name = "Percentage (%)", labels = scales::comma)
+  #   ) +
+  #   labs(title = "Soil Erosion Rates: Area (Ha) and Percentage (%)",
+  #        x = "Soil Erosion Rates") +
+  #   theme_minimal() +
+  #   theme(
+  #     axis.title.y = element_text(color = "blue"),
+  #     axis.title.y.right = element_text(color = "red"),
+  #     axis.text.x = element_text(angle = 45, hjust = 1)
+  #   )
 }
 ```
 

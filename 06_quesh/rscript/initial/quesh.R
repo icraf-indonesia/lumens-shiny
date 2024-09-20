@@ -20,16 +20,16 @@ start_time <- Sys.time()
 # Define file path and parameters
 path <- list(
   pu_file = "data/vector/unit_perencanaan_bungo.shp", # boundary map AOI
-  dem_file = "data/data_quesh/SRTM_Bungo.tif", # raster file of DEM
-  rainfall_file = "data/data_quesh/rainfall_annual_bungo_wc2.1.tif", # raster file of rainfall
+  dem_file = "data/raster/SRTM_Bungo.tif", # raster file of DEM
+  rainfall_file = "data/raster/rainfall_annual_bungo_wc2.1.tif", # raster file of rainfall
   sand_file = "data/raster/soil/bungo_sand_0-5cm_mean.tif", # raster file
   silt_file = "data/raster/soil/bungo_silt_0-5cm_mean.tif", 
   clay_file = "data/raster/soil/bungo_clay_0-5cm_mean.tif", 
   orgc_file = "data/raster/soil/bungo_soc_0-5cm_mean.tif",
   lc_t1_file = "data/raster/tutupan_lahan_Bungo_2005r.tif", # landcover directory that consist of time series land cover map
   lc_t2_file = "data/raster/tutupan_lahan_Bungo_2010r.tif",
-  c_ref_file = "data/data_quesh/c_factor_bungo_usda1972.csv", # csv file contained cover management factor for each landcover class
-  multiseries = 0, # 1 mean include the multiple time series analysis
+  c_ref_file = "data/table/c_factor_bungo_usda1972.csv", # csv file contained cover management factor for each landcover class
+  multiseries = 1, # 1 mean include the multiple time series analysis
   practice = 0, # 1 mean practice factor included, 0 mean not included
   practice_file = "path", # raster file of p factor
   t1 = 2005,
@@ -185,7 +185,7 @@ if (path$multiseries == 1){
     p = p_factor,
     a = erosion_stack,
     e_diff = e_diff_classified,
-    df = erosion_db,
+    e_table = erosion_db,
     multiseries = path$multiseries
   )
   
@@ -237,7 +237,7 @@ if (path$multiseries == 1){
     c = c_factor,
     p = p_factor,
     a = erosion_classified_t1,
-    df = erosion_db_t1,
+    e_table = erosion_db_t1,
     multiseries = path$multiseries
   )
 }
