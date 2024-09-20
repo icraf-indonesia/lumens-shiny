@@ -20,6 +20,19 @@ lc_class_categorize <- function(landcover, c_ref) {
   return(landcover)
 }
 
+# Calculate erosion for each planning unit class -----------------------------------------------------------------------
+
+compute_erosion_per_pu <- function(erosion_classified, pu){
+  e_pu_stack <- c(erosion_classified, pu)
+  e_pu_stack_df <- as.data.frame(e_pu_stack, xy = TRUE, cells = TRUE)
+  colnames(e_pu_stack_df) <- c("cell", "x", "y", "soil_erosion", "planning_unit")
+  e_pu_stack_df <- e_pu_stack_df[complete.cases(e_pu_stack_df), ]
+  summary_e_pu_df <- e_pu_stack_df %>%
+    group_by(planning_unit, soil_erosion) %>%
+    summarise(count = n()) %>%
+    pivot_wider(names_from = soil_erosion, values_from = count, values_fill = 0)
+  return(summary_e_pu_df)
+}
 
 # Create dataset erosion result -------------------------------------------
 
@@ -434,3 +447,4 @@ rasterise_multipolygon <- function(sf_object, raster_res = c(100,100), field = "
   # Return the rasterized SpatRaster with legend
   return(rasterised_spatraster)
 }
+

@@ -26,7 +26,9 @@ params:
   a: NA
   e_table: NA
   e_diff_table: NA
+  e_pu_df: NA
   e_diff: NA
+  e_pu_diff_table: NA
   multiseries: NA
 ---
 
@@ -53,7 +55,7 @@ QuES-H (Quantification of Ecosystem Services) is a hydrological assessment modul
 
 Represents the total rainfall for each pixel over a year (mm/year)
 
-```{r Rainfall, echo=FALSE}
+```{r Rainfall, echo=FALSE, fig.width=12, fig.align='left'}
 
 plot(params$rainfall)
 ```
@@ -62,7 +64,7 @@ plot(params$rainfall)
 
 Represents the terrain elevation (meters above sea level)
 
-```{r Digital Elevation Model, echo=FALSE}
+```{r Digital Elevation Model, echo=FALSE, fig.width=12, fig.align='left'}
 
 plot(params$dem)
 ```
@@ -98,7 +100,7 @@ if (params$multiseries == 1){
 
 A polygon shapefile of administrative or management zones.
 
-```{r Planning Unit, echo=FALSE, fig.width=10, fig.align='left'}
+```{r Planning Unit, echo=FALSE, fig.width=12, fig.align='left'}
 
 plot(params$pu)
 ```
@@ -109,28 +111,28 @@ plot(params$pu)
 
 #### R Factor: Rainfall Erosivity
 
-```{r R Factor, echo=FALSE}
+```{r R Factor, echo=FALSE, fig.width=12, fig.align='left'}
 
 plot(params$r)
 ```
 
 #### K Factor: Soil Erodibility
 
-```{r K Factor, echo=FALSE}
+```{r K Factor, echo=FALSE, fig.width=12, fig.align='left'}
 
 plot(params$k)
 ```
 
 #### LS Factor: Length and Steepness
 
-```{r LS Factor, echo=FALSE}
+```{r LS Factor, echo=FALSE, fig.width=12, fig.align='left'}
 
 plot(params$ls)
 ```
 
 #### C Factor: Cover Management
 
-```{r C Factor, echo=FALSE, fig.width=10, fig.align='left'}
+```{r C Factor, echo=FALSE, fig.width=12, fig.align='left'}
 
 if (params$multiseries == 1){
   c_t1 <- params$c[[1]]
@@ -146,14 +148,15 @@ if (params$multiseries == 1){
 
 #### P Factor: Practice Management
 
-```{r P Factor, echo=FALSE}
+```{r P Factor, echo=FALSE, fig.width=12, fig.align='left'}
 
 plot(params$p)
 ```
 
 ### Estimation of Soil Erosion
 
-```{r Soil Erosion Estimation Map, echo=FALSE, fig.width=10, fig.align='left'}
+#### Soil Erosion in Landscape Level
+```{r Soil Erosion Estimation Map, echo=FALSE, fig.width=12, fig.align='left'}
 
 if (params$multiseries == 1){
   e_t1 <- params$a[[1]]
@@ -221,7 +224,7 @@ if (params$multiseries == 1) {
 
 ```
 
-```{r Soil Erosion Difference Map, echo=FALSE, fig.width=10, fig.align='left'}
+```{r Soil Erosion Difference Map, echo=FALSE, fig.width=12, fig.align='left'}
 
 if (params$multiseries == 1){
   plot(params$e_diff)
@@ -244,6 +247,44 @@ if (params$multiseries == 1) {
 
 ```
 
+#### Soil Erosion in Planning Unit Level
+
+```{r Soil Erosion in PU Level, echo=FALSE}
+
+if (params$multiseries == 1){
+  pu_table_t1 <- params$e_pu_df[[1]]
+  
+  datatable(
+    pu_table_t1, 
+    caption = htmltools::tags$caption(
+      style = 'caption-side: top; text-align: left; color:black;  font-size:150% ;', 'Soil Erosion in ', paste0(params$t1)))
+
+} else {
+  datatable(params$e_pu_df)
+}
+```
+
+```{r Soil Erosion in PU Level 2, echo=FALSE}
+
+if (params$multiseries == 1){
+  pu_table_t2 <- params$e_pu_df[[2]]
+
+  datatable(
+    pu_table_t2, 
+    caption = htmltools::tags$caption(
+      style = 'caption-side: top; text-align: left; color:black;  font-size:150% ;', 'Soil Erosion in ', paste0(params$t2)))
+}
+```
+
+```{r Soil Erosion in PU Level 3, echo=FALSE}
+
+if (params$multiseries == 1){
+  datatable(
+    params$e_pu_diff_table, 
+    caption = htmltools::tags$caption(
+      style = 'caption-side: top; text-align: left; color:black;  font-size:150% ;', 'Soil Erosion Changes in ', paste0(params$t1), '-', paste0(params$t2)))
+}
+```
 ------------------------------------------------------------------------
 
 <font size="1"> LUMENS is free software and comes with ABSOLUTELY NO WARRANTY. Users are responsible for the results generated. Results depend on the quality of the input data ("garbage in, garbage out") and may vary or be sensitive to the parameters used. Please report any problems encountered while using LUMENS as [a GitHub issue](https://github.com/icraf-indonesia/lumens-shiny/issues). Feedback and questions are welcome [Contact Us URL]. </font size>

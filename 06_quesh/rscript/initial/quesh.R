@@ -7,7 +7,7 @@ tryCatch({
 source("06_quesh/rscript/initial/quesh_functions.R")
 
 required_packages <- c(
-  "terra", "sf", "magrittr", "dplyr", "lattice", "rasterVis", "classInt", "ggplot2", "scales", "DT"
+  "terra", "sf", "magrittr", "dplyr", "tidyr", "lattice", "rasterVis", "classInt", "ggplot2", "scales", "DT"
 )
 
 check_and_install_packages(required_packages)
@@ -29,7 +29,7 @@ path <- list(
   lc_t1_file = "data/raster/tutupan_lahan_Bungo_2005r.tif", # landcover directory that consist of time series land cover map
   lc_t2_file = "data/raster/tutupan_lahan_Bungo_2010r.tif",
   c_ref_file = "data/table/c_factor_bungo_usda1972.csv", # csv file contained cover management factor for each landcover class
-  multiseries = 0, # 1 mean include the multiple time series analysis
+  multiseries = 1, # 1 mean include the multiple time series analysis
   practice = 0, # 1 mean practice factor included, 0 mean not included
   practice_file = "path", # raster file of p factor
   t1 = 2005,
@@ -154,7 +154,15 @@ if (path$multiseries == 1){
   
   # Create erosion difference data table
   erosion_diff_db <- erosion_dataset(erosion_classified = e_diff_classified)
-
+  
+  # Calculate erosion for each planning unit class
+  summary_e_pu_df_t1 <- compute_erosion_per_pu(erosion_classified = erosion_classified_t1, pu = pu)
+  summary_e_pu_df_t2 <- compute_erosion_per_pu(erosion_classified = erosion_classified_t2, pu = pu)
+  summary_e_pu_df <- list(summary_e_pu_df_t1, summary_e_pu_df_t2)
+  
+  # Calculate erosion difference for each planning unit class
+  summary_e_diff_pu_df <- compute_erosion_per_pu(erosion_classified = e_diff_classified, pu = pu)
+  
   # Export the results
   writeRaster(r_factor, paste0(output_dir, "r_factor.tif"), overwrite = TRUE)
   writeRaster(k_factor, paste0(output_dir, "k_factor.tif"), overwrite = TRUE)
@@ -166,6 +174,8 @@ if (path$multiseries == 1){
   writeRaster(erosion_classified_t1, filename = paste0(output_dir, "soil_erosion_reclass", paste0(path$t1), ".tif"), overwrite = TRUE)
   writeRaster(erosion_classified_t2, filename = paste0(output_dir, "soil_erosion_reclass", paste0(path$t2), ".tif"), overwrite = TRUE)
   write.csv(erosion_db, file = paste0(output_dir, "soil_erosion", paste0(path$t1), "-", paste0(path$t2), ".csv"))
+  write.csv(summary_e_pu_df, file = paste0(output_dir, "soil_erosion_per_planning_unit", paste0(path$t1), "-", paste0(path$t2), ".csv"))
+  write.csv(summary_e_diff_pu_df, file = paste0(output_dir, "soil_erosion_changes_per_planning_unit", paste0(path$t1), "-", paste0(path$t2), ".csv"))
   
   # End of the script
   end_time <- Sys.time()
@@ -192,7 +202,9 @@ if (path$multiseries == 1){
     a = erosion_stack,
     e_diff = e_diff_classified,
     e_table = erosion_db,
+    e_pu_df = summary_e_pu_df,
     e_diff_table = erosion_diff_db,
+    e_pu_diff_table = summary_e_diff_pu_df,
     multiseries = path$multiseries
   )
   
@@ -212,6 +224,9 @@ if (path$multiseries == 1){
   # Create dataset of erosion estimation
   erosion_db_t1 <- erosion_dataset(erosion_classified = erosion_classified_t1)
   
+  # Calculate erosion for each planning unit class
+  summary_e_pu_df <- compute_erosion_per_pu(erosion_classified = erosion_classified_t1, pu = pu)
+
   # Export the results
   writeRaster(r_factor, paste0(output_dir, "r_factor.tif"), overwrite = TRUE)
   writeRaster(k_factor, paste0(output_dir, "k_factor.tif"), overwrite = TRUE)
@@ -220,6 +235,7 @@ if (path$multiseries == 1){
   writeRaster(erosion_t1, filename = paste0(output_dir, "soil_erosion", paste0(path$t1), ".tif"), overwrite = TRUE)
   writeRaster(erosion_classified_t1, filename = paste0(output_dir, "soil_erosion_reclass", paste0(path$t1), ".tif"), overwrite = TRUE)
   write.csv(erosion_db_t1, file = paste0(output_dir, "soil_erosion", paste0(path$t1), ".csv"))
+  write.csv(summary_e_pu_df, file = paste0(output_dir, "soil_erosion_per_planning_unit", paste0(path$t1), ".csv"))
   
   # End of the script
   end_time <- Sys.time()
@@ -245,6 +261,7 @@ if (path$multiseries == 1){
     p = p_factor,
     a = erosion_classified_t1,
     e_table = erosion_db_t1,
+    e_pu_df = summary_e_pu_df,
     multiseries = path$multiseries
   )
 }
