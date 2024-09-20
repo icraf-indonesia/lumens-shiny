@@ -25,6 +25,7 @@ params:
   p: NA
   a: NA
   e_table: NA
+  e_diff_table: NA
   e_diff: NA
   multiseries: NA
 ---
@@ -48,77 +49,56 @@ QuES-H (Quantification of Ecosystem Services) is a hydrological assessment modul
 
 ## Input data
 
-### Total Annual Precipitation Map 
+### Total Annual Precipitation Map
 
 Represents the total rainfall for each pixel over a year (mm/year)
 
-```{r}
-#| echo: false
-#| fig-keep: all
-#| message: false
-#| results: false
-#| warning: false
-#| fig.width: 15
+```{r Rainfall, echo=FALSE}
 
 plot(params$rainfall)
 ```
 
-### Digital Elevation Model (DEM) Map 
+### Digital Elevation Model (DEM) Map
 
 Represents the terrain elevation (meters above sea level)
 
-```{r}
-#| echo: false
-#| fig-keep: all
-#| message: false
-#| results: false
-#| warning: false
-#| fig.width: 15
+```{r Digital Elevation Model, echo=FALSE}
 
 plot(params$dem)
 ```
 
-### Soil Properties Maps 
+### Soil Properties Maps
 
 Represents the soil characteristic, defined by Clay content (%), Silt content (%), Sand content (%), and Soil organic content (g/kg)
 
-```{r}
-#| echo: false
-#| fig-keep: all
-#| message: false
-#| results: false
-#| warning: false
-#| fig.width: 15
+```{r Soil Properties, echo=FALSE}
 
 plot(params$soil)
 ```
 
-### Land Cover Map 
+### Land Cover Map
 
 Categorical raster with each pixel value corresponds to a land cover class
 
-```{r}
-#| echo: false
-#| fig-keep: all
-#| message: false
-#| results: false
-#| warning: false
-#| fig.width: 15
+```{r Land Cover, echo=FALSE, fig.width=12, fig.align='left'}
 
-plot(params$landcover)
+if (params$multiseries == 1){
+  lc_t1 <- params$landcover[[1]]
+  lc_t2 <- params$landcover[[2]]
+
+  plot(lc_t1, main = paste0(params$t1), legend = TRUE)
+  plot(lc_t2, main = paste0(params$t2), legend = FALSE)
+} else {
+  plot(params$landcover)
+}
+
 ```
 
 ### Planning Unit Map
 
 A polygon shapefile of administrative or management zones.
 
-```{r}
-#| echo: false
-#| fig-keep: all
-#| message: false
-#| results: false
-#| warning: false
-#| fig.width: 15
+```{r Planning Unit, echo=FALSE, fig.width=10, fig.align='left'}
 
 plot(params$pu)
 ```
@@ -129,100 +109,63 @@ plot(params$pu)
 
 #### R Factor: Rainfall Erosivity
 
-```{r}
-#| echo: false
-#| fig-keep: all
-#| message: false
-#| results: false
-#| warning: false
-#| fig.width: 15
+```{r R Factor, echo=FALSE}
 
 plot(params$r)
 ```
 
 #### K Factor: Soil Erodibility
 
-```{r}
-#| echo: false
-#| fig-keep: all
-#| message: false
-#| results: false
-#| warning: false
-#| fig.width: 15
+```{r K Factor, echo=FALSE}
 
 plot(params$k)
 ```
 
 #### LS Factor: Length and Steepness
 
-```{r}
-#| echo: false
-#| fig-keep: all
-#| message: false
-#| results: false
-#| warning: false
-#| fig.width: 15
+```{r LS Factor, echo=FALSE}
 
 plot(params$ls)
 ```
 
 #### C Factor: Cover Management
 
-```{r}
-#| echo: false
-#| fig-keep: all
-#| message: false
-#| results: false
-#| warning: false
-#| fig.width: 15
+```{r C Factor, echo=FALSE, fig.width=10, fig.align='left'}
 
-plot(params$c)
+if (params$multiseries == 1){
+  c_t1 <- params$c[[1]]
+  c_t2 <- params$c[[2]]
+
+  plot(c_t1, main = paste0(params$t1), legend = TRUE)
+  plot(c_t2, main = paste0(params$t2), legend = FALSE)
+} else {
+  plot(params$c)
+}
+
 ```
 
 #### P Factor: Practice Management
 
-```{r}
-#| echo: false
-#| fig-keep: all
-#| message: false
-#| results: false
-#| warning: false
-#| fig.width: 15
+```{r P Factor, echo=FALSE}
 
 plot(params$p)
 ```
 
 ### Estimation of Soil Erosion
 
-```{r}
-#| echo: false
-#| fig-keep: all
-#| message: false
-#| results: false
-#| warning: false
-#| fig.width: 15
+```{r Soil Erosion Estimation Map, echo=FALSE, fig.width=10, fig.align='left'}
 
 if (params$multiseries == 1){
-  plot(params$a)
+  e_t1 <- params$a[[1]]
+  e_t2 <- params$a[[2]]
   
-  renderDataTable({
-    datatable(params$e_table, 
-              colnames = c("Soil Erosion Rates", 
-                           paste0("Area (Ha) ", params$t1), 
-                           paste0("Percentage (%) ", params$t1), 
-                           paste0("Area (Ha) ", params$t2), 
-                           paste0("Percentage (%) ", params$t2)))
-  })
+  plot(e_t1, main = paste0(params$t1), legend = TRUE)
+  plot(e_t2, main = paste0(params$t2), legend = FALSE)
   
-  plot(params$e_diff)
 } else {
   plot(params$a)
-  
-  renderDataTable({
-    datatable(params$e_table, 
-              colnames = c("Soil Erosion Rates", "Area (Ha)", "Percentage (%)"))
-  })
-  
+
+
   # ggplot(params$df, aes(x = `Soil Erosion Rates`)) +
   #   geom_bar(aes(y = `Area (Ha)`), stat = "identity", fill = "blue", alpha = 0.6) +
   #   geom_text(aes(y = `Area (Ha)`, label = scales::comma(`Area (Ha)`)),
@@ -246,6 +189,59 @@ if (params$multiseries == 1){
   #     axis.text.x = element_text(angle = 45, hjust = 1)
   #   )
 }
+```
+
+```{r Soil Erosion Estimation Table, echo=FALSE}
+
+if (params$multiseries == 1) {
+  datatable(
+    params$e_table,
+    colnames = c("", "Soil Erosion Rates", 
+                 paste0("Area (Ha) ", params$t1), 
+                 paste0("Percentage (%) ", params$t1), 
+                 paste0("Area (Ha) ", params$t2), 
+                 paste0("Percentage (%) ", params$t2)),
+    options = list(pageLength = 10, autoWidth = TRUE)
+  ) %>%
+    formatRound(
+      columns = c("Percentage (%) T1", "Percentage (%) T2"),
+      digits = 2
+    )
+} else {
+  datatable(
+    params$e_table,
+    colnames = c("", "Soil Erosion Rates", "Area (Ha)", "Percentage (%)"),
+    options = list(pageLength = 10, autoWidth = TRUE)
+  ) %>%
+    formatRound(
+      columns = "Percentage (%)",
+      digits = 2
+    )
+}
+
+```
+
+```{r Soil Erosion Difference Map, echo=FALSE, fig.width=10, fig.align='left'}
+
+if (params$multiseries == 1){
+  plot(params$e_diff)
+}
+
+```
+
+```{r Soil Erosion Difference Table, echo=FALSE}
+
+if (params$multiseries == 1) {
+  datatable(
+    params$e_diff_table,
+    colnames = c("Soil Erosion Changes", "Area (Ha)", "Percentage (%)")
+  ) %>%
+    formatRound(
+      columns = "Percentage (%)",
+      digits = 2
+    )
+}
+
 ```
 
 ------------------------------------------------------------------------

@@ -29,7 +29,7 @@ path <- list(
   lc_t1_file = "data/raster/tutupan_lahan_Bungo_2005r.tif", # landcover directory that consist of time series land cover map
   lc_t2_file = "data/raster/tutupan_lahan_Bungo_2010r.tif",
   c_ref_file = "data/table/c_factor_bungo_usda1972.csv", # csv file contained cover management factor for each landcover class
-  multiseries = 1, # 1 mean include the multiple time series analysis
+  multiseries = 0, # 1 mean include the multiple time series analysis
   practice = 0, # 1 mean practice factor included, 0 mean not included
   practice_file = "path", # raster file of p factor
   t1 = 2005,
@@ -78,7 +78,7 @@ if (path$practice == 1){
   p_factor <- pu %>% classify(cbind(1:nrow(unique(pu)), 1))
 }
 
-# Running QuES-H RUSLE Analysis -------------------------------------------
+# 2. Running QuES-H RUSLE Analysis -------------------------------------------
 
 a <- quesh_rusle_calc(rainfall = rainfall, 
                       sand = sand, 
@@ -91,6 +91,9 @@ a <- quesh_rusle_calc(rainfall = rainfall,
                       c_ref = c_ref, 
                       p_factor = p_factor,
                       multiseries = path$multiseries)
+
+
+# 3. Prepare Analysis Results ---------------------------------------------
 
 # Reclassify erosion rates based on China National Standard (2008)
 breaks <- c(-Inf, 5, 25, 50, 80, 150, Inf)
@@ -137,7 +140,7 @@ if (path$multiseries == 1){
       `Area (Ha) T1` = `Area (Ha)`,
       `Percentage (%) T1` = `Percentage (%)`
     ) %>%
-    inner_join(erosion_db_t2, by = "Soil Erosion Rates")
+    inner_join(erosion_db_t2, by = "Class")
   
   # Calculate erosion difference between two series of time
   e_diff <- erosion_classified_t2 - erosion_classified_t1
@@ -149,6 +152,9 @@ if (path$multiseries == 1){
   e_labels <- c("Erosion risk decrease", "No erosion risk changes", "Erosion risk increase")
   levels(e_diff_classified) <- data.frame(id=1:3, category=e_labels)
   
+  # Create erosion difference data table
+  erosion_diff_db <- erosion_dataset(erosion_classified = e_diff_classified)
+
   # Export the results
   writeRaster(r_factor, paste0(output_dir, "r_factor.tif"), overwrite = TRUE)
   writeRaster(k_factor, paste0(output_dir, "k_factor.tif"), overwrite = TRUE)
@@ -186,6 +192,7 @@ if (path$multiseries == 1){
     a = erosion_stack,
     e_diff = e_diff_classified,
     e_table = erosion_db,
+    e_diff_table = erosion_diff_db,
     multiseries = path$multiseries
   )
   
@@ -242,7 +249,7 @@ if (path$multiseries == 1){
   )
 }
 
-# 9. Prepare parameters for report -------------------------------------
+# 4. Prepare parameters for report -------------------------------------
 
 # Render the R markdown report
 if (!rmarkdown::pandoc_available()) {
@@ -262,23 +269,3 @@ rmarkdown::render(
 }, finally = {
   cat("Script execution completed.\n")
 })
-
-# P - Practice factor preparation --------------------------------------
-
-# slope_deg <- terrain(dem, v = "slope", unit="degree")  
-# slope_pct <- tan(slope_deg * pi / 180) * 100
-# 
-# # There are 3 option for practice management according to Shin (1999)
-# # You can choose the applied practices: Contouring; Strip Cropping; Terracing
-# # change the parameter by the following order p_user <- c([contouring], [strip cropping], [terracing])
-# # The value of 1 means the corresponding practice applied and 0 means not applied
-# # If the value all 0, it means the P factor will be define as 1 (no practice applied)
-# 
-# p_user <- c(1, 0, 0) # change the value with 0 or 1 by this order: c([contouring], [strip cropping], [terracing])
-# 
-# p_factor <- calculate_p_shin(
-#   slope_pct = slope_pct, 
-#   p_user = p_user
-# )
-# 
-# writeRaster(p_factor, paste0(output_dir, "p_factor.tif"), overwrite = TRUE)
