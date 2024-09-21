@@ -20,7 +20,6 @@ install_load(
   "shinyFiles",
   "bslib",
   "foreign", 
-  "raster", 
   "terra", 
   "dplyr", 
   "sp", 
@@ -35,74 +34,11 @@ install_load(
   "rasterVis",
   "classInt", 
   "ggplot2", 
-  "scales"
+  "scales",
+  "tidyr",
+  "rgdal",
+  "DT"
 )
-
-# Calculation of R (Moore, 1979) ---------------------------------------
-
-calculate_r_moore <- function(p) {
-  ke <- 11.46*p - 2226
-  r <- 0.029*ke - 26
-  r_si <- 17.02*r # Conversion from imperial to SI units
-  return(r_si)
-}
-
-
-# Calculation of K (Williams, 1995) ------------------------------------
-
-calculate_k_williams <- function(sndprc, sltprc, clyprc, orcprc){
-  a <- (0.2 + 0.3*exp(-0.0256*sndprc*(1 - sltprc/100)))
-  b <- (sltprc/(clyprc + sltprc))^0.3
-  c <- 1 - (0.25*orcprc)/(orcprc + exp(3.72 - 2.95*orcprc))
-  sn1 <- 1 - sndprc/100
-  d <- 1 - (0.7*sn1)/(sn1 + exp(-5.51 + 22.9*sn1))
-  k <- 0.1317*a*b*c*d
-  return(k)
-}
-
-# Calculation of LS  ----------------------------------------------------
-
-# Calculate LS by (Moore & Burch, 1986) - BRIN
-calculate_ls_moore <- function(dem) {
-  slope_deg <- terrain(dem, v = "slope", unit="degree") 
-  flow_acc <- terrain(dem, v = "flowdir")
-  cell_size <- res(dem)[1]
-  slope_length <- flow_acc * cell_size
-  # ls <- (slope_length / 22.13)^0.4 * ((0.01745 * sin(slope_deg)) / 0.0896)^1.3 * 1.6 => BRIN
-  intermediate_values <- abs((0.01745 * sin(slope_deg)) / 0.0896) # prevent negative or zero slope values from causing calculation issues
-  ls_factor <- (slope_length / 22.13)^0.4 * (intermediate_values)^1.3
-  return(ls_factor)
-}
-
-# Calculate LS by previous LUMENS RUSLE Script
-calculate_ls <- function(slope, aspect) {
-  ls <- (1 + (sin(slope * pi / 180) / 0.0896)^1.3) *
-    ((sin((aspect - 180) * pi / 180) + 0.5) / 1.5)^0.6
-  return(ls)
-}
-
-# Calculation of C (Van der Knijff et al, 2000) ------------------------
-
-calculate_c_knijff <- function(ndvi) {
-  alpha <- 2 # as suggested by Knijff 2000
-  beta <- 1 # as suggested by Knijff 2000
-  c <- min(exp(-alpha * (ndvi/(beta - ndvi))), 1)
-  return(c)
-}
-
-
-# Calculation of C using landcover -------------------------------------
-
-calculate_c_lc <- function(landcover, c_ref) {
-  landcover[landcover == path$raster.nodata] <- NA
-  landcover_c <- landcover
-  c_ref2 <- as.matrix(c_ref[,1])
-  c_ref3 <- as.matrix(c_ref[,3])
-  c_ref4 <- cbind(c_ref2, c_ref3)
-  c_ref4 <- rbind(c_ref4, c(0, NA))
-  c_factor <- classify(landcover_c, c_ref4)
-  return(c_factor)
-}
 
 # Sync geometric properties --------------------------------------------
 
@@ -116,6 +52,159 @@ syncGeom <- function(input, ref){
     `*`(ref1)
 }
 
+# Categorized landcover based on its class --------------------------------
+
+lc_class_categorize <- function(landcover, c_ref) {
+  lc_class <-landcover %>% freq() %>%
+    dplyr::select(ID=value) %>%
+    left_join(c_ref, by="ID") %>% dplyr::select(-C_factor)
+  levels(landcover)[[1]] <- lc_class
+  return(landcover)
+}
+
+# Calculate erosion for each planning unit class -----------------------------------------------------------------------
+
+compute_erosion_per_pu <- function(erosion_classified, pu){
+  e_pu_stack <- c(erosion_classified, pu)
+  e_pu_stack_df <- as.data.frame(e_pu_stack, xy = TRUE, cells = TRUE)
+  colnames(e_pu_stack_df) <- c("cell", "x", "y", "soil_erosion", "planning_unit")
+  e_pu_stack_df <- e_pu_stack_df[complete.cases(e_pu_stack_df), ]
+  summary_e_pu_df <- e_pu_stack_df %>%
+    group_by(planning_unit, soil_erosion) %>%
+    summarise(count = n()) %>%
+    pivot_wider(names_from = soil_erosion, values_from = count, values_fill = 0)
+  return(summary_e_pu_df)
+}
+
+# Create dataset erosion result -------------------------------------------
+
+erosion_dataset <- function(erosion_classified, map_resolution){
+  erosion_db <- data.frame(erosion_classified) %>%
+    group_by(across(everything())) %>% 
+    summarise(count = n())
+  colnames(erosion_db, do.NULL = FALSE)
+  colnames(erosion_db) <- c("Class","Area (Ha)")
+  erosion_db$`Area (Ha)`*(10000/(map_resolution^2))
+  erosion_db$`Percentage (%)` <- (erosion_db$`Area (Ha)`/sum(erosion_db$`Area (Ha)`))*100
+  return(erosion_db)
+}
+
+# Calculation of R (Moore, 1979) ---------------------------------------
+
+calculate_r_moore <- function(rainfall) {
+  ke <- 11.46*rainfall - 2226
+  r <- 0.029*ke - 26
+  r_factor <- 17.02*r # Conversion from imperial to SI units
+  return(r_factor)
+}
+
+# Calculation of K (Williams, 1995) ------------------------------------
+
+calculate_k_williams <- function(sndprc, sltprc, clyprc, orcprc){
+  a <- (0.2 + 0.3*exp(-0.0256*sndprc*(1 - sltprc/100)))
+  b <- (sltprc/(clyprc + sltprc))^0.3
+  c <- 1 - (0.25*orcprc)/(orcprc + exp(3.72 - 2.95*orcprc))
+  sn1 <- 1 - sndprc/100
+  d <- 1 - (0.7*sn1)/(sn1 + exp(-5.51 + 22.9*sn1))
+  k_factor <- 0.1317*a*b*c*d
+  return(k_factor)
+}
+
+# Calculation of LS (Moore & Burch, 1986) - BRIN ----------------------------------------------------
+
+calculate_ls_moore <- function(dem) {
+  slope_deg <- terrain(dem, v = "slope", unit="degree") 
+  flow_acc <- terrain(dem, v = "flowdir")
+  cell_size <- res(dem)[1]
+  slope_length <- flow_acc * cell_size
+  # ls <- (slope_length / 22.13)^0.4 * ((0.01745 * sin(slope_deg)) / 0.0896)^1.3 * 1.6 => BRIN
+  intermediate_values <- abs((0.01745 * sin(slope_deg)) / 0.0896) # prevent negative or zero slope values from causing calculation issues
+  ls_factor <- (slope_length / 22.13)^0.4 * (intermediate_values)^1.3
+  return(ls_factor)
+}
+
+# Calculate C by landcover ------------------------------------------------
+
+calculate_c_lc <- function(landcover = landcover, c_ref = c_ref){
+  landcover_c <- landcover
+  lookup_lc <-landcover_c %>% freq() %>%
+    select(ID=value) %>%
+    left_join(c_ref, by="ID") %>% select(-LC)
+  levels(landcover_c)[[1]] <- lookup_lc
+  c_factor <- landcover_c %>% as.numeric(1) %>% resample(pu, method="near")
+}
+
+# QuES-H RUSLE Function ---------------------------------------------------
+
+quesh_rusle_calc <- function(rainfall, sand, silt, clay, orgc, dem, landcover_t1, landcover_t2, c_ref, p_factor, multiseries, pu){
+  # R factor calculation
+  ke <- 11.46*rainfall - 2226
+  r <- 0.029*ke - 26
+  r_factor <- 17.02*r # Conversion from imperial to SI units
+  
+  # K factor calculation
+  a <- (0.2 + 0.3*exp(-0.0256*sand*(1 - silt/100)))
+  b <- (silt/(clay + silt))^0.3
+  c <- 1 - (0.25*orgc)/(orgc + exp(3.72 - 2.95*orgc))
+  sn1 <- 1 - sand/100
+  d <- 1 - (0.7*sn1)/(sn1 + exp(-5.51 + 22.9*sn1))
+  k_factor <- 0.1317*a*b*c*d
+  
+  # LS factor calculation
+  slope_deg <- terrain(dem, v = "slope", unit="degree") 
+  flow_acc <- terrain(dem, v = "flowdir")
+  cell_size <- res(dem)[1]
+  slope_length <- flow_acc * cell_size
+  intermediate_values <- abs((0.01745 * sin(slope_deg)) / 0.0896)
+  ls_factor <- (slope_length / 22.13)^0.4 * (intermediate_values)^1.3
+  
+  # C factor calculation
+  calculate_c_factor <- function(landcover) {
+    landcover_c <- landcover
+    lookup_lc <- landcover_c %>% freq() %>%
+      dplyr::select(ID=value) %>%
+      left_join(c_ref, by="ID") %>% dplyr::select(-LC)
+    levels(landcover_c)[[1]] <- lookup_lc
+    c_factor <- landcover_c %>% as.numeric(1) %>% terra::resample(pu, method="near")
+    return(c_factor)
+  }
+  
+  # Erosion calculation
+  calculate_erosion <- function(c_factor) {
+    r_factor*k_factor*ls_factor*c_factor*p_factor
+  }
+  
+  # Calculate for one or two time series based on is_two_series parameter
+  if (multiseries == "single_step" || is.null(landcover_t2)) {
+    c_factor_t1 <- calculate_c_factor(landcover_t1)
+    erosion_t1 <- calculate_erosion(c_factor_t1)
+    
+    out <- list(
+      erosion = erosion_t1,
+      r_factor = r_factor,
+      k_factor = k_factor,
+      ls_factor = ls_factor,
+      c_factor = c_factor_t1
+    )
+  } else {
+    c_factor_t1 <- calculate_c_factor(landcover_t1)
+    c_factor_t2 <- calculate_c_factor(landcover_t2)
+    erosion_t1 <- calculate_erosion(c_factor_t1)
+    erosion_t2 <- calculate_erosion(c_factor_t2)
+    
+    out <- list(
+      erosion_t1 = erosion_t1,
+      erosion_t2 = erosion_t2,
+      r_factor = r_factor,
+      k_factor = k_factor,
+      ls_factor = ls_factor,
+      c_factor_t1 = c_factor_t1,
+      c_factor_t2 = c_factor_t2
+    )
+  }
+  
+  return(out)
+}
 
 # Calculation of P factor  ---------------------------------------------
 
@@ -174,7 +263,6 @@ calculate_p_shin <- function(slope_pct, p_user){
   }
   return(p_factor_combined)
 }
-
 
 # Plot Histogram of Soil Erosion Rate -------------------------------------
 hist_erosion <- function(df) {
@@ -401,3 +489,4 @@ rasterise_multipolygon <- function(sf_object, raster_res = c(100,100), field = "
   # Return the rasterized SpatRaster with legend
   return(rasterised_spatraster)
 }
+
