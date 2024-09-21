@@ -29,8 +29,8 @@ path <- list(
   lc_t1_file = "data/raster/tutupan_lahan_Bungo_2005r.tif", # landcover directory that consist of time series land cover map
   lc_t2_file = "data/raster/tutupan_lahan_Bungo_2010r.tif",
   c_ref_file = "data/table/c_factor_bungo_usda1972.csv", # csv file contained cover management factor for each landcover class
-  multiseries = 1, # 1 mean include the multiple time series analysis
-  practice = 0, # 1 mean practice factor included (user input their own P factor raster in practice_file), 0 mean not included: automatically generate p_factor map with value 1
+  multiseries = "two_step", # "two_step" mean include the multiple time series analysis, "single_step" mean just one year analysis
+  practice = "no", # "yes" mean practice factor included (user input their own P factor raster in practice_file), "no" mean not included: automatically generate p_factor map with value 1
   practice_file = "path", # raster file of p factor
   t1 = 2005,
   t2 = 2010,
@@ -59,7 +59,7 @@ dem <- syncGeom(input = path$dem_file, ref = pu)
 # Prepare C factor input
 c_ref <- readr::read_csv(path$c_ref_file)
 
-if (path$multiseries == 1){
+if (path$multiseries == "two_step"){
   landcover_t1 <- rast(path$lc_t1_file)
   landcover_t2 <- rast(path$lc_t2_file)
   landcover_t1_viz <- lc_class_categorize(landcover = landcover_t1, c_ref = c_ref)
@@ -71,7 +71,7 @@ if (path$multiseries == 1){
 }
 
 # Prepare P factor input parameters
-if (path$practice == 1){
+if (path$practice == "yes"){
   p <- rast(path$practice_file)
   p_factor <- syncGeom(input = p, ref = pu)
 } else {
@@ -106,7 +106,7 @@ labels <- c("Slight (< 5 ton/ha/yr)",
 rcl_matrix <- cbind(breaks[-length(breaks)], breaks[-1], 1:(length(breaks)-1))
 
 # Post Analysis Work
-if (path$multiseries == 1){
+if (path$multiseries == "two_step"){
   
   # Redefined the results
   erosion_t1 <- a[[1]]

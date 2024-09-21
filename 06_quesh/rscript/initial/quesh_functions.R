@@ -133,7 +133,7 @@ quesh_rusle_calc <- function(rainfall, sand, silt, clay, orgc, dem, landcover_t1
   }
   
   # Calculate for one or two time series based on is_two_series parameter
-  if (multiseries == 0 || is.null(landcover_t2)) {
+  if (multiseries == "single_step" || is.null(landcover_t2)) {
     c_factor_t1 <- calculate_c_factor(landcover_t1)
     erosion_t1 <- calculate_erosion(c_factor_t1)
     

@@ -82,7 +82,7 @@ Categorical raster with each pixel value corresponds to a land cover class
 
 ```{r Land Cover, echo=FALSE, fig.width=12, fig.align='left'}
 
-if (params$multiseries == 1){
+if (params$multiseries == "two_step"){
   lc_t1 <- params$landcover[[1]]
   lc_t2 <- params$landcover[[2]]
 
@@ -132,7 +132,7 @@ plot(params$ls)
 
 ```{r C Factor, echo=FALSE, fig.width=12, fig.align='left'}
 
-if (params$multiseries == 1){
+if (params$multiseries == "two_step"){
   c_t1 <- params$c[[1]]
   c_t2 <- params$c[[2]]
 
@@ -156,7 +156,7 @@ plot(params$p)
 #### Soil Erosion in Landscape Level
 ```{r Soil Erosion Estimation Map, echo=FALSE, fig.width=12, fig.align='left'}
 
-if (params$multiseries == 1){
+if (params$multiseries == "two_step"){
   e_t1 <- params$a[[1]]
   e_t2 <- params$a[[2]]
   
@@ -194,7 +194,7 @@ if (params$multiseries == 1){
 
 ```{r Soil Erosion Estimation Table, echo=FALSE}
 
-if (params$multiseries == 1) {
+if (params$multiseries == "two_step") {
   datatable(
     params$e_table,
     colnames = c("", "Soil Erosion Rates", 
@@ -228,7 +228,7 @@ if (params$multiseries == 1) {
 
 ```{r Soil Erosion Difference Map, echo=FALSE, fig.width=12, fig.align='left'}
 
-if (params$multiseries == 1){
+if (params$multiseries == "two_step"){
   plot(params$e_diff)
 }
 
@@ -236,7 +236,7 @@ if (params$multiseries == 1){
 
 ```{r Soil Erosion Difference Table, echo=FALSE}
 
-if (params$multiseries == 1) {
+if (params$multiseries == "two_step") {
   datatable(
     params$e_diff_table,
     colnames = c("Soil Erosion Changes", "Area (Ha)", "Percentage (%)"),
@@ -255,7 +255,7 @@ if (params$multiseries == 1) {
 
 ```{r Soil Erosion in PU Level, echo=FALSE}
 
-if (params$multiseries == 1){
+if (params$multiseries == "two_step"){
   pu_table_t1 <- params$e_pu_df[[1]]
   
   datatable(
@@ -270,7 +270,7 @@ if (params$multiseries == 1){
 
 ```{r Soil Erosion in PU Level 2, echo=FALSE}
 
-if (params$multiseries == 1){
+if (params$multiseries == "two_step"){
   pu_table_t2 <- params$e_pu_df[[2]]
 
   datatable(
@@ -282,7 +282,7 @@ if (params$multiseries == 1){
 
 ```{r Soil Erosion in PU Level 3, echo=FALSE}
 
-if (params$multiseries == 1){
+if (params$multiseries == "two_step"){
   datatable(
     params$e_pu_diff_table, 
     caption = htmltools::tags$caption(
