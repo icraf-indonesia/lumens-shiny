@@ -60,7 +60,6 @@ server <- function(input, output, session) {
     map_resolution = NULL,
     practice = NULL,
     practice_file = NULL,
-    multiseries = NULL,
     lc_t1_file = NULL,
     lc_t2_file = NULL,
     t1 = NULL,
@@ -126,29 +125,26 @@ server <- function(input, output, session) {
     return(TRUE)
   })
   
- 
+  # Set working directory
+  wd <- getwd()
+  wd_lumens <- sub("(.*lumens-shiny).*", "\\1", wd)
+  
+  if (wd != wd_lumens) {
+    setwd(wd_lumens)
+  }
  
   # Run analysis
   observeEvent(input$run_analysis, {
     req(validate_inputs())
-    browser()
     showNotification("Analysis is running. Please wait...", type = "message", duration = NULL, id = "running_notification")
     withProgress(message = 'Running QuES-H Analysis', value = 0,{
       tryCatch({
+        start_time <- Sys.time()
+        incProgress(0.2, detail = "Preparing data inputs")
+        
         # Prepare the planning unit
-        shp <- rv$pu_file
-        if(is.null(shp))
-          return()
-        prev_wd <- getwd()
-        uploaded_dir <- dirname(shp$datapath[1])
-        setwd(uploaded_dir)
-        for(i in 1:nrow(shp)){
-          file.rename(shp$datapath[i], shp$name[i])
-        }
-        setwd(prev_wd)
-        pu1 <- paste(uploaded_dir, shp$name[grep(pattern="*.shp$", shp$name)], sep = "/")
-        pu2 <- st_read(pu1)
-        pu <- rasterise_multipolygon(sf_object = pu2, raster_res = c(rv$map_resolution, rv$map_resolution), field = paste0(colnames(st_drop_geometry(pu2[1]))))
+        pu1 <- read_shapefile(shp_input = rv$pu_file)
+        pu <- rasterise_multipolygon(sf_object = pu1, raster_res = c(rv$map_resolution, rv$map_resolution), field = paste0(colnames(st_drop_geometry(pu1[1]))))
         
         # Prepare R factor input
         # rainfall <- syncGeom(input = rv$rainfall_file, ref = pu)
@@ -202,6 +198,7 @@ server <- function(input, output, session) {
         }
         
         # Run RUSLE analysis
+        incProgress(0.4, detail = "Processing QuES-H analysis")
         a <- quesh_rusle_calc(rainfall = rainfall, 
                               sand = sand, 
                               silt = silt, 
@@ -215,6 +212,7 @@ server <- function(input, output, session) {
                               multiseries = input$multiseries,
                               pu = pu)
         
+        incProgress(0.6, detail = "Post processing analysis")
         # Reclassify erosion rates based on China National Standard (2008)
         breaks <- c(-Inf, 5, 25, 50, 80, 150, Inf)
         labels <- c("Slight (< 5 ton/ha/yr)", 
@@ -284,18 +282,19 @@ server <- function(input, output, session) {
           summary_e_diff_pu_df <- compute_erosion_per_pu(erosion_classified = e_diff_classified, pu = pu)
           
           # Export the results
-          writeRaster(r_factor, paste0(rv$output_dir, "r_factor.tif"), overwrite = TRUE)
-          writeRaster(k_factor, paste0(rv$output_dir, "k_factor.tif"), overwrite = TRUE)
-          writeRaster(ls_factor, paste0(rv$output_dir, "ls_factor.tif"), overwrite = TRUE)
-          writeRaster(c_factor_t1, paste0(rv$output_dir, "c_factor", paste0(rv$t1), ".tif"), overwrite = TRUE)
-          writeRaster(c_factor_t2, paste0(rv$output_dir, "c_factor", paste0(rv$t2), ".tif"), overwrite = TRUE)
-          writeRaster(erosion_t1, filename = paste0(rv$output_dir, "soil_erosion", paste0(rv$t1), ".tif"), overwrite = TRUE)
-          writeRaster(erosion_t2, filename = paste0(rv$output_dir, "soil_erosion", paste0(rv$t2), ".tif"), overwrite = TRUE)
-          writeRaster(erosion_classified_t1, filename = paste0(rv$output_dir, "soil_erosion_reclass", paste0(rv$t1), ".tif"), overwrite = TRUE)
-          writeRaster(erosion_classified_t2, filename = paste0(rv$output_dir, "soil_erosion_reclass", paste0(rv$t2), ".tif"), overwrite = TRUE)
-          write.csv(erosion_db, file = paste0(rv$output_dir, "soil_erosion", paste0(rv$t1), "-", paste0(rv$t2), ".csv"))
-          write.csv(summary_e_pu_df, file = paste0(rv$output_dir, "soil_erosion_per_planning_unit", paste0(rv$t1), "-", paste0(rv$t2), ".csv"))
-          write.csv(summary_e_diff_pu_df, file = paste0(rv$output_dir, "soil_erosion_changes_per_planning_unit", paste0(rv$t1), "-", paste0(rv$t2), ".csv"))
+          incProgress(0.7, detail = "Exporting results")
+          writeRaster(r_factor, paste0(rv$output_dir, "/r_factor.tif"), overwrite = TRUE)
+          writeRaster(k_factor, paste0(rv$output_dir, "/k_factor.tif"), overwrite = TRUE)
+          writeRaster(ls_factor, paste0(rv$output_dir, "/ls_factor.tif"), overwrite = TRUE)
+          writeRaster(c_factor_t1, paste0(rv$output_dir, "/c_factor", paste0(rv$t1), ".tif"), overwrite = TRUE)
+          writeRaster(c_factor_t2, paste0(rv$output_dir, "/c_factor", paste0(rv$t2), ".tif"), overwrite = TRUE)
+          writeRaster(erosion_t1, filename = paste0(rv$output_dir, "/soil_erosion", paste0(rv$t1), ".tif"), overwrite = TRUE)
+          writeRaster(erosion_t2, filename = paste0(rv$output_dir, "/soil_erosion", paste0(rv$t2), ".tif"), overwrite = TRUE)
+          writeRaster(erosion_classified_t1, filename = paste0(rv$output_dir, "/soil_erosion_reclass", paste0(rv$t1), ".tif"), overwrite = TRUE)
+          writeRaster(erosion_classified_t2, filename = paste0(rv$output_dir, "/soil_erosion_reclass", paste0(rv$t2), ".tif"), overwrite = TRUE)
+          write.csv(erosion_db, file = paste0(rv$output_dir, "/soil_erosion", paste0(rv$t1), "-", paste0(rv$t2), ".csv"))
+          write.csv(summary_e_pu_df, file = paste0(rv$output_dir, "/soil_erosion_per_planning_unit", paste0(rv$t1), "-", paste0(rv$t2), ".csv"))
+          write.csv(summary_e_diff_pu_df, file = paste0(rv$output_dir, "/soil_erosion_changes_per_planning_unit", paste0(rv$t1), "-", paste0(rv$t2), ".csv"))
           
           # End of the script
           end_time <- Sys.time()
@@ -306,7 +305,7 @@ server <- function(input, output, session) {
           report_params <- list(
             start_time = as.character(format(start_time, "%Y-%m-%d %H:%M:%S")),
             end_time = as.character(format(end_time, "%Y-%m-%d %H:%M:%S")),
-            output_dir = output_dir,
+            output_dir = rv$output_dir,
             dem = dem,
             pu = pu,
             rainfall = rainfall,
@@ -325,7 +324,7 @@ server <- function(input, output, session) {
             e_pu_df = summary_e_pu_df,
             e_diff_table = erosion_diff_db,
             e_pu_diff_table = summary_e_diff_pu_df,
-            multiseries = rv$multiseries
+            multiseries = input$multiseries
           )
           
           } else {
@@ -347,16 +346,16 @@ server <- function(input, output, session) {
           # Calculate erosion for each planning unit class
           summary_e_pu_df <- compute_erosion_per_pu(erosion_classified = erosion_classified_t1, pu = pu)
           
-   
           # Export the results
-          writeRaster(r_factor, paste0(rv$output_dir, "r_factor.tif"), overwrite = TRUE)
-          writeRaster(k_factor, paste0(rv$output_dir, "k_factor.tif"), overwrite = TRUE)
-          writeRaster(ls_factor, paste0(rv$output_dir, "ls_factor.tif"), overwrite = TRUE)
-          writeRaster(c_factor, paste0(rv$output_dir, "c_factor", paste0(rv$t1), ".tif"), overwrite = TRUE)
-          writeRaster(erosion_t1, filename = paste0(rv$output_dir, "soil_erosion", paste0(rv$t1), ".tif"), overwrite = TRUE)
-          writeRaster(erosion_classified_t1, filename = paste0(rv$output_dir, "soil_erosion_reclass", paste0(rv$t1), ".tif"), overwrite = TRUE)
-          write.csv(erosion_db_t1, file = paste0(rv$output_dir, "soil_erosion", paste0(rv$t1), ".csv"))
-          write.csv(summary_e_pu_df, file = paste0(rv$output_dir, "soil_erosion_per_planning_unit", paste0(rv$t1), ".csv"))
+          incProgress(0.7, detail = "Exporting results")
+          writeRaster(r_factor, paste0(rv$output_dir, "/r_factor.tif"), overwrite = TRUE)
+          writeRaster(k_factor, paste0(rv$output_dir, "/k_factor.tif"), overwrite = TRUE)
+          writeRaster(ls_factor, paste0(rv$output_dir, "/ls_factor.tif"), overwrite = TRUE)
+          writeRaster(c_factor, paste0(rv$output_dir, "/c_factor", paste0(rv$t1), ".tif"), overwrite = TRUE)
+          writeRaster(erosion_t1, filename = paste0(rv$output_dir, "/soil_erosion", paste0(rv$t1), ".tif"), overwrite = TRUE)
+          writeRaster(erosion_classified_t1, filename = paste0(rv$output_dir, "/soil_erosion_reclass", paste0(rv$t1), ".tif"), overwrite = TRUE)
+          write.csv(erosion_db_t1, file = paste0(rv$output_dir, "/soil_erosion", paste0(rv$t1), ".csv"))
+          write.csv(summary_e_pu_df, file = paste0(rv$output_dir, "/soil_erosion_per_planning_unit", paste0(rv$t1), ".csv"))
           
           # End of the script
           end_time <- Sys.time()
@@ -367,7 +366,7 @@ server <- function(input, output, session) {
           report_params <- list(
             start_time = as.character(format(start_time, "%Y-%m-%d %H:%M:%S")),
             end_time = as.character(format(end_time, "%Y-%m-%d %H:%M:%S")),
-            output_dir = output_dir,
+            output_dir = rv$output_dir,
             dem = dem,
             pu = pu,
             rainfall = rainfall,
@@ -383,11 +382,13 @@ server <- function(input, output, session) {
             a = erosion_classified_t1,
             e_table = erosion_db_t1,
             e_pu_df = summary_e_pu_df,
-            multiseries = rv$multiseries
+            multiseries = input$multiseries
            )
           }
-        
+
           # Render the R markdown report
+          incProgress(0.8, detail = "Preparing report")
+        
           if (!rmarkdown::pandoc_available()) {
             Sys.setenv(RSTUDIO_PANDOC = paste0(getwd(), "/pandoc"))
           }

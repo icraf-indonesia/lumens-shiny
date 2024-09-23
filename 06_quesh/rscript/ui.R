@@ -66,7 +66,7 @@ ui <- fluidPage(
     mainPanel(
       tabsetPanel(
         tabPanel("User Guide", uiOutput("user_guide")),
-        tabPanel("Analysis",
+        tabPanel("Log",
                  textOutput("selected_dir"),
                  verbatimTextOutput("status_messages"),
                  verbatimTextOutput("error_messages"),
