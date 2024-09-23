@@ -43,13 +43,13 @@ library(terra)
 library(DT)
 ```
 
-## Module brief description
+# Module brief description
 
-QuES-H (Quantification of Ecosystem Services) is a hydrological assessment module that analyzes hydrological environmental services. The current version features a soil erosion risk module based on the Revised Universal Soil Loss Equation (RUSLE), with plans to expand its capabilities to include additional hydrological analyses in the future.
+QuES-H is a hydrological assessment module that analyses hydrological environmental services. The current version features a soil erosion risk module based on the Revised Universal Soil Loss Equation (RUSLE), with plans to expand its capabilities to include additional hydrological analyses in the future.
 
-## Input data
+# Input data
 
-### Total Annual Precipitation Map
+## Total Annual Precipitation Map
 
 Represents the total rainfall for each pixel over a year (mm/year)
 
@@ -58,7 +58,7 @@ Represents the total rainfall for each pixel over a year (mm/year)
 plot(params$rainfall)
 ```
 
-### Digital Elevation Model (DEM) Map
+## Digital Elevation Model (DEM) Map
 
 Represents the terrain elevation (meters above sea level)
 
@@ -67,7 +67,7 @@ Represents the terrain elevation (meters above sea level)
 plot(params$dem)
 ```
 
-### Soil Properties Maps
+## Soil Properties Maps
 
 Represents the soil characteristic, defined by Clay content (%), Silt content (%), Sand content (%), and Soil organic content (g/kg)
 
@@ -76,7 +76,7 @@ Represents the soil characteristic, defined by Clay content (%), Silt content (%
 plot(params$soil)
 ```
 
-### Land Cover Map
+## Land Cover Map
 
 Categorical raster with each pixel value corresponds to a land cover class
 
@@ -94,7 +94,7 @@ if (params$multiseries == "two_step"){
 
 ```
 
-### Planning Unit Map
+## Planning Unit Map
 
 A polygon shapefile of administrative or management zones.
 
@@ -103,32 +103,32 @@ A polygon shapefile of administrative or management zones.
 plot(params$pu)
 ```
 
-## Results
+# Results
 
-### Factor of RUSLE
+## RUSLE Factors
 
-#### R Factor: Rainfall Erosivity
+### R Factor: Rainfall Erosivity
 
 ```{r R Factor, echo=FALSE, fig.width=12, fig.align='left'}
 
 plot(params$r)
 ```
 
-#### K Factor: Soil Erodibility
+### K Factor: Soil Erodibility
 
 ```{r K Factor, echo=FALSE, fig.width=12, fig.align='left'}
 
 plot(params$k)
 ```
 
-#### LS Factor: Length and Steepness
+### LS Factor: Length and Steepness
 
 ```{r LS Factor, echo=FALSE, fig.width=12, fig.align='left'}
 
 plot(params$ls)
 ```
 
-#### C Factor: Cover Management
+### C Factor: Cover Management
 
 ```{r C Factor, echo=FALSE, fig.width=12, fig.align='left'}
 
@@ -144,16 +144,16 @@ if (params$multiseries == "two_step"){
 
 ```
 
-#### P Factor: Practice Management
+### P Factor: Practice Management
 
 ```{r P Factor, echo=FALSE, fig.width=12, fig.align='left'}
 
 plot(params$p)
 ```
 
-### Estimation of Soil Erosion
+## Estimation of Soil Erosion
 
-#### Soil Erosion in Landscape Level
+### Soil Erosion in Landscape Level
 ```{r Soil Erosion Estimation Map, echo=FALSE, fig.width=12, fig.align='left'}
 
 if (params$multiseries == "two_step"){
@@ -257,7 +257,7 @@ if (params$multiseries == "two_step") {
 
 ```
 
-#### Soil Erosion in Planning Unit Level
+### Soil Erosion in Planning Unit Level
 
 ```{r Soil Erosion in PU Level, echo=FALSE}
 
