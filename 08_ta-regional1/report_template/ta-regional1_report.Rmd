@@ -159,6 +159,7 @@ DT::datatable(params$land.requirement_table)
 plot(params$LRC_graph)
 ```
 
-## Conclusion
 
-* Summarize the key findings or insights from the analysis.
+------------------------------------------------------------------------
+
+<font size="1"> LUMENS is free software and comes with ABSOLUTELY NO WARRANTY. Users are responsible for the results generated. Results depend on the quality of the input data ("garbage in, garbage out") and may vary or be sensitive to the parameters used. Please report any problems encountered while using LUMENS as [a GitHub issue](https://github.com/icraf-indonesia/lumens-shiny/issues). Feedback and questions are welcome [Contact Us URL]. </font size>

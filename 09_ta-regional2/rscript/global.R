@@ -42,6 +42,8 @@ if (!("LUMENSR" %in% rownames(installed.packages()))) {
 }
 library(LUMENSR)
 
+jscode <- "shinyjs.closeWindow = function() { window.close(); }"
+
 check_and_install_packages <- function(required_packages) {
   # Check if each package is installed and can be loaded
   missing_packages <- character(0)

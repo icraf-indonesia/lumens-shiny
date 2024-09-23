@@ -1,5 +1,5 @@
 ---
-title: "Trade-off Analysis Regional 2 Report"
+title: "Regional Economic Projection Report"
 output: 
   html_document:
     toc: true
@@ -64,7 +64,7 @@ The maps provided was carbon, emission and sequestration map.
 ### GDP Each Sector
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
-knitr::kable(params$GDP_scen_df)
+DT::datatable(params$GDP_scen_df)
 ```
 
 ### GDP Total
@@ -87,6 +87,9 @@ plot(params$income_total_graph)
 plot(params$labour_total_graph)
 ```
 
-### Conclusion
 
-* Summarize the key findings or insights from the analysis.
+
+------------------------------------------------------------------------
+
+<font size="1"> LUMENS is free software and comes with ABSOLUTELY NO WARRANTY. Users are responsible for the results generated. Results depend on the quality of the input data ("garbage in, garbage out") and may vary or be sensitive to the parameters used. Please report any problems encountered while using LUMENS as [a GitHub issue](https://github.com/icraf-indonesia/lumens-shiny/issues). Feedback and questions are welcome [Contact Us URL]. </font size>
+
