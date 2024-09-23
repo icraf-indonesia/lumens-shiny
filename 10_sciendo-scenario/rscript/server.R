@@ -652,7 +652,7 @@ server <- function(input, output, session) {
   iv <- InputValidator$new()
   iv$add_rule("quescdb", sv_required(message = "Please upload QUES-C database"))
   iv$add_rule("output_dir", sv_required(message = "Please select an output directory"))
-  observeEvent(input$processSCIENDO, {
+  observeEvent(input$process_build_scenario, {
     if(!iv$is_valid()) {
       iv$enable()
       showNotification(
@@ -1853,7 +1853,7 @@ server <- function(input, output, session) {
       final_plot = v$f_plot,
       emission_plot = v$em_plot 
     )
-    output_file <- paste0("sciendo_report_", Sys.Date(), ".html")
+    output_file <- paste0("scen_builder_report_", Sys.Date(), ".html")
     output_dir <- paste0(Sys.getenv("USERPROFILE"), "\\Download")
     v$report_file <- paste(output_dir, output_file, sep = "\\")
     
@@ -1866,7 +1866,7 @@ server <- function(input, output, session) {
   })
   
   observeEvent(input$openReport, {
-    report_path <- paste0(v$report_file, "/quesc_report_", Sys.Date(), ".html")
+    report_path <- paste0(v$report_file, "/scen_builder_report_", Sys.Date(), ".html")
     if (file.exists(report_path)) {
       showNotification("Opening report...", type = "message")
       utils::browseURL(report_path)

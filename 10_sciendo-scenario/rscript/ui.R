@@ -288,6 +288,7 @@ ui <-
         tags$link(rel = "stylesheet", href = "jsuites.css", type = "text/css"),
         tags$link(rel = "stylesheet", type = "text/css", href = "table.css")
       ),
+    extendShinyjs(text = jscode, functions = c("closeWindow")),
     window_title = "SCIENDO-Scenario Builder",
     title =
     #   HTML(
@@ -312,8 +313,8 @@ ui <-
           fileInput("quescdb", "Load QUES-C Database (.csv)", accept = ".csv"),
           div(style = "display: flex; flex-direction: column; gap: 10px;",
               shinyDirButton("output_dir", "Select output directory", "Please select a directory"),
-              actionButton("processSCIENDO", "Run", 
-                           style = "font-size: 18px; padding: 10px 15px; background-color: #4CAF50; color: white;"),
+              # actionButton("processSCIENDO", "Run", 
+              #              style = "font-size: 18px; padding: 10px 15px; background-color: #4CAF50; color: white;"),
               hidden(
                 actionButton("openReport", "Open Report",
                              style = "font-size: 18px; padding: 10px 15px; background-color: #008CBA; color: white;")
@@ -336,7 +337,14 @@ ui <-
         condition = "output.is_matrix",
         projection_value_box,
         projection_scenario_selection,
-        projection_scenario_modification
+        projection_scenario_modification,
+        actionButton(
+          "process_build_scenario",
+          "Run Analysis",
+          # style = "height:38px; width:100%; padding:5px;",
+          style = "font-size: 18px; padding: 10px 15px; background-color: #4CAF50; color: white;",
+          icon = icon("gear")
+        )
       )
     ),
 
