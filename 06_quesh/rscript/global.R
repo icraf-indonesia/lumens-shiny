@@ -19,10 +19,8 @@ install_load(
   "shiny",
   "shinyFiles",
   "bslib",
-  "foreign", 
   "terra", 
   "dplyr", 
-  "sp", 
   "sf", 
   "shinyvalidate",
   "remote",
@@ -31,12 +29,10 @@ install_load(
   "tools",
   "magrittr", 
   "lattice", 
-  "rasterVis",
   "classInt", 
   "ggplot2", 
   "scales",
   "tidyr",
-  "rgdal",
   "DT"
 )
 
