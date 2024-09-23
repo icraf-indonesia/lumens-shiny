@@ -1,5 +1,5 @@
 ---
-title: "Trade-off Analysis Profit Report"
+title: "Profitability Analysis Report"
 output: 
   html_document:
     toc: true
@@ -64,7 +64,7 @@ analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
 
 # Introduction
 
-This report presents the results of a Trade-Off Analysis (Profit) based on land-use change scenarios. The analysis focuses on assessing the net present value (NPV), opportunity costs, and carbon emissions associated with different land-use changes. This method helps evaluate the financial and environmental impacts of shifting land use and identify trade-offs between profitability and sustainability.
+This report presents the results of a Profitability Analysis based on land-use change scenarios. The analysis focuses on assessing the net present value (NPV), opportunity costs, and carbon emissions associated with different land-use changes. This method helps evaluate the financial and environmental impacts of shifting land use and identify trade-offs between profitability and sustainability.
 
 
 # Analysis Results
@@ -79,7 +79,7 @@ The analysis workflow involves several key steps:
 ### Opportunity Cost Table
 The Opportunity Cost Table presents a detailed breakdown of the trade-offs between financial gains (measured in net present value, or NPV) and environmental impacts (measured in carbon emissions) for different land-use categories over a given time period. This table is a key component in evaluating the financial viability of land-use decisions while accounting for the environmental costs.
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
-knitr::kable(params$opcost_table)
+DT::datatable(params$opcost_table)
 ```
 
 ### Opportunity Cost Curve
@@ -91,14 +91,14 @@ plot(params$opcost_curve)
 ## Net Present Value Maps
 The NPV Maps are critical visual outputs that illustrate the financial performance of different land-use categories at two distinct points in time. These maps help in understanding how land-use changes over time impact profitability, providing valuable insights for decision-makers seeking to balance economic and environmental factors.
 
-### NPV Map 1
+### NPV Map for Year `r params$year1`
 This map serves as a baseline for understanding the initial profitability of different land uses before any land-use changes occur. The map visually displays areas with varying degrees of profitability, using color gradients to indicate the range of NPV values.
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 plot(params$npv1_map)
 ```
 
-### NPV Map 2
-This map captures how the financial value of different land uses has evolved over the analysis period due to land-use changes, policy interventions, or natural factors. Like NPV Map 1, it uses color gradients to indicate the profitability of various land areas.
+### NPV Map for Year `r params$year2`
+This map captures how the financial value of different land uses has evolved over the analysis period due to land-use changes, policy interventions, or natural factors. Like NPV Map for Year `r params$year1`, it uses color gradients to indicate the profitability of various land areas.
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 plot(params$npv2_map)
 ```
@@ -116,4 +116,9 @@ plot(params$delta_npv,
 ```
 
 # Conclusion
-The report highlights the key trade-offs between financial returns and environmental sustainability. It provides essential insights for decision-makers to balance profitability with environmental responsibility in land-use planning. The generated maps and opportunity cost curves serve as valuable tools for evaluating these trade-offs across various scenarios.
+The report highlights the key trade-offs between financial returns and environmental sustainability. It provides insights for decision-makers to balance profitability with environmental responsibility in land-use planning. The generated maps and opportunity cost curves serve as tools for evaluating these trade-offs across various scenarios.
+
+
+------------------------------------------------------------------------
+
+<font size="1"> LUMENS is free software and comes with ABSOLUTELY NO WARRANTY. Users are responsible for the results generated. Results depend on the quality of the input data ("garbage in, garbage out") and may vary or be sensitive to the parameters used. Please report any problems encountered while using LUMENS as [a GitHub issue](https://github.com/icraf-indonesia/lumens-shiny/issues). Feedback and questions are welcome [Contact Us URL]. </font size>
