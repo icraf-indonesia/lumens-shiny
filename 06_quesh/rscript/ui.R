@@ -20,7 +20,8 @@ ui <- fluidPage(
       
       # Select P Factor Option
       radioButtons("practice", "P Factor Map Available?", 
-                   choices = c("Yes" =  "yes", "No" = "no")),
+                   choices = c("Yes" =  "yes", "No" = "no"),
+                   selected = "no"),
       conditionalPanel(
         condition = "input.practice == 'yes'",
         fileInput("practice_file", "P Factor Map", accept = c(".tif", ".tiff"))
