@@ -1,3 +1,420 @@
+summary_text_en <- c("Period",
+               "Total area (ha)",
+               "Total emission (tonne CO2-eq)",
+               "Total sequestration (tonne CO2-eq)",
+               "Nett emission (tonne CO2-eq)",
+               "Emission rate (tonne CO2-eq/year)",
+               "Emission rate per-unit area (tonne CO2-eq/ha.year)")
+
+summary_text_id <- c("Periode", 
+                     "Total area (ha)", 
+                     "Total Emisi (Ton CO2-eq)", 
+                     "Total Sekuestrasi (Ton CO2-eq)", 
+                     "Emisi Bersih (Ton CO2-eq)", 
+                     "Laju Emisi (Ton CO2-eq/tahun)",
+                     "Laju emisi per-unit area (Ton CO2-eq/ha.tahun)")
+
+summary_zonal_text_en <- list(ID = 1,
+                          "Planning Unit" = 2, 
+                          "Area (Ha)" = 3, 
+                          "Carbon Avg. (Periode 1)" = 4, 
+                          "Carbon Avg. (Periode 2)" = 5, 
+                          "Nett Emission" = 6, 
+                          "Emission Rate" = 7
+                          )
+summary_zonal_text_id <- list( ID = 1,
+                          "Unit Perencanaan" = 2, 
+                          "Luas (Ha)" = 3, 
+                          "Rerata Karbon Periode 1" = 4, 
+                          "Rerata Karbon Periode 2" = 5, 
+                          "Emisi bersih" = 6, 
+                          "Laju emisi" = 7
+                          )
+summary_zona_carbon_text_en <- list(ID = 1,
+                                    "Planning Unit" = 2, 
+                                    "Area (Ha)" = 3, 
+                                    "Total emission (tonne CO2-eq)" = 4, 
+                                    "Total sequestration (tonne CO2-eq)" = 5, 
+                                    "Nett Emission (tonne CO2-eq)" = 6, 
+                                    "Emission Rate (tonne CO2-eq)" = 7
+)
+summary_zona_carbon_text_id <- list(ID = 1,
+                                    "Unit perencanaan" = 2, 
+                                    "Luas (Ha)" = 3, 
+                                    "Total emisi (ton CO2-eq)" = 4, 
+                                    "Total sekuestrasi (ton CO2-eq)" = 5, 
+                                    "Emisi bersih (ton CO2-eq)" = 6, 
+                                    "Laju emisi (ton CO2-eq)" = 7
+)
+  
+format_session_info_table <- function() {
+  si <- sessionInfo()
+  
+  # Extract R version info
+  r_version <- si$R.version[c("major", "minor", "year", "month", "day", "nickname")]
+  r_version <- paste0(
+    "R ", r_version$major, ".", r_version$minor,
+    " (", r_version$year, "-", r_version$month, "-", r_version$day, ")",
+    " '", r_version$nickname, "'"
+  )
+  
+  # Extract platform and OS info
+  # platform_os <- paste(si$platform, "|", si[[6]]) 
+  platform_os <- paste(si$platform)
+  
+  # Extract locale info
+  locale_info <- strsplit(si[[3]], ";")[[1]]
+  locale_info <- paste(locale_info, collapse = "<br>")
+  
+  # Extract .libpaths, accomodate multiple library paths
+  lib_paths <- .libPaths() |> paste( collapse = "<br>")
+  
+  # Combine all info into a single tibble
+  session_summary <- tibble(
+    Category = c("R Version", "Platform | OS", ".libPaths", "Locale"),
+    Details = c(r_version, platform_os, lib_paths, locale_info)
+  )
+  return(session_summary)
+}
+
+print_area <- function(x){
+  format(x, digits=15, big.mark=",")
+}
+print_rate <- function(x){
+  format(x, digits=15, nsmall=2, decimal.mark=".", big.mark=",")
+}
+
+plot_quesc_results <- function(map, legend, low, high, title_size = 8, text_size = 8, height = 0.375, width = 0.375, ...) {
+  p <- gplot(map, maxpixels = 100000) + 
+    geom_raster(aes(fill = value)) + 
+    coord_equal() +
+    scale_fill_gradient(name = legend, low = low, high = high, guide = "colourbar", ...) +
+    theme(plot.title = element_text(lineheight = 5, face = "bold")) +
+    theme(axis.title.x = element_blank(), axis.title.y = element_blank(),
+          panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+          legend.title = element_text(size = title_size),
+          legend.text = element_text(size = text_size),
+          legend.key.height = unit(height, "cm"),
+          legend.key.width = unit(width, "cm"))
+  
+  
+  return(p)
+}
+
+summary_of_emission_calculation <- function(quescdb, zone, map_em, map_sq, period) {
+  p <- as.numeric(period$p2) - as.numeric(period$p1)
+  az <- quescdb %>% 
+    melt(id.vars=c('ID_PU', 'PU'), measure.vars=c('Ha')) %>%
+    dcast(formula = ID_PU + PU ~ ., fun.aggregate = sum) %>%
+    dplyr::rename(
+      ID = 1,
+      Ha = 3
+    )
+  
+  ze <- map_em %>% 
+    raster() %>%
+    zonal(zone, 'sum') %>%
+    as.data.frame() %>%
+    dplyr::rename(
+      ID = 1,
+      TOTAL_EM = 2
+    )
+  zs <- map_sq %>%
+    raster() %>%
+    zonal(zone, 'sum') %>% 
+    as.data.frame() %>%
+    dplyr::rename(
+      ID = 1,
+      TOTAL_SQ = 2
+    )
+  
+  zc <- az %>% 
+    left_join(ze, by = "ID") %>% 
+    left_join(zs, by = "ID") %>% 
+    mutate(
+      NET_EM = TOTAL_EM - TOTAL_SQ
+    ) %>% 
+    mutate(
+      NET_EM_RATE = round(NET_EM / Ha / p, 2)
+    ) %>% 
+    mutate(
+      TOTAL_EM = round(TOTAL_EM, 2),
+      TOTAL_SQ = round(TOTAL_SQ, 2),
+      NET_EM = round(NET_EM, 2)
+    ) 
+  
+  zc_plot <- zc %>% ggplot(aes(x = reorder(PU, -NET_EM_RATE), y = (NET_EM_RATE))) + 
+    geom_bar(stat = "identity", fill = "red") +
+    geom_text(data = zc, aes(label = round(NET_EM_RATE, 1)), size = 4) +
+    ggtitle(paste("Average of nett emission ", period$p1,"-", period$p2)) +
+    guides(fill = FALSE) + 
+    ylab("CO2-eq/ha.yr") +
+    theme(plot.title = element_text(lineheight = 5, face = "bold")) +
+    theme(axis.title.x = element_blank(), axis.text.x = element_text(angle = 20),
+          panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+  
+  total_area <- sum(az$Ha)
+  total_emission <- sum(zc$TOTAL_EM)
+  total_sequestration <- sum(zc$TOTAL_SQ)
+  total_net_emission <- total_emission - total_sequestration
+  total_rate_emission <- total_net_emission / p
+  total_rate_emission_ha <- total_rate_emission / total_area
+  
+  zc <- zc %>% 
+    mutate(Ha = print_area(Ha)) %>%
+    mutate_if(is.numeric, print_rate) %>%
+    dplyr::rename(
+      unlist(summary_zona_carbon_text_en)
+    )
+  
+  summary_df <- data.frame(
+    ID = c(1:7),
+    Category = summary_text_en,
+    Summary = as.character(
+      c(paste0(period$p1, "-", period$p2),
+        print_area(round(total_area, 2)),
+        print_rate(round(total_emission, 2)),
+        print_rate(round(total_sequestration, 2)),
+        print_rate(round(total_net_emission, 2)),
+        print_rate(round(total_rate_emission, 2)),
+        print_rate(round(total_rate_emission_ha, 2))
+      )
+    )
+  )
+  
+  out <- list(
+    area_zone = az,
+    zone_emission = ze,
+    zone_sequestration = zs,
+    zone_carbon = zc,
+    plot_zone_carbon = zc_plot,
+    total_area = total_area,
+    total_emission = total_emission,
+    total_sequestration = total_sequestration,
+    total_net_emission = total_net_emission,
+    total_rate_emission = total_rate_emission,
+    total_rate_emission_ha = total_rate_emission_ha,
+    summary_df = summary_df
+  )
+  
+  return(out)
+}
+
+zonal_statistic_database <- function(quescdb, period) {
+  area_zone <- quescdb %>% 
+    melt(id.vars=c('ID_PU', 'PU'), measure.vars=c('Ha')) %>%
+    dcast(formula = ID_PU + PU ~ ., fun.aggregate = sum) %>%
+    dplyr::rename(
+      ID = 1,
+      Ha = 3
+    )
+  
+  data_zone <- area_zone
+  data_zone$Z_CODE <- toupper(abbreviate(data_zone$PU))
+  data_zone$Rate_seq <- data_zone$Rate_em <- data_zone$Avg_C_t2 <- data_zone$Avg_C_t1 <- 0
+  for(a in 1:nrow(area_zone)){
+    i <- area_zone$PU[a]
+    data_z <- quescdb[which(quescdb$PU == i), ]
+    data_zone <- within(data_zone, {
+      Avg_C_t1 <- ifelse(data_zone$PU == i,
+                         sum(data_z$C_T1 * data_z$Ha) / sum(data_z$Ha),
+                         Avg_C_t1)
+    }) 
+    data_zone <- within(data_zone, {
+      Avg_C_t2 <- ifelse(data_zone$PU == i,
+                         sum(data_z$C_T2 * data_z$Ha) / sum(data_z$Ha),
+                         Avg_C_t2)
+    })
+    data_zone <- within(data_zone, {
+      Rate_em <- ifelse(data_zone$PU == i, 
+                        sum(data_z$EM) / (sum(data_z$Ha) * period), 
+                        Rate_em)
+    })
+    data_zone <- within(data_zone, {
+      Rate_seq <- ifelse(data_zone$PU == i, 
+                         sum(data_z$SQ) / (sum(data_z$Ha) * period), 
+                         Rate_seq)
+    }) 
+  }
+  
+  data_zone_ori <- data_zone %>% 
+    select(-Z_CODE) %>%
+    mutate(
+      Avg_C_t1 = round(Avg_C_t1, 2),
+      Avg_C_t2 = round(Avg_C_t2, 2),
+      Rate_em = round(Rate_em, 2),
+      Rate_seq = round(Rate_seq, 2)
+    ) 
+  data_zone_summary <- data_zone_ori %>% 
+    mutate_if(is.numeric, print_rate) %>% 
+    dplyr::rename(
+      unlist(summary_zonal_text_en)
+    )
+  
+  # data_merge_sel <- quescdb[ which((quescdb$EM + quescdb$SQ) > 0), ]
+  order_sq <- quescdb[order(-quescdb$SQ), ] %>% as.data.frame()
+  order_em <- quescdb[order(-quescdb$EM), ] %>% as.data.frame()
+  
+  # total emission
+  tb_em_total <- order_em$LU_CHG %>% 
+    cbind( as.data.frame( round(order_em$EM, digits=3) ) ) %>% 
+    as.data.frame() %>%
+    dplyr::rename(
+      LU_CHG = 1,
+      EM = 2
+    ) %>%
+    aggregate(EM ~ LU_CHG, FUN = sum) %>%
+    mutate(
+      LU_CODE = as.factor(toupper(abbreviate(LU_CHG, minlength=5, strict=FALSE, method = "both")))
+    ) %>%
+    dplyr::arrange(desc(EM)) %>%
+    dplyr::relocate(LU_CODE) 
+  
+  tb_em_total_10 <- tb_em_total %>%
+    mutate(
+      PERCENTAGE = as.numeric(format(round((EM / sum(tb_em_total$EM) * 100),2), nsmall=2))
+    ) %>%
+    head(n=10)
+  tb_em_total_10_summary <- tb_em_total_10 %>%
+    mutate(EM = print_rate(EM)) %>%
+    dplyr::rename(
+      "Land Use Code" = LU_CODE,
+      "Land Use Change" = LU_CHG,
+      "Total Emission" = EM,
+      "Percentage" = PERCENTAGE
+    )
+  
+  largest_emission <- tb_em_total_10 %>% 
+    ggplot(aes(x = reorder(LU_CODE, -EM), y = (EM))) +
+    geom_bar(stat = "identity", fill = "blue") +
+    geom_text(data = tb_em_total_10, aes(x=LU_CODE, y=EM, label = round(EM, 1)), size = 3, vjust = 0.1) +
+    ggtitle(paste("Largest sources of emission")) + 
+    guides(fill = FALSE) + 
+    ylab("CO2-eq") +
+    theme(plot.title = element_text(lineheight = 5, face = "bold")) + 
+    scale_y_continuous() +
+    theme(axis.title.x = element_blank(), axis.text.x = element_text(size = 8),
+          panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+  
+  # zonal emission
+  tb_em_zonal <- as.data.frame(NULL)
+  for (i in 1:nrow(area_zone)){
+    tryCatch({
+      tb_em <- order_em$PU %>% 
+        cbind(order_em$LU_CHG, as.data.frame( round(order_em$EM, digits=3) ) ) %>% 
+        as.data.frame() %>%
+        dplyr::rename(
+          PU = 1,
+          LU_CHG = 2,
+          EM = 3
+        )
+      
+      a <- area_zone$PU[i] 
+      tb_em_z <- tb_em %>% 
+        dplyr::filter(PU == a) %>% 
+        as.data.frame() %>%
+        aggregate(EM ~ PU + LU_CHG, FUN=sum) %>%
+        mutate(
+          LU_CODE = as.factor(toupper(abbreviate(LU_CHG, minlength=5, strict=FALSE, method = "both")))
+        ) %>%
+        dplyr::arrange(desc(EM)) %>%
+        dplyr::relocate(LU_CODE, .before = LU_CHG) 
+      tb_em_z_10 <- tb_em_z %>% 
+        mutate(
+          PERCENTAGE = as.numeric(format(round((EM / sum(tb_em_z$EM) * 100),2), nsmall=2)) 
+        ) %>% 
+        head(n=10)
+      tb_em_zonal <- tb_em_zonal %>% rbind(tb_em_z_10)
+    }, error=function(e){cat("ERROR :",conditionMessage(e), "\n")})
+  }
+  
+  # total sequestration
+  tb_sq_total <- order_sq$LU_CHG %>% 
+    cbind( as.data.frame( round(order_sq$EM, digits=3) ) ) %>% 
+    as.data.frame() %>%
+    dplyr::rename(
+      LU_CHG = 1,
+      SQ = 2
+    ) %>%
+    aggregate(SQ ~ LU_CHG, FUN = sum) %>%
+    mutate(
+      LU_CODE = as.factor(toupper(abbreviate(LU_CHG, minlength=5, strict=FALSE, method = "both")))
+    ) %>%
+    dplyr::arrange(desc(SQ)) %>%
+    dplyr::relocate(LU_CODE) 
+  
+  tb_sq_total_10 <- tb_sq_total %>% 
+    mutate(
+      PERCENTAGE = as.numeric(format(round((SQ / sum(tb_sq_total$SQ) * 100),2), nsmall=2))
+    ) %>%
+    head(n=10)
+  tb_sq_total_10_summary <- tb_sq_total_10 %>%
+    mutate(SQ = print_rate(SQ)) %>%
+    dplyr::rename(
+      "Land Use Code" = LU_CODE,
+      "Land Use Change" = LU_CHG,
+      "Total Emission" = SQ,
+      "Percentage" = PERCENTAGE
+    )
+  
+  largest_sequestration <- tb_sq_total_10 %>% 
+    ggplot(aes(x = reorder(LU_CODE, -SQ), y = (SQ))) +
+    geom_bar(stat = "identity", fill = "green") +
+    geom_text(data = tb_sq_total_10, aes(x=LU_CODE, y=SQ, label = round(SQ, 1)), size = 3, vjust = 0.1) +
+    ggtitle(paste("Largest sources of sequestration")) + 
+    guides(fill = FALSE) + 
+    ylab("CO2-eq") +
+    theme(plot.title = element_text(lineheight = 5, face = "bold")) + 
+    scale_y_continuous() +
+    theme(axis.title.x = element_blank(), axis.text.x = element_text(size = 8),
+          panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+  
+  # zonal sequestration
+  tb_sq_zonal <- as.data.frame(NULL)
+  for (i in 1:nrow(area_zone)){
+    tryCatch({
+      tb_sq <- order_sq$PU %>% 
+        cbind(order_sq$LU_CHG, as.data.frame( round(order_sq$SQ, digits=3) ) ) %>% 
+        as.data.frame() %>%
+        dplyr::rename(
+          PU = 1,
+          LU_CHG = 2,
+          SQ = 3
+        )
+      
+      a <- area_zone$PU[i] 
+      tb_sq_z <- tb_sq %>% 
+        dplyr::filter(PU == a) %>% 
+        as.data.frame() %>%
+        aggregate(SQ ~ PU + LU_CHG, FUN=sum) %>%
+        mutate(
+          LU_CODE = as.factor(toupper(abbreviate(LU_CHG, minlength=5, strict=FALSE, method = "both")))
+        ) %>%
+        dplyr::arrange(desc(SQ)) %>%
+        dplyr::relocate(LU_CODE, .before = LU_CHG) 
+      tb_sq_z_10 <- tb_sq_z %>% 
+        mutate(
+          PERCENTAGE = as.numeric(format(round((SQ / sum(tb_sq_z$SQ) * 100),2), nsmall=2))
+        ) %>%
+        head(n=10)
+      tb_sq_zonal <- tb_sq_zonal %>% rbind(tb_sq_z_10)
+    }, error=function(e){cat("ERROR :",conditionMessage(e), "\n")})
+  }
+  
+  out <- list(
+    data_zone = data_zone_ori,
+    data_zone_df = data_zone_summary,
+    tb_em_total_10 = tb_em_total_10,
+    tb_em_total_10_summary = tb_em_total_10_summary,
+    largest_emission = largest_emission,
+    tb_em_zonal = tb_em_zonal,
+    tb_sq_total_10 = tb_sq_total_10,
+    tb_sq_total_10_summary = tb_sq_total_10_summary,
+    largest_sequestration = largest_sequestration,
+    tb_sq_zonal = tb_sq_zonal
+  )
+}
+
 ### Required Library ####
 #' Install Required Library
 #' 
@@ -165,18 +582,22 @@ generate_dummy_crosstab <- function(landcover, zone){
 #' @export
 generate_quesc_report <- function(output_quesc, dir) {
   report_params <- list(
+    start_time = output_quesc$start_time,
+    end_time = output_quesc$end_time,
     map_c1 = output_quesc$map_c1,
     map_c2 = output_quesc$map_c2,
     map_em = output_quesc$map_em,
     map_sq = output_quesc$map_sq,
     ques_db = output_quesc$ques_db,
     p1 = output_quesc$p1,
-    p2 = output_quesc$p2
+    p2 = output_quesc$p2,
+    inputs = output_quesc$inputs,
+    session_log = output_quesc$session_log
   )
   output_file <- paste0("quesc_report_", Sys.Date(), ".html")
   
   rmarkdown::render(
-    "../report_template/report_template.Rmd",
+    "../report_template/quesc_report_template.Rmd",
     output_file = output_file,
     output_dir = dir,
     params = report_params
@@ -203,9 +624,12 @@ generate_quesc_report <- function(output_quesc, dir) {
 #' @importFrom terra writeRaster
 #' 
 #' @export
-run_quesc_analysis <- function(lc_t1_input, lc_t2_input, admin_z_input,
+run_quesc_analysis <- function(lc_t1_path, lc_t2_path, admin_z_path, c_lookup_path,
+                               lc_t1_input, lc_t2_input, admin_z_input,
                                c_lookup_input, zone_lookup_input,
                                time_points, output_dir, progress_callback = NULL) {
+  start_time <- Sys.time()
+  cat("Started at:", format(start_time, "%Y-%m-%d %H:%M:%S"), "\n")
   
   map1_rast <- lc_t1_input %>% spatial_sync_raster(admin_z_input)
   map2_rast <- lc_t2_input %>% spatial_sync_raster(admin_z_input)
@@ -260,14 +684,29 @@ run_quesc_analysis <- function(lc_t1_input, lc_t2_input, admin_z_input,
     LU_CHG = do.call(paste, c(df_lucdb[c(time_points$t1, time_points$t2)], sep = " to "))
   )
   
+  end_time <- Sys.time()
+  cat("Ended at:", format(end_time, "%Y-%m-%d %H:%M:%S"), "\n")
+  
+  session_log <- format_session_info_table()
+  
   out <- list(
+    start_time = as.character(format(start_time, "%Y-%m-%d %H:%M:%S")),
+    end_time = as.character(format(end_time, "%Y-%m-%d %H:%M:%S")),
     map_c1 = map_carbon1,
     map_c2 = map_carbon2,
     map_em = map_emission,
     map_sq = map_sequestration,
     ques_db = df_lucdb,
     p1 = time_points$t1,
-    p2 = time_points$t2
+    p2 = time_points$t2,
+    inputs = list(
+      lc_t1_path = lc_t1_path,
+      lc_t2_path = lc_t2_path,
+      admin_z_path = admin_z_path,
+      c_lookup_path = c_lookup_path,
+      output_dir = output_dir
+    ),
+    session_log = session_log
   )
   
   if (!is.null(progress_callback)) progress_callback(0.9, "outputs generated and saved")
