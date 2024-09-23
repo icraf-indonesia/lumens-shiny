@@ -47,6 +47,8 @@ if (!("abacuslib" %in% rownames(installed.packages()))) {
 }
 library(abacuslib)
 
+jscode <- "shinyjs.closeWindow = function() { window.close(); }"
+
 ### TABLE DEFINITION #################################
 table_file_df <- data.frame(
   var = c(

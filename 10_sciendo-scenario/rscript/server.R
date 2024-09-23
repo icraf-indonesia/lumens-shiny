@@ -1858,7 +1858,7 @@ server <- function(input, output, session) {
     v$report_file <- paste(output_dir, output_file, sep = "\\")
     
     render(
-      "../report_template/report_template.Rmd",
+      "../report_template/scen_builder_report_template.Rmd",
       output_file = output_file,
       output_dir = output_dir,
       params = params
@@ -1873,6 +1873,16 @@ server <- function(input, output, session) {
     } else {
       showNotification("Report file not found.", type = "error")
     }
+  })
+  
+  session$onSessionEnded(function() {
+    stopApp()
+  })
+  
+  observeEvent(input$returnButton, {
+    js$closeWindow()
+    message("Return to main menu!")
+    # shinyjs::delay(1000, stopApp())
   })
 
 }
