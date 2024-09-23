@@ -38,6 +38,8 @@ install_load(
   "DT"
 )
 
+jscode <- "shinyjs.closeWindow = function() { window.close(); }"
+
 format_session_info_table <- function() {
   si <- sessionInfo()
   

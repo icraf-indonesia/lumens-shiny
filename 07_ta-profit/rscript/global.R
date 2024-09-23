@@ -42,6 +42,8 @@ if (!("LUMENSR" %in% rownames(installed.packages()))) {
 }
 library(LUMENSR)
 
+jscode <- "shinyjs.closeWindow = function() { window.close(); }"
+
 format_session_info_table <- function() {
   si <- sessionInfo()
   
@@ -247,8 +249,7 @@ generate_opportunity_cost_curve <- function(opcost_table) {
   # Create the Opportunity Cost Curve
   opcost_curve <- ggplot(df_order, aes(x = order, y = opportunity_cost)) +
     labs(x = NULL,
-         y = "Opportunity Cost ($/ton CO2-eq)",
-         title = "Waterfall Plot for Opportunity Cost") +
+         y = "Opportunity Cost ($/ton CO2-eq)") +
     theme_classic() %+replace%
     theme(axis.line.x = element_blank(), axis.text.x = element_blank(), axis.ticks.x = element_blank(),
           axis.title.y = element_text(face = "bold", angle = 90)) +

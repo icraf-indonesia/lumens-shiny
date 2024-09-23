@@ -81,18 +81,21 @@ server <- function(input, output, session) {
   # File Inputs -------------------------------------------------------------
   #' Load and process the first map file, converting it to a raster format
   observeEvent(input$map1_file, {
+    req(input$map1_file)
     rv$map1_file <- input$map1_file$datapath
     rv$map1_rast <- rast(rv$map1_file)
   })
   
   #' Load and process the second map file, converting it to a raster format
   observeEvent(input$map2_file, {
+    req(input$map2_file)
     rv$map2_file <- input$map2_file$datapath
     rv$map2_rast <- rast(rv$map2_file)
   })
   
   #' Load the carbon data file and process it into a table format for analysis
   observeEvent(input$carbon_file, {
+    req(input$carbon_file)
     rv$carbon_file <- input$carbon_file$datapath
     df_c <- read.csv(rv$carbon_file)
     rv$quesc_tbl <- df_c
@@ -101,6 +104,7 @@ server <- function(input, output, session) {
   
   #' Load the NPV data file and extract relevant columns for analysis
   observeEvent(input$npv_file, {
+    req(input$npv_file)  
     rv$npv_file <- input$npv_file$datapath
     df_n <- read.csv(rv$npv_file)
     rv$tbl_npv <- df_n %>% dplyr::select(ID_LC = 1, NPV = 3)
@@ -117,11 +121,23 @@ server <- function(input, output, session) {
   observeEvent(input$process, {
     
     #' Validate input files to ensure all required data is uploaded before proceeding
-    if (is.null(rv$map1_rast) || is.null(rv$map2_rast) || is.null(rv$tbl_carbon) || is.null(rv$tbl_npv)) {
-      showNotification("Please upload all required files", type = "error")
+    if (is.null(rv$map1_rast)) {
+      showNotification("Please upload the first map file", type = "error")
       return()
     }
-    
+    if (is.null(rv$map2_rast)) {
+      showNotification("Please upload the second map file", type = "error")
+      return()
+    }
+    if (is.null(rv$tbl_carbon)) {
+      showNotification("Please upload the carbon data file", type = "error")
+      return()
+    }
+    if (is.null(rv$tbl_npv)) {
+      showNotification("Please upload the NPV data file", type = "error")
+      return()
+    }
+
     #' Progress bar to show users that the analysis is running
     withProgress(message = "Running TA Profit Analysis", value = 0, {
       tryCatch({
