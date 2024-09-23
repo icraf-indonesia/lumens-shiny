@@ -222,7 +222,7 @@ server <- function(input, output, session) {
                     "Very strong (80-150 ton/ha/yr)", 
                     "Severe (> 150 ton/ha/yr)")
         rcl_matrix <- cbind(breaks[-length(breaks)], breaks[-1], 1:(length(breaks)-1))
-        
+    
         # Post Analysis Work
         if (input$multiseries == "two_step"){
           
@@ -327,6 +327,29 @@ server <- function(input, output, session) {
             multiseries = input$multiseries
           )
           
+          summary_data <- list(
+            total_area = sum(erosion_db_t1[[2]]),
+            min_erosion_t1 = minmax(erosion_t1)[1],
+            max_erosion_t1 = minmax(erosion_t1)[2],
+            min_erosion_t2 = minmax(erosion_t2)[1],
+            max_erosion_t2 = minmax(erosion_t2)[2],
+            highest_erosion_class_name_t1 = erosion_db_t1 %>% slice_max(erosion_db_t1[[2]]) %>% pull(Class) %>% as.character(),
+            highest_erosion_class_name_t2 = erosion_db_t2 %>% slice_max(erosion_db_t2[[2]]) %>% pull(Class) %>% as.character(),
+            highest_erosion_class_area_t1 = max(erosion_db_t1[[2]]),
+            highest_erosion_class_area_t2 = max(erosion_db_t2[[2]]),
+            highest_erosion_class_percentage_t1 = max(erosion_db_t1[[3]]),
+            highest_erosion_class_percentage_t2 = max(erosion_db_t1[[3]]),
+            severe_area_t1 = erosion_db_t1 %>% filter(Class == "Severe (> 150 ton/ha/yr)") %>% pull(2),
+            severe_percentage_t1 = erosion_db_t1 %>% filter(Class == "Severe (> 150 ton/ha/yr)") %>% pull(3),
+            severe_area_t2 = erosion_db_t2 %>% filter(Class == "Severe (> 150 ton/ha/yr)") %>% pull(2),
+            severe_percentage_t2 = erosion_db_t2 %>% filter(Class == "Severe (> 150 ton/ha/yr)") %>% pull(3),
+            erosion_increase = erosion_diff_db %>% filter(Class == "Erosion risk increase") %>% pull(2),
+            erosion_decrease = erosion_diff_db %>% filter(Class == "Erosion risk decrease") %>% pull(2),
+            erosion_stable = erosion_diff_db %>% filter(Class == "No erosion risk changes") %>% pull(2)
+          )
+          
+          report_params$summary_data <- summary_data
+          
           } else {
           
           # Redefined the results
@@ -384,6 +407,20 @@ server <- function(input, output, session) {
             e_pu_df = summary_e_pu_df,
             multiseries = input$multiseries
            )
+          
+          summary_data <- list(
+            total_area = sum(erosion_db_t1[[2]]),
+            min_erosion = minmax(erosion_t1)[1],
+            max_erosion = minmax(erosion_t1)[2],
+            highest_erosion_class_name = erosion_db_t1 %>% slice_max(erosion_db_t1[[3]]) %>% pull(Class) %>% as.character(),
+            highest_erosion_class_area = max(erosion_db_t1[[2]]),
+            highest_erosion_class_percentage = max(erosion_db_t1[[3]]),
+            severe_area = erosion_db_t1 %>% filter(Class == "Severe (> 150 ton/ha/yr)") %>% pull(2),
+            severe_percentage = erosion_db_t1 %>% filter(Class == "Severe (> 150 ton/ha/yr)") %>% pull(3)
+          )
+          
+          report_params$summary_data <- summary_data
+          
           }
 
           # Render the R markdown report
