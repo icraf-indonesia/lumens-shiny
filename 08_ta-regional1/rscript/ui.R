@@ -2,7 +2,7 @@ fluidPage(
   useShinyjs(),
   theme = bs_theme(version = 5),
   extendShinyjs(text = jscode, functions = c("closeWindow")),
-  titlePanel("Trade-off Analysis (Regional 1)"),
+  titlePanel("Regional Economic Descriptive Analysis"),
   sidebarLayout(
     sidebarPanel(
       fileInput("sector_file", "Sector table", accept = c(".csv")),

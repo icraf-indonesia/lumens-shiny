@@ -1,5 +1,5 @@
 ---
-title: "Trade-off Analysis Regional 1 Report"
+title: "Regional Economic Descriptive Analysis Report"
 output: 
   html_document:
     toc: true
@@ -94,7 +94,7 @@ The maps provided was carbon, emission and sequestration map.
 ### Table 1. Sectoral linkages
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
-knitr::kable(params$Linkages_table)
+DT::datatable(params$Linkages_table)
 ```
 
 ### Direct Backward Linkages graph
@@ -114,13 +114,13 @@ plot(params$PRS_graph)
 
 ### Primary sectors based on potential linkage
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
-knitr::kable(params$P.sector.selected)
+DT::datatable(params$P.sector.selected)
 ```
 
 ## Analysis of GDP 
 ### Sectoral GDP Table
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
-knitr::kable(params$GDP)
+DT::datatable(params$GDP)
 ```
 
 ### GDP graph 
@@ -131,7 +131,7 @@ plot(params$GDP_graph)
 ## Analysis of multiplier 
 ### Sectoral Multiplier
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
-knitr::kable(params$multiplier)
+DT::datatable(params$multiplier)
 ```
 
 ### Output Multiplier
@@ -151,7 +151,7 @@ plot(params$LMPL_graph)
 
 ### Land Requirement Table
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
-knitr::kable(params$land.requirement_table)
+DT::datatable(params$land.requirement_table)
 ```
 
 ### Land Requirement Coefficient Graph 
