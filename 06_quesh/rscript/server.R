@@ -5,7 +5,7 @@ server <- function(input, output, session) {
   
   # Reactive value to store selected output directory
   selected_output_dir <- reactiveVal(value = NULL)
-
+  
   # Update reactive value when output directory is selected
   observe({
     if (!is.null(rv$output_dir)) {
@@ -66,7 +66,7 @@ server <- function(input, output, session) {
     t2 = NULL,
     output_dir = NULL
   )
- 
+  
   # Update reactive values when inputs change
   observe({
     rv$rainfall_file <- input$rainfall_file
@@ -132,7 +132,7 @@ server <- function(input, output, session) {
   if (wd != wd_lumens) {
     setwd(wd_lumens)
   }
- 
+  
   # Run analysis
   observeEvent(input$run_analysis, {
     req(validate_inputs())
@@ -327,7 +327,30 @@ server <- function(input, output, session) {
             multiseries = input$multiseries
           )
           
-          } else {
+          summary_data <- list(
+            total_area = sum(erosion_db_t1[[2]]),
+            min_erosion_t1 = minmax(erosion_t1)[1],
+            max_erosion_t1 = minmax(erosion_t1)[2],
+            min_erosion_t2 = minmax(erosion_t2)[1],
+            max_erosion_t2 = minmax(erosion_t2)[2],
+            highest_erosion_class_name_t1 = erosion_db_t1 %>% slice_max(erosion_db_t1[[2]]) %>% pull(Class) %>% as.character(),
+            highest_erosion_class_name_t2 = erosion_db_t2 %>% slice_max(erosion_db_t2[[2]]) %>% pull(Class) %>% as.character(),
+            highest_erosion_class_area_t1 = max(erosion_db_t1[[2]]),
+            highest_erosion_class_area_t2 = max(erosion_db_t2[[2]]),
+            highest_erosion_class_percentage_t1 = max(erosion_db_t1[[3]]),
+            highest_erosion_class_percentage_t2 = max(erosion_db_t1[[3]]),
+            severe_area_t1 = erosion_db_t1 %>% filter(Class == "Severe (> 150 ton/ha/yr)") %>% pull(2),
+            severe_percentage_t1 = erosion_db_t1 %>% filter(Class == "Severe (> 150 ton/ha/yr)") %>% pull(3),
+            severe_area_t2 = erosion_db_t2 %>% filter(Class == "Severe (> 150 ton/ha/yr)") %>% pull(2),
+            severe_percentage_t2 = erosion_db_t2 %>% filter(Class == "Severe (> 150 ton/ha/yr)") %>% pull(3),
+            erosion_increase = erosion_diff_db %>% filter(Class == "Erosion risk increase") %>% pull(2),
+            erosion_decrease = erosion_diff_db %>% filter(Class == "Erosion risk decrease") %>% pull(2),
+            erosion_stable = erosion_diff_db %>% filter(Class == "No erosion risk changes") %>% pull(2)
+          )
+          
+          report_params$summary_data <- summary_data
+          
+        } else {
           
           # Redefined the results
           erosion_t1 <- a[[1]]
@@ -383,28 +406,42 @@ server <- function(input, output, session) {
             e_table = erosion_db_t1,
             e_pu_df = summary_e_pu_df,
             multiseries = input$multiseries
-           )
-          }
-
-          # Render the R markdown report
-          incProgress(0.8, detail = "Preparing report")
-        
-          if (!rmarkdown::pandoc_available()) {
-            Sys.setenv(RSTUDIO_PANDOC = paste0(getwd(), "/pandoc"))
-          }
-          
-          rmarkdown::render(
-            input = "06_quesh/report_template/quesh_report.Rmd",
-            output_file = "QUES-H_report.html",
-            output_dir = rv$output_dir,
-            params = report_params
           )
           
-          }, error = function(e) {
-            cat("An error occurred:\n")
-            print(e)
-          }, finally = {
-            cat("Script execution completed.\n")
+          summary_data <- list(
+            total_area = sum(erosion_db_t1[[2]]),
+            min_erosion = minmax(erosion_t1)[1],
+            max_erosion = minmax(erosion_t1)[2],
+            highest_erosion_class_name = erosion_db_t1 %>% slice_max(erosion_db_t1[[3]]) %>% pull(Class) %>% as.character(),
+            highest_erosion_class_area = max(erosion_db_t1[[2]]),
+            highest_erosion_class_percentage = max(erosion_db_t1[[3]]),
+            severe_area = erosion_db_t1 %>% filter(Class == "Severe (> 150 ton/ha/yr)") %>% pull(2),
+            severe_percentage = erosion_db_t1 %>% filter(Class == "Severe (> 150 ton/ha/yr)") %>% pull(3)
+          )
+          
+          report_params$summary_data <- summary_data
+          
+        }
+        
+        # Render the R markdown report
+        incProgress(0.8, detail = "Preparing report")
+        
+        if (!rmarkdown::pandoc_available()) {
+          Sys.setenv(RSTUDIO_PANDOC = paste0(getwd(), "/pandoc"))
+        }
+        
+        rmarkdown::render(
+          input = "06_quesh/report_template/quesh_report.Rmd",
+          output_file = "QUES-H_report.html",
+          output_dir = rv$output_dir,
+          params = report_params
+        )
+        
+      }, error = function(e) {
+        cat("An error occurred:\n")
+        print(e)
+      }, finally = {
+        cat("Script execution completed.\n")
         
         # Post Analysis
         output$status_messages <- renderText("Analysis completed successfully!")
