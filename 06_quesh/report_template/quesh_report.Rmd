@@ -1,0 +1,308 @@
+---
+title: "QUES-H RUSLE - Module Report"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+    df_print: kable
+    self_contained: true
+params:
+  start_time: NA
+  end_time: NA
+  output_dir: NA
+  dem: NA
+  pu: NA
+  rainfall: NA
+  soil: NA
+  landcover: NA
+  t1: NA
+  t2: NA
+  r: NA
+  k: NA
+  ls: NA
+  c: NA
+  p: NA
+  a: NA
+  e_table: NA
+  e_diff_table: NA
+  e_pu_df: NA
+  e_diff: NA
+  e_pu_diff_table: NA
+  multiseries: NA
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = normalizePath(rprojroot::find_rstudio_root_file()))
+library(knitr)
+library(kableExtra)
+library(dplyr)
+library(ggplot2)
+library(terra)
+library(DT)
+```
+
+# Module brief description
+
+QuES-H is a hydrological assessment module that analyses hydrological environmental services. The current version features a soil erosion risk module based on the Revised Universal Soil Loss Equation (RUSLE), with plans to expand its capabilities to include additional hydrological analyses in the future.
+
+# Input data
+
+## Total Annual Precipitation Map
+
+Represents the total rainfall for each pixel over a year (mm/year)
+
+```{r Rainfall, echo=FALSE, fig.width=12, fig.align='left'}
+
+plot(params$rainfall)
+```
+
+## Digital Elevation Model (DEM) Map
+
+Represents the terrain elevation (meters above sea level)
+
+```{r Digital Elevation Model, echo=FALSE, fig.width=12, fig.align='left'}
+
+plot(params$dem)
+```
+
+## Soil Properties Maps
+
+Represents the soil characteristic, defined by Clay content (%), Silt content (%), Sand content (%), and Soil organic content (g/kg)
+
+```{r Soil Properties, echo=FALSE}
+
+plot(params$soil)
+```
+
+## Land Cover Map
+
+Categorical raster with each pixel value corresponds to a land cover class
+
+```{r Land Cover, echo=FALSE, fig.width=12, fig.align='left'}
+
+if (params$multiseries == "two_step"){
+  lc_t1 <- params$landcover[[1]]
+  lc_t2 <- params$landcover[[2]]
+
+  plot(lc_t1, main = paste0(params$t1), legend = TRUE)
+  plot(lc_t2, main = paste0(params$t2), legend = FALSE)
+} else {
+  plot(params$landcover)
+}
+
+```
+
+## Planning Unit Map
+
+A polygon shapefile of administrative or management zones.
+
+```{r Planning Unit, echo=FALSE, fig.width=12, fig.align='left'}
+
+plot(params$pu)
+```
+
+# Results
+
+## RUSLE Factors
+
+### R Factor: Rainfall Erosivity
+
+```{r R Factor, echo=FALSE, fig.width=12, fig.align='left'}
+
+plot(params$r)
+```
+
+### K Factor: Soil Erodibility
+
+```{r K Factor, echo=FALSE, fig.width=12, fig.align='left'}
+
+plot(params$k)
+```
+
+### LS Factor: Length and Steepness
+
+```{r LS Factor, echo=FALSE, fig.width=12, fig.align='left'}
+
+plot(params$ls)
+```
+
+### C Factor: Cover Management
+
+```{r C Factor, echo=FALSE, fig.width=12, fig.align='left'}
+
+if (params$multiseries == "two_step"){
+  c_t1 <- params$c[[1]]
+  c_t2 <- params$c[[2]]
+
+  plot(c_t1, main = paste0(params$t1), legend = TRUE)
+  plot(c_t2, main = paste0(params$t2), legend = FALSE)
+} else {
+  plot(params$c)
+}
+
+```
+
+### P Factor: Practice Management
+
+```{r P Factor, echo=FALSE, fig.width=12, fig.align='left'}
+
+plot(params$p)
+```
+
+## Estimation of Soil Erosion
+
+### Soil Erosion in Landscape Level
+```{r Soil Erosion Estimation Map, echo=FALSE, fig.width=12, fig.align='left'}
+
+if (params$multiseries == "two_step"){
+  e_t1 <- params$a[[1]]
+  e_t2 <- params$a[[2]]
+  
+  plot(e_t1, main = paste0(params$t1), legend = TRUE)
+  plot(e_t2, main = paste0(params$t2), legend = FALSE)
+  
+} else {
+  plot(params$a)
+
+
+  # ggplot(params$df, aes(x = `Soil Erosion Rates`)) +
+  #   geom_bar(aes(y = `Area (Ha)`), stat = "identity", fill = "blue", alpha = 0.6) +
+  #   geom_text(aes(y = `Area (Ha)`, label = scales::comma(`Area (Ha)`)),
+  #             vjust = -0.5, color = "black", size = 4) +
+  #   geom_line(aes(y = `Percentage (%)` * max(params$df$`Area (Ha)`) / max(params$df$`Percentage (%)`)),
+  #             group = 1, color = "red", size = 1.2) +
+  #   geom_point(aes(y = `Percentage (%)` * max(params$df$`Area (Ha)`) / max(params$df$`Percentage (%)`)),
+  #              color = "red", size = 3) +
+  #   scale_y_continuous(
+  #     name = "Area (Ha)",
+  #     labels = scales::comma,
+  #     sec.axis = sec_axis(~ . * max(params$df$`Percentage (%)`) / max(params$df$`Area (Ha)`),
+  #                         name = "Percentage (%)", labels = scales::comma)
+  #   ) +
+  #   labs(title = "Soil Erosion Rates: Area (Ha) and Percentage (%)",
+  #        x = "Soil Erosion Rates") +
+  #   theme_minimal() +
+  #   theme(
+  #     axis.title.y = element_text(color = "blue"),
+  #     axis.title.y.right = element_text(color = "red"),
+  #     axis.text.x = element_text(angle = 45, hjust = 1)
+  #   )
+}
+```
+
+```{r Soil Erosion Estimation Table, echo=FALSE}
+
+e_table <- params$e_table %>%
+  mutate(across(where(is.numeric), scales::comma))
+
+if (params$multiseries == "two_step") {
+  datatable(
+    e_table,
+    colnames = c("", "Soil Erosion Rates", 
+                 paste0("Area (Ha) ", params$t1), 
+                 paste0("Percentage (%) ", params$t1), 
+                 paste0("Area (Ha) ", params$t2), 
+                 paste0("Percentage (%) ", params$t2)),
+    options = list(pageLength = 10, autoWidth = TRUE),
+    caption = htmltools::tags$caption(
+      style = 'caption-side: top; text-align: left; color:black;  font-size:150% ;', 'Soil Erosion Rates in ', paste0(params$t1), 'and', paste0(params$t2))
+  ) %>%
+    formatRound(
+      columns = c("Percentage (%) T1", "Percentage (%) T2"),
+      digits = 2
+    )
+} else {
+  datatable(
+    e_table,
+    colnames = c("", "Soil Erosion Rates", "Area (Ha)", "Percentage (%)"),
+    options = list(pageLength = 10, autoWidth = TRUE),
+    caption = htmltools::tags$caption(
+      style = 'caption-side: top; text-align: left; color:black;  font-size:150% ;', 'Soil Erosion Rates')
+  ) %>%
+    formatRound(
+      columns = "Percentage (%)",
+      digits = 2
+    )
+}
+
+```
+
+```{r Soil Erosion Difference Map, echo=FALSE, fig.width=12, fig.align='left'}
+
+if (params$multiseries == "two_step"){
+  plot(params$e_diff)
+}
+
+```
+
+```{r Soil Erosion Difference Table, echo=FALSE}
+
+if (params$multiseries == "two_step") {
+  e_diff_table <- params$e_diff_table %>%
+  mutate(across(where(is.numeric), scales::comma))
+  
+  datatable(
+    e_diff_table,
+    colnames = c("Soil Erosion Changes", "Area (Ha)", "Percentage (%)"),
+    caption = htmltools::tags$caption(
+      style = 'caption-side: top; text-align: left; color:black;  font-size:150% ;', 'Soil Erosion Changes in ', paste0(params$t1), '-', paste0(params$t2))
+  ) %>%
+    formatRound(
+      columns = "Percentage (%)",
+      digits = 2
+    )
+}
+
+```
+
+### Soil Erosion in Planning Unit Level
+
+```{r Soil Erosion in PU Level, echo=FALSE}
+
+if (params$multiseries == "two_step"){
+  pu_table_t1 <- params$e_pu_df[[1]] %>%
+  mutate(across(where(is.numeric), scales::comma))
+  
+  datatable(
+    pu_table_t1, 
+    caption = htmltools::tags$caption(
+      style = 'caption-side: top; text-align: left; color:black;  font-size:150% ;', 'Soil Erosion in ', paste0(params$t1)))
+
+} else {
+  e_pu_df <- params$e_pu_df %>%
+  mutate(across(where(is.numeric), scales::comma))
+  
+  datatable(params$e_pu_df)
+}
+```
+
+```{r Soil Erosion in PU Level 2, echo=FALSE}
+
+if (params$multiseries == "two_step"){
+  pu_table_t2 <- params$e_pu_df[[2]] %>%
+  mutate(across(where(is.numeric), scales::comma))
+  
+  datatable(
+    pu_table_t2, 
+    caption = htmltools::tags$caption(
+      style = 'caption-side: top; text-align: left; color:black;  font-size:150% ;', 'Soil Erosion in ', paste0(params$t2)))
+}
+```
+
+```{r Soil Erosion in PU Level 3, echo=FALSE}
+
+if (params$multiseries == "two_step"){
+  e_pu_diff_table <- params$e_pu_diff_table %>%
+  mutate(across(where(is.numeric), scales::comma))
+  
+  datatable(
+    e_pu_diff_table, 
+    caption = htmltools::tags$caption(
+      style = 'caption-side: top; text-align: left; color:black;  font-size:150% ;', 'Soil Erosion Changes in ', paste0(params$t1), '-', paste0(params$t2)))
+}
+```
+------------------------------------------------------------------------
+
+<font size="1"> LUMENS is free software and comes with ABSOLUTELY NO WARRANTY. Users are responsible for the results generated. Results depend on the quality of the input data ("garbage in, garbage out") and may vary or be sensitive to the parameters used. Please report any problems encountered while using LUMENS as [a GitHub issue](https://github.com/icraf-indonesia/lumens-shiny/issues). Feedback and questions are welcome [Contact Us URL]. </font size>

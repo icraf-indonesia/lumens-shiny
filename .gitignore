@@ -3,3 +3,6 @@
 .RData
 .Ruserdata
 *.Rproj
+/pandoc
+/dev_docs
+
