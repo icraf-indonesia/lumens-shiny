@@ -75,6 +75,16 @@ server <- function(input, output, session) {
   #' the results under different scenarios.
   
   observeEvent(input$processTAReg2, {
+    
+    if (is.null(rv$land_req)) {
+      showNotification("Land Requirement database file is missing.", type = "error")
+      return()
+    }
+    if (is.null(rv$sciendo_db)) {
+      showNotification("SCIENDO Database data file is missing.", type = "error")
+      return()
+    }
+    
     load(rv$land_req)
     
     withProgress(message = 'Running TA Regional 2 Analysis', value = 0, {
@@ -85,12 +95,7 @@ server <- function(input, output, session) {
         names(landuse_lut) <- as.character(landuse_lut[1,])
         landuse_lut <- landuse_lut[-1,]
         lc.list <- subset(landuse_lut, select = c(ID, LC))
-        
-        # Process initial land use frequency data
-        landuse_area0_freq <- freq(landuse_area0)
-        landuse_area0_table <- as.data.frame(na.omit(landuse_area0_freq))
-        colnames(landuse_area0_table) <- c("ID", "COUNT")
-        
+
         # Prepare data for land use change analysis
         next_data_luc <- rv$sciendo_db
         landuse_area_table <- as.data.frame(na.omit(next_data_luc))
@@ -137,7 +142,7 @@ server <- function(input, output, session) {
           land.requirement.scen <- rowSums(land.distribution.scen)
           
           #' Calculate the total demand for the current period
-          #' 
+
           #' Final demand (fin_dem.rtot) and intermediate consumption (int_con.rtot) 
           #' are summed to determine the total demand for the given simulation period.
           fin_dem.rtot <- rowSums(fin_dem[, t, drop = FALSE])
@@ -145,7 +150,7 @@ server <- function(input, output, session) {
           demand <- fin_dem.rtot + int_con.rtot
           
           #' Adjust land requirement by productivity coefficient
-          #' 
+
           #' The land requirement is adjusted based on the land productivity coefficient 
           #' from the database. Infinite and missing values are handled accordingly.
           land.requirement.coeff <- land.requirement.db$LRC
@@ -155,7 +160,7 @@ server <- function(input, output, session) {
           fin_dem.scen[is.na(fin_dem.scen)] <- 0
           
           #' Calculate the final output for the scenario
-          #' 
+
           #' The Leontief matrix is used to calculate the final output for each scenario 
           #' of land use change. This matrix is rounded and converted to a numeric format.
           fin.output.scen <- Leontief %*% fin_dem.scen
@@ -170,7 +175,7 @@ server <- function(input, output, session) {
           colnames(fin.output.scen)[1] <- "OUTPUT_Scen"
           
           #' Calculate GDP from the output
-          #' 
+
           #' The GDP for the scenario is calculated by multiplying the output by the 
           #' GDP proportion from the output. Missing and infinite values are set to zero.
           GDP.prop.from.output <- GDP.val / demand
@@ -183,21 +188,22 @@ server <- function(input, output, session) {
           colnames(GDP.scen)[1] <- "GDP_scen"
           
           #' Combine base and scenario GDP
-          #' 
+
           #' The base GDP (GDP) and scenario GDP (GDP_scen) are combined into a summary 
           #' table for comparison.
+          GDP <- subset(GDP, SECTOR!="Total")
           GDP_summary <- cbind(GDP, GDP.scen)
           GDP_summary$P_OUTPUT <- NULL
           GDP_summary$P_GDP <- NULL
           
           #' Calculate total GDP for the current period
-          #' 
+
           #' The total GDP for the scenario is calculated by summing the values from 
           #' the GDP summary table, ignoring missing values.
           GDP_tot_scen <- sum(GDP_summary$GDP_scen, na.rm = TRUE)
           
           #' Store the GDP results
-          #' 
+ 
           #' The GDP for each simulation period is stored in reactive lists for 
           #' further analysis and plotting.
           GDP_scen.list[[t]] <- GDP.scen

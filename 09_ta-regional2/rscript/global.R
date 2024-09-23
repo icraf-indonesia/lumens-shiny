@@ -22,7 +22,6 @@ install_load(
   "ggplot2",
   "plotly",
   "purrr",
-  "raster",
   "remote",
   "reshape",
   "reshape2",
@@ -134,11 +133,12 @@ rename_uploaded_file <- function(input_file) {
 
 # Function to calculate totals and create a data frame for a given variable
 create_totals_df <- function(GDP, GDP_values, multiplier, period_name) {
+  
   output_tot_list <- list()
   
   for (i in 1:ncol(GDP_values)) {
     GDP_value <- GDP_values[[i]]
-    output_sector <- GDP_value * GDP$P_OUTPUT
+    output_sector <- GDP_value * as.numeric(GDP$P_OUTPUT)
     sector_total <- output_sector * multiplier
     total <- sum(as.numeric(sector_total), na.rm = TRUE)
     output_tot_list[[i]] <- total

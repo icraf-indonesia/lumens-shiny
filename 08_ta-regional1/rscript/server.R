@@ -18,7 +18,7 @@ server <- function(input, output, session) {
     unit = NULL,  # Unit for the data (e.g., hectares, tons)
     location = NULL,  # Location information (e.g., region)
     I_O_period = NULL,  # Input-output analysis period
-    landuse_area0 = NULL,  # Initial land use area
+    landuse_area0_table = NULL,  # Initial land use area
     BPD_graph = NULL,  # Backward linkages graph
     FPD_graph = NULL,  # Forward linkages graph
     LRC_graph = NULL,  # Land requirement coefficient graph
@@ -97,6 +97,47 @@ server <- function(input, output, session) {
   #### Processing the Data ####
   #' When the user triggers the analysis, process all the input data and compute the required results.
   observeEvent(input$processTAReg1, {
+    if (is.null(rv$sector_data)) {
+      showNotification("Sector data file is missing.", type = "error")
+      return()
+    }
+    if (is.null(rv$int_con_data)) {
+      showNotification("Intermediate Consumption data file is missing.", type = "error")
+      return()
+    }
+    if (is.null(rv$fin_dem_struc_data)) {
+      showNotification("Final Demand structure data file is missing.", type = "error")
+      return()
+    }
+    if (is.null(rv$fin_dem_data)) {
+      showNotification("Final Demand data file is missing.", type = "error")
+      return()
+    }
+    if (is.null(rv$add_val_struc_data)) {
+      showNotification("Added Value structure data file is missing.", type = "error")
+      return()
+    }
+    if (is.null(rv$add_val_data)) {
+      showNotification("Added Value data file is missing.", type = "error")
+      return()
+    }
+    if (is.null(rv$labour_data)) {
+      showNotification("Labour data file is missing.", type = "error")
+      return()
+    }
+    if (is.null(rv$land_distribution_data)) {
+      showNotification("Land Distribution data file is missing.", type = "error")
+      return()
+    }
+    if (is.null(rv$land_use_data)) {
+      showNotification("Land use map file is missing.", type = "error")
+      return()
+    }
+    if (is.null(rv$landuse_table_data)) {
+      showNotification("Land use table file is missing.", type = "error")
+      return()
+    }
+    
     rv$results <- isolate({
       int_con <- rv$int_con_data
       add_val <- rv$add_val_data
@@ -113,13 +154,12 @@ server <- function(input, output, session) {
       land_use <- rv$land_use_data
       
       #### Save raster to file ####
-      #' Save the land use raster to the selected working directory.
-      save_location <- file.path(rv$wd, "landuse_area0.tif")
-      tryCatch({
-        writeRaster(rv$land_use_data, save_location, overwrite = TRUE)
-        landuse_area0 <- rast(save_location)
-        rv$landuse_area0 <- landuse_area0
-      })
+      landuse_area0 <- rv$land_use_data
+      landuse_area0_freq <- freq(landuse_area0)
+      landuse_area0_freq$layer<-NULL
+      landuse_area0_table <- as.data.frame(na.omit(landuse_area0_freq))
+      colnames(landuse_area0_table) <- c("ID", "COUNT")
+      rv$landuse_area0_table <- landuse_area0_table
     
       #### Leontief Inverse Calculation ####
       #' Compute the Leontief inverse from the input-output matrix, which is essential for economic impact analysis.
@@ -335,7 +375,7 @@ server <- function(input, output, session) {
           Lab.multiplier = Lab.multiplier,
           Out.multiplier = Out.multiplier,
           Inc.multiplier = Inc.multiplier,
-          landuse_area0 = landuse_area0
+          landuse_area0_table = landuse_area0_table
         )
         
         # Save results and create return list
@@ -357,7 +397,7 @@ server <- function(input, output, session) {
              land_distribution_ctot,
              land.requirement_table,
              land.distribution.prop,
-             landuse_area0,
+             landuse_area0_table,
              landuse_lut,
              file=paste0(rv$wd, '/LandRequirement_db.Rdata'))
         
