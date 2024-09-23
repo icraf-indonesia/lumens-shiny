@@ -194,9 +194,12 @@ if (params$multiseries == "two_step"){
 
 ```{r Soil Erosion Estimation Table, echo=FALSE}
 
+e_table <- params$e_table %>%
+  mutate(across(where(is.numeric), scales::comma))
+
 if (params$multiseries == "two_step") {
   datatable(
-    params$e_table,
+    e_table,
     colnames = c("", "Soil Erosion Rates", 
                  paste0("Area (Ha) ", params$t1), 
                  paste0("Percentage (%) ", params$t1), 
@@ -212,7 +215,7 @@ if (params$multiseries == "two_step") {
     )
 } else {
   datatable(
-    params$e_table,
+    e_table,
     colnames = c("", "Soil Erosion Rates", "Area (Ha)", "Percentage (%)"),
     options = list(pageLength = 10, autoWidth = TRUE),
     caption = htmltools::tags$caption(
@@ -237,8 +240,11 @@ if (params$multiseries == "two_step"){
 ```{r Soil Erosion Difference Table, echo=FALSE}
 
 if (params$multiseries == "two_step") {
+  e_diff_table <- params$e_diff_table %>%
+  mutate(across(where(is.numeric), scales::comma))
+  
   datatable(
-    params$e_diff_table,
+    e_diff_table,
     colnames = c("Soil Erosion Changes", "Area (Ha)", "Percentage (%)"),
     caption = htmltools::tags$caption(
       style = 'caption-side: top; text-align: left; color:black;  font-size:150% ;', 'Soil Erosion Changes in ', paste0(params$t1), '-', paste0(params$t2))
@@ -256,7 +262,8 @@ if (params$multiseries == "two_step") {
 ```{r Soil Erosion in PU Level, echo=FALSE}
 
 if (params$multiseries == "two_step"){
-  pu_table_t1 <- params$e_pu_df[[1]]
+  pu_table_t1 <- params$e_pu_df[[1]] %>%
+  mutate(across(where(is.numeric), scales::comma))
   
   datatable(
     pu_table_t1, 
@@ -264,6 +271,9 @@ if (params$multiseries == "two_step"){
       style = 'caption-side: top; text-align: left; color:black;  font-size:150% ;', 'Soil Erosion in ', paste0(params$t1)))
 
 } else {
+  e_pu_df <- params$e_pu_df %>%
+  mutate(across(where(is.numeric), scales::comma))
+  
   datatable(params$e_pu_df)
 }
 ```
@@ -271,8 +281,9 @@ if (params$multiseries == "two_step"){
 ```{r Soil Erosion in PU Level 2, echo=FALSE}
 
 if (params$multiseries == "two_step"){
-  pu_table_t2 <- params$e_pu_df[[2]]
-
+  pu_table_t2 <- params$e_pu_df[[2]] %>%
+  mutate(across(where(is.numeric), scales::comma))
+  
   datatable(
     pu_table_t2, 
     caption = htmltools::tags$caption(
@@ -283,8 +294,11 @@ if (params$multiseries == "two_step"){
 ```{r Soil Erosion in PU Level 3, echo=FALSE}
 
 if (params$multiseries == "two_step"){
+  e_pu_diff_table <- params$e_pu_diff_table %>%
+  mutate(across(where(is.numeric), scales::comma))
+  
   datatable(
-    params$e_pu_diff_table, 
+    e_pu_diff_table, 
     caption = htmltools::tags$caption(
       style = 'caption-side: top; text-align: left; color:black;  font-size:150% ;', 'Soil Erosion Changes in ', paste0(params$t1), '-', paste0(params$t2)))
 }
