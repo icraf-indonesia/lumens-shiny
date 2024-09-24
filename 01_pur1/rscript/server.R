@@ -1,7 +1,53 @@
 server <- function(input, output, session) {
-  #### Initialize all required reactive values ####
+  # Directory selection
+  volumes <- c(Home = fs::path_home(), "R Installation" = R.home(), getVolumes()())
+  shinyDirChoose(input, 'output_dir', roots = volumes, session = session)
+  
+  # Reactive value to store selected output directory
+  selected_output_dir <- reactiveVal(value = NULL)
+  
+  # Update reactive value when output directory is selected
+  observe({
+    if (!is.null(rv$output_dir)) {
+      selected_output_dir(parseDirPath(volumes, input$output_dir))
+    }
+  })
+  
+  output$selected_dir <- renderText({
+    if (!is.null(selected_output_dir())) {
+      paste("Selected output directory:", selected_output_dir())
+    } else {
+      "No output directory selected"
+    }
+  })
+  
+  output$print_output_dir <- renderPrint({
+    if (!is.null(selected_output_dir())) {
+      cat(paste(selected_output_dir()))
+    } else {
+      cat("No output directory selected")
+    }
+  })
+  
+  output$user_guide <- renderUI({
+    guide_paths <- c(
+      "02_pur2/helpfile/help.Rmd",
+      "../helpfile/help.Rmd"
+    )
+    
+    for (path in guide_paths) {
+      if (file.exists(path)) {
+        html_content <- rmarkdown::render(path, output_format = "html_fragment", quiet = TRUE)
+        return(HTML(readLines(html_content)))
+      }
+    }
+    
+    HTML("<p>User guide file not found.</p>")
+  })
+  
+  # Create reactive values for inputs
   rv <- reactiveValues(
-    wd = "",
+    output_dir = NULL,
     report_file = NULL,
     ref_map = NULL,
     ref_class = NULL,
@@ -12,57 +58,32 @@ server <- function(input, output, session) {
     pur_unresolved_vector = NULL
   )
   
-  volumes <- c(getVolumes()())
-  
-  is_numeric_str <- function(s) {
-    return(!is.na(as.integer(as.character(s))))
-  }
-  
-  #### File Inputs ####
-  # observeEvent(input$area_name, {
-  #   rv$area_name <- as.character(input$area_name)
-  # })
-  
-  observeEvent(input$ref_map, {
-    shp <- input$ref_map
-    if (is.null(shp))
-      return()
-    
-    prev_wd <- getwd()
-    uploaded_dir <- dirname(shp$datapath[1])
-    setwd(uploaded_dir)
-    for (i in 1:nrow(shp)) {
-      file.rename(shp$datapath[i], shp$name[i])
-    }
-    setwd(prev_wd)
-    
-    rv$ref_map <- paste(uploaded_dir, shp$name[grep(pattern = "*.shp$", shp$name)], sep = "/")
-  })
-  
-  observeEvent(input$ref_class, {
+  # Update reactive values when inputs change
+  observe({
+    rv$output_dir <- parseDirPath(volumes, input$output_dir)
+    rv$ref_map <- input$ref_map
     rv$ref_class <- input$ref_class
-  })
-  
-  observeEvent(input$ref_mapping, {
     rv$ref_mapping <- input$ref_mapping
-  })
-  
-  observeEvent(input$pu_units, {
     rv$pu_units <- input$pu_units
+    rv$map_resolution <- input$map_resolution
   })
   
-  observeEvent(input$map_resolution, {
-    rv$map_resolution <- as.numeric(input$map_resolution)
-  })
+  # Set working directory
+  wd <- getwd()
+  wd_lumens <- sub("(.*lumens-shiny).*", "\\1", wd)
   
-  #### Process data ####
-  observeEvent(input$process, {
-    # Disable the process button and show progress
+  if (wd != wd_lumens) {
+    setwd(wd_lumens)
+  }
+
+  #### Run analysis ####
+  observeEvent(input$run_analysis, {
     shinyjs::disable("process")
-    
+    showNotification("Analysis is running. Please wait...", type = "message", duration = NULL, id = "running_notification")
     withProgress(message = 'Processing PUR', value = 0, {
       tryCatch({
         start_time <- Sys.time()
+        
         # 1. Validate data inputs
         incProgress(0.1, detail = "Validating inputs")
         req(rv$ref_map, message = "Please upload the reference map.")
@@ -73,12 +94,10 @@ server <- function(input, output, session) {
         
         # 2. Data preparation
         incProgress(0.2, detail = "Preparing data")
-        ref_data <- st_read(rv$ref_map)
-        ref <- rasterise_multipolygon(
-          sf_object = ref_data,
-          raster_res = c(rv$map_resolution, rv$map_resolution),
-          field = "ID"
-        )
+        
+        rv$map_resolution <- as.numeric(rv$map_resolution)
+        ref_data <- read_shapefile(shp_input = rv$ref_map)
+        ref <- rasterise_multipolygon(sf_object = ref_data, raster_res = c(rv$map_resolution, rv$map_resolution), field = paste0(colnames(st_drop_geometry(ref_data[1]))))
         
         # Determine Spatial Resolution
         if (grepl("\\+units=m", as.character(st_crs(ref)$proj4string))) {
@@ -478,10 +497,10 @@ server <- function(input, output, session) {
         colnames(db_final2) <- c("ID", "Rec_phase1b" , "COUNT")
         
         # write PUR reconciliation phase 1 raster
-        write.dbf(PUR_dbfinal, paste0(rv$wd, "PUR-build_database.dbf"))
+        write.dbf(PUR_dbfinal, paste0(rv$output_dir, "PUR-build_database.dbf"))
         writeRaster(
           PUR,
-          filename = paste0(rv$wd, "PUR_first_phase_result"),
+          filename = paste0(rv$output_dir, "PUR_first_phase_result"),
           format = "GTiff",
           overwrite = TRUE
         )
@@ -510,14 +529,14 @@ server <- function(input, output, session) {
         writeVector(
           rv$pur_unresolved_vector,
           filename = file.path(paste0(
-            rv$wd, "/PUR_first_phase_result.shp"
+            rv$output_dir, "/PUR_first_phase_result.shp"
           )),
           overwrite = TRUE
         )
         
         write.table(
           data_attribute,
-          paste0(rv$wd, "/PUR_attribute.csv"),
+          paste0(rv$output_dir, "/PUR_attribute.csv"),
           quote = FALSE,
           row.names = FALSE,
           sep = ","
@@ -525,7 +544,7 @@ server <- function(input, output, session) {
         #PUR_dbfinal <- PUR_dbfinal |> select(-ID_rec)
         write.table(
           PUR_dbfinal,
-          paste0(rv$wd, "/PUR_dbfinal.csv"),
+          paste0(rv$output_dir, "/PUR_dbfinal.csv"),
           quote = FALSE,
           row.names = FALSE,
           sep = ","
@@ -612,7 +631,7 @@ server <- function(input, output, session) {
           # Save the workbook
           saveWorkbook(
             database_unresolved_out_wb,
-            paste0(rv$wd, "/PUR_unresolved_case.xlsx"),
+            paste0(rv$output_dir, "/PUR_unresolved_case.xlsx"),
             overwrite = TRUE
           )
           
@@ -634,7 +653,7 @@ server <- function(input, output, session) {
         report_params <- list(
           start_time = as.character(format(start_time, "%Y-%m-%d %H:%M:%S")),
           end_time = as.character(format(end_time, "%Y-%m-%d %H:%M:%S")),
-          output_dir = rv$wd,
+          output_dir = rv$output_dir,
           PUR_stack = PUR_stack,
           db_final2 = db_final2,
           database_unresolved_out = rv$database_unresolved_out,
@@ -680,11 +699,11 @@ server <- function(input, output, session) {
         rmarkdown::render(
           input = path_report,
           output_file = output_file,
-          output_dir = rv$wd,
+          output_dir = rv$output_dir,
           params = report_params
         )
         
-        rv$report_file <- paste(rv$wd, output_file, sep = "/")
+        rv$report_file <- paste(rv$output_dir, output_file, sep = "/")
         
         showNotification("Analysis completed successfully!", type = "message")
         # After successful completion
@@ -699,25 +718,22 @@ server <- function(input, output, session) {
     })
   })
   
-  #### Set working directory ####
-  shinyDirChoose(input, 'wd', roots = volumes, session = session)
-  
   output$selected_directory <- renderText({
-    rv$wd <- parseDirPath(volumes, input$wd)
-    if (length(rv$wd) == 0) {
+    rv$output_dir <- parseDirPath(volumes, input$output_dir)
+    if (length(rv$output_dir) == 0) {
       return()
     } else {
-      paste0("Selected output directory: ", rv$wd)
+      paste0("Selected output directory: ", rv$output_dir)
     }
   })
   
   # Open Output Folder button observer
   observeEvent(input$open_output_folder, {
-    if (!is.null(rv$wd) && dir.exists(rv$wd)) {
+    if (!is.null(rv$output_dir) && dir.exists(rv$output_dir)) {
       if (.Platform$OS.type == "windows") {
-        shell.exec(rv$wd)
+        shell.exec(rv$output_dir)
       } else {
-        system2("open", args = rv$wd)
+        system2("open", args = rv$output_dir)
       }
     } else {
       showNotification("Output directory not found", type = "error")
