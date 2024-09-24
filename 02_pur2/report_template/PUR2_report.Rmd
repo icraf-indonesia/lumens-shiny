@@ -10,10 +10,8 @@ params:
   end_time: NA
   output_dir: NA
   summary_PUR: NA
-  sa: NA
-  dir_sa: NA
-  dir_summary_PUR: NA
   total_area: NA
+  sa: NA
 ---
 
 ```{r setup, include=FALSE}
@@ -24,6 +22,9 @@ library(dplyr)
 library(ggplot2)
 library(sf)
 library(terra)
+library(dplyr)
+library(DT)
+library(units)
 ```
 
 ## Summary
@@ -37,12 +38,7 @@ Planning unit reconciliation is a process to resolve overlapping permits by refe
 ## Results
 
 ### Reconciliation Results Map
-```{r}
-#| echo: false
-#| fig-keep: all
-#| message: false
-#| results: false
-#| warning: false
+```{r Reconciliation Result Map, echo=FALSE}
 
 resolved_map <- params$sa
 plot(resolved_map["Rec_phase2"])
@@ -52,10 +48,31 @@ plot(resolved_map["Rec_phase2"])
 
 The table below summarizes the final reconciliation results:
 
-```{r}
-table_recon <- params$summary_PUR
+```{r Reconsiliation Result Table, echo=FALSE}
 
-DT::datatable(table_recon, colnames=c("ID", "Class", "Area (Ha)"))
-# kable(table_recon, caption = "Summary of Final Reconciliation Results") %>%
-#   kable_styling(bootstrap_options = c("striped", "hover"))
+table_recon <- params$summary_PUR
+table_recon <- table_recon %>%
+  mutate(Area = as.numeric(units::set_units(Area, "ha")),
+         Area = round(Area, 0))
+total_area <- sum(table_recon$Area, na.rm = TRUE)
+table_recon <- table_recon %>%
+  mutate(Percentage = round(Area / total_area * 100, 2))
+
+# Create the datatable
+DT::datatable(table_recon, 
+              colnames = c("ID", "Final Resolved Area", "Area (Ha)", "Percentage (%)"),
+              options = list(pageLength = 10, scrollX = TRUE)) %>%
+  formatStyle(columns = names(table_recon), fontSize = '90%') %>%
+  formatRound(columns = "Area", digits = 0) %>%
+  formatRound(columns = "Percentage", digits = 2)
+
+# Create a pie chart
+pie_chart <- ggplot(table_recon, aes(x = "", y = Area, fill = Rec_phase2)) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar("y", start = 0) +
+  theme_void() +
+  labs(fill = "Reconciliation Class") +
+  ggtitle("Distribution of Reconciled Areas")
+
+print(pie_chart)
 ```
