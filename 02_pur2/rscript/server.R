@@ -1,13 +1,57 @@
 server <- function(input, output, session) {
-  #### Initialize all required reactive values ####
+  # Directory selection
+  volumes <- c(Home = fs::path_home(), "R Installation" = R.home(), getVolumes()())
+  shinyDirChoose(input, 'output_dir', roots = volumes, session = session)
+  
+  # Reactive value to store selected output directory
+  selected_output_dir <- reactiveVal(value = NULL)
+  
+  # Update reactive value when output directory is selected
+  observe({
+    if (!is.null(rv$output_dir)) {
+      selected_output_dir(parseDirPath(volumes, input$output_dir))
+    }
+  })
+  
+  output$selected_dir <- renderText({
+    if (!is.null(selected_output_dir())) {
+      paste("Selected output directory:", selected_output_dir())
+    } else {
+      "No output directory selected"
+    }
+  })
+  
+  output$print_output_dir <- renderPrint({
+    if (!is.null(selected_output_dir())) {
+      cat(paste(selected_output_dir()))
+    } else {
+      cat("No output directory selected")
+    }
+  })
+  
+  output$user_guide <- renderUI({
+    guide_paths <- c(
+      "02_pur2/helpfile/help.Rmd",
+      "../helpfile/help.Rmd"
+    )
+    
+    for (path in guide_paths) {
+      if (file.exists(path)) {
+        html_content <- rmarkdown::render(path, output_format = "html_fragment", quiet = TRUE)
+        return(HTML(readLines(html_content)))
+      }
+    }
+    
+    HTML("<p>User guide file not found.</p>")
+  })
+  
+  # Create reactive values for inputs
   rv <- reactiveValues(
-    wd = "",
+    output_dir = NULL,
     report_file = NULL,
-    #area_name = NULL,
     recon_file = NULL,
     unresolved_table = NULL,
-    #map_resolution = NULL,
-    #raster_temp = NULL,
+    map_resolution = NULL,
     summary_PUR = NULL,
     u = NULL,
     ref = NULL,
@@ -15,99 +59,46 @@ server <- function(input, output, session) {
     pur_sa = NULL
   )
   
-  volumes <- c(
-    getVolumes()()
-  )
-  
-  is_numeric_str <- function(s) {
-    return(!is.na(as.integer(as.character(s))))
-  }  
-  
-  #### File Inputs ####
-  # observeEvent(input$area_name, {
-  #   rv$area_name <- as.character(input$area_name)
-  # })
-  
-  observeEvent(input$recon_file, {
-    shp <- input$recon_file
-    if (is.null(shp))
-      return()
-    
-    prev_wd <- getwd()
-    uploaded_dir <- dirname(shp$datapath[1])
-    setwd(uploaded_dir)
-    for (i in 1:nrow(shp)) {
-      file.rename(shp$datapath[i], shp$name[i])
-    }
-    setwd(prev_wd)
-    
-    rv$recon_file <- paste(uploaded_dir, shp$name[grep(pattern = "*.shp$", shp$name)], sep = "/")
-    
-    if (is.null(rv$recon_file) || !file.exists(rv$recon_file)) {
-      showNotification("Recon file not found or is invalid", type = "error")
-      return()
-    }
-    
-    # Reading shapefile and handling errors
-    rv$pur_sa <- tryCatch({
-      rv$recon_file %>% st_read() %>% st_as_sf() %>% st_drop_geometry()
-    }, error = function(e) {
-      showNotification("Failed to read shapefile: check the file format", type = "error")
-      return(NULL)
-    })
-    
-    rv$sa <- tryCatch({
-      rv$recon_file %>% st_read()
-    }, error = function(e) {
-      showNotification("Failed to read shapefile geometry: check the file format", type = "error")
-      return(NULL)
-    })
-    
-    if (is.null(rv$sa) || is.null(rv$pur_sa)) {
-      showNotification("Failed to load shapefile data", type = "error")
-      return()
-    }
-    
-    rv$ref <- rasterise_multipolygon(sf_object = rv$sa, raster_res = c(100, 100), field = "ID")
+  # Update reactive values when inputs change
+  observe({
+    rv$output_dir <- parseDirPath(volumes, input$output_dir)
+    rv$recon_file <- input$recon_file
+    rv$unresolved_table <- input$unresolved_table
+    rv$map_resolution <- input$map_resolution
   })
   
-  observeEvent(input$unresolved_table, {
-    rv$u <- input$unresolved_table
-  })
+  # Set working directory
+  wd <- getwd()
+  wd_lumens <- sub("(.*lumens-shiny).*", "\\1", wd)
   
-  # observeEvent(input$map_resolution, {
-  #   rv$map_resolution <- as.numeric(input$map_resolution)
-  # })
+  if (wd != wd_lumens) {
+    setwd(wd_lumens)
+  }
   
-  #### Process data ####
-  observeEvent(input$process, {
-    shinyjs::disable("process")
+  #### Run analysis ####
+  observeEvent(input$run_analysis, {
+    shinyjs::disable("run_analysis")
+    showNotification("Analysis is running. Please wait...", type = "message", duration = NULL, id = "running_notification")
     withProgress(message = 'Processing PUR', value = 0, {
-
       tryCatch({
-      # Start running PUR
       start_time <- Sys.time()
+
+      # 1. Data preparation -------------------------------------------
       
-      incProgress(0.1, detail = "Validating inputs")
-      
-      if (is.null(rv$pur_sa)) {
-        showNotification("No data available for processing. Please upload a valid shapefile.", type = "error")
-        return()
-      }
-      
-      # 1. Define input parameters ------------------------------------
-      # Load unresolved cases and join with attribute table
+      incProgress(0.2, detail = "Preparing data inputs")
+      rv$u <- input$unresolved_table
+      rv$map_resolution <- as.numeric(rv$map_resolution)
+      rv$sa <- read_shapefile(shp_input = rv$recon_file)
+      rv$pur_sa <- rv$sa %>% st_as_sf() %>% st_drop_geometry()
+      rv$ref <- rasterise_multipolygon(sf_object = rv$sa, raster_res = c(rv$map_resolution, rv$map_resolution), field = paste0(colnames(st_drop_geometry(rv$sa[1]))))
+  
       unresolved_edit <- readxl::read_xlsx(rv$u$datapath)
-      
-      # 2. Data preparation -------------------------------------------
-      incProgress(0.2, detail = "Preparing data")
       
       # select ID and Reconcile action column
       reconcile_scenario <- unresolved_edit %>% 
         dplyr::rename("ID"=1, 
                       "Reconcile Action"=9) %>% 
         dplyr::select(any_of(c("ID", "Reconcile Action")))
-      
       
       # Unresolved cases
       unresolved_cases <- rv$pur_sa %>%
@@ -132,7 +123,7 @@ server <- function(input, output, session) {
         message("The planning unit IDs and attribute table IDs are matched.")
       }
       
-      # 3. Resolve any unresolved cases --------------------------------
+      # 2. Resolve any unresolved cases --------------------------------
       incProgress(0.6, detail = "Resolve Any Unresolved Cases")
       
       reconciled_map <- rv$sa %>%
@@ -140,7 +131,6 @@ server <- function(input, output, session) {
         left_join(reconcile_scenario, by = "ID") %>%
         mutate(Rec_phase2 = ifelse(!is.na(`Reconcile Action`), `Reconcile Action`, Rec_phase2)) %>%
         select(-`Reconcile Action`)
-      
       
       # 3. Calculate area --------------------------------
       incProgress(0.7, detail = "Calculating Area")
@@ -157,7 +147,6 @@ server <- function(input, output, session) {
         cat("The CRS units are not in meters. Cannot calculate area in hectares.\n")
       }
       
-      
       # 4. Export results --------------------------------
       incProgress(0.8, detail = "Exporting Results")
       
@@ -169,8 +158,7 @@ server <- function(input, output, session) {
         st_drop_geometry() %>% 
         write.csv(paste0(rv$wd, "/PUR_reconciliation_lookup_table.csv"))
         
-      
-      # 5. Disolve unique cases after reconciliation
+      # 5. Disolve unique cases after reconciliation --------------------------------
       reconciled_map_dissolved  <- reconciled_map %>%
         group_by(across(c("Rec_phase2"))) %>%
         summarise() %>%
@@ -184,7 +172,6 @@ server <- function(input, output, session) {
       
       rv$summary_PUR <- reconciled_map_dissolved %>% 
         st_drop_geometry()
-      
       
       write.csv(rv$summary_PUR, paste0(rv$wd, "/PUR_final_lookup_table.csv"))
       
@@ -201,9 +188,7 @@ server <- function(input, output, session) {
         end_time = as.character(format(end_time, "%Y-%m-%d %H:%M:%S")),
         output_dir = rv$wd,
         summary_PUR = rv$summary_PUR,
-        sa = reconciled_map_dissolved,
-        dir_sa = paste0(rv$wd, "/PUR_reconciliation_result.shp"),
-        dir_summary_PUR = paste0(rv$wd, "/PUR_reconciliation_lookup_table.csv")
+        sa = reconciled_map_dissolved
       )
    
       report_params$total_area <- 
@@ -225,11 +210,11 @@ server <- function(input, output, session) {
       rmarkdown::render(
         input = path_report,
         output_file = "PUR_reconcile_report.html",
-        output_dir = rv$wd,
+        output_dir = rv$output_dir,
         params = report_params
       )
      
-      rv$report_file <- paste(rv$wd, "PUR_reconcile_report.html", sep = "/")
+      rv$report_file <- paste(rv$output_dir, "PUR_reconcile_report.html", sep = "/")
       
       showNotification("Analysis completed successfully!", type = "message")
       # After successful completion
@@ -244,25 +229,22 @@ server <- function(input, output, session) {
     })
   })
   
-  #### Set working directory ####
-  shinyDirChoose(input, 'wd', roots = volumes, session = session)
-  
   output$selected_directory <- renderText({
-    rv$wd <- parseDirPath(volumes, input$wd)
-    if (length(rv$wd) == 0) {
+    rv$output_dir <- parseDirPath(volumes, input$output_dir)
+    if (length(rv$output_dir) == 0) {
       return()
     } else {
-      paste0("Selected output directory: ", rv$wd)
+      paste0("Selected output directory: ", rv$output_dir)
     }
   })
   
   # Open Output Folder button observer
   observeEvent(input$open_output_folder, {
-    if (!is.null(rv$wd) && dir.exists(rv$wd)) {
+    if (!is.null(rv$output_dir) && dir.exists(rv$output_dir)) {
       if (.Platform$OS.type == "windows") {
-        shell.exec(rv$wd)
+        shell.exec(rv$output_dir)
       } else {
-        system2("open", args = rv$wd)
+        system2("open", args = rv$output_dir)
       }
     } else {
       showNotification("Output directory not found", type = "error")

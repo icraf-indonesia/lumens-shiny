@@ -1,7 +1,7 @@
 ui <- fluidPage(
   useShinyjs(),
   theme = bs_theme(version = 5),
-  extendShinyjs(text = jscode, functions = c("closeWindow")),
+  # extendShinyjs(text = jscode, functions = c("closeWindow")),
   titlePanel("PUR Reconcile Module"),
   sidebarLayout(
     sidebarPanel(
@@ -11,10 +11,11 @@ ui <- fluidPage(
                 multiple = T,
                 placeholder = "input all related shapefiles"),
       fileInput("unresolved_table", "Unresolved Attribute Table", accept = c(".xlsx"), placeholder = "input your xlsx file"),
+      textInput("map_resolution", "Map Resolution", value = 100),
       div(style = "display: flex; flex-direction: column; gap: 10px;",
-          shinyDirButton("wd", "Select Output Directory", "Please select a directory"),
+          shinyDirButton("output_dir", "Select Output Directory", "Please select a directory"),
           verbatimTextOutput("selected_directory", placeholder = TRUE),
-          actionButton("process", "Run PUR Reconcile",
+          actionButton("run_analysis", "Run PUR Reconcile",
                        style = "font-size: 18px; padding: 10px 15px; background-color: #4CAF50; color: white;"),
           hidden(
             actionButton("open_report", "Open Report",
@@ -32,23 +33,13 @@ ui <- fluidPage(
       tabsetPanel(
         tabPanel("User Guide",
                  uiOutput("user_guide"),
-                 div(style = "height: calc(100vh - 100px); overflow-y: auto;",
-                     card_body(
-                       if (file.exists("02_pur2/helpfile/help.Rmd")) {
-                         includeMarkdown("02_pur2/helpfile/help.Rmd")
-                       } else if (file.exists("../helpfile/help.Rmd")) {
-                         includeMarkdown("../helpfile/help.Rmd")
-                       } else {
-                         HTML("<p>User guide file not found.</p>")
-                       }
-                     )
-                 )
+                 div(style = "height: calc(100vh - 100px); overflow-y: auto;")
         ),
-        tabPanel("Analysis",
+        tabPanel("Log",
                  textOutput("selected_dir"),
                  verbatimTextOutput("status_messages"),
                  verbatimTextOutput("error_messages"),
-                 plotOutput("result_plot")
+                 verbatimTextOutput("success_message")
         )
       )
     )
