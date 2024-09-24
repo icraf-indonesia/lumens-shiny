@@ -18,9 +18,7 @@ server <- function(input, output, session) {
     sciendo_db_path = NULL
   )
   
-  volumes <- c(
-    getVolumes()()
-  )
+  volumes <- c(Home = fs::path_home(), "R Installation" = R.home(), getVolumes()())
   
   #### Set Working Directory ####
   #' This section allows the user to choose a working directory from their system.

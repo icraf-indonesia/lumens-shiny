@@ -37,9 +37,7 @@ server <- function(input, output, session) {
   )
   
   #' Available volumes for file selection, used to set the working directory for saving outputs
-  volumes <- c(
-    getVolumes()()
-  )
+  volumes <- c(Home = fs::path_home(), "R Installation" = R.home(), getVolumes()())
   
   # Set working directory ---------------------------------------------------
   #' Allow users to choose the output directory where all generated files and reports will be saved.

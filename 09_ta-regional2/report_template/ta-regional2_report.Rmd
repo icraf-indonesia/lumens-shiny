@@ -24,6 +24,8 @@ knitr::opts_chunk$set(echo = FALSE)
 library(knitr)
 library(ggplot2)
 library(kableExtra)
+library(htmlwidgets)
+library(DT)
 ```
 
 <details><summary>Click here for Analysis Log</summary>
@@ -47,42 +49,46 @@ analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
 ```
 </details>
 
-## Introduction
+# Introduction
 
 This report presents the results of an analysis based on the provided maps and lookup table
 
-## Lookup Table Summary
-
-* A brief description or summary statistics of the lookup table data can be included here.
-
-## Analysis Results
+# Analysis Results
 
 The maps provided was carbon, emission and sequestration map.
 
 * Calculation or analysis details based on the results can be presented here.
 
-### GDP Each Sector
-
+## GDP Each Sector
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
-DT::datatable(params$GDP_scen_df)
+dt_gdp_sector <- params$GDP_scen_df %>%
+  mutate(across(where(is.numeric), scales::comma))
+
+DT::datatable(dt_gdp_sector) %>%
+  DT::formatStyle(columns = 3:ncol(dt_gdp_sector), 
+              `render` = JS("function(data, type, row, meta) {
+                                return type === 'display' && data !== null
+                                ? data.toFixed(1)
+                                : data;
+                            }"))s
 ```
 
-### GDP Total
+## GDP Total
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 plot(params$GDP_totals_graph)
 ```
 
-### Output Total
+## Output Total
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 plot(params$output_total_graph)
 ```
 
-### Income Total
+## Income Total
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 plot(params$income_total_graph)
 ```
 
-### Labour Total
+## Labour Total
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 plot(params$labour_total_graph)
 ```

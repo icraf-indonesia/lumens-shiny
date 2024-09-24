@@ -44,9 +44,7 @@ server <- function(input, output, session) {
     landuse_table_path = NULL  # Land use lookup table path
   )
   
-  volumes <- c(
-    getVolumes()()
-  )
+  volumes <- c(Home = fs::path_home(), "R Installation" = R.home(), getVolumes()())
   
   #### Set Working Directory ####
   #' Choose and set the working directory where output files will be saved.
