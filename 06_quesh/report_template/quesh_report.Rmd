@@ -50,7 +50,7 @@ library(DT)
   paste0("The QuES-H analysis was conducted over an area of interest spanning ", 
          format(round(params$summary_data$total_area, 2), big.mark = ","), 
          " hectares for the period between ", params$t1, " and ", params$t2, 
-         ". During this two-year interval, the analysis revealed that soil erosion risk increased in ", 
+         ". During this interval, the analysis revealed that soil erosion risk increased in ", 
          format(round(params$summary_data$erosion_increase, 2), big.mark = ","), 
          " hectares, while it decreased in ", 
          format(round(params$summary_data$erosion_decrease, 2), big.mark = ","), 
