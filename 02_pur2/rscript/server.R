@@ -150,13 +150,13 @@ server <- function(input, output, session) {
       # 4. Export results --------------------------------
       incProgress(0.8, detail = "Exporting Results")
       
-      st_write(reconciled_map, paste0(rv$wd, "/PUR_reconciliation_result.shp"),
+      st_write(reconciled_map, paste0(rv$output_dir, "/PUR_reconciliation_result.shp"),
                driver = "ESRI Shapefile",
                append = FALSE)
       
       reconciled_map %>% 
         st_drop_geometry() %>% 
-        write.csv(paste0(rv$wd, "/PUR_reconciliation_lookup_table.csv"))
+        write.csv(paste0(rv$output_dir, "/PUR_reconciliation_lookup_table.csv"))
         
       # 5. Disolve unique cases after reconciliation --------------------------------
       reconciled_map_dissolved  <- reconciled_map %>%
@@ -166,14 +166,14 @@ server <- function(input, output, session) {
         mutate(Area = units::set_units(st_area(.), "ha"), .after=2)
   
       # 6. Export results --------------------------------
-      st_write(reconciled_map_dissolved, paste0(rv$wd, "/PUR_reconciliation_result_dissolved.shp"),
+      st_write(reconciled_map_dissolved, paste0(rv$output_dir, "/PUR_reconciliation_result_dissolved.shp"),
                driver = "ESRI Shapefile",
                append = FALSE)
       
       rv$summary_PUR <- reconciled_map_dissolved %>% 
         st_drop_geometry()
       
-      write.csv(rv$summary_PUR, paste0(rv$wd, "/PUR_final_lookup_table.csv"))
+      write.csv(rv$summary_PUR, paste0(rv$output_dir, "/PUR_final_lookup_table.csv"))
       
       # End of the script
       end_time <- Sys.time()
@@ -186,7 +186,7 @@ server <- function(input, output, session) {
       report_params <- list(
         start_time = as.character(format(start_time, "%Y-%m-%d %H:%M:%S")),
         end_time = as.character(format(end_time, "%Y-%m-%d %H:%M:%S")),
-        output_dir = rv$wd,
+        output_dir = rv$output_dir,
         summary_PUR = rv$summary_PUR,
         sa = reconciled_map_dissolved
       )
