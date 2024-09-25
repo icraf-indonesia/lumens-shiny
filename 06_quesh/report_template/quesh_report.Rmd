@@ -99,7 +99,7 @@ In ", params$t1, ", the predominant soil erosion class was ",
 
 QuES-H (Quantification of Ecosystem Services) is a hydrological assessment module that analyzes hydrological environmental services. The current version features a soil erosion risk module based on the Revised Universal Soil Loss Equation (RUSLE), with plans to expand its capabilities to include additional hydrological analyses in the future.
 
-# Input data
+# Input data {.tabset}
 
 ## Total Annual Precipitation Map
 
@@ -157,7 +157,7 @@ plot(params$pu)
 
 # Results
 
-## Factor of RUSLE
+## Factor of RUSLE {.tabset}
 
 ### R Factor: Rainfall Erosivity
 
@@ -203,7 +203,7 @@ if (params$multiseries == "two_step"){
 plot(params$p)
 ```
 
-## Estimation of Soil Erosion
+## Estimation of Soil Erosion {.tabset}
 
 ### Soil Erosion in Landscape Level
 ```{r Soil Erosion Estimation Map, echo=FALSE, fig.width=12, fig.align='left'}
