@@ -41,7 +41,8 @@ check_and_install_packages(
     "sf",
     "terra",
     "DT",
-    "RColorBrewer"
+    "RColorBrewer",
+    "scales"
   )
 )
 ```
@@ -87,28 +88,30 @@ Planning unit reconciliation is a process to resolve overlapping permits by refe
 
 This data is used as a guide to check if the maps of planning areas match their intended use. These maps can be official maps showing land use or city planning.
 
-```{r Reference Map, echo=FALSE, fig.width= 10, fig.height= 4}
-
-plot(params$inputs$ref)
+```{r Reference Map, echo=FALSE, message=FALSE, warning=FALSE}
+plot_categorical_raster(params$inputs$ref)
 ```
 
 ## Planning Unit Map
 
 Planning unit data is used to show how land use is planned in an area. These map-based data show directions for managing or changing land use in a part of the landscape.
 
-```{r, Planning Unit Map, echo=FALSE, fig.width= 10, fig.height= 4}
-
-PUR_stack_new <- subset(params$PUR_stack, 1:(nlyr(params$PUR_stack)-1))
+```{r, Planning_Unit_Maps, echo=FALSE, fig.width=10, fig.height=4, results='asis'}
+PUR_stack_new <- subset(params$PUR_stack, 1:(nlyr(params$PUR_stack) - 1))
 zone1 <- subset(params$PUR_stack, nlyr(params$PUR_stack))
-zone <- zone1 %>% classify(cbind(1:length(unique(values(zone1))), 1))
+zone <- classify(zone1, cbind(1:length(unique(values(zone1))), 1))
 zone_poly <- as.polygons(zone)
 
+PUR_stack_new <- rast(lapply(1:nlyr(PUR_stack_new), function(i) {
+  layer <- PUR_stack_new[[i]]
+  layer[layer == 0] <- NA
+  return(layer)
+}))
+
 for (i in 1:nlyr(PUR_stack_new)) {
-     plot(PUR_stack_new[[i]], colNA = NULL, main = paste("Planning Unit", i))
-     plot(zone_poly, add = TRUE, border = "white", lwd = 2)
+  plot(PUR_stack_new[[i]], colNA = NULL, main = paste("Planning Unit", i))
+  plot(zone_poly, add = TRUE, border = "black", lwd = 1)
 }
-# plot(PUR_stack_new[[1]], colNA = NULL)
-# plot(zone_poly, add = TRUE, border = "black", lwd = 2)
 ```
 
 # Results
@@ -149,7 +152,10 @@ summary_table <- params$db_final2 %>%
   group_by(Rec_phase1b) %>%
   summarise(Area_ha = sum(COUNT) * (res(params$inputs$ref)[1] * res(params$inputs$ref)[2] / 10000)) %>%
   ungroup() %>%
-  mutate(Percentage = Area_ha / sum(Area_ha) * 100) %>%
+  mutate(
+    Percentage = round(Area_ha / sum(Area_ha) * 100, 2),
+    Area_ha = comma(Area_ha, accuracy = 1)
+  ) %>%
   arrange(desc(Area_ha))
 
 DT::datatable(summary_table, colnames=c("Class", "Area (Ha)", "Percentage (%)"))
@@ -158,9 +164,19 @@ DT::datatable(summary_table, colnames=c("Class", "Area (Ha)", "Percentage (%)"))
 ## Summary of Unresolved Cases
 
 ```{r key-unresolved-table, echo=FALSE}
-summary_unresolved <- params$database_unresolved_out
+summary_unresolved <- params$database_unresolved_out %>%
+  mutate(
+    Area_ha = COUNT * (res(params$inputs$ref)[1] * res(params$inputs$ref)[2] / 10000),
+    Area_ha = comma(Area_ha, accuracy = 1)
+  )
 
-DT::datatable(summary_unresolved, colnames=c("ID", "Class Type", "PU 1", "PU 2", "PU 3", "PU 4", "Reference", "Area (Ha)"))
+summary_unresolved_display <- summary_unresolved %>%
+  select(ID, Rec_phase1b, PU_1, PU_2, PU_3, PU_4, REFERENCE, Area_ha)
+
+DT::datatable(
+  summary_unresolved_display,
+  colnames = c("ID", "Class Type", "PU 1", "PU 2", "PU 3", "PU 4", "Reference", "Area (Ha)")
+)
 ```
 
 ------------------------------------------------------------------------

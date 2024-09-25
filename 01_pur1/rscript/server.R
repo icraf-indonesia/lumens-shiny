@@ -530,7 +530,7 @@ server <- function(input, output, session) {
         } else {
           error("No template file for PUR build module is found.")
         }
-        
+
         rmarkdown::render(
           input = path_report,
           output_file = output_file,

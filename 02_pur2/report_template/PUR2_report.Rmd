@@ -80,7 +80,6 @@ Planning unit reconciliation is a process to resolve overlapping permits by refe
 
 ### Reconciliation Results Map
 ```{r Reconciliation Result Map, echo=FALSE}
-
 resolved_map <- params$sa
 plot(resolved_map["Rec_phase2"])
 ```

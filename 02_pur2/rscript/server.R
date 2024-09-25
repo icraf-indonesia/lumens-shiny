@@ -216,7 +216,7 @@ server <- function(input, output, session) {
       } else {
         error("No template file for PUR reconcile module is found.")
       }
-      
+
       rmarkdown::render(
         input = path_report,
         output_file = "PUR_reconcile_report.html",
