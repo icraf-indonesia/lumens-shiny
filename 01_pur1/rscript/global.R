@@ -31,7 +31,9 @@ install_load(
   "shinyjs",
   "rmarkdown",
   "tools",
-  "DT"
+  "DT",
+  "tibble",
+  "RColorBrewer"
 )
 
 #' Rasterize an sf MULTIPOLYGON object
@@ -154,7 +156,6 @@ check_and_install_packages <- function(required_packages) {
   }
 }
 
-# format_session_info_table function
 format_session_info_table <- function() {
   si <- sessionInfo()
   
@@ -173,14 +174,16 @@ format_session_info_table <- function() {
   locale_info <- strsplit(si[[3]], ";")[[1]]
   locale_info <- paste(locale_info, collapse = "<br>")
   
-  # Extract .libpaths and combine into a single string
-  lib_paths <- paste(.libPaths(), collapse = "<br>")
+  # Extract .libpaths, accomodate multiple library paths
+  lib_paths <- .libPaths() |> paste( collapse = "<br>")
   
   # Combine all info into a single tibble
   session_summary <- tibble(
     Category = c("R Version", "Platform | OS", ".libPaths", "Locale"),
     Details = c(r_version, platform_os, lib_paths, locale_info)
   )
+  
+  
   
   return(session_summary)
 }
@@ -290,4 +293,13 @@ read_shapefile <- function(shp_input) {
     cat("Error occurred:", e$message, "\n")
     stop(paste("Error reading shapefile:", e$message))
   })
+}
+
+rename_uploaded_file <- function(input_file) {
+  if (is.null(input_file)) return(NULL)
+  
+  old_path <- input_file$datapath
+  new_path <- file.path(dirname(old_path), input_file$name)
+  file.rename(old_path, new_path)
+  return(new_path)
 }

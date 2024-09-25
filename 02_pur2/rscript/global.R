@@ -294,3 +294,12 @@ read_shapefile <- function(shp_input) {
     stop(paste("Error reading shapefile:", e$message))
   })
 }
+
+rename_uploaded_file <- function(input_file) {
+  if (is.null(input_file)) return(NULL)
+  
+  old_path <- input_file$datapath
+  new_path <- file.path(dirname(old_path), input_file$name)
+  file.rename(old_path, new_path)
+  return(new_path)
+}

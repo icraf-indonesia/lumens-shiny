@@ -183,12 +183,22 @@ server <- function(input, output, session) {
       # 6. Generate report -------------------------
       incProgress(1, detail = "Preparing Report")
       
+      unresolved_shp_path <- rename_uploaded_file(input_file = input$recon_file)
+      unresolved_table_path <- rename_uploaded_file(input_file = input$unresolved_table)
+      
       report_params <- list(
+        session_log = format_session_info_table(),
         start_time = as.character(format(start_time, "%Y-%m-%d %H:%M:%S")),
         end_time = as.character(format(end_time, "%Y-%m-%d %H:%M:%S")),
         output_dir = rv$output_dir,
         summary_PUR = rv$summary_PUR,
-        sa = reconciled_map_dissolved
+        sa = reconciled_map_dissolved,
+        unresolved_shp_path = unresolved_shp_path,
+        unresolved_table_path = unresolved_table_path,
+        recon_result_shp_path = "PUR_reconciliation_result.shp",
+        recon_result_table_path = "PUR_reconciliation_lookup_table.csv",
+        recon_result_shp_dis_path = "PUR_reconciliation_result_dissolved.shp",
+        final_lookup_table_path = "PUR_final_lookup_table.csv"
       )
    
       report_params$total_area <- 

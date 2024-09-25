@@ -83,7 +83,6 @@ server <- function(input, output, session) {
     withProgress(message = 'Processing PUR', value = 0, {
       tryCatch({
         start_time <- Sys.time()
-        
         # 1. Validate data inputs
         incProgress(0.1, detail = "Validating inputs")
         req(rv$ref_map, message = "Please upload the reference map.")
@@ -650,7 +649,15 @@ server <- function(input, output, session) {
         
         # 8. Prepare parameters for report -------------------------
         incProgress(1, detail = "Preparing report")
+        browser()
+        # Rename file path for report
+        ref_path <- rename_uploaded_file(input$ref_map)
+        ref_class_path <- rename_uploaded_file(input$ref_class)
+        ref_mapping_path <- rename_uploaded_file(input$ref_mapping)
+        pu_list_path <- rename_uploaded_file(input$pu_units)
+        
         report_params <- list(
+          session_log = format_session_info_table(),
           start_time = as.character(format(start_time, "%Y-%m-%d %H:%M:%S")),
           end_time = as.character(format(end_time, "%Y-%m-%d %H:%M:%S")),
           output_dir = rv$output_dir,
@@ -659,12 +666,15 @@ server <- function(input, output, session) {
           database_unresolved_out = rv$database_unresolved_out,
           pur_unresolved_vector = rv$pur_unresolved_vector,
           inputs = list(
-            # area_name = rv$area_name,
             ref = ref,
             ref_class = tabel_acuan,
-            lookup_ref = lookup_ref,
+            ref_mapping = lookup_ref,
             pu_lut_list = pu_lut_list
           ),
+          ref_path = ref_path,
+          ref_class_path = ref_class_path,
+          ref_mapping_path =  ref_mapping_path,
+          pu_list_path = pu_list_path,
           dir_PURdbfinal = "PUR-build_database.dbf",
           dir_UnresolvedCase = "PUR_unresolved_case.xlsx",
           dir_PUR1shp = "PUR_first_phase_result.shp"

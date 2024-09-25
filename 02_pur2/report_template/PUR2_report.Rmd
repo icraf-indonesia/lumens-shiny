@@ -1,31 +1,72 @@
 ---
-title: "Planning Unit Reconciliation Report"
+title: "Planning Unit Reconciliation (Reconcile) Report"
 output:
   html_document:
     toc: true
     toc_float: true
     number_sections: true
 params:
+  session_log: NA
   start_time: NA
   end_time: NA
   output_dir: NA
   summary_PUR: NA
   total_area: NA
   sa: NA
+  unresolved_shp_path: NA
+  unresolved_table_path: NA
+  recon_result_shp_path: NA
+  recon_result_table_path: NA
+  recon_result_shp_dis_path: NA
+  final_lookup_table_path: NA
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
-library(knitr)
-library(kableExtra)
-library(dplyr)
-library(ggplot2)
-library(sf)
-library(terra)
-library(dplyr)
-library(DT)
-library(units)
 ```
+
+```{r load library, include=FALSE}
+# source("02_pur2/rscript/global.r")
+check_and_install_packages(
+  c(
+    "knitr",
+    "kableExtra",
+    "dplyr",
+    "ggplot2",
+    "sf",
+    "terra",
+    "dplyr",
+    "DT",
+    "units"
+  )
+)
+```
+
+<details><summary>Click here for Analysis Log</summary>
+
+```{r analysis-log, echo=FALSE}
+
+analysis_log <- tribble(
+  ~Category, ~Details,
+  "Analysis Start", params$start_time,
+  "Analysis End", params$end_time,
+  "Input Data and Parameters", "",
+  "1. Unresolved Planning Unit Map", params$unresolved_shp_path,
+  "2. Unresolved Attribute Table", params$unresolved_table_path,
+  "Output Files", "",
+  "Output workspace", paste0(getwd(), params$output_dir),
+  "1. Reconciliation Result Map", file.path(params$output_dir, params$recon_result_shp_path),   
+  "2. Reconciliation Result Table", file.path(params$output_dir, params$recon_result_table_path),
+  "3. Reconciliation Result Map (Dissolved)", file.path(params$output_dir, params$recon_result_shp_dis_path),
+  "4. Final Result Table", file.path(params$output_dir, params$final_lookup_table_path),
+  "Session Summary", "",
+) %>% rbind(format_session_info_table())
+
+analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
+  kable_paper("hover", full_width = F )
+```
+
+</details>
 
 ## Summary
 
