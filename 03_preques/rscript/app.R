@@ -72,7 +72,7 @@ preques_app <- function() {
         fileInput("lookup_lc", "Land Use/Cover Lookup Table (CSV)", accept = c(".csv")),
         fileInput("lookup_trajectory", "Trajectory Lookup Table (CSV)", accept = c(".csv")),
         fileInput("zone_shapefile", "Planning Units (Shapefile)",
-                  accept = c(".shp", ".dbf", ".prj", ".shx"), multiple = TRUE),
+                  accept = c(".shp", ".dbf", ".prj", ".shx"), multiple = TRUE, placeholder = "Upload the .shp, .dbf, .prj, and .shx files."),
         # radioButtons("zone_type", "Planning Units Input Type",
         #              choices = c("Raster" = "raster", "Shapefile" = "shapefile")),
         # conditionalPanel(
@@ -104,7 +104,7 @@ preques_app <- function() {
       mainPanel(
         tabsetPanel(
           tabPanel("User Guide", uiOutput("user_guide")),
-          tabPanel("Analysis",
+          tabPanel("Log",
                    textOutput("selected_dir"),
                    verbatimTextOutput("status_messages"),
                    verbatimTextOutput("error_messages"),
