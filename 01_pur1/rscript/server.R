@@ -2,8 +2,6 @@ server <- function(input, output, session) {
   # Directory selection
   volumes <- c(Home = fs::path_home(), "R Installation" = R.home(), getVolumes()())
   shinyDirChoose(input, 'output_dir', roots = volumes, session = session)
-  
-  # Reactive value to store selected output directory
   selected_output_dir <- reactiveVal(value = NULL)
   
   # Update reactive value when output directory is selected
@@ -31,7 +29,7 @@ server <- function(input, output, session) {
   
   output$user_guide <- renderUI({
     guide_paths <- c(
-      "02_pur2/helpfile/help.Rmd",
+      "01_pur1/helpfile/help.Rmd",
       "../helpfile/help.Rmd"
     )
     
@@ -101,18 +99,11 @@ server <- function(input, output, session) {
         # Determine Spatial Resolution
         if (grepl("\\+units=m", as.character(st_crs(ref)$proj4string))) {
           Spat_res <- res(ref)[1] * res(ref)[2] / 10000
-          message <- paste(
-            "Raster maps have",
-            Spat_res,
-            "Ha spatial resolution, PUR will automatically generate data in Ha unit"
+          message <- paste("Raster maps have", Spat_res, "Ha spatial resolution, PUR will automatically generate data in Ha unit"
           )
-        } else if (grepl("\\+proj=longlat",
-                         as.character(st_crs(ref)$proj4string))) {
+        } else if (grepl("\\+proj=longlat", as.character(st_crs(ref)$proj4string))) {
           Spat_res <- res(ref)[1] * res(ref)[2] * (111319.9 ^ 2) / 10000
-          message <- paste(
-            "Raster maps have",
-            Spat_res,
-            "Ha spatial resolution, PUR will automatically generate data in Ha unit"
+          message <- paste("Raster maps have", Spat_res, "Ha spatial resolution, PUR will automatically generate data in Ha unit"
           )
         } else {
           statuscode <- 0
@@ -128,43 +119,23 @@ server <- function(input, output, session) {
         colnames(lookup_ref)[ncol(lookup_ref)] <- "REFERENCE"
         ref.name <- names(ref)
         
-        tabel_acuan <- read.table(
-          rv$ref_class$datapath,
-          header = FALSE,
-          sep = ",",
-          skip = 1
-        ) %>%
+        tabel_acuan <- read.table(rv$ref_class$datapath, header = FALSE, sep = ",", skip = 1) %>%
           setNames(c("acuan_kelas", "acuan_kode"))
         
-        tabel_mapping <- read.table(
-          rv$ref_mapping$datapath,
-          header = FALSE,
-          sep = ",",
-          skip = 1
-        ) %>%
-          setNames(c("REFERENCE", "IDS")) %>%
-          left_join(lookup_ref, by = "REFERENCE")
+        tabel_mapping <- read.table(rv$ref_mapping$datapath, header = FALSE, sep = ",", skip = 1) %>%
+          setNames(c("REFERENCE", "IDS")) %>% left_join(lookup_ref, by = "REFERENCE")
         
         if ("COUNT" %in% colnames(tabel_mapping)) {
-          tabel_mapping <- tabel_mapping %>%
-            select(-COUNT)
+          tabel_mapping <- tabel_mapping %>% select(-COUNT)
         }
         
-        tabel_mapping <- tabel_mapping %>%
-          rename(IDO = ID)
+        tabel_mapping <- tabel_mapping %>%rename(IDO = ID)
         
         # Planning unit data preparation
-        pu_list <- read.table(
-          rv$pu_units$datapath,
-          header = FALSE,
-          sep = ",",
-          skip = 1
-        )
+        pu_list <- read.table(rv$pu_units$datapath, header = FALSE, sep = ",", skip = 1)
         n_pu_list <- nrow(pu_list)
-        
-        pu_lut_list <- list()  # create an empty list to store the results
+        pu_lut_list <- list()
         cmd <- paste()
-        
         command1 <- vector("list", n_pu_list)
         central_attr <- NULL
         
@@ -173,27 +144,17 @@ server <- function(input, output, session) {
           data_name <- as.character(pu_list[i, 1])
           lut_table <- pu_list[i, 5]
           pu_vector <- st_read(file.path(dirname(lut_table), paste0(data_name, ".shp")))
-          getwd()
-          pu_raster <- rasterise_multipolygon(
-            sf_object = pu_vector,
-            raster_res = c(rv$map_resolution, rv$map_resolution),
-            field = "ID"
-          )
+          pu_raster <- rasterise_multipolygon(sf_object = pu_vector, raster_res = c(rv$map_resolution, rv$map_resolution), paste0(colnames(st_drop_geometry(pu_vector[1]))))
           print(pu_raster)
-          
           pu_lut_list[[i]] <- lut_table
           central_attr <- append(central_attr, data_name)
           pu_raster[is.na(pu_raster)] <- 0
           # pu_raster <- reclassify(pu_raster, cbind(255, 0))  # Reclassify 255 values to 0
-          
           names(pu_raster) <- data_name
-          
           j <- n_pu_list + 1 - i
           assign(paste0("R", i), pu_raster * (100 ^ (j)))
-          
           # Build a command for further calculations
           cmd <- paste0(cmd, "R", i, "+")
-          
           command1[[i]] <- pu_raster
         }
         
@@ -206,13 +167,10 @@ server <- function(input, output, session) {
         command1[[ref.number]] <- R_ref
         PUR_stack <- rast(command1)
         
-        
         # 3. Create raster attribute table -------------------------
         incProgress(0.4, detail = "Creating raster attribute table")
         # Create and process the raster attribute table
-        eval(parse(text = (paste(
-          "PUR<-", cmd, sep = ""
-        ))))
+        eval(parse(text = (paste("PUR<-", cmd, sep = ""))))
         PUR_raster <- raster(PUR)
         PUR <- ratify(PUR_raster, count = TRUE)
         PUR_db <- levels(PUR)[[1]]
@@ -231,14 +189,7 @@ server <- function(input, output, session) {
         
         # Loop to extract variables from the TEMP_ID using modular arithmetic
         while (k < ref.number) {
-          eval(parse(text = (
-            paste(
-              "PUR_db$Var",
-              n_pu_list - k,
-              "<-PUR_db$TEMP_ID %% 100",
-              sep = ""
-            )
-          )))
+          eval(parse(text = (paste("PUR_db$Var", n_pu_list - k, "<-PUR_db$TEMP_ID %% 100", sep = ""))))
           # Extract the last two digits of TEMP_ID and store in the respective column
           PUR_db$TEMP_ID <- floor(PUR_db$TEMP_ID / 100)  # Divide TEMP_ID by 100 and discard the remainder
           k = k + 1
@@ -256,7 +207,6 @@ server <- function(input, output, session) {
         for (l in 1:n_pu_list) {
           pu_data <- as.character(pu_list[l, 2])
           var_num <- n_pu_list + 4 - m
-          
           # Check if the column exists in PUR_db
           if (var_num <= ncol(PUR_db)) {
             # Use the actual raster object stored in command1 to get the name
@@ -264,7 +214,6 @@ server <- function(input, output, session) {
           } else {
             warning(paste("Column", var_num, "does not exist in PUR_db"))
           }
-          
           m <- m + 1
         }
         
@@ -300,29 +249,16 @@ server <- function(input, output, session) {
         # check planning unit which is overlapped refer to reference data
         #   if there is no overlapping data then attribute equals to reference,
         #   else attribute would become unresolved
-        
-        command4 <- paste()  # Initialize the command4 variable as an empty character string
-        
+        command4 <- paste()
         # Iterate over each planning unit in the list
         for (p in 1:n_pu_list) {
           if (p != n_pu_list) {
             # If not the last planning unit
-            eval(parse(text = (
-              paste(
-                "command4 <- paste(command4, ",
-                '"cek',
-                p,
-                '+',
-                '")',
-                sep = ""
-              )
-            )))
+            eval(parse(text = (paste("command4 <- paste(command4, ", '"cek', p, '+', '")', sep = ""))))
             # Append "cekX+" to the command4 string, where X is the planning unit index
           } else {
             # If the last planning unit
-            eval(parse(text = (
-              paste("command4 <- paste(command4, ", '"cek', p, '")', sep = "")
-            )))
+            eval(parse(text = (paste("command4 <- paste(command4, ", '"cek', p, '")', sep = ""))))
             # Append "cekX" to the command4 string for the last planning unit
           }
         }
@@ -335,45 +271,20 @@ server <- function(input, output, session) {
         
         # Calculate the 'reconcile_attr' column based on 'reconcile1' values
         PUR_dbmod <- within(PUR_dbmod, {
-          reconcile_attr <- ifelse(reconcile1 == 0,
-                                   as.character(REFERENCE),
-                                   "unresolved")
+          reconcile_attr <- ifelse(reconcile1 == 0, as.character(REFERENCE), "unresolved")
         })
         # If 'reconcile1' is 0, set 'reconcile_attr' to the value of 'REFERENCE', otherwise set it to "unresolved"
-        
-        # put an ID in overlapped/reconcile attribute
-        
         command5 <- paste()  # Initialize the command5 variable as an empty character string
         
         # Iterate over each planning unit in the list
         for (r in 1:n_pu_list) {
           if (r != n_pu_list) {
             # If not the last planning unit
-            eval(parse(text = (
-              paste(
-                "command5 <- paste(command5, ",
-                '"(cek",',
-                r,
-                ',"*",',
-                r,
-                ', ")+", sep="")',
-                sep = ""
-              )
-            )))
+            eval(parse(text = (paste("command5 <- paste(command5, ", '"(cek",', r, ',"*",', r, ', ")+", sep="")', sep = ""))))
             # Append "(cekX*X)+" to the command5 string, where X is the planning unit index
           } else {
             # If the last planning unit
-            eval(parse(text = (
-              paste(
-                "command5 <- paste(command5, ",
-                '"(cek",',
-                r,
-                ',"*",',
-                r,
-                ', ")", sep="")',
-                sep = ""
-              )
-            )))
+            eval(parse(text = (paste( "command5 <- paste(command5, ", '"(cek",', r, ',"*",', r, ', ")", sep="")', sep = ""))))
             # Append "(cekX*X)" to the command5 string for the last planning unit
           }
         }
@@ -389,10 +300,8 @@ server <- function(input, output, session) {
           as_tibble() %>%
           mutate(numb_ca = row_number()) %>%
           dplyr::select(numb_ca, everything())
-        
         central_attrmod <- central_attr %>%
           rename(Rec_phase1 = 2, reconcile_attr2 = 1)
-        
         add_22 <- tibble(Rec_phase1 = "none", reconcile_attr2 = 100)
         
         # Convert Rec_phase1 column to character in central_attrmod
@@ -409,27 +318,13 @@ server <- function(input, output, session) {
         # Finalize reconciliation results
         PUR_dbfinal <- PUR_dbmod %>%
           inner_join(central_attrmod, by = "reconcile_attr2") %>%
-          mutate(Rec_phase1 = ifelse(
-            Rec_phase1 == "none",
-            as.character(reconcile_attr),
-            as.character(Rec_phase1)
-          )) %>%
-          mutate(
-            Rec_phase1b = ifelse(
-              reconcile_attr == "unresolved",
-              "unresolved_case",
-              as.character(Rec_phase1)
-            )
+          mutate(Rec_phase1 = ifelse(Rec_phase1 == "none", as.character(reconcile_attr), as.character(Rec_phase1))) %>%
+          mutate(Rec_phase1b = ifelse(reconcile_attr == "unresolved", "unresolved_case", as.character(Rec_phase1))
           )
-        
         PUR_dbfinal2 <- PUR_dbfinal %>%
           dplyr::select(NEW_ID, Rec_phase1b) %>%
           setNames(c("ID", "Rec_phase1b"))
-        
-        levels(PUR) <- merge(levels(PUR),
-                             PUR_dbfinal2 %>%
-                               distinct(ID, Rec_phase1b),
-                             by = "ID")
+        levels(PUR) <- merge(levels(PUR), PUR_dbfinal2 %>% distinct(ID, Rec_phase1b), by = "ID")
         
         # Merge classes based on Rec_phase 1b column
         # 1. Extract levels of the raster into a data frame
@@ -438,36 +333,25 @@ server <- function(input, output, session) {
         # We exclude 'unresolved_case' here as mentioned
         unique_categories <- unique(df_levels$Rec_phase1b[df_levels$Rec_phase1b != "unresolved_case"])
         category_mapping <- setNames(1:length(unique_categories), unique_categories)
-        
-        df_levels$ID_rec <- ifelse(
-          df_levels$Rec_phase1b == "unresolved_case",
-          df_levels$ID,
-          category_mapping[df_levels$Rec_phase1b]
-        )
-        
+        df_levels$ID_rec <- ifelse(df_levels$Rec_phase1b == "unresolved_case", df_levels$ID, category_mapping[df_levels$Rec_phase1b])
         PUR_dbfinal <- bind_cols(PUR_dbfinal, df_levels["ID_rec"])
         
         # Prepare a new variable as a PUR vector output
         pur_unresolved <- rast(PUR)
-        
         pur_reconciled <- PUR_dbfinal %>%
           as_tibble() %>%
           select(ID = NEW_ID, REFERENCE, Rec_phase1, Rec_phase1b, ID_rec) %>%
           arrange(ID)
-        
         joined_data <- levels(pur_unresolved)[[1]] %>%
           left_join(pur_reconciled, by = "ID") %>%
           select(ID, REFERENCE, Rec_phase1, Rec_phase1b, ID_rec)
-        
         levels(pur_unresolved)[[1]] <- joined_data
         
         # Convert the raster to polygons
         rv$pur_unresolved_vector <- as.polygons(pur_unresolved)
         rv$pur_unresolved_vector$ID <- joined_data$ID
-        
         col_order <- c("ID", "REFERENCE")
         rv$pur_unresolved_vector <- rv$pur_unresolved_vector[, col_order]
-        
         rv$pur_unresolved_vector$Reference <- joined_data$REFERENCE
         rv$pur_unresolved_vector$Rec_phase1 <- joined_data$Rec_phase1
         rv$pur_unresolved_vector$Rec_phase2 <- joined_data$Rec_phase1b
@@ -510,11 +394,7 @@ server <- function(input, output, session) {
         # save final database for viz
         #database_final <- as.data.frame(levels(PUR))
         #database_final$COUNT_ha <- database_final$COUNT * Spat_res
-        
-        data_attribute <- db_final2 %>%
-          dplyr::select(-COUNT)
-        
-        # Identify missing strings
+        data_attribute <- db_final2 %>% dplyr::select(-COUNT)
         missing_strings <- setdiff(unique(PUR_dbfinal[["Rec_phase1"]]), data_attribute$Rec_phase1b)
         
         # Append missing strings to the data_attribute tibble
@@ -524,30 +404,11 @@ server <- function(input, output, session) {
           data_attribute <- bind_rows(data_attribute, new_rows)
         }
         
-        # Export vector to shapefile
-        writeVector(
-          rv$pur_unresolved_vector,
-          filename = file.path(paste0(
-            rv$output_dir, "/PUR_first_phase_result.shp"
-          )),
-          overwrite = TRUE
-        )
-        
-        write.table(
-          data_attribute,
-          paste0(rv$output_dir, "/PUR_attribute.csv"),
-          quote = FALSE,
-          row.names = FALSE,
-          sep = ","
-        )
+        # Export 
+        writeVector(rv$pur_unresolved_vector, filename = file.path(paste0(rv$output_dir, "/PUR_first_phase_result.shp")), overwrite = TRUE)
+        write.table(data_attribute, paste0(rv$output_dir, "/PUR_attribute.csv"), quote = FALSE, row.names = FALSE, sep = ",")
         #PUR_dbfinal <- PUR_dbfinal |> select(-ID_rec)
-        write.table(
-          PUR_dbfinal,
-          paste0(rv$output_dir, "/PUR_dbfinal.csv"),
-          quote = FALSE,
-          row.names = FALSE,
-          sep = ","
-        )
+        write.table(PUR_dbfinal, paste0(rv$output_dir, "/PUR_dbfinal.csv"), quote = FALSE, row.names = FALSE, sep = ",")
         
         # 7. Handle unresolved case ------------------
         incProgress(0.95, detail = "Handling unresolved cases")
@@ -558,11 +419,7 @@ server <- function(input, output, session) {
             pu_data <- as.character(pu_list[r, 2])
             word1 <- paste0("cek", r)
             word2 <- paste0("PU_", r)
-            
-            # Initialize the new column with "NULL"
             database_unresolved[[word2]] <- "NULL"
-            
-            # Use vectorized operations instead of loop
             database_unresolved[[word2]] <- ifelse(database_unresolved[[word1]] > 0, names(command1[[r]]), "-")
           }
           
@@ -573,7 +430,6 @@ server <- function(input, output, session) {
           dat2 <- data.frame(COUNT = database_unresolved$Freq)
           dat3 <- data.frame(REFERENCE = database_unresolved$REFERENCE)
           rv$database_unresolved_out <- cbind(dat1, rv$database_unresolved_out, dat3, dat2)
-          
           database_unresolved_out1 <- rv$database_unresolved_out
           database_unresolved_out1$'Reconcile Action' <- "unresolved_case"
           
@@ -582,35 +438,16 @@ server <- function(input, output, session) {
           
           # Add worksheets
           addWorksheet(database_unresolved_out_wb, "PUR_unresolved_case")
-          writeData(
-            database_unresolved_out_wb,
-            sheet = "PUR_unresolved_case",
-            x = as_tibble(database_unresolved_out1),
-            startCol = 1
-          )
-          
-          addWorksheet(database_unresolved_out_wb,
-                       "drop-down_attribute",
-                       visible = FALSE)
+          writeData(database_unresolved_out_wb, sheet = "PUR_unresolved_case", x = as_tibble(database_unresolved_out1), startCol = 1)
+          addWorksheet(database_unresolved_out_wb, "drop-down_attribute", visible = FALSE)
           pur_attribute_df <- data_attribute[data_attribute$Rec_phase1b != "unresolved_case", -1]
           names(pur_attribute_df)[1] <- "Reconcile Action"
-          
-          new_row <- as.data.frame(matrix(
-            "unresolved_case",
-            nrow = 1,
-            ncol = ncol(pur_attribute_df)
-          ))
+          new_row <- as.data.frame(matrix("unresolved_case",nrow = 1,ncol = ncol(pur_attribute_df)))
           colnames(new_row) <- colnames(pur_attribute_df)
-          pur_attribute_df <- rbind(pur_attribute_df, new_row) %>%
-            mutate(`Reconcile Action` = as.factor(`Reconcile Action`))
+          pur_attribute_df <- rbind(pur_attribute_df, new_row) %>% mutate(`Reconcile Action` = as.factor(`Reconcile Action`))
           
           #pur_attribute_df$`Reconcile Action`[1] <- "unresolved_case"
-          writeData(
-            database_unresolved_out_wb,
-            sheet = "drop-down_attribute",
-            x = as_tibble(pur_attribute_df),
-            startCol = 1
-          )
+          writeData(database_unresolved_out_wb,sheet = "drop-down_attribute", x = as_tibble(pur_attribute_df), startCol = 1)
           
           # Add dropdown to Excel workbook
           dataValidation(
@@ -619,37 +456,25 @@ server <- function(input, output, session) {
             cols = 9,
             rows = 2:(1 + nrow(database_unresolved_out1)),
             type = "list",
-            # value = "'drop-down_attribute'!$A$2:$A$100",
             value = paste0(
               "'drop-down_attribute'!$A$2:$A$",
-              nrow(pur_attribute_df) + 1
-            ),
+              nrow(pur_attribute_df) + 1),
             allowBlank = TRUE
           )
-          
           # Save the workbook
-          saveWorkbook(
-            database_unresolved_out_wb,
-            paste0(rv$output_dir, "/PUR_unresolved_case.xlsx"),
-            overwrite = TRUE
-          )
-          
+          saveWorkbook(database_unresolved_out_wb, paste0(rv$output_dir, "/PUR_unresolved_case.xlsx"), overwrite = TRUE)
         } else {
           database_unresolved_out1 <- tibble("Reconciliation result" = "There are no unresolved areas in this analysis session")
         }
         
         # End of the script
         end_time <- Sys.time()
-        cat("Started at:",
-            format(start_time, "%Y-%m-%d %H:%M:%S"),
-            "\n")
-        cat("Ended at:",
-            format(end_time, "%Y-%m-%d %H:%M:%S"),
-            "\n")
+        cat("Started at:", format(start_time, "%Y-%m-%d %H:%M:%S"), "\n")
+        cat("Ended at:", format(end_time, "%Y-%m-%d %H:%M:%S"), "\n")
         
         # 8. Prepare parameters for report -------------------------
         incProgress(1, detail = "Preparing report")
-        browser()
+
         # Rename file path for report
         ref_path <- rename_uploaded_file(input$ref_map)
         ref_class_path <- rename_uploaded_file(input$ref_class)
