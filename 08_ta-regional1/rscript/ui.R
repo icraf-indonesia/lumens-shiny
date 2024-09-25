@@ -7,9 +7,9 @@ fluidPage(
     sidebarPanel(
       fileInput("sector_file", "Sector table", accept = c(".csv")),
       fileInput("int_con_file", "Intermediate Demand table", accept = c(".csv")),
-      fileInput("fin_dem_struc_file", "Final Demand Structure table", accept = c(".csv")),
+      fileInput("fin_dem_struc_file", "Final Demand Component table", accept = c(".csv")),
       fileInput("fin_dem_file", "Final Demand table", accept = c(".csv")),
-      fileInput("add_val_struc_file", "Added Value Structure table", accept = c(".csv")),
+      fileInput("add_val_struc_file", "Added Value Component table", accept = c(".csv")),
       fileInput("add_val_file", "Added Value table", accept = c(".csv")),
       fileInput("labour_file", "Labour table", accept = c(".csv")),
       fileInput("land_distribution_file", "Land Distribution table", accept = c(".csv")),

@@ -134,22 +134,42 @@ check_and_install_packages <- function(required_packages) {
   }
 }
 
-prepare_npv_lookup <- function(tbl_npv, quesc_tbl) {
-  lookup_n <- tbl_npv
-  colnames(lookup_n)[1] <- "ID_LC1"
-  colnames(lookup_n)[2] <- "NPV1"
-  quesc_tbl <- merge(quesc_tbl, lookup_n, by = "ID_LC1")
-  colnames(lookup_n)[1] <- "ID_LC2"
-  colnames(lookup_n)[2] <- "NPV2"
-  quesc_tbl <- merge(quesc_tbl, lookup_n, by = "ID_LC2")
+# Function to save raster files if they don't exist already
+save_raster_if_needed <- function(input_file, save_path) {
+  # Check if input_file is valid
+  if (is.null(input_file) || !file.exists(input_file$datapath)) {
+    stop("Error: Input file is missing or does not exist.")
+  }
   
-  tot_area <- sum(quesc_tbl$Ha)
+  # Check if save_path exists or create it
+  if (!file.exists(save_path)) {
+    message("Saving raster to: ", save_path)
+    rast_data <- terra::rast(input_file$datapath)
+    terra::writeRaster(rast_data, save_path, overwrite = TRUE)
+  } else {
+    message("Using existing raster: ", save_path)
+  }
   
-  list(quesc_tbl = quesc_tbl, tot_area = tot_area)
+  # Return the raster object from the saved path
+  return(terra::rast(save_path))
 }
 
-build_opcost_table <- function(quesc_tbl, period, tot_area) {
-  data_em_sel <- quesc_tbl[quesc_tbl$EM > 0, ]
+prepare_npv_lookup <- function(tbl_npv, quesc_tbl) {
+  lookup_n<-tbl_npv
+  colnames(lookup_n)[1] <- "ID_LC1"
+  colnames(lookup_n)[2] <- "NPV1"
+  dt_quesc_npv <- merge(quesc_tbl, lookup_n, by = "ID_LC1")
+  colnames(lookup_n)[1] <- "ID_LC2"
+  colnames(lookup_n)[2] <- "NPV2"
+  dt_quesc_npv <- merge(dt_quesc_npv, lookup_n, by = "ID_LC2")
+  
+  tot_area <- sum(dt_quesc_npv$Ha)
+  
+  list(dt_quesc_npv = dt_quesc_npv, tot_area = tot_area)
+}
+
+build_opcost_table <- function(dt_quesc_npv, period, tot_area) {
+  data_em_sel <- dt_quesc_npv[dt_quesc_npv$EM > 0, ]
   data_em_sel <- within(data_em_sel, {
     em_rate <- ((C_T1 - C_T2) * (Ha * 3.67)) / (tot_area * period)
     em_tot <- (C_T1 - C_T2) * 3.67

@@ -68,9 +68,9 @@ DT::datatable(dt_gdp_sector) %>%
   DT::formatStyle(columns = 3:ncol(dt_gdp_sector), 
               `render` = JS("function(data, type, row, meta) {
                                 return type === 'display' && data !== null
-                                ? data.toFixed(1)
+                                ? parseFloat(data).toFixed(2)
                                 : data;
-                            }"))s
+                            }"))
 ```
 
 ## GDP Total

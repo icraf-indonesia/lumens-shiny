@@ -22,6 +22,7 @@ server <- function(input, output, session) {
     map2_rast = NULL,  # Raster object for the second map
     tbl_npv = NULL,  # NPV data table
     quesc_tbl = NULL,  # Table combining carbon and NPV data
+    dt_quesc_npv = NULL,
     all_tbl_carbon = NULL,  # All carbon data
     tbl_carbon = NULL,  # Processed carbon data table
     period = NULL,  # Time period for the analysis
@@ -80,15 +81,15 @@ server <- function(input, output, session) {
   #' Load and process the first map file, converting it to a raster format
   observeEvent(input$map1_file, {
     req(input$map1_file)
-    rv$map1_file <- input$map1_file$datapath
-    rv$map1_rast <- rast(rv$map1_file)
+    rv$map1_file <- input$map1_file
+    rv$map1_rast <- rast(rv$map1_file$datapath)
   })
   
   #' Load and process the second map file, converting it to a raster format
   observeEvent(input$map2_file, {
     req(input$map2_file)
-    rv$map2_file <- input$map2_file$datapath
-    rv$map2_rast <- rast(rv$map2_file)
+    rv$map2_file <- input$map2_file
+    rv$map2_rast <- rast(rv$map2_file$datapath)
   })
   
   #' Load the carbon data file and process it into a table format for analysis
@@ -141,25 +142,27 @@ server <- function(input, output, session) {
       tryCatch({
         #' Prepare NPV lookup table by combining carbon and NPV data, and calculate total area
         npv_result <- prepare_npv_lookup(rv$tbl_npv, rv$quesc_tbl)
-        rv$quesc_tbl <- npv_result$quesc_tbl
+        rv$dt_quesc_npv <- npv_result$dt_quesc_npv
         tot_area <- npv_result$tot_area
         
         #' Build the opportunity cost table based on the land use change period and total area
-        opcost_result <- build_opcost_table(rv$quesc_tbl, rv$period, tot_area)
+        opcost_result <- build_opcost_table(rv$dt_quesc_npv, rv$period, tot_area)
         rv$opcost_table <- opcost_result$opcost_all
         rv$opcost_table$order <- c(1:nrow(rv$opcost_table))
         
         #' Perform carbon accounting and calculate carbon emissions based on land use change
-        carbon_result <- carbon_accounting(rv$map1_rast, rv$map2_rast, rv$tbl_npv, rv$tbl_carbon, input$raster_nodata)
+        map1_rast <- terra::rast(rv$map1_file$datapath)
+        map2_rast <- terra::rast(rv$map2_file$datapath)
+        carbon_result <- carbon_accounting(map1_rast, map2_rast, rv$tbl_npv, rv$tbl_carbon, input$raster_nodata)
         rv$map_carbon1 <- carbon_result$map_carbon1
         rv$map_carbon2 <- carbon_result$map_carbon2
         rv$emission_map <- carbon_result$emission_map
         
         #' Perform NPV accounting to calculate changes in NPV between the two time periods
-        npv_result <- npv_accounting(rv$map1_rast, rv$map2_rast, rv$tbl_npv)
-        rv$map_npv1 <- npv_result$map_npv1
-        rv$map_npv2 <- npv_result$map_npv2
-        rv$npv_chg_map <- npv_result$npv_chg_map
+        npv_change <- npv_accounting(map1_rast, map2_rast, rv$tbl_npv)
+        rv$map_npv1 <- npv_change$map_npv1
+        rv$map_npv2 <- npv_change$map_npv2
+        rv$npv_chg_map <- npv_change$npv_chg_map
         
         #' Calculate the opportunity cost map by combining NPV changes with carbon emissions
         rv$opcost_map <- calculate_opcost_map(rv$npv_chg_map, rv$emission_map)

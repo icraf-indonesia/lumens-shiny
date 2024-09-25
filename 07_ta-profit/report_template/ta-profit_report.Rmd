@@ -34,6 +34,8 @@ library(kableExtra)
 library(tidyr)
 library(pkgdown)
 library(ggplot2)
+library(htmlwidgets)
+library(DT)
 ```
 
 <details><summary>Click here for Analysis Log</summary>
@@ -79,7 +81,11 @@ The analysis workflow involves several key steps:
 ### Opportunity Cost Table
 The Opportunity Cost Table presents a detailed breakdown of the trade-offs between financial gains (measured in net present value, or NPV) and environmental impacts (measured in carbon emissions) for different land-use categories over a given time period. This table is a key component in evaluating the financial viability of land-use decisions while accounting for the environmental costs.
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
-DT::datatable(params$opcost_table)
+dt_opcost <- params$opcost_table %>%
+  mutate(across(where(is.numeric), ~ scales::number(.x, accuracy = 0.001, big.mark = ",")))
+
+DT::datatable(dt_opcost) %>%
+  DT::formatRound(columns = 'cum_emrate2', digits = 4)
 ```
 
 ### Opportunity Cost Curve

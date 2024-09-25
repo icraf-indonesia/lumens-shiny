@@ -239,6 +239,8 @@ server <- function(input, output, session) {
         db_GDP <- GDP_scen_df[, !(colnames(GDP_scen_df) %in% c("Sector", "Category"))]
         rownames(db_GDP) <- NULL
         
+        browser()
+        
         #' Create bar charts to visualize total Output, Income, and Labour
         db_output_total <- create_totals_df(GDP, db_GDP, 1, "Period BAU")
         output_total_graph <- create_bar_plot(db_output_total, "BAU vs Scenario Output Total")

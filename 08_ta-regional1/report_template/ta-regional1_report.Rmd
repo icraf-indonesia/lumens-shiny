@@ -76,15 +76,11 @@ analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
 ```
 </details>
 
-## Introduction
+# Introduction
 
 This report presents the results of an analysis based on the provided maps and lookup table
 
-## Lookup Table Summary
-
-* A brief description or summary statistics of the lookup table data can be included here.
-
-## Analysis Results
+# Analysis Results
 
 The maps provided was carbon, emission and sequestration map.
 
@@ -94,7 +90,10 @@ The maps provided was carbon, emission and sequestration map.
 ### Table 1. Sectoral linkages
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
-DT::datatable(params$Linkages_table)
+dt_linkage <- params$Linkages_table %>%
+  mutate(across(where(is.numeric), ~ scales::number(.x, accuracy = 0.001, big.mark = ",")))
+
+DT::datatable(dt_linkage)
 ```
 
 ### Direct Backward Linkages graph
@@ -114,13 +113,20 @@ plot(params$PRS_graph)
 
 ### Primary sectors based on potential linkage
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
-DT::datatable(params$P.sector.selected)
+dt_p.sector <- params$P.sector.selected %>%
+  mutate(across(where(is.numeric), ~ scales::number(.x, accuracy = 0.001, big.mark = ",")))
+
+DT::datatable(dt_p.sector)
 ```
 
 ## Analysis of GDP 
 ### Sectoral GDP Table
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
-DT::datatable(params$GDP)
+dt_GDP <- params$GDP %>%
+  mutate(across(where(is.numeric), ~ scales::number(.x, accuracy = 0.001, big.mark = ",")))
+
+DT::datatable(dt_GDP) %>%
+  DT::formatRound(columns = c('OUTPUT', 'P_OUTPUT'), digits = 3)
 ```
 
 ### GDP graph 
@@ -131,7 +137,10 @@ plot(params$GDP_graph)
 ## Analysis of multiplier 
 ### Sectoral Multiplier
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
-DT::datatable(params$multiplier)
+dt_multiplier <- params$multiplier %>%
+  mutate(across(where(is.numeric), ~ scales::number(.x, accuracy = 0.001, big.mark = ",")))
+
+DT::datatable(dt_multiplier)
 ```
 
 ### Output Multiplier
@@ -151,7 +160,10 @@ plot(params$LMPL_graph)
 
 ### Land Requirement Table
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
-DT::datatable(params$land.requirement_table)
+dt_land.requirement_table <- params$land.requirement_table %>%
+  mutate(across(where(is.numeric), ~ scales::number(.x, accuracy = 0.01, big.mark = ",")))
+
+DT::datatable(dt_land.requirement_table)
 ```
 
 ### Land Requirement Coefficient Graph 
