@@ -76,22 +76,54 @@ server <- function(input, output, session) {
 
   #### Run analysis ####
   observeEvent(input$run_analysis, {
-    shinyjs::disable("process")
+    # Check if any input is missing
+    missing_inputs <- c()
+    
+    if (is.null(input$output_dir) || is.null(rv$output_dir) || is.null(selected_output_dir())) {
+      missing_inputs <- c(missing_inputs, "Output Directory")
+    }
+    if (is.null(rv$ref_map)) {
+      missing_inputs <- c(missing_inputs, "Reference Map")
+    }
+    if (is.null(rv$ref_class)) {
+      missing_inputs <- c(missing_inputs, "Reference Class")
+    }
+    if (is.null(rv$ref_mapping)) {
+      missing_inputs <- c(missing_inputs, "Reference Class of Reference Map")
+    }
+    if (is.null(rv$pu_units)) {
+      missing_inputs <- c(missing_inputs, "Planning Unit List Data")
+    }
+    if (is.null(rv$map_resolution)) {
+      missing_inputs <- c(missing_inputs, "Map Resolution")
+    }
+    
+    # If there are missing inputs, show a notification and stop
+    if (length(missing_inputs) > 0) {
+      showNotification(
+        paste("Please upload the following inputs:", paste(missing_inputs, collapse = ", ")),
+        type = "error"
+      )
+      return(NULL)
+    }
+    
     showNotification("Analysis is running. Please wait...", type = "message", duration = NULL, id = "running_notification")
     withProgress(message = 'Processing PUR', value = 0, {
       tryCatch({
         start_time <- Sys.time()
-        # 1. Validate data inputs
-        incProgress(0.1, detail = "Validating inputs")
-        req(rv$ref_map, message = "Please upload the reference map.")
-        req(rv$ref_class, message = "Please provide the reference class.")
-        req(rv$ref_mapping, message = "Please upload the reference mapping.")
-        req(rv$pu_units, message = "Please upload the planning unit data.")
-        req(rv$map_resolution, message = "Please specify the map resolution.")
         
-        # 2. Data preparation
-        incProgress(0.2, detail = "Preparing data")
+        # Require each input
+        req(rv$output_dir,)
+        req(rv$ref_map)
+        req(rv$ref_class)
+        req(rv$ref_mapping)
+        req(rv$pu_units)
+        req(rv$map_resolution)
         
+        # Data preparation
+        incProgress(0.1, detail = "Preparing data")
+        
+        shinyjs::disable("run_analysis")
         rv$map_resolution <- as.numeric(rv$map_resolution)
         ref_data <- read_shapefile(shp_input = rv$ref_map)
         ref <- rasterise_multipolygon(sf_object = ref_data, raster_res = c(rv$map_resolution, rv$map_resolution), field = paste0(colnames(st_drop_geometry(ref_data[1]))))
@@ -198,7 +230,7 @@ server <- function(input, output, session) {
         PUR_db$TEMP_ID <- NULL
         
         # 4. Conduct reconciliation ---------------------------------
-        incProgress(0.6, detail = "Conducting reconciliation")
+        incProgress(0.5, detail = "Conducting reconciliation")
         colnames(PUR_db)[1] <- "unique_id"
         colnames(PUR_db)[2] <- "Freq"
         colnames(PUR_db)[4] <- ref.name
@@ -295,7 +327,7 @@ server <- function(input, output, session) {
         })
         
         # 5. Create and process central attributes -----------------
-        incProgress(0.8, detail = "Processing central attributes")
+        incProgress(0.6, detail = "Processing central attributes")
         central_attr <- central_attr %>%
           as_tibble() %>%
           mutate(numb_ca = row_number()) %>%
@@ -313,7 +345,7 @@ server <- function(input, output, session) {
           mutate(reconcile_attr2 = as.numeric(reconcile_attr2))
         
         # 6. Finalize and save result ----------------
-        incProgress(0.9, detail = "Finalizing results")
+        incProgress(0.7, detail = "Finalizing results")
         
         # Finalize reconciliation results
         PUR_dbfinal <- PUR_dbmod %>%
@@ -381,12 +413,8 @@ server <- function(input, output, session) {
         
         # write PUR reconciliation phase 1 raster
         write.dbf(PUR_dbfinal, paste0(rv$output_dir, "PUR-build_database.dbf"))
-        writeRaster(
-          PUR,
-          filename = paste0(rv$output_dir, "PUR_first_phase_result"),
-          format = "GTiff",
-          overwrite = TRUE
-        )
+        crs(PUR) <- crs(ref_data)
+        writeRaster(PUR, filename = paste0(rv$output_dir, "PUR_first_phase_result"), format = "GTiff", overwrite = TRUE)
         
         #=Save PUR final database and unresolved case(s)
         database_unresolved <- subset(PUR_dbfinal, Rec_phase1b == "unresolved_case") |> dplyr::select(-ID_rec)
@@ -403,15 +431,16 @@ server <- function(input, output, session) {
           new_rows <- tibble(ID = new_IDs, Rec_phase1b = missing_strings)
           data_attribute <- bind_rows(data_attribute, new_rows)
         }
-        
+
         # Export 
-        writeVector(rv$pur_unresolved_vector, filename = file.path(paste0(rv$output_dir, "/PUR_first_phase_result.shp")), overwrite = TRUE)
+        crs(rv$pur_unresolved_vector) <- crs(ref_data)
+        writeVector(rv$pur_unresolved_vector, filename = file.path(rv$output_dir, "/PUR_first_phase_result.shp"), overwrite = TRUE)
         write.table(data_attribute, paste0(rv$output_dir, "/PUR_attribute.csv"), quote = FALSE, row.names = FALSE, sep = ",")
         #PUR_dbfinal <- PUR_dbfinal |> select(-ID_rec)
         write.table(PUR_dbfinal, paste0(rv$output_dir, "/PUR_dbfinal.csv"), quote = FALSE, row.names = FALSE, sep = ",")
         
         # 7. Handle unresolved case ------------------
-        incProgress(0.95, detail = "Handling unresolved cases")
+        incProgress(0.8, detail = "Handling unresolved cases")
         # Process and save unresolved cases if any
         if (nrow(unresolved_cases) != 0) {
           len <- nrow(database_unresolved)
@@ -473,7 +502,7 @@ server <- function(input, output, session) {
         cat("Ended at:", format(end_time, "%Y-%m-%d %H:%M:%S"), "\n")
         
         # 8. Prepare parameters for report -------------------------
-        incProgress(1, detail = "Preparing report")
+        incProgress(0.9, detail = "Preparing report")
 
         # Rename file path for report
         ref_path <- rename_uploaded_file(input$ref_map)
@@ -544,11 +573,14 @@ server <- function(input, output, session) {
         # After successful completion
         shinyjs::show("open_output_folder")
         shinyjs::show("open_report")
+        removeNotification(id = "running_notification")
+        shinyjs::enable("run_analysis")
         
       }, error = function(e) {
         showNotification(paste("An error occurred:", e$message), type = "error")
       }, finally = {
-        shinyjs::enable("process")
+        removeNotification(id = "running_notification")
+        shinyjs::enable("run_analysis")
       })
     })
   })

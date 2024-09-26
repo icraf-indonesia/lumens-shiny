@@ -92,11 +92,11 @@ This data is used as a guide to check if the maps of planning areas match their 
 plot_categorical_raster(params$inputs$ref)
 ```
 
-## Planning Unit Map
+## Planning Unit Map {.tabset}
 
 Planning unit data is used to show how land use is planned in an area. These map-based data show directions for managing or changing land use in a part of the landscape.
 
-```{r, Planning_Unit_Maps, echo=FALSE, fig.width=10, fig.height=4, results='asis'}
+```{r, Planning_Unit_Maps, echo=FALSE, fig.width=10, fig.height=4, fig.keep='all', results='asis'}
 PUR_stack_new <- subset(params$PUR_stack, 1:(nlyr(params$PUR_stack) - 1))
 zone1 <- subset(params$PUR_stack, nlyr(params$PUR_stack))
 zone <- classify(zone1, cbind(1:length(unique(values(zone1))), 1))
@@ -108,43 +108,62 @@ PUR_stack_new <- rast(lapply(1:nlyr(PUR_stack_new), function(i) {
   return(layer)
 }))
 
-for (i in 1:nlyr(PUR_stack_new)) {
-  plot(PUR_stack_new[[i]], colNA = NULL, main = paste("Planning Unit", i))
-  plot(zone_poly, add = TRUE, border = "black", lwd = 1)
+render_child <- function(results_list, i){
+  res = knitr::knit_child(
+    text = c(
+      "### Planning Unit `r i` {.tabset}",
+      "",
+      "```{r}",
+      "#| echo=FALSE",
+      "plot(PUR_stack_new[[i]], colNA = NULL, main = paste('Planning Unit', i), plg=list(x='topright'))
+  plot(zone_poly, add = TRUE, border = 'black', lwd = 1)",
+      "```"
+    ),
+  envir = rlang::env(results_list = results_list, i = i),
+  quiet = TRUE
+  )
+  cat(res, sep = '\n')
+  cat("\n")
 }
+
+for (i in 1:nlyr(PUR_stack_new)) {
+  render_child(results_list = PUR_stack_new, i = i)
+}
+
+# for (i in 1:nlyr(PUR_stack_new)) {
+#   plot(PUR_stack_new[[i]], colNA = NULL, main = paste("Planning Unit", i))
+#   plot(zone_poly, add = TRUE, border = "black", lwd = 1)
+# }
 ```
 
 # Results
 
 ## Unresolved Cases Zone Map
 
-```{r Unresolved-Cases-Zone-Map, echo=FALSE, fig.width=12, fig.height=6}
-
+```{r Unresolved-Cases-Zone-Map, echo=FALSE, fig.width=10, fig.height=8}
 unresolved_map <- unique(params$pur_unresolved_vector$Rec_phase2)
-
-set.seed(25)
+set.seed(50)
 colors <- brewer.pal(n = min(length(unresolved_map), 8), name = "Set2")
 if (length(unresolved_map) > 8) {
   colors <- colorRampPalette(colors)(length(unresolved_map))
 }
-layout(matrix(c(1,2), ncol=2), widths=c(4,1))
 
-# Plot the map
-par(mar=c(5,4,4,0)) 
+layout(matrix(c(1, 2), ncol = 1), heights = c(4, 1))
+
+par(mar = c(0, 2, 2, 2), oma = c(0, 0, 0, 0))
 plot(params$pur_unresolved_vector, 
-     col = colors[as.numeric(factor(params$pur_unresolved_vector$Rec_phase2))], 
-     border = NA, 
-     main = "Unresolved Cases Zone Map")
+     col = colors[as.numeric(factor(params$pur_unresolved_vector$Rec_phase2))],
+     border = NA,
+     asp = 1)  
 
-# Add a legend in a separate plot area
-par(mar=c(5,0,4,2))
-plot(1, type="n", axes=FALSE, xlab="", ylab="")
-legend("left", 
+par(mar = c(0, 0, 0, 0))
+plot.new()
+legend("center", 
        legend = unresolved_map, 
        fill = colors, 
-       cex = 1,
-       # title = "Rec_phase2",
-       bty = "n")
+       ncol = 3, 
+       cex = 1.2,
+       bty = "n",)
 ```
 
 ```{r key-results-table, echo=FALSE}

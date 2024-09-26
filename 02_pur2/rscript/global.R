@@ -34,7 +34,9 @@ install_load(
   "ggplot2",
   "knitr",
   "kableExtra",
-  "DT"
+  "DT",
+  "tidyterra",
+  "tmap"
 )
 
 #' Rasterize an sf MULTIPOLYGON object

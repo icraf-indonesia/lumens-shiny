@@ -77,14 +77,44 @@ server <- function(input, output, session) {
   
   #### Run analysis ####
   observeEvent(input$run_analysis, {
-    shinyjs::disable("run_analysis")
+    # Check if any input is missing
+    missing_inputs <- c()
+    
+    if (is.null(input$output_dir) || is.null(rv$output_dir) || is.null(selected_output_dir())) {
+      missing_inputs <- c(missing_inputs, "Output Directory")
+    }
+    if (is.null(rv$recon_file)) {
+      missing_inputs <- c(missing_inputs, "Unresolved Case Map")
+    }
+    if (is.null(rv$unresolved_table)) {
+      missing_inputs <- c(missing_inputs, "Unresolved Case Table")
+    }
+    if (is.null(rv$map_resolution)) {
+      missing_inputs <- c(missing_inputs, "Map Resolution")
+    }
+    
+    # If there are missing inputs, show a notification and stop
+    if (length(missing_inputs) > 0) {
+      showNotification(
+        paste("Please upload the following inputs:", paste(missing_inputs, collapse = ", ")),
+        type = "error"
+      )
+      return(NULL)
+    }
+    
     showNotification("Analysis is running. Please wait...", type = "message", duration = NULL, id = "running_notification")
     withProgress(message = 'Processing PUR', value = 0, {
       tryCatch({
       start_time <- Sys.time()
+      
+      # Required data input
+      req(rv$output_dir)
+      req(rv$recon_file)
+      req(rv$unresolved_table)
+      req(rv$map_resolution)
 
       # 1. Data preparation -------------------------------------------
-      
+      shinyjs::disable("run_analysis")
       incProgress(0.2, detail = "Preparing data inputs")
       rv$u <- input$unresolved_table
       rv$map_resolution <- as.numeric(rv$map_resolution)
@@ -216,7 +246,7 @@ server <- function(input, output, session) {
       } else {
         error("No template file for PUR reconcile module is found.")
       }
-
+      browser()
       rmarkdown::render(
         input = path_report,
         output_file = "PUR_reconcile_report.html",
@@ -230,11 +260,14 @@ server <- function(input, output, session) {
       # After successful completion
       shinyjs::show("open_output_folder")
       shinyjs::show("open_report")
+      removeNotification(id = "running_notification")
+      shinyjs::enable("run_analysis")
       
       }, error = function(e) {
         showNotification(paste("An error occurred:", e$message), type = "error")
       }, finally = {
-        shinyjs::enable("process")
+        removeNotification(id = "running_notification")
+        shinyjs::enable("run_analysis")
       })
     })
   })

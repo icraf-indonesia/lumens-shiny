@@ -37,7 +37,8 @@ check_and_install_packages(
     "terra",
     "dplyr",
     "DT",
-    "units"
+    "units",
+    "tmap"
   )
 )
 ```
@@ -80,8 +81,17 @@ Planning unit reconciliation is a process to resolve overlapping permits by refe
 
 ### Reconciliation Results Map
 ```{r Reconciliation Result Map, echo=FALSE}
-resolved_map <- params$sa
-plot(resolved_map["Rec_phase2"])
+library(tmap)
+tm_shape(resolved_map) +
+  tm_polygons("Rec_phase2", palette = "Set3") +
+  tm_layout(
+    legend.outside = TRUE,
+    legend.outside.position = "right",
+    legend.stack = "horizontal",
+    legend.width = 2,
+    legend.outside.size = 0.3,
+    frame = TRUE
+  )
 ```
 
 ### Reconciliation Data Summary
