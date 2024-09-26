@@ -128,22 +128,35 @@ Represents the soil characteristic, defined by Clay content (%), Silt content (%
 plot(params$soil)
 ```
 
-## Land Cover Map
+## Land Cover Map {.tabset}
 
-Categorical raster with each pixel value corresponds to a land cover class
-
-```{r Land Cover, echo=FALSE, fig.width=12, fig.align='left'}
-
+```{r Land Cover, echo=FALSE, fig.width=12, fig.align='left', fig.keep='all', results='asis'}
 if (params$multiseries == "two_step"){
-  lc_t1 <- params$landcover[[1]]
-  lc_t2 <- params$landcover[[2]]
-
-  plot(lc_t1, main = paste0(params$t1), legend = TRUE)
-  plot(lc_t2, main = paste0(params$t2), legend = FALSE)
+  lc <- params$landcover
+  t <- list(params$t1, params$t2)
+  
+  render_child <- function(results_list, i){
+  res = knitr::knit_child(
+    text = c(
+      "### Land Cover/Use `r t[i]` {.tabset}",
+      "Categorical raster with each pixel value corresponds to a land cover class",
+      "```{r, fig.width=12}",
+      "#| echo=FALSE",
+      "plot(lc[[i]], colNA = NULL)",
+      "```"
+    ),
+  envir = rlang::env(results_list = results_list, i = i),
+  quiet = TRUE
+  )
+  cat(res, sep = '\n')
+  cat("\n")}
 } else {
   plot(params$landcover)
 }
 
+for (i in 1:nlyr(lc)) {
+  render_child(results_list = lc, i = i)
+}
 ```
 
 ## Planning Unit Map
@@ -180,19 +193,45 @@ plot(params$k)
 plot(params$ls)
 ```
 
-### C Factor: Cover Management
+### C Factor: Cover Management {.tabset}
 
-```{r C Factor, echo=FALSE, fig.width=12, fig.align='left'}
-
+```{r C Factor, echo=FALSE, fig.width=12, fig.align='left', fig.keep='all', results='asis'}
 if (params$multiseries == "two_step"){
-  c_t1 <- params$c[[1]]
-  c_t2 <- params$c[[2]]
-
-  plot(c_t1, main = paste0(params$t1), legend = TRUE)
-  plot(c_t2, main = paste0(params$t2), legend = FALSE)
+  c <- params$c
+  t <- list(params$t1, params$t2)
+  
+  render_child <- function(results_list, i){
+  res = knitr::knit_child(
+    text = c(
+      "#### C Factor `r t[i]` {.tabset}",
+      "C factor map generated based on land cover/use",
+      "```{r, fig.width=12}",
+      "#| echo=FALSE",
+      "plot(c[[i]], colNA = NULL)",
+      "```"
+    ),
+  envir = rlang::env(results_list = results_list, i = i),
+  quiet = TRUE
+  )
+  cat(res, sep = '\n')
+  cat("\n")}
 } else {
   plot(params$c)
 }
+
+for (i in 1:nlyr(c)) {
+  render_child(results_list = c, i = i)
+}
+
+# if (params$multiseries == "two_step"){
+#   c_t1 <- params$c[[1]]
+#   c_t2 <- params$c[[2]]
+# 
+#   plot(c_t1, main = paste0(params$t1), legend = TRUE)
+#   plot(c_t2, main = paste0(params$t2), legend = FALSE)
+# } else {
+#   plot(params$c)
+# }
 
 ```
 
@@ -205,44 +244,37 @@ plot(params$p)
 
 ## Estimation of Soil Erosion {.tabset}
 
-### Soil Erosion in Landscape Level
-```{r Soil Erosion Estimation Map, echo=FALSE, fig.width=12, fig.align='left'}
-
+### Soil Erosion at Landscape Level {.tabset}
+```{r Soil Erosion Estimation Map, echo=FALSE, fig.width=12, fig.align='left', fig.keep='all', results='asis'}
 if (params$multiseries == "two_step"){
-  e_t1 <- params$a[[1]]
-  e_t2 <- params$a[[2]]
+  a <- params$a
+  t <- list(params$t1, params$t2)
   
-  plot(e_t1, main = paste0(params$t1), legend = TRUE)
-  plot(e_t2, main = paste0(params$t2), legend = FALSE)
-  
+  render_child <- function(results_list, i){
+  res = knitr::knit_child(
+    text = c(
+      "#### Soil Erosion `r t[i]`",
+      "Soil Erosion generated from RUSLE calculation",
+      "```{r, fig.width=12}",
+      "#| echo=FALSE",
+      "plot(a[[i]], colNA = NULL)",
+      "```"
+    ),
+  envir = rlang::env(results_list = results_list, i = i),
+  quiet = TRUE
+  )
+  cat(res, sep = '\n')
+  cat("\n")}
 } else {
   plot(params$a)
+}
 
-
-  # ggplot(params$df, aes(x = `Soil Erosion Rates`)) +
-  #   geom_bar(aes(y = `Area (Ha)`), stat = "identity", fill = "blue", alpha = 0.6) +
-  #   geom_text(aes(y = `Area (Ha)`, label = scales::comma(`Area (Ha)`)),
-  #             vjust = -0.5, color = "black", size = 4) +
-  #   geom_line(aes(y = `Percentage (%)` * max(params$df$`Area (Ha)`) / max(params$df$`Percentage (%)`)),
-  #             group = 1, color = "red", size = 1.2) +
-  #   geom_point(aes(y = `Percentage (%)` * max(params$df$`Area (Ha)`) / max(params$df$`Percentage (%)`)),
-  #              color = "red", size = 3) +
-  #   scale_y_continuous(
-  #     name = "Area (Ha)",
-  #     labels = scales::comma,
-  #     sec.axis = sec_axis(~ . * max(params$df$`Percentage (%)`) / max(params$df$`Area (Ha)`),
-  #                         name = "Percentage (%)", labels = scales::comma)
-  #   ) +
-  #   labs(title = "Soil Erosion Rates: Area (Ha) and Percentage (%)",
-  #        x = "Soil Erosion Rates") +
-  #   theme_minimal() +
-  #   theme(
-  #     axis.title.y = element_text(color = "blue"),
-  #     axis.title.y.right = element_text(color = "red"),
-  #     axis.text.x = element_text(angle = 45, hjust = 1)
-  #   )
+for (i in 1:nlyr(a)) {
+  render_child(results_list = a, i = i)
 }
 ```
+
+#### Soil Erosion Rates Table
 
 ```{r Soil Erosion Estimation Table, echo=FALSE}
 
@@ -281,35 +313,7 @@ if (params$multiseries == "two_step") {
 
 ```
 
-```{r Soil Erosion Difference Map, echo=FALSE, fig.width=12, fig.align='left'}
-
-if (params$multiseries == "two_step"){
-  plot(params$e_diff)
-}
-
-```
-
-```{r Soil Erosion Difference Table, echo=FALSE}
-
-if (params$multiseries == "two_step") {
-  e_diff_table <- params$e_diff_table %>%
-  mutate(across(where(is.numeric), scales::comma))
-  
-  datatable(
-    e_diff_table,
-    colnames = c("Soil Erosion Changes", "Area (Ha)", "Percentage (%)"),
-    caption = htmltools::tags$caption(
-      style = 'caption-side: top; text-align: left; color:black;  font-size:150% ;', 'Soil Erosion Changes in ', paste0(params$t1), '-', paste0(params$t2))
-  ) %>%
-    formatRound(
-      columns = "Percentage (%)",
-      digits = 2
-    )
-}
-
-```
-
-### Soil Erosion in Planning Unit Level
+### Soil Erosion at Planning Unit Level
 
 ```{r Soil Erosion in PU Level, echo=FALSE}
 
@@ -343,6 +347,36 @@ if (params$multiseries == "two_step"){
 }
 ```
 
+### Soil Erosion Changes
+
+```{r Soil Erosion Difference Map, echo=FALSE, fig.width=12, fig.align='left'}
+
+if (params$multiseries == "two_step"){
+  plot(params$e_diff)
+}
+
+```
+
+```{r Soil Erosion Difference Table, echo=FALSE}
+
+if (params$multiseries == "two_step") {
+  e_diff_table <- params$e_diff_table %>%
+  mutate(across(where(is.numeric), scales::comma))
+  
+  datatable(
+    e_diff_table,
+    colnames = c("Soil Erosion Changes", "Area (Ha)", "Percentage (%)"),
+    caption = htmltools::tags$caption(
+      style = 'caption-side: top; text-align: left; color:black;  font-size:150% ;', 'Soil Erosion Changes at Landscape Level in ', paste0(params$t1), '-', paste0(params$t2))
+  ) %>%
+    formatRound(
+      columns = "Percentage (%)",
+      digits = 2
+    )
+}
+
+```
+
 ```{r Soil Erosion in PU Level 3, echo=FALSE}
 
 if (params$multiseries == "two_step"){
@@ -352,7 +386,7 @@ if (params$multiseries == "two_step"){
   datatable(
     e_pu_diff_table, 
     caption = htmltools::tags$caption(
-      style = 'caption-side: top; text-align: left; color:black;  font-size:150% ;', 'Soil Erosion Changes in ', paste0(params$t1), '-', paste0(params$t2)))
+      style = 'caption-side: top; text-align: left; color:black;  font-size:150% ;', 'Soil Erosion Changes at Planning Unit Level in ', paste0(params$t1), '-', paste0(params$t2)))
 }
 ```
 ------------------------------------------------------------------------

@@ -99,31 +99,31 @@ server <- function(input, output, session) {
   
   
   # Input validation
-  validate_inputs <- reactive({
-    validate(
-      need(rv$rainfall_file, "Please upload annual rainfall map file"),
-      need(rv$dem_file, "Please upload digital elevation map file"),
-      need(rv$sand_file, "Please upload sand map file"),
-      need(rv$silt_file, "Please upload silt map file"),
-      need(rv$clay_file, "Please upload clay map file"),
-      need(rv$orgc_file, "Please upload soil organic carbon map file"),
-      need(rv$pu_file, "Please upload planning unit map file"),
-      need(rv$c_ref_file, "Please upload C factor lookup table file"),
-      need(rv$map_resolution, "Please fill map resolution information"),
-      
-      if (input$practice == "yes"){
-        need(rv$practice_file, "Please upload P factor map file")
-      },
-      
-      if (input$multiseries == "two_step"){
-        need(rv$lc_t1_file, "Please upload initial land cover/use map file")
-        need(rv$t1, "Please fill initial year information of land cover/use")
-        need(rv$lc_t2_file, "Please upload final land cover/use map file")
-        need(rv$t2, "Please fill final year information of land cover/use")
-      }
-    )
-    return(TRUE)
-  })
+  # validate_inputs <- reactive({
+  #   validate(
+  #     need(rv$rainfall_file, "Please upload annual rainfall map file"),
+  #     need(rv$dem_file, "Please upload digital elevation map file"),
+  #     need(rv$sand_file, "Please upload sand map file"),
+  #     need(rv$silt_file, "Please upload silt map file"),
+  #     need(rv$clay_file, "Please upload clay map file"),
+  #     need(rv$orgc_file, "Please upload soil organic carbon map file"),
+  #     need(rv$pu_file, "Please upload planning unit map file"),
+  #     need(rv$c_ref_file, "Please upload C factor lookup table file"),
+  #     need(rv$map_resolution, "Please fill map resolution information"),
+  #     
+  #     if (input$practice == "yes"){
+  #       need(rv$practice_file, "Please upload P factor map file")
+  #     },
+  #     
+  #     if (input$multiseries == "two_step"){
+  #       need(rv$lc_t1_file, "Please upload initial land cover/use map file")
+  #       need(rv$t1, "Please fill initial year information of land cover/use")
+  #       need(rv$lc_t2_file, "Please upload final land cover/use map file")
+  #       need(rv$t2, "Please fill final year information of land cover/use")
+  #     }
+  #   )
+  #   return(TRUE)
+  # })
   
   # Set working directory
   wd <- getwd()
@@ -135,11 +135,108 @@ server <- function(input, output, session) {
   
   # Run analysis
   observeEvent(input$run_analysis, {
-    req(validate_inputs())
-    showNotification("Analysis is running. Please wait...", type = "message", duration = NULL, id = "running_notification")
+    # Check if any input is missing
+    missing_inputs <- c()
+    
+    if (is.null(input$output_dir) || is.null(rv$output_dir) || is.null(selected_output_dir())) {
+      missing_inputs <- c(missing_inputs, "Output Directory")
+    }
+    if (is.null(rv$rainfall_file)) {
+      missing_inputs <- c(missing_inputs, "Rainfall Map")
+    }
+    if (is.null(rv$dem_file)) {
+      missing_inputs <- c(missing_inputs, "DEM Map")
+    }
+    if (is.null(rv$sand_file)) {
+      missing_inputs <- c(missing_inputs, "Sand Map")
+    }
+    if (is.null(rv$silt_file)) {
+      missing_inputs <- c(missing_inputs, "Silt Map")
+    }
+    if (is.null(rv$clay_file)) {
+      missing_inputs <- c(missing_inputs, "Clay Map")
+    }
+    if (is.null(rv$orgc_file)) {
+      missing_inputs <- c(missing_inputs, "Soil Organic Content Map")
+    }
+    if (is.null(rv$pu_file)) {
+      missing_inputs <- c(missing_inputs, "Planning Unit Map")
+    }
+    if (is.null(rv$c_ref_file)) {
+      missing_inputs <- c(missing_inputs, "C Factor Table")
+    }
+    if (is.null(rv$map_resolution)) {
+      missing_inputs <- c(missing_inputs, "Map Resolution")
+    }
+    if (input$practice == "yes"){
+      if (is.null(rv$practice_file)) {
+        missing_inputs <- c(missing_inputs, "P Factor Map")
+      }
+    }
+    if (is.null(rv$orgc_file)) {
+      missing_inputs <- c(missing_inputs, "SOil Organic Content Map")
+    }
+    if (input$multiseries == "two_step"){
+      if (is.null(rv$lc_t1_file)) {
+        missing_inputs <- c(missing_inputs, "Initial Land Cover/Use Map")
+      }
+      if (is.null(rv$t1)) {
+        missing_inputs <- c(missing_inputs, "Initial Year")
+      }
+      if (is.null(rv$lc_t2_file)) {
+        missing_inputs <- c(missing_inputs, "Final Land Cover/Use Map")
+      }
+      if (is.null(rv$t2)) {
+        missing_inputs <- c(missing_inputs, "Final Year")
+      }
+
+    } else {
+      if (is.null(rv$lc_t1_file)) {
+        missing_inputs <- c(missing_inputs, "Land Cover/Use Map")
+      }
+      if (is.null(rv$t1)) {
+        missing_inputs <- c(missing_inputs, "Year")
+      }
+    }
+    
+    # If there are missing inputs, show a notification and stop
+    if (length(missing_inputs) > 0) {
+      showNotification(
+        paste("Please upload the following inputs:", paste(missing_inputs, collapse = ", ")),
+        type = "error"
+      )
+      return(NULL)
+    }
+    
     withProgress(message = 'Running QuES-H Analysis', value = 0,{
       tryCatch({
         start_time <- Sys.time()
+        showNotification("Analysis is running. Please wait...", type = "message", duration = NULL, id = "running_notification")
+        
+        req(rv$output_dir)
+        req(rv$rainfall_file)
+        req(rv$dem_file)
+        req(rv$sand_file)
+        req(rv$silt_file)
+        req(rv$clay_file)
+        req(rv$orgc_file)
+        req(rv$pu_file)
+        req(rv$c_ref_file)
+        req(rv$map_resolution)
+
+        if (input$practice == "yes"){
+          req(rv$practice_file)
+        }
+        if (input$multiseries == "two_step"){
+          req(rv$lc_t1_file)
+          req(rv$t1)
+          req(rv$lc_t2_file)
+          req(rv$t2)
+          req(rv$lc_t1_file)
+          req(rv$t1)
+        }
+        
+        shinyjs::disable("run_analysis")
         incProgress(0.2, detail = "Preparing data inputs")
         
         # Prepare the planning unit
@@ -429,7 +526,7 @@ server <- function(input, output, session) {
         if (!rmarkdown::pandoc_available()) {
           Sys.setenv(RSTUDIO_PANDOC = paste0(getwd(), "/pandoc"))
         }
-
+        browser()
         rmarkdown::render(
           input = "06_quesh/report_template/quesh_report.Rmd",
           output_file = "QUES-H_report.html",
@@ -449,13 +546,15 @@ server <- function(input, output, session) {
         output$error_messages <- renderText(NULL)
         shinyjs::show("open_output_folder")
         shinyjs::show("open_report")
-        removeNotification("running_notification")
+        removeNotification(id = "running_notification")
+        shinyjs::enable("run_analysis")
         showNotification("Analysis completed successfully!", type = "message")
       }, error = function(e) {
         output$status_messages <- renderText(paste("Error in analysis:", e$message))
         output$error_messages <- renderText(paste("Error in analysis:", e$message))
         output$success_message <- renderText(NULL)
-        removeNotification("running_notification")
+        removeNotification(id = "running_notification")
+        shinyjs::enable("run_analysis")
         showNotification("Error in analysis. Please check the error messages.", type = "error")
       })
     })
