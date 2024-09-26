@@ -647,19 +647,6 @@ server <- function(input, output, session) {
       reset("quescdb")
       return()
     }
-  })
-  
-  iv <- InputValidator$new()
-  iv$add_rule("quescdb", sv_required(message = "Please upload QUES-C database"))
-  iv$add_rule("output_dir", sv_required(message = "Please select an output directory"))
-  observeEvent(input$process_build_scenario, {
-    if(!iv$is_valid()) {
-      iv$enable()
-      showNotification(
-        "Please correct the errors in the form and try again",
-        id = "submit_message", type = "error")
-      return()
-    }
     
     df_lucdb <- v$quescdb
     
@@ -692,7 +679,23 @@ server <- function(input, output, session) {
     v$n_iteration <- p$project$n_iteration
     v$map1_date <- as.Date(paste0(p$project$baseyear0, "-07-01"))
     v$map2_date <- as.Date(paste0(p$project$baseyear1, "-07-01"))
-    updateNavlistPanel(session, "main_page", selected = "Projection")
+    # updateNavlistPanel(session, "main_page", selected = "Projection")
+  })
+  
+  ### RUN ANALYSIS ######### 
+  iv <- InputValidator$new()
+  iv$add_rule("quescdb", sv_required(message = "Please upload QUES-C database"))
+  iv$add_rule("output_dir", sv_required(message = "Please select an output directory"))
+  observeEvent(input$process_build_scenario, {
+    if(!iv$is_valid()) {
+      iv$enable()
+      showNotification(
+        "Please correct the errors in the form and try again",
+        id = "submit_message", type = "error")
+      return()
+    }
+    
+    
   })
   
 
