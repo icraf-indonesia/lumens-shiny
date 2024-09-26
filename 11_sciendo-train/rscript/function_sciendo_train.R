@@ -254,3 +254,46 @@ run_train_analysis <- function(lc_t1_path, lc_t2_path, admin_z_path,
   
   return(out)
 }
+
+executeDINAMICA <- function(params) {
+  # Find DINAMICA directory if not provided
+  if (is.null(params$dinamica_path)) {
+    program_files <- c("C:/Program Files/", "C:/Program Files (x86)/")
+    dinamica_dirs <- list.files(program_files, pattern = "^Dinamica EGO", full.names = TRUE)
+    
+    if (length(dinamica_dirs) == 0) {
+      stop("No DINAMICA EGO installation found.")
+    }
+    
+    # Sort directories to use the latest version if multiple are found
+    dinamica_path <- sort(dinamica_dirs, decreasing = TRUE)[1]
+  }
+  
+  message(paste("Using DINAMICA EGO installation:", dinamica_path))
+  
+  # Check if DINAMICA directory exists
+  if (!dir.exists(dinamica_path)) {
+    stop("Specified DINAMICA EGO directory does not exist.")
+  }
+  
+  # Set working directory to DINAMICA directory
+  old_wd <- setwd(dinamica_path)
+  on.exit(setwd(old_wd), add = TRUE)
+  
+  # Prepare DINAMICA command
+  sysout <- file.path(params$output_dir, "fragout")
+  command <- sprintf('frg_cmd -m "%s" -o "%s"', params$fca, sysout)
+  
+  # Execute DINAMICA
+  result <- system(command)
+  
+  if(result != 0) {
+    stop("DINAMICA EGO execution failed. Check DINAMICA EGO installation and parameters.")
+  } else {
+    message("DINAMICA EGO execution completed successfully.")
+  }
+}
+
+generate_egoml_raster_cube <- function() {
+  
+}

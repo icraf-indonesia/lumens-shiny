@@ -1,14 +1,8 @@
 source('function_sciendo_train.R')
 
 install_load(
-  "shinyFiles",
-  "dplyr",
-  "shinyvalidate",
-  "remotes",
-  "shinyjs",
-  "rmarkdown",
-  "bslib",
-  "XML"
+  "shinyFiles", "shinyvalidate", "shinyjs", "bslib",
+  "dplyr", "remotes", "rmarkdown", "XML"
 )
 
 
@@ -25,6 +19,7 @@ ui <- fluidPage(
       textInput("map1_year", "Year of T1"),
       fileInput("map2_file", "Land cover map at T2", accept = c("image/tiff")),
       textInput("map2_year", "Year of T2"),
+      fileInput("lc_file", "Land Use/Cover Lookup Table (CSV)", accept = c(".csv")),
       fileInput("mapz_file", 
                 "Planning Unit", 
                 accept = c(".shp", ".dbf", ".sbn", ".sbx", ".shx", ".prj"), 
@@ -32,6 +27,7 @@ ui <- fluidPage(
                 placeholder = "All related shapefiles (.shp, .dbf, .prj, .shx)"),
       div(style = "display: flex; flex-direction: column; gap: 10px;",
           shinyDirButton("factors_path", "Factor(s) Folder Path", "Choose a folder contains factor files"),
+          shinyDirButton("dinamica_path", "DINAMICA EGO Path (Optional)", "(Optional)"),
           shinyDirButton("wd", "Select output directory", "Please select a directory"),
           actionButton("processTrain", "Run Analysis", 
                        style = "font-size: 18px; padding: 10px 15px; background-color: #4CAF50; color: white;"),
@@ -59,6 +55,8 @@ server <- function(input, output, session) {
   #### Initialize all required reactive values ####
   rv <- reactiveValues(
     wd = NULL,
+    factors_path = NULL,
+    dinamica_path = NULL,
     report_file = NULL,
     map1_year = NULL,
     map2_year = NULL,
@@ -68,9 +66,8 @@ server <- function(input, output, session) {
     map1_rast = NULL,
     map2_rast = NULL,
     mapz_rast = NULL,
-    mapc_spat = NULL,
-    maps_spat = NULL,
     mapz_df = NULL,
+    tbl_lc = NULL,
     tbl_quesc = NULL,
     period_year = NULL
   )
@@ -150,6 +147,50 @@ server <- function(input, output, session) {
     }
   })
   
+  #### Set factors directory ####
+  shinyDirChoose(
+    input, 
+    'factors_path',
+    roots = volumes,
+    session = session
+  )
+  
+  observe({
+    if (!is.null(input$factors_path)) {
+      rv$factors_path <- parseDirPath(volumes, input$factors_path)
+    }
+  })
+  
+  output$selected_directory <- renderText({
+    if(!is.null(rv$factors_path)) {
+      paste0("Selected factors directory: ",  rv$factors_path)
+    } else {
+      "No factors directory selected"
+    }
+  })
+  
+  #### Set DINAMICA Path ####
+  shinyDirChoose(
+    input, 
+    'dinamica_path',
+    roots = volumes,
+    session = session
+  )
+  
+  observe({
+    if (!is.null(input$dinamica_path)) {
+      rv$dinamica_path <- parseDirPath(volumes, input$dinamica_path)
+    }
+  })
+  
+  output$selected_directory <- renderText({
+    if(!is.null(rv$dinamica_path)) {
+      paste0("Selected DINAMICA path: ",  rv$dinamica_path)
+    } else {
+      "No DINAMICA EGO path selected (Optional)"
+    }
+  })
+  
   # Input validation
   iv <- InputValidator$new()
   iv$add_rule("map1_file", sv_required(message = "Please upload land cover map at T1"))
@@ -157,10 +198,11 @@ server <- function(input, output, session) {
   iv$add_rule("mapz_file", sv_required(message = "Please upload planning unit"))
   iv$add_rule("map1_year", sv_required(message = "Please define the year of T1"))
   iv$add_rule("map2_year", sv_required(message = "Please define the year of T2"))
+  iv$add_rule("factors_path", sv_required(message = "Please select a directory of factors"))
   iv$add_rule("wd", sv_required(message = "Please select an output directory"))
   
   #### Do the calculation and store it to the markdown content ####
-  observeEvent(input$processQUESC, {
+  observeEvent(input$processTrain, {
     if(!iv$is_valid()) {
       iv$enable()
       showNotification(
@@ -170,6 +212,105 @@ server <- function(input, output, session) {
     }
     
     showNotification("Analysis is running. Please wait...", type = "message", duration = NULL, id = "running_notification")
+    
+    # preparing factors
+    listFactors <- rv$factors_path %>% list.files(full.names=TRUE, pattern=".tif$") %>%
+      data.frame(file=., select=1)
+    
+    factors <- as.character(listFactors$file)
+    nFactors <- length(factors)
+    
+    aliasFactor<-NULL
+    for (a in 1:nFactors) {
+      temp <- substr(basename(factors[a]), 1, nchar(basename(factors[a])) - 4)
+      aliasFactor <- c(aliasFactor, temp)
+    }
+    
+    dinamica_path <- rv$dinamica_path
+    if (is.null(dinamica_path)) {
+      program_files <- c("C:/Program Files/", "C:/Program Files (x86)/")
+      dinamica_dirs <- list.files(program_files, pattern = "^Dinamica EGO", full.names = TRUE)
+      
+      if (length(dinamica_dirs) == 0) {
+        stop("No DINAMICA EGO installation found.")
+      }
+      
+      # Sort directories to use the latest version if multiple are found
+      dinamica_path <- sort(dinamica_dirs, decreasing = TRUE)[1]
+    } 
+    dinamica_exe <- dinamica_path %>% 
+      list.files(pattern = "^DinamicaConsole", full.names = TRUE) %>%
+      nth(2)
+    
+    # create raster cube egoml
+    # begin writing tag
+    con <- xmlOutputDOM(tag="script")
+    # add property
+    con$addTag("property", attrs=c(key="dff.date", value="2016-Oct-17 12:02:15"))
+    con$addTag("property", attrs=c(key="dff.version", value="3.0.17.20160922"))
+    
+    # begin.
+    # add functor = SaveMap
+    con$addTag("functor", attrs=c(name="SaveMap"), close=FALSE)
+    con$addTag("property", attrs=c(key="dff.functor.alias", value="saveMap1680"))
+    con$addTag("inputport", attrs=c(name="map", peerid=paste("v", nFactors+1,sep="")))
+    con$addTag("inputport", attrs=c(name="filename"), paste('"', rv$wd, '/sciendo_factor.ers"', sep=''))
+    con$addTag("inputport", attrs=c(name="suffixDigits"), 2)
+    con$addTag("inputport", attrs=c(name="step"), ".none")
+    con$addTag("inputport", attrs=c(name="useCompression"), ".yes")
+    con$addTag("inputport", attrs=c(name="workdir"), ".none")
+    con$closeTag("functor")
+    # end.
+    
+    # begin.
+    # add functor = LoadMap
+    for (b in 1:nFactors){
+      con$addTag("functor", attrs=c(name="LoadMap"), close=FALSE)
+      con$addTag("property", attrs=c(key="dff.functor.alias", value=aliasFactor[b]))
+      con$addTag("inputport", attrs=c(name="filename"), paste('"', factors[b], '"', sep=""))
+      con$addTag("inputport", attrs=c(name="nullValue"), ".none")
+      con$addTag("inputport", attrs=c(name="loadAsSparse"), ".no")
+      con$addTag("inputport", attrs=c(name="suffixDigits"), 0)
+      con$addTag("inputport", attrs=c(name="step"), ".none")
+      con$addTag("inputport", attrs=c(name="workdir"), ".none")
+      con$addTag("outputport", attrs=c(name="map", id=paste("v",b,sep="")))
+      con$closeTag("functor") 
+    }
+    # end.
+    
+    # begin.
+    # add containerfunctor = CreateCubeMap
+    con$addTag("containerfunctor", attrs=c(name="CreateCubeMap"), close=FALSE)
+    con$addTag("property", attrs=c(key="dff.functor.alias", value="createCubeMap1678"))
+    con$addTag("inputport", attrs=c(name="cellType"), ".float32")
+    con$addTag("inputport", attrs=c(name="nullValue"), "-9999")
+    con$addTag("outputport", attrs=c(name="map", id=paste("v", nFactors+1, sep="")))
+    # add subtag functor for CreateCubeMap
+    for (c in 1:nFactors) {
+      con$addTag("functor", attrs=c(name="NumberAndNameMap"), close=FALSE)
+      con$addTag("property", attrs=c(key="dff.functor.alias", value=aliasFactor[c]))
+      con$addTag("inputport", attrs=c(name="map", peerid=paste("v", c, sep="")))
+      con$addTag("inputport", attrs=c(name="mapName"), paste('"', aliasFactor[c], '"', sep=""))
+      con$addTag("inputport", attrs=c(name="mapNumber"), 0)
+      con$closeTag("functor")
+    }
+    con$closeTag("containerfunctor")
+    # end.
+    
+    saveXML(con$value(), file=paste(rv$wd, "/01_sciendo_train_raster_cube.egoml", sep=''))
+    
+    # Prepare DINAMICA Console command
+    command <- paste('"', dinamica_exe, '" -processors 0 -log-level 4 "', rv$wd, '/01_sciendo_train_raster_cube.egoml"', sep="")
+  
+    # Execute DINAMICA
+    result <- system(command)
+    
+    if(result != 0) {
+      stop("DINAMICA EGO execution failed. Check installation and parameters.")
+    } else {
+      message("DINAMICA EGO training process completed successfully.")
+    }
+    
     
     
   })
