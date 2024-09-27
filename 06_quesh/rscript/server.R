@@ -526,7 +526,7 @@ server <- function(input, output, session) {
         if (!rmarkdown::pandoc_available()) {
           Sys.setenv(RSTUDIO_PANDOC = paste0(getwd(), "/pandoc"))
         }
-        browser()
+
         rmarkdown::render(
           input = "06_quesh/report_template/quesh_report.Rmd",
           output_file = "QUES-H_report.html",
