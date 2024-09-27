@@ -110,11 +110,11 @@ server <- function(input, output, session) {
   #     need(rv$pu_file, "Please upload planning unit map file"),
   #     need(rv$c_ref_file, "Please upload C factor lookup table file"),
   #     need(rv$map_resolution, "Please fill map resolution information"),
-  #     
+  # 
   #     if (input$practice == "yes"){
   #       need(rv$practice_file, "Please upload P factor map file")
   #     },
-  #     
+  # 
   #     if (input$multiseries == "two_step"){
   #       need(rv$lc_t1_file, "Please upload initial land cover/use map file")
   #       need(rv$t1, "Please fill initial year information of land cover/use")
@@ -172,9 +172,6 @@ server <- function(input, output, session) {
       if (is.null(rv$practice_file)) {
         missing_inputs <- c(missing_inputs, "P Factor Map")
       }
-    }
-    if (is.null(rv$orgc_file)) {
-      missing_inputs <- c(missing_inputs, "SOil Organic Content Map")
     }
     if (input$multiseries == "two_step"){
       if (is.null(rv$lc_t1_file)) {
