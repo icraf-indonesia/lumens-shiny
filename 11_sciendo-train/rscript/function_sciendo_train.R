@@ -276,13 +276,19 @@ executeDINAMICA <- function(params) {
     stop("Specified DINAMICA EGO directory does not exist.")
   }
   
-  # Set working directory to DINAMICA directory
-  old_wd <- setwd(dinamica_path)
-  on.exit(setwd(old_wd), add = TRUE)
+  # Find DinamicaConsole
+  dinamica_exe <- dinamica_path %>% 
+    list.files(pattern = "^DinamicaConsole", full.names = TRUE) %>%
+    nth(2)
+  
+  egoml <- paste0(params$output_dir, '/', params$egoml)
+  # Check if egoml exists
+  if (!file.exists(egoml)) {
+    stop("Specified egoml does not exist.")
+  }
   
   # Prepare DINAMICA command
-  sysout <- file.path(params$output_dir, "fragout")
-  command <- sprintf('frg_cmd -m "%s" -o "%s"', params$fca, sysout)
+  command<-paste('"', dinamica_exe, '" -processors 0 -log-level 4 "', egoml, '"', sep="")
   
   # Execute DINAMICA
   result <- system(command)
@@ -294,6 +300,99 @@ executeDINAMICA <- function(params) {
   }
 }
 
-generate_egoml_raster_cube <- function() {
+generate_egoml_raster_cube <- function(factor_path, output_dir, egoml) {
+  # preparing factors
+  listFactors <- factors_path %>% list.files(full.names=TRUE, pattern=".tif$") %>%
+    data.frame(file=., select=1)
   
+  factors <- as.character(listFactors$file)
+  nFactors <- length(factors)
+  
+  aliasFactor<-NULL
+  for (a in 1:nFactors) {
+    temp <- substr(basename(factors[a]), 1, nchar(basename(factors[a])) - 4)
+    aliasFactor <- c(aliasFactor, temp)
+  }
+  
+  # create raster cube egoml
+  # begin writing tag
+  con <- xmlOutputDOM(tag="script")
+  # add property
+  con$addTag("property", attrs=c(key="dff.date", value="2016-Oct-17 12:02:15"))
+  con$addTag("property", attrs=c(key="dff.version", value="3.0.17.20160922"))
+  
+  # begin.
+  # add functor = SaveMap
+  con$addTag("functor", attrs=c(name="SaveMap"), close=FALSE)
+  con$addTag("property", attrs=c(key="dff.functor.alias", value="saveMap1680"))
+  con$addTag("inputport", attrs=c(name="map", peerid=paste("v", nFactors+1,sep="")))
+  con$addTag("inputport", attrs=c(name="filename"), paste('"', output_dir, '/sciendo_factor.ers"', sep=''))
+  con$addTag("inputport", attrs=c(name="suffixDigits"), 2)
+  con$addTag("inputport", attrs=c(name="step"), ".none")
+  con$addTag("inputport", attrs=c(name="useCompression"), ".yes")
+  con$addTag("inputport", attrs=c(name="workdir"), ".none")
+  con$closeTag("functor")
+  # end.
+  
+  # begin.
+  # add functor = LoadMap
+  for (b in 1:nFactors){
+    con$addTag("functor", attrs=c(name="LoadMap"), close=FALSE)
+    con$addTag("property", attrs=c(key="dff.functor.alias", value=aliasFactor[b]))
+    con$addTag("inputport", attrs=c(name="filename"), paste('"', factors[b], '"', sep=""))
+    con$addTag("inputport", attrs=c(name="nullValue"), ".none")
+    con$addTag("inputport", attrs=c(name="loadAsSparse"), ".no")
+    con$addTag("inputport", attrs=c(name="suffixDigits"), 0)
+    con$addTag("inputport", attrs=c(name="step"), ".none")
+    con$addTag("inputport", attrs=c(name="workdir"), ".none")
+    con$addTag("outputport", attrs=c(name="map", id=paste("v",b,sep="")))
+    con$closeTag("functor") 
+  }
+  # end.
+  
+  # begin.
+  # add containerfunctor = CreateCubeMap
+  con$addTag("containerfunctor", attrs=c(name="CreateCubeMap"), close=FALSE)
+  con$addTag("property", attrs=c(key="dff.functor.alias", value="createCubeMap1678"))
+  con$addTag("inputport", attrs=c(name="cellType"), ".float32")
+  con$addTag("inputport", attrs=c(name="nullValue"), "-9999")
+  con$addTag("outputport", attrs=c(name="map", id=paste("v", nFactors+1, sep="")))
+  # add subtag functor for CreateCubeMap
+  for (c in 1:nFactors) {
+    con$addTag("functor", attrs=c(name="NumberAndNameMap"), close=FALSE)
+    con$addTag("property", attrs=c(key="dff.functor.alias", value=aliasFactor[c]))
+    con$addTag("inputport", attrs=c(name="map", peerid=paste("v", c, sep="")))
+    con$addTag("inputport", attrs=c(name="mapName"), paste('"', aliasFactor[c], '"', sep=""))
+    con$addTag("inputport", attrs=c(name="mapNumber"), 0)
+    con$closeTag("functor")
+  }
+  con$closeTag("containerfunctor")
+  # end.
+  
+  saveXML(con$value(), file=paste(output_dir, "/", egoml, sep=''))
+}
+
+generate_egoml_woe <- function() {
+  
+}
+
+generate_egoml_sim <- function() {
+  
+}
+
+run_raster_cube_generation <- function(dinamica_path, factor_path, output_dir, progress_callback = NULL) {
+  if (!is.null(progress_callback)) progress_callback(0.2, "load maps")
+  
+  generate_egoml_raster_cube(factor_path, output_dir, egoml)
+  
+  params <- list(
+    dinamica_path = dinamica_path,
+    output_dir = output_dir,
+    egoml = egoml
+  )
+  executeDINAMICA(params)
+}
+
+run_woe_model <- function(){
+  generate_egoml_woe()
 }

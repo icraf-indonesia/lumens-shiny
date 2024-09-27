@@ -198,6 +198,7 @@ server <- function(input, output, session) {
   iv$add_rule("mapz_file", sv_required(message = "Please upload planning unit"))
   iv$add_rule("map1_year", sv_required(message = "Please define the year of T1"))
   iv$add_rule("map2_year", sv_required(message = "Please define the year of T2"))
+  iv$add_rule("lc_file", sv_required(message = "Please upload land cover lookup table"))
   iv$add_rule("factors_path", sv_required(message = "Please select a directory of factors"))
   iv$add_rule("wd", sv_required(message = "Please select an output directory"))
   
@@ -213,105 +214,17 @@ server <- function(input, output, session) {
     
     showNotification("Analysis is running. Please wait...", type = "message", duration = NULL, id = "running_notification")
     
-    # preparing factors
-    listFactors <- rv$factors_path %>% list.files(full.names=TRUE, pattern=".tif$") %>%
-      data.frame(file=., select=1)
-    
-    factors <- as.character(listFactors$file)
-    nFactors <- length(factors)
-    
-    aliasFactor<-NULL
-    for (a in 1:nFactors) {
-      temp <- substr(basename(factors[a]), 1, nchar(basename(factors[a])) - 4)
-      aliasFactor <- c(aliasFactor, temp)
-    }
-    
-    dinamica_path <- rv$dinamica_path
-    if (is.null(dinamica_path)) {
-      program_files <- c("C:/Program Files/", "C:/Program Files (x86)/")
-      dinamica_dirs <- list.files(program_files, pattern = "^Dinamica EGO", full.names = TRUE)
-      
-      if (length(dinamica_dirs) == 0) {
-        stop("No DINAMICA EGO installation found.")
-      }
-      
-      # Sort directories to use the latest version if multiple are found
-      dinamica_path <- sort(dinamica_dirs, decreasing = TRUE)[1]
-    } 
-    dinamica_exe <- dinamica_path %>% 
-      list.files(pattern = "^DinamicaConsole", full.names = TRUE) %>%
-      nth(2)
-    
-    # create raster cube egoml
-    # begin writing tag
-    con <- xmlOutputDOM(tag="script")
-    # add property
-    con$addTag("property", attrs=c(key="dff.date", value="2016-Oct-17 12:02:15"))
-    con$addTag("property", attrs=c(key="dff.version", value="3.0.17.20160922"))
-    
-    # begin.
-    # add functor = SaveMap
-    con$addTag("functor", attrs=c(name="SaveMap"), close=FALSE)
-    con$addTag("property", attrs=c(key="dff.functor.alias", value="saveMap1680"))
-    con$addTag("inputport", attrs=c(name="map", peerid=paste("v", nFactors+1,sep="")))
-    con$addTag("inputport", attrs=c(name="filename"), paste('"', rv$wd, '/sciendo_factor.ers"', sep=''))
-    con$addTag("inputport", attrs=c(name="suffixDigits"), 2)
-    con$addTag("inputport", attrs=c(name="step"), ".none")
-    con$addTag("inputport", attrs=c(name="useCompression"), ".yes")
-    con$addTag("inputport", attrs=c(name="workdir"), ".none")
-    con$closeTag("functor")
-    # end.
-    
-    # begin.
-    # add functor = LoadMap
-    for (b in 1:nFactors){
-      con$addTag("functor", attrs=c(name="LoadMap"), close=FALSE)
-      con$addTag("property", attrs=c(key="dff.functor.alias", value=aliasFactor[b]))
-      con$addTag("inputport", attrs=c(name="filename"), paste('"', factors[b], '"', sep=""))
-      con$addTag("inputport", attrs=c(name="nullValue"), ".none")
-      con$addTag("inputport", attrs=c(name="loadAsSparse"), ".no")
-      con$addTag("inputport", attrs=c(name="suffixDigits"), 0)
-      con$addTag("inputport", attrs=c(name="step"), ".none")
-      con$addTag("inputport", attrs=c(name="workdir"), ".none")
-      con$addTag("outputport", attrs=c(name="map", id=paste("v",b,sep="")))
-      con$closeTag("functor") 
-    }
-    # end.
-    
-    # begin.
-    # add containerfunctor = CreateCubeMap
-    con$addTag("containerfunctor", attrs=c(name="CreateCubeMap"), close=FALSE)
-    con$addTag("property", attrs=c(key="dff.functor.alias", value="createCubeMap1678"))
-    con$addTag("inputport", attrs=c(name="cellType"), ".float32")
-    con$addTag("inputport", attrs=c(name="nullValue"), "-9999")
-    con$addTag("outputport", attrs=c(name="map", id=paste("v", nFactors+1, sep="")))
-    # add subtag functor for CreateCubeMap
-    for (c in 1:nFactors) {
-      con$addTag("functor", attrs=c(name="NumberAndNameMap"), close=FALSE)
-      con$addTag("property", attrs=c(key="dff.functor.alias", value=aliasFactor[c]))
-      con$addTag("inputport", attrs=c(name="map", peerid=paste("v", c, sep="")))
-      con$addTag("inputport", attrs=c(name="mapName"), paste('"', aliasFactor[c], '"', sep=""))
-      con$addTag("inputport", attrs=c(name="mapNumber"), 0)
-      con$closeTag("functor")
-    }
-    con$closeTag("containerfunctor")
-    # end.
-    
-    saveXML(con$value(), file=paste(rv$wd, "/01_sciendo_train_raster_cube.egoml", sep=''))
-    
-    # Prepare DINAMICA Console command
-    command <- paste('"', dinamica_exe, '" -processors 0 -log-level 4 "', rv$wd, '/01_sciendo_train_raster_cube.egoml"', sep="")
-  
-    # Execute DINAMICA
-    result <- system(command)
-    
-    if(result != 0) {
-      stop("DINAMICA EGO execution failed. Check installation and parameters.")
-    } else {
-      message("DINAMICA EGO training process completed successfully.")
-    }
-    
-    
+    withProgress(message = "Running SCIENDO Train", value = 0, {
+      tryCatch({
+        run_raster_cube_generation(
+          progress_callback = function(value, detail) {
+            setProgress(value = value, message = detail)
+          }
+        )
+      }, error = function(e) {
+        
+      })
+    })
     
   })
   
