@@ -1,10 +1,15 @@
 source('function_sciendo_train.R')
 
 install_load(
-  "shinyFiles", "shinyvalidate", "shinyjs", "bslib",
-  "dplyr", "remotes", "rmarkdown", "XML"
+  "shinyFiles", "shinyvalidate", "shinyjs", "bslib", "sf", "raster",
+  "dplyr", "remotes", "rmarkdown", "XML", "splitstackshape"
 )
 
+if (!("LUMENSR" %in% rownames(installed.packages()))) {
+  install_github("icraf-indonesia/LUMENSR", force = T)
+  do.call("library", list("LUMENSR"))
+}
+library(LUMENSR)
 
 jscode <- "shinyjs.closeWindow = function() { window.close(); }"
 
@@ -41,7 +46,9 @@ ui <- fluidPage(
       tabsetPanel(
         tabPanel("User Guide", includeMarkdown("../helpfile/sciendo_train_help.md")),
         tabPanel("Log",
-                 textOutput("selected_directory"),         
+                 textOutput("selected_directory"),
+                 textOutput("dinamica_path"),
+                 textOutput("factor_directory"),
                  verbatimTextOutput("status_messages"),
                  verbatimTextOutput("error_messages"),
                  verbatimTextOutput("success_message")
@@ -63,12 +70,9 @@ server <- function(input, output, session) {
     map1_file = NULL,
     map2_file = NULL,
     mapz_file = NULL,
-    map1_rast = NULL,
-    map2_rast = NULL,
-    mapz_rast = NULL,
     mapz_df = NULL,
-    tbl_lc = NULL,
-    tbl_quesc = NULL,
+    lc_path = NULL,
+    lc_df = NULL,
     period_year = NULL
   )
   
@@ -79,6 +83,10 @@ server <- function(input, output, session) {
     getVolumes()()
   )
   
+  is_numeric_str <- function(s) {
+    return(!is.na(as.integer(as.character(s))))
+  }
+  
   #### Read file inputs ####
   lapply(lc_list, function(id) {
     inputs <- paste0(id, "_file")
@@ -87,8 +95,8 @@ server <- function(input, output, session) {
     df <- paste0(id, "_df")
     
     observeEvent(input[[inputs]], {
-      rv[[files]] <- input[[inputs]]
-      rv[[rasters]] <- rv[[files]]$datapath %>% raster() 
+      rv[[files]] <- rename_uploaded_file(input[[inputs]])
+      # rv[[rasters]] <- rv[[files]] %>% raster() 
     })
   })
   
@@ -123,6 +131,24 @@ server <- function(input, output, session) {
     observeEvent(input[[id]], {
       rv[[id]] <- input[[id]]
     })
+  })
+  
+  #### Read lc lookup table ####
+  observeEvent(input$lc_file, {
+    f <- input$lc_file
+    rv$lc_path <- f$datapath
+    df_c <- read.csv(rv$lc_path)
+    
+    if(nrow(df_c) == 0)
+      return()
+    if(nrow(df_c) < 2)
+      return()
+    if(!is_numeric_str(df_c[1, 1]))
+      return()
+    
+    df <- data.frame("ID_LC" = as.integer((as.character(df_c[, 1]))))
+    df$LC <- df_c[, 2]
+    rv$lc_df <- df
   })
   
   #### Set working directory ####
@@ -161,7 +187,7 @@ server <- function(input, output, session) {
     }
   })
   
-  output$selected_directory <- renderText({
+  output$factor_directory <- renderText({
     if(!is.null(rv$factors_path)) {
       paste0("Selected factors directory: ",  rv$factors_path)
     } else {
@@ -180,16 +206,28 @@ server <- function(input, output, session) {
   observe({
     if (!is.null(input$dinamica_path)) {
       rv$dinamica_path <- parseDirPath(volumes, input$dinamica_path)
+    } else {
+      rv$dinamica_path <- NULL
     }
   })
   
-  output$selected_directory <- renderText({
+  output$dinamica_path <- renderText({
     if(!is.null(rv$dinamica_path)) {
       paste0("Selected DINAMICA path: ",  rv$dinamica_path)
     } else {
       "No DINAMICA EGO path selected (Optional)"
     }
   })
+  
+  # Function to rename uploaded file
+  rename_uploaded_file <- function(input_file) {
+    if (is.null(input_file)) return(NULL)
+    
+    old_path <- input_file$datapath
+    new_path <- file.path(dirname(old_path), input_file$name)
+    file.rename(old_path, new_path)
+    return(new_path)
+  }
   
   # Input validation
   iv <- InputValidator$new()
@@ -214,15 +252,38 @@ server <- function(input, output, session) {
     
     showNotification("Analysis is running. Please wait...", type = "message", duration = NULL, id = "running_notification")
     
+    zone_path <- paste0(rv$wd, "/zone.tif")
+    writeRaster(rv$mapz_rast, zone_path, datatype = "INT1U", overwrite = T)
+    
     withProgress(message = "Running SCIENDO Train", value = 0, {
       tryCatch({
-        run_raster_cube_generation(
+        result <- run_sciendo_train_process(
+          lc_t1_path = rv$map1_file,
+          lc_t2_path = rv$map2_file,
+          zone_path = zone_path,
+          lc_lookup_table_path = rv$lc_file,
+          lc_lookup_table = rv$lc_df,
+          factor_path = rv$factors_path,
+          time_points = list(t1 = rv$map1_year, t2 = rv$map2_year),
+          dinamica_path = rv$dinamica_path,
+          output_dir = rv$wd,
           progress_callback = function(value, detail) {
             setProgress(value = value, message = detail)
           }
         )
-      }, error = function(e) {
         
+        output$status_messages <- renderText("STATUS: Analysis completed successfully!")
+        output$success_message <- renderText("Analysis completed successfully! You can now open the output folder.")
+        output$error_messages <- renderText(NULL)
+        removeNotification("running_notification")
+        showNotification("Analysis completed successfully!", type = "message")
+        shinyjs::show("openReport")
+      }, error = function(e) {
+        output$status_messages <- renderText(paste("Error in analysis:", e$message))
+        output$error_messages <- renderText(paste("Error in analysis:", e$message))
+        output$success_message <- renderText(NULL)
+        removeNotification("running_notification")
+        showNotification("Error in analysis. Please check the error messages.", type = "error")
       })
     })
     

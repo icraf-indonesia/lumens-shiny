@@ -192,12 +192,10 @@ generate_dummy_crosstab <- function(landcover, zone){
 #' @importFrom rmarkdown render
 #'
 #' @export
-generate_train_report <- function(output, dir) {
+generate_sciendo_train_report <- function(output, dir) {
   report_params <- list(
     start_time = output$start_time,
     end_time = output$end_time,
-    p1 = output$p1,
-    p2 = output$p2,
     inputs = output$inputs,
     session_log = output$session_log
   )
@@ -211,53 +209,10 @@ generate_train_report <- function(output, dir) {
   )
 }
 
-run_train_analysis <- function(lc_t1_path, lc_t2_path, admin_z_path,
-                               lc_t1_input, lc_t2_input, admin_z_input,
-                               zone_lookup_input,
-                               time_points, output_dir, progress_callback = NULL) {
-  start_time <- Sys.time()
-  cat("Started at:", format(start_time, "%Y-%m-%d %H:%M:%S"), "\n")
-  
-  if (!is.null(progress_callback)) progress_callback(0.2, "load maps")
-  
-  
-  if (!is.null(progress_callback)) progress_callback(0.5, "create QUES-C database")
-  
-  
-  if (!is.null(progress_callback)) progress_callback(0.7, "generate carbon, emission, and sequestration maps")
-  
-  
-  
-  end_time <- Sys.time()
-  cat("Ended at:", format(end_time, "%Y-%m-%d %H:%M:%S"), "\n")
-  
-  session_log <- format_session_info_table()
-  
-  out <- list(
-    start_time = as.character(format(start_time, "%Y-%m-%d %H:%M:%S")),
-    end_time = as.character(format(end_time, "%Y-%m-%d %H:%M:%S")),
-    p1 = time_points$t1,
-    p2 = time_points$t2,
-    inputs = list(
-      lc_t1_path = lc_t1_path,
-      lc_t2_path = lc_t2_path,
-      admin_z_path = admin_z_path,
-      output_dir = output_dir
-    ),
-    session_log = session_log
-  )
-  
-  if (!is.null(progress_callback)) progress_callback(0.9, "outputs generated and saved")
-  
-  if (!is.null(progress_callback)) progress_callback(1, "generate report")
-  generate_train_report(output_quesc = out, dir = output_dir)
-  
-  return(out)
-}
 
 executeDINAMICA <- function(params) {
   # Find DINAMICA directory if not provided
-  if (is.null(params$dinamica_path)) {
+  if (is.null(params$dinamica_path) | identical(params$dinamica_path, character(0))) {
     program_files <- c("C:/Program Files/", "C:/Program Files (x86)/")
     dinamica_dirs <- list.files(program_files, pattern = "^Dinamica EGO", full.names = TRUE)
     
@@ -281,14 +236,13 @@ executeDINAMICA <- function(params) {
     list.files(pattern = "^DinamicaConsole", full.names = TRUE) %>%
     nth(2)
   
-  egoml <- paste0(params$output_dir, '/', params$egoml)
   # Check if egoml exists
-  if (!file.exists(egoml)) {
+  if (!file.exists(params$egoml)) {
     stop("Specified egoml does not exist.")
   }
   
   # Prepare DINAMICA command
-  command<-paste('"', dinamica_exe, '" -processors 0 -log-level 4 "', egoml, '"', sep="")
+  command<-paste('"', dinamica_exe, '" -processors 0 -log-level 4 "', params$egoml, '"', sep="")
   
   # Execute DINAMICA
   result <- system(command)
@@ -302,8 +256,8 @@ executeDINAMICA <- function(params) {
 
 generate_egoml_raster_cube <- function(factor_path, output_dir, egoml) {
   # preparing factors
-  listFactors <- factors_path %>% list.files(full.names=TRUE, pattern=".tif$") %>%
-    data.frame(file=., select=1)
+  listFactors <- factor_path %>% list.files(full.names = TRUE, pattern = ".tif$") %>%
+    data.frame(file = ., select = 1)
   
   factors <- as.character(listFactors$file)
   nFactors <- length(factors)
@@ -316,83 +270,389 @@ generate_egoml_raster_cube <- function(factor_path, output_dir, egoml) {
   
   # create raster cube egoml
   # begin writing tag
-  con <- xmlOutputDOM(tag="script")
+  con <- xmlOutputDOM(tag = "script")
   # add property
-  con$addTag("property", attrs=c(key="dff.date", value="2016-Oct-17 12:02:15"))
-  con$addTag("property", attrs=c(key="dff.version", value="3.0.17.20160922"))
+  con$addTag("property",
+             attrs = c(key = "dff.date", value = "2016-Oct-17 12:02:15"))
+  con$addTag("property",
+             attrs = c(key = "dff.version", value = "3.0.17.20160922"))
   
   # begin.
   # add functor = SaveMap
-  con$addTag("functor", attrs=c(name="SaveMap"), close=FALSE)
-  con$addTag("property", attrs=c(key="dff.functor.alias", value="saveMap1680"))
-  con$addTag("inputport", attrs=c(name="map", peerid=paste("v", nFactors+1,sep="")))
-  con$addTag("inputport", attrs=c(name="filename"), paste('"', output_dir, '/sciendo_factor.ers"', sep=''))
-  con$addTag("inputport", attrs=c(name="suffixDigits"), 2)
-  con$addTag("inputport", attrs=c(name="step"), ".none")
-  con$addTag("inputport", attrs=c(name="useCompression"), ".yes")
-  con$addTag("inputport", attrs=c(name="workdir"), ".none")
+  con$addTag("functor",
+             attrs = c(name = "SaveMap"),
+             close = FALSE)
+  con$addTag("property",
+             attrs = c(key = "dff.functor.alias", value = "saveMap1680"))
+  con$addTag("inputport", attrs = c(name = "map", peerid = paste("v", nFactors + 1, sep = "")))
+  ers_file <- paste0('"', output_dir, '/sciendo_factor.ers"') 
+  con$addTag(
+    "inputport",
+    attrs = c(name = "filename"),
+    ers_file
+  )
+  con$addTag("inputport", attrs = c(name = "suffixDigits"), 2)
+  con$addTag("inputport", attrs = c(name = "step"), ".none")
+  con$addTag("inputport", attrs = c(name = "useCompression"), ".yes")
+  con$addTag("inputport", attrs = c(name = "workdir"), ".none")
   con$closeTag("functor")
   # end.
   
   # begin.
   # add functor = LoadMap
-  for (b in 1:nFactors){
-    con$addTag("functor", attrs=c(name="LoadMap"), close=FALSE)
-    con$addTag("property", attrs=c(key="dff.functor.alias", value=aliasFactor[b]))
-    con$addTag("inputport", attrs=c(name="filename"), paste('"', factors[b], '"', sep=""))
-    con$addTag("inputport", attrs=c(name="nullValue"), ".none")
-    con$addTag("inputport", attrs=c(name="loadAsSparse"), ".no")
-    con$addTag("inputport", attrs=c(name="suffixDigits"), 0)
-    con$addTag("inputport", attrs=c(name="step"), ".none")
-    con$addTag("inputport", attrs=c(name="workdir"), ".none")
-    con$addTag("outputport", attrs=c(name="map", id=paste("v",b,sep="")))
-    con$closeTag("functor") 
+  for (b in 1:nFactors) {
+    con$addTag("functor",
+               attrs = c(name = "LoadMap"),
+               close = FALSE)
+    con$addTag("property",
+               attrs = c(key = "dff.functor.alias", value = aliasFactor[b]))
+    con$addTag("inputport",
+               attrs = c(name = "filename"),
+               paste('"', factors[b], '"', sep = ""))
+    con$addTag("inputport", attrs = c(name = "nullValue"), ".none")
+    con$addTag("inputport", attrs = c(name = "loadAsSparse"), ".no")
+    con$addTag("inputport", attrs = c(name = "suffixDigits"), 0)
+    con$addTag("inputport", attrs = c(name = "step"), ".none")
+    con$addTag("inputport", attrs = c(name = "workdir"), ".none")
+    con$addTag("outputport", attrs = c(name = "map", id = paste("v", b, sep ="")))
+    con$closeTag("functor")
   }
   # end.
   
   # begin.
   # add containerfunctor = CreateCubeMap
-  con$addTag("containerfunctor", attrs=c(name="CreateCubeMap"), close=FALSE)
-  con$addTag("property", attrs=c(key="dff.functor.alias", value="createCubeMap1678"))
-  con$addTag("inputport", attrs=c(name="cellType"), ".float32")
-  con$addTag("inputport", attrs=c(name="nullValue"), "-9999")
-  con$addTag("outputport", attrs=c(name="map", id=paste("v", nFactors+1, sep="")))
+  con$addTag("containerfunctor",
+             attrs = c(name = "CreateCubeMap"),
+             close = FALSE)
+  con$addTag("property",
+             attrs = c(key = "dff.functor.alias", value = "createCubeMap1678"))
+  con$addTag("inputport", attrs = c(name = "cellType"), ".float32")
+  con$addTag("inputport", attrs = c(name = "nullValue"), "-9999")
+  con$addTag("outputport", attrs = c(name = "map", id = paste("v", nFactors +1, sep = "")))
   # add subtag functor for CreateCubeMap
   for (c in 1:nFactors) {
-    con$addTag("functor", attrs=c(name="NumberAndNameMap"), close=FALSE)
-    con$addTag("property", attrs=c(key="dff.functor.alias", value=aliasFactor[c]))
-    con$addTag("inputport", attrs=c(name="map", peerid=paste("v", c, sep="")))
-    con$addTag("inputport", attrs=c(name="mapName"), paste('"', aliasFactor[c], '"', sep=""))
-    con$addTag("inputport", attrs=c(name="mapNumber"), 0)
+    con$addTag("functor",
+               attrs = c(name = "NumberAndNameMap"),
+               close = FALSE)
+    con$addTag("property",
+               attrs = c(key = "dff.functor.alias", value = aliasFactor[c]))
+    con$addTag("inputport", attrs = c(name = "map", peerid = paste("v", c, sep = "")))
+    con$addTag("inputport",
+               attrs = c(name = "mapName"),
+               paste('"', aliasFactor[c], '"', sep = ""))
+    con$addTag("inputport", attrs = c(name = "mapNumber"), 0)
     con$closeTag("functor")
   }
   con$closeTag("containerfunctor")
   # end.
   
-  saveXML(con$value(), file=paste(output_dir, "/", egoml, sep=''))
-}
-
-generate_egoml_woe <- function() {
+  egoml_rc_file <- paste0(output_dir, "/", egoml, ".egoml")
+  saveXML(con$value(), file = egoml_rc_file)
   
-}
-
-generate_egoml_sim <- function() {
-  
-}
-
-run_raster_cube_generation <- function(dinamica_path, factor_path, output_dir, progress_callback = NULL) {
-  if (!is.null(progress_callback)) progress_callback(0.2, "load maps")
-  
-  generate_egoml_raster_cube(factor_path, output_dir, egoml)
-  
-  params <- list(
-    dinamica_path = dinamica_path,
-    output_dir = output_dir,
-    egoml = egoml
+  out <- list(
+    egoml_rc_file = egoml_rc_file,
+    n = nFactors,
+    list = listFactors,
+    alias = aliasFactor,
+    ers = ers_file
   )
-  executeDINAMICA(params)
+  
+  return(out)
 }
 
-run_woe_model <- function(){
-  generate_egoml_woe()
+run_dinamica_raster_cube <- function(dinamica_path = NULL, output_dir, egoml) {
+  params <- list()
+  params$dinamica_path <- dinamica_path
+  params$output_dir <- output_dir
+  params$egoml <- egoml
+  
+  
+  executeDINAMICA(params)
+  
+  # check .ers file 
+  ers_file <- paste0(output_dir, "/sciendo_factor.ers")
+  if (!file.exists(ers_file)) {
+    stop("Raster cube creation failed! Check DINAMICA EGO log.")
+  }
+}
+
+generate_egoml_woe_model <- function(aliasFactor, lusim_lc, 
+                                     lc1_path, lc2_path, 
+                                     zone_path, ers_path,
+                                     output_dir, egoml) {
+  dcf_path <- paste0(output_dir, "/woe.dcf")
+  weight_report_path <- paste0(output_dir, "/weight_report.csv")
+  
+  static_var <- aliasFactor %>% 
+    data.frame(aliasFactor = .) %>% 
+    mutate(
+      identifier = paste0('&quot;static_var/', aliasFactor, '&quot; 10 500000 1 5,&#x0A;')
+    )
+  identifier <- do.call(paste, c(as.list(static_var$identifier), sep="        "))
+  
+  start <- as.numeric(lusim_lc[1, 1])
+  length <- as.numeric(nrow(lusim_lc))
+  end <- as.numeric(lusim_lc[length, 1])
+  
+  skeleton1 <- data.frame(nT1=c(start:end), divider=length)
+  skeleton1 <- expandRows(skeleton1, 'divider')
+  skeleton2 <- data.frame(nT2=rep(rep(c(start:end), length)))
+  
+  skeleton <- cbind(skeleton1, skeleton2)
+  skeleton$key <- do.call(paste, c(skeleton[c("nT1", "nT2")], sep = "-&gt;"))
+  
+  skeleton$transition <- paste("&#x0A;    ", skeleton$key, " [&#x0A;        ", identifier, "    ]", sep='')
+  
+  skeletonFinal <- do.call(paste, c(as.list(skeleton$transition), sep=","))
+  skeletonFinal <- paste('[', skeletonFinal, "&#x0A;]", sep='')
+  
+  # begin writing tag
+  con <- xmlOutputDOM(tag="script")
+  # add property
+  con$addTag("property", attrs=c(key="dff.date", value="2016-Oct-18 12:59:40"))
+  con$addTag("property", attrs=c(key="dff.version", value="3.0.17.20160922"))
+  
+  # begin.
+  # add functor = LoadCategoricalMap
+  con$addTag("functor", attrs=c(name="LoadCategoricalMap"), close=FALSE)
+  con$addTag("property", attrs=c(key="dff.functor.alias", value="Final Landscape"))
+  con$addTag("inputport", attrs=c(name="filename"), paste0('"', lc2_path, '"'))
+  con$addTag("inputport", attrs=c(name="nullValue"), ".none")
+  con$addTag("inputport", attrs=c(name="loadAsSparse"), ".no")
+  con$addTag("inputport", attrs=c(name="suffixDigits"), 0)
+  con$addTag("inputport", attrs=c(name="step"), "0")
+  con$addTag("inputport", attrs=c(name="workdir"), ".none")
+  con$addTag("outputport", attrs=c(name="map", id="v1"))
+  con$closeTag("functor")
+  # end.
+  
+  # begin.
+  # add functor = LoadCategoricalMap
+  con$addTag("functor", attrs=c(name="LoadCategoricalMap"), close=FALSE)
+  con$addTag("property", attrs=c(key="dff.functor.alias", value="Initial Landscape"))
+  con$addTag("inputport", attrs=c(name="filename"), paste0('"', lc1_path, '"'))
+  con$addTag("inputport", attrs=c(name="nullValue"), ".none")
+  con$addTag("inputport", attrs=c(name="loadAsSparse"), ".no")
+  con$addTag("inputport", attrs=c(name="suffixDigits"), 0)
+  con$addTag("inputport", attrs=c(name="step"), "0")
+  con$addTag("inputport", attrs=c(name="workdir"), ".none")
+  con$addTag("outputport", attrs=c(name="map", id="v2"))
+  con$closeTag("functor")
+  # end.
+  
+  # begin.
+  # add functor = LoadMap
+  con$addTag("functor", attrs=c(name="LoadMap"), close=FALSE)
+  con$addTag("property", attrs=c(key="dff.functor.alias", value="Static Variables"))
+  con$addTag("inputport", attrs=c(name="filename"), ers_path)
+  con$addTag("inputport", attrs=c(name="nullValue"), ".none")
+  con$addTag("inputport", attrs=c(name="loadAsSparse"), ".no")
+  con$addTag("inputport", attrs=c(name="suffixDigits"), 0)
+  con$addTag("inputport", attrs=c(name="step"), "0")
+  con$addTag("inputport", attrs=c(name="workdir"), ".none")
+  con$addTag("outputport", attrs=c(name="map", id="v3"))
+  con$closeTag("functor") 
+  # end.
+  
+  # begin.
+  # add functor = LoadCategoricalMap
+  con$addTag("functor", attrs=c(name="LoadCategoricalMap"), close=FALSE)
+  con$addTag("property", attrs=c(key="dff.functor.alias", value="Regions"))
+  con$addTag("inputport", attrs=c(name="filename"), paste0('"', zone_path, '"'))
+  con$addTag("inputport", attrs=c(name="nullValue"), ".none")
+  con$addTag("inputport", attrs=c(name="loadAsSparse"), ".no")
+  con$addTag("inputport", attrs=c(name="suffixDigits"), 0)
+  con$addTag("inputport", attrs=c(name="step"), "0")
+  con$addTag("inputport", attrs=c(name="workdir"), ".none")
+  con$addTag("outputport", attrs=c(name="map", id="v4"))
+  con$closeTag("functor")
+  # end.
+  # begin.
+  
+  # begin.
+  # add containerfunctor = ForEachRegion
+  con$addTag("containerfunctor", attrs=c(name="ForEachRegion"), close=FALSE)
+  con$addTag("property", attrs=c(key="dff.functor.alias", value="forEachRegion"))
+  con$addTag("inputport", attrs=c(name="regions", peerid="v4"))
+  con$addTag("inputport", attrs=c(name="borderCells"), 0)
+  con$addTag("internaloutputport", attrs=c(name="regionManager", id="v5"))
+  con$addTag("internaloutputport", attrs=c(name="step", id="v6"))
+  
+  # add subtag functor for SaveWeights
+  con$addTag("functor", attrs=c(name="SaveWeights"), close=FALSE)
+  con$addTag("property", attrs=c(key="dff.functor.alias", value="saveWeights"))
+  con$addTag("inputport", attrs=c(name="weights", peerid="v10"))
+  con$addTag("inputport", attrs=c(name="filename"), paste0('"', dcf_path, '"'))
+  con$addTag("inputport", attrs=c(name="suffixDigits"), 6)
+  con$addTag("inputport", attrs=c(name="step", peerid="v6"))
+  con$addTag("inputport", attrs=c(name="workdir"), ".none")
+  con$closeTag("functor")
+  
+  # add subtag functor for RegionalizeCategoricalMap
+  con$addTag("functor", attrs=c(name="RegionalizeCategoricalMap"), close=FALSE)
+  con$addTag("property", attrs=c(key="dff.functor.alias", value="Final Landscape (Region)"))
+  con$addTag("inputport", attrs=c(name="globalMap", peerid="v1"))
+  con$addTag("inputport", attrs=c(name="regionId", peerid="v6"))
+  con$addTag("inputport", attrs=c(name="keepNonRegionCells"), ".no")
+  con$addTag("inputport", attrs=c(name="regionManager", peerid="v5"))
+  con$addTag("outputport", attrs=c(name="regionalMap", id="v7"))
+  con$closeTag("functor")
+  
+  # add subtag functor for RegionalizeCategoricalMap
+  con$addTag("functor", attrs=c(name="RegionalizeCategoricalMap"), close=FALSE)
+  con$addTag("property", attrs=c(key="dff.functor.alias", value="Initial Landscape (Region)"))
+  con$addTag("inputport", attrs=c(name="globalMap", peerid="v2"))
+  con$addTag("inputport", attrs=c(name="regionId", peerid="v6"))
+  con$addTag("inputport", attrs=c(name="keepNonRegionCells"), ".no")
+  con$addTag("inputport", attrs=c(name="regionManager", peerid="v5"))
+  con$addTag("outputport", attrs=c(name="regionalMap", id="v8"))
+  con$closeTag("functor")
+  
+  # add subtag functor for RegionalizeMap
+  con$addTag("functor", attrs=c(name="RegionalizeMap"), close=FALSE)
+  con$addTag("property", attrs=c(key="dff.functor.alias", value="Static Variables (Region)"))
+  con$addTag("inputport", attrs=c(name="globalMap", peerid="v3"))
+  con$addTag("inputport", attrs=c(name="regionId", peerid="v6"))
+  con$addTag("inputport", attrs=c(name="keepNonRegionCells"), ".no")
+  con$addTag("inputport", attrs=c(name="regionManager", peerid="v5"))
+  con$addTag("outputport", attrs=c(name="regionalMap", id="v9"))
+  con$closeTag("functor")
+  
+  # add subtag functor for SaveTable
+  con$addTag("functor", attrs=c(name="SaveTable"), close=FALSE)
+  con$addTag("property", attrs=c(key="dff.functor.alias", value="saveTable"))
+  con$addTag("inputport", attrs=c(name="table", peerid="v11"))
+  con$addTag("inputport", attrs=c(name="filename"), paste0('"', weight_report_path, '"'))
+  con$addTag("inputport", attrs=c(name="suffixDigits"), 2)
+  con$addTag("inputport", attrs=c(name="step", peerid="v6"))
+  con$addTag("inputport", attrs=c(name="workdir"), ".none")
+  con$closeTag("functor")
+  
+  # add subtag functor for DetermineWeightsOfEvidenceCoefficients
+  con$addTag("containerfunctor", attrs=c(name="DetermineWeightsOfEvidenceCoefficients"), close=FALSE)
+  con$addTag("property", attrs=c(key="dff.functor.alias", value="Weight of Evidence Coefficients"))
+  con$addTag("inputport", attrs=c(name="initialLandscape", peerid="v8"))
+  con$addTag("inputport", attrs=c(name="finalLandscape", peerid="v7"))
+  con$addTag("inputport", attrs=c(name="ranges", peerid="v12"))
+  con$addTag("inputport", attrs=c(name="fixAbnormalWeights"), ".no")
+  con$addTag("outputport", attrs=c(name="weights", id="v10"))
+  con$addTag("outputport", attrs=c(name="report", id="v11"))
+  
+  con$addTag("functor", attrs=c(name="NameMap"), close=FALSE)
+  con$addTag("property", attrs=c(key="dff.functor.alias", value="nameMapCoeff"))
+  con$addTag("inputport", attrs=c(name="map", peerid="v9"))
+  con$addTag("inputport", attrs=c(name="mapName"), '"static_var"')
+  con$closeTag("functor")
+  
+  con$closeTag("containerfunctor")  
+  
+  # add subtag functor for DetermineWeightsOfEvidenceRanges
+  con$addTag("containerfunctor", attrs=c(name="DetermineWeightsOfEvidenceRanges"), close=FALSE)
+  con$addTag("property", attrs=c(key="dff.functor.alias", value="Weight of Evidence Ranges"))
+  con$addTag("inputport", attrs=c(name="initialLandscape", peerid="v8"))
+  con$addTag("inputport", attrs=c(name="finalLandscape", peerid="v7"))
+  con$addTag("inputport", attrs=c(name="skeleton"), skeletonFinal)
+  con$addTag("inputport", attrs=c(name="fixAbnormalWeights"), ".no")
+  con$addTag("outputport", attrs=c(name="ranges", id="v12"))
+  
+  con$addTag("functor", attrs=c(name="NameMap"), close=FALSE)
+  con$addTag("property", attrs=c(key="dff.functor.alias", value="nameMapRanges"))
+  con$addTag("inputport", attrs=c(name="map", peerid="v9"))
+  con$addTag("inputport", attrs=c(name="mapName"), '"static_var"')
+  con$closeTag("functor")
+  
+  con$closeTag("containerfunctor")
+  con$closeTag("containerfunctor")
+  # end.
+  
+  egoml_woe_file <- paste0(output_dir, "/", egoml, ".egoml")
+  saveXML(con$value(), file=egoml_woe_file)
+  
+  # replace ampersand code character
+  egoml_text  <- readLines(egoml_woe_file)
+  egoml_text_new  <- gsub(pattern="amp;", replace="", x=egoml_text)
+  writeLines(egoml_text_new, con=egoml_woe_file)
+  
+  out <- list(
+    egoml_woe_file = egoml_woe_file,
+    dcf = dcf_path,
+    weight = weight_report_path,
+    lc1 = lc1_path,
+    lc2 = lc2_path,
+    zone = zone_path,
+    ers = ers_path
+  )
+  
+  return(out)
+}
+
+run_dinamica_woe_model <- function(dinamica_path = NULL, output_dir, egoml){
+  params <- list()
+  params$dinamica_path <- dinamica_path
+  params$output_dir <- output_dir
+  params$egoml <- egoml
+  
+  executeDINAMICA(params)
+  
+  # check .ers file 
+  ers_file <- paste0(output_dir, "/sciendo_factor.ers")
+  n_woe_report <- output_dir %>% 
+    list.files(full.names=TRUE, pattern="weight_report*")
+    length()
+  if (n_woe_report == 0) {
+    stop("There are no single one of WoE Report! Check DINAMICA EGO log.")
+  }
+}
+
+run_sciendo_train_process <- function(lc_t1_path, lc_t2_path, zone_path, lc_lookup_table_path,
+                               lc_lookup_table, factor_path, time_points,
+                               dinamica_path = NULL, output_dir, progress_callback = NULL) {
+  start_time <- Sys.time()
+  cat("Started at:", format(start_time, "%Y-%m-%d %H:%M:%S"), "\n")
+  
+  if (!is.null(progress_callback)) progress_callback(0.2, "generate egoml: raster cube generation")
+  out_rc <- generate_egoml_raster_cube(factor_path, output_dir, egoml = "01_sciendo_train_raster_cube")
+  
+  if (!is.null(progress_callback)) progress_callback(0.5, "run dinamica raster cube")
+  run_dinamica_raster_cube(dinamica_path, output_dir, out_rc$egoml_rc_file)
+  
+  if (!is.null(progress_callback)) progress_callback(0.7, "generate egoml: initialize weight of evidence parameters")
+  out_woe <- generate_egoml_woe_model(out_rc$alias, lc_lookup_table, 
+                                      lc_t1_path, lc_t2_path, zone_path, 
+                                      out_rc$ers, output_dir, 
+                                      egoml = "02_sciendo_train_woe")
+  
+  if (!is.null(progress_callback)) progress_callback(0.9, "run dinamica determine weight of evidence")
+  run_dinamica_woe_model(dinamica_path, output_dir, out_woe$egoml_woe_file)
+  
+  end_time <- Sys.time()
+  cat("Ended at:", format(end_time, "%Y-%m-%d %H:%M:%S"), "\n")
+  
+  session_log <- format_session_info_table()
+  
+  out <- list(
+    start_time = as.character(format(start_time, "%Y-%m-%d %H:%M:%S")),
+    end_time = as.character(format(end_time, "%Y-%m-%d %H:%M:%S")),
+    inputs = list(
+      lc_t1_path = lc_t1_path,
+      lc_t2_path = lc_t2_path,
+      zone_path = zone_path,
+      lc_lookup_table_path = lc_lookup_table_path,
+      factor_path = factor_path,
+      year1 = time_points$t1,
+      year2 = time_points$t2,
+      output_dir = output_dir
+    ),
+    rc_path = out_rc$ers,
+    rc_egoml_path = out_rc$egoml_rc_path,
+    woe_egoml_path = out_woe$egoml_woe_path,
+    session_log = session_log
+  )
+  
+  if (!is.null(progress_callback)) progress_callback(0.9, "outputs generated and saved")
+  
+  if (!is.null(progress_callback)) progress_callback(1, "generate report")
+  generate_sciendo_train_report(output = out, dir = output_dir)
+  
+  return(out)
 }
