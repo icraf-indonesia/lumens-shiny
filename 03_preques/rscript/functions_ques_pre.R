@@ -1940,7 +1940,6 @@ run_preques_analysis <- function(lc_t1_input, lc_t2_input, admin_z_input,
   admin_z <- harmonised_rasters$admin
 
   # Run main Pre-QuES analysis
-  browser()
   output_pre_ques <- ques_pre(
     lc_data$t1, lc_data$t2, admin_z,
     convert_to_Ha = TRUE
