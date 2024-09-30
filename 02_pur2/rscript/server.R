@@ -51,12 +51,7 @@ server <- function(input, output, session) {
     report_file = NULL,
     recon_file = NULL,
     unresolved_table = NULL,
-    map_resolution = NULL,
-    summary_PUR = NULL,
-    u = NULL,
-    ref = NULL,
-    sa = NULL,
-    pur_sa = NULL
+    map_resolution = NULL
   )
   
   # Update reactive values when inputs change
@@ -106,7 +101,7 @@ server <- function(input, output, session) {
     withProgress(message = 'Processing PUR', value = 0, {
       tryCatch({
       start_time <- Sys.time()
-      
+
       # Required data input
       req(rv$output_dir)
       req(rv$recon_file)
@@ -116,13 +111,13 @@ server <- function(input, output, session) {
       # 1. Data preparation -------------------------------------------
       shinyjs::disable("run_analysis")
       incProgress(0.2, detail = "Preparing data inputs")
-      rv$u <- input$unresolved_table
+      u <- rename_uploaded_file(input_file = input$unresolved_table)
       rv$map_resolution <- as.numeric(rv$map_resolution)
-      rv$sa <- read_shapefile(shp_input = rv$recon_file)
-      rv$pur_sa <- rv$sa %>% st_as_sf() %>% st_drop_geometry()
-      rv$ref <- rasterise_multipolygon(sf_object = rv$sa, raster_res = c(rv$map_resolution, rv$map_resolution), field = paste0(colnames(st_drop_geometry(rv$sa[1]))))
+      sa <- read_shapefile(shp_input = rv$recon_file)
+      pur_sa <- sa %>% st_as_sf() %>% st_drop_geometry()
+      ref <- rasterise_multipolygon(sf_object = sa, raster_res = c(rv$map_resolution, rv$map_resolution), field = paste0(colnames(st_drop_geometry(sa[1]))))
   
-      unresolved_edit <- readxl::read_xlsx(rv$u$datapath)
+      unresolved_edit <- readxl::read_xlsx(u)
       
       # select ID and Reconcile action column
       reconcile_scenario <- unresolved_edit %>% 
@@ -131,7 +126,7 @@ server <- function(input, output, session) {
         dplyr::select(any_of(c("ID", "Reconcile Action")))
       
       # Unresolved cases
-      unresolved_cases <- rv$pur_sa %>%
+      unresolved_cases <- pur_sa %>%
         st_drop_geometry() %>%
         rename(ID_rec=6) %>%
         filter( Rec_phase2  %in% "unresolved_case") 
@@ -156,7 +151,7 @@ server <- function(input, output, session) {
       # 2. Resolve any unresolved cases --------------------------------
       incProgress(0.6, detail = "Resolve Any Unresolved Cases")
       
-      reconciled_map <- rv$sa %>%
+      reconciled_map <- sa %>%
         dplyr::select(-ID_rec) %>% 
         left_join(reconcile_scenario, by = "ID") %>%
         mutate(Rec_phase2 = ifelse(!is.na(`Reconcile Action`), `Reconcile Action`, Rec_phase2)) %>%
@@ -200,10 +195,10 @@ server <- function(input, output, session) {
                driver = "ESRI Shapefile",
                append = FALSE)
       
-      rv$summary_PUR <- reconciled_map_dissolved %>% 
+      summary_PUR <- reconciled_map_dissolved %>% 
         st_drop_geometry()
       
-      write.csv(rv$summary_PUR, paste0(rv$output_dir, "/PUR_final_lookup_table.csv"))
+      write.csv(summary_PUR, paste0(rv$output_dir, "/PUR_final_lookup_table.csv"))
       
       # End of the script
       end_time <- Sys.time()
@@ -212,19 +207,17 @@ server <- function(input, output, session) {
       
       # 6. Generate report -------------------------
       incProgress(1, detail = "Preparing Report")
-      
       unresolved_shp_path <- rename_uploaded_file(input_file = input$recon_file)
-      unresolved_table_path <- rename_uploaded_file(input_file = input$unresolved_table)
       
       report_params <- list(
         session_log = format_session_info_table(),
         start_time = as.character(format(start_time, "%Y-%m-%d %H:%M:%S")),
         end_time = as.character(format(end_time, "%Y-%m-%d %H:%M:%S")),
         output_dir = rv$output_dir,
-        summary_PUR = rv$summary_PUR,
+        summary_PUR = summary_PUR,
         sa = reconciled_map_dissolved,
         unresolved_shp_path = unresolved_shp_path,
-        unresolved_table_path = unresolved_table_path,
+        unresolved_table_path = u, #unresolved_table_path,
         recon_result_shp_path = "PUR_reconciliation_result.shp",
         recon_result_table_path = "PUR_reconciliation_lookup_table.csv",
         recon_result_shp_dis_path = "PUR_reconciliation_result_dissolved.shp",
@@ -232,7 +225,7 @@ server <- function(input, output, session) {
       )
    
       report_params$total_area <- 
-        rv$summary_PUR %>% pull(Area) %>% sum()
+        summary_PUR %>% pull(Area) %>% sum()
       
       # Render the R markdown report
       if (!rmarkdown::pandoc_available()) {
@@ -246,7 +239,7 @@ server <- function(input, output, session) {
       } else {
         error("No template file for PUR reconcile module is found.")
       }
-      browser()
+
       rmarkdown::render(
         input = path_report,
         output_file = "PUR_reconcile_report.html",
