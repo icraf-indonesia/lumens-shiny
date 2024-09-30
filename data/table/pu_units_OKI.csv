@@ -1,3 +1,4 @@
-Konsesi_F,pu1,2,0,data/pur_test/vector/Konsesi_F.shp
-PIAPS_F,pu2,1,0,data/pur_test/vector/PIAPS_F.shp
-Peat_F,pu3,1,0,data/pur_test/vector/Peat_F.shp
+PU_name,PU_identity,Ref_ID,Type,Path
+PIAPS_F_OKI,pu1,2,0,D:/OneDrive - CIFOR-ICRAF/Documents/GitHub/lumens-shiny/data/vector/PIAPS_F_OKI.shp
+Peat_F_OKI,pu2,1,0,D:/OneDrive - CIFOR-ICRAF/Documents/GitHub/lumens-shiny/data/vector/Peat_F_OKI.shp
+Konsesi_F_OKI,pu3,2,0,D:/OneDrive - CIFOR-ICRAF/Documents/GitHub/lumens-shiny/data/vector/Konsesi_F_OKI.shp

@@ -115,7 +115,7 @@ render_child <- function(results_list, i){
       "",
       "```{r}",
       "#| echo=FALSE",
-      "plot(PUR_stack_new[[i]], colNA = NULL, main = paste('Planning Unit', i), plg=list(x='topright'))
+      "plot(PUR_stack_new[[i]], colNA = NULL, main = names(PUR_stack_new)[i], plg=list(x='topright'))
   plot(zone_poly, add = TRUE, border = 'black', lwd = 1)",
       "```"
     ),
@@ -161,7 +161,7 @@ plot.new()
 legend("center", 
        legend = unresolved_map, 
        fill = colors, 
-       ncol = 3, 
+       ncol = 1, 
        cex = 1.2,
        bty = "n",)
 ```
@@ -189,12 +189,16 @@ summary_unresolved <- params$database_unresolved_out %>%
     Area_ha = comma(Area_ha, accuracy = 1)
   )
 
-summary_unresolved_display <- summary_unresolved %>%
-  select(ID, Rec_phase1b, PU_1, PU_2, PU_3, PU_4, REFERENCE, Area_ha)
+summary_unresolved_display1 <- summary_unresolved %>% select(-COUNT)
+summary_unresolved_display <- summary_unresolved_display1 %>%
+  rename(
+    Status = Rec_phase1b,
+    Reference = REFERENCE,
+    'Area (Ha)' = Area_ha
+  )
 
 DT::datatable(
   summary_unresolved_display,
-  colnames = c("ID", "Class Type", "PU 1", "PU 2", "PU 3", "PU 4", "Reference", "Area (Ha)")
 )
 ```
 
