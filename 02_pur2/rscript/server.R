@@ -122,13 +122,13 @@ server <- function(input, output, session) {
       # select ID and Reconcile action column
       reconcile_scenario <- unresolved_edit %>% 
         dplyr::rename("ID"=1, 
-                      "Reconcile Action"=9) %>% 
+                      "Reconcile Action"= which(colnames(unresolved_edit) == 'Reconcile Action')) %>% 
         dplyr::select(any_of(c("ID", "Reconcile Action")))
       
       # Unresolved cases
       unresolved_cases <- pur_sa %>%
         st_drop_geometry() %>%
-        rename(ID_rec=6) %>%
+        rename(ID_rec = which(colnames(pur_sa) == 'ID_rec')) %>%
         filter( Rec_phase2  %in% "unresolved_case") 
       
       # check if the number of unresolved cases is identical/matched

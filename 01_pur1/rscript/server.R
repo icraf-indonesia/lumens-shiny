@@ -465,7 +465,7 @@ server <- function(input, output, session) {
           rv$database_unresolved_out <- cbind(dat1, rv$database_unresolved_out, dat3, dat2)
           database_unresolved_out1 <- rv$database_unresolved_out
           database_unresolved_out1$'Reconcile Action' <- "unresolved_case"
-          
+
           # Create the workbook
           database_unresolved_out_wb = createWorkbook()
           
@@ -486,7 +486,7 @@ server <- function(input, output, session) {
           dataValidation(
             wb = database_unresolved_out_wb,
             sheet = "PUR_unresolved_case",
-            cols = 9,
+            cols = which(colnames(database_unresolved_out1) == 'Reconcile Action'),
             rows = 2:(1 + nrow(database_unresolved_out1)),
             type = "list",
             value = paste0(
