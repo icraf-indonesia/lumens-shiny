@@ -87,9 +87,10 @@ ques_pre <- function(lc_t1, lc_t2, admin_, cutoff_landscape = 5000, cutoff_pu = 
   }
 
   lc_composition_tbl <- lc_freq_table
+  
 
   # Plot land cover composition
-  lc_composition_barplot <- lc_freq_table %>%
+  lc_composition_barplot <- lc_freq_table %>% 
     plot_lc_freq(column_lc_type = "Jenis tutupan lahan",
                  column_T1 = names(lc_freq_table)[2],
                  column_T2 = names(lc_freq_table)[3])
@@ -1866,6 +1867,8 @@ check_and_harmonise_geometries <- function(lc_t1, lc_t2, admin) {
 run_preques_analysis <- function(lc_t1_input, lc_t2_input, admin_z_input,
                                  lc_lookup_input, zone_lookup_input, trajectory_lookup_input,
                                  time_points, output_dir, progress_callback = NULL) {
+  
+ 
   # Run ques-b for lc
   start_time <- Sys.time()
   cat("Started at:", format(start_time, "%Y-%m-%d %H:%M:%S"), "\n")
@@ -1937,6 +1940,7 @@ run_preques_analysis <- function(lc_t1_input, lc_t2_input, admin_z_input,
   admin_z <- harmonised_rasters$admin
 
   # Run main Pre-QuES analysis
+  browser()
   output_pre_ques <- ques_pre(
     lc_data$t1, lc_data$t2, admin_z,
     convert_to_Ha = TRUE
