@@ -35,7 +35,11 @@ library(dplyr)
 
 
 ```{r load function, include=FALSE, error=TRUE, warning=TRUE, message=TRUE}
-source("../rscript/functions_ques_pre.R")
+if (file.exists("functions_ques_pre.R")){
+  source("functions_ques_pre.R")
+} else {
+  source("03_preques/rscript/functions_ques_pre.R")
+}
 ```
 
 ```{r init, include=FALSE}

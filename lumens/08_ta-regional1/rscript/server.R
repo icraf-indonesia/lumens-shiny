@@ -18,7 +18,7 @@ server <- function(input, output, session) {
     unit = NULL,  # Unit for the data (e.g., hectares, tons)
     location = NULL,  # Location information (e.g., region)
     I_O_period = NULL,  # Input-output analysis period
-    landuse_area0 = NULL,  # Initial land use area
+    landuse_area0_table = NULL,  # Initial land use area
     BPD_graph = NULL,  # Backward linkages graph
     FPD_graph = NULL,  # Forward linkages graph
     LRC_graph = NULL,  # Land requirement coefficient graph
@@ -31,12 +31,20 @@ server <- function(input, output, session) {
     land.requirement_table = NULL,  # Land requirement table
     P.sector = NULL,  # Primary sector data
     P.sector.selected = NULL,  # Selected primary sectors
-    GDP = NULL  # GDP data
+    GDP = NULL,  # GDP data,
+    int_con_path = NULL,  # Intermediate consumption path
+    add_val_path = NULL,  # Added value path
+    fin_dem_path = NULL,  # Final demand path
+    fin_dem_struc_path = NULL,  # Final demand structure path
+    add_val_struc_path = NULL,  # Added value structure path
+    sector_path = NULL,  # Sector path
+    labour_path = NULL,  # Labour path
+    land_distribution_path = NULL,  # Land distribution path
+    land_use_path = NULL,  # Land use raster path
+    landuse_table_path = NULL  # Land use lookup table path
   )
   
-  volumes <- c(
-    getVolumes()()
-  )
+  volumes <- c(Home = fs::path_home(), "R Installation" = R.home(), getVolumes()())
   
   #### Set Working Directory ####
   #' Choose and set the working directory where output files will be saved.
@@ -76,7 +84,7 @@ server <- function(input, output, session) {
       file <- input[[paste0(id, "_file")]]
       if (!is.null(file)) {
         rv[[paste0(id, "_data")]] <- if(id == "land_use") {
-          raster(file$datapath)
+          rast(file$datapath)
         } else {
           read.csv(file$datapath, header = FALSE)
         }
@@ -87,6 +95,47 @@ server <- function(input, output, session) {
   #### Processing the Data ####
   #' When the user triggers the analysis, process all the input data and compute the required results.
   observeEvent(input$processTAReg1, {
+    if (is.null(rv$sector_data)) {
+      showNotification("Sector data file is missing.", type = "error")
+      return()
+    }
+    if (is.null(rv$int_con_data)) {
+      showNotification("Intermediate Consumption data file is missing.", type = "error")
+      return()
+    }
+    if (is.null(rv$fin_dem_struc_data)) {
+      showNotification("Final Demand structure data file is missing.", type = "error")
+      return()
+    }
+    if (is.null(rv$fin_dem_data)) {
+      showNotification("Final Demand data file is missing.", type = "error")
+      return()
+    }
+    if (is.null(rv$add_val_struc_data)) {
+      showNotification("Added Value structure data file is missing.", type = "error")
+      return()
+    }
+    if (is.null(rv$add_val_data)) {
+      showNotification("Added Value data file is missing.", type = "error")
+      return()
+    }
+    if (is.null(rv$labour_data)) {
+      showNotification("Labour data file is missing.", type = "error")
+      return()
+    }
+    if (is.null(rv$land_distribution_data)) {
+      showNotification("Land Distribution data file is missing.", type = "error")
+      return()
+    }
+    if (is.null(rv$land_use_data)) {
+      showNotification("Land use map file is missing.", type = "error")
+      return()
+    }
+    if (is.null(rv$landuse_table_data)) {
+      showNotification("Land use table file is missing.", type = "error")
+      return()
+    }
+    
     rv$results <- isolate({
       int_con <- rv$int_con_data
       add_val <- rv$add_val_data
@@ -103,13 +152,12 @@ server <- function(input, output, session) {
       land_use <- rv$land_use_data
       
       #### Save raster to file ####
-      #' Save the land use raster to the selected working directory.
-      save_location <- file.path(rv$wd, "landuse_area0.tif")
-      tryCatch({
-        writeRaster(rv$land_use_data, save_location, overwrite = TRUE)
-        landuse_area0 <- raster(save_location)
-        rv$landuse_area0 <- landuse_area0
-      })
+      landuse_area0 <- rv$land_use_data
+      landuse_area0_freq <- freq(landuse_area0)
+      landuse_area0_freq$layer<-NULL
+      landuse_area0_table <- as.data.frame(na.omit(landuse_area0_freq))
+      colnames(landuse_area0_table) <- c("ID", "COUNT")
+      rv$landuse_area0_table <- landuse_area0_table
       
       #### Leontief Inverse Calculation ####
       #' Compute the Leontief inverse from the input-output matrix, which is essential for economic impact analysis.
@@ -282,6 +330,19 @@ server <- function(input, output, session) {
           rv$OMPL_graph <- OMPL_graph
           rv$IMPL_graph <- IMPL_graph
           rv$LMPL_graph <- LMPL_graph
+          rv$sector_path <- rename_uploaded_file(input$sector_file)
+          rv$int_con_path <- rename_uploaded_file(input$int_con_file)
+          rv$fin_dem_struc_path <- rename_uploaded_file(input$fin_dem_struc_file)
+          rv$fin_dem_path <- rename_uploaded_file(input$fin_dem_file)
+          rv$add_val_struc_path <- rename_uploaded_file(input$add_val_struc_file)
+          rv$add_val_path <- rename_uploaded_file(input$add_val_file)
+          rv$labour_path <- rename_uploaded_file(input$labour_file)
+          rv$land_distribution_path <- rename_uploaded_file(input$land_distribution_file)
+          rv$land_use_path <- rename_uploaded_file(input$land_use_file)
+          rv$landuse_table_path <- rename_uploaded_file(input$landuse_table_file)
+          rv$unit <- input$unit
+          rv$location <- input$location
+          rv$I_O_period <- input$I_O_period
           
           # Return Results
           list(
@@ -312,7 +373,7 @@ server <- function(input, output, session) {
             Lab.multiplier = Lab.multiplier,
             Out.multiplier = Out.multiplier,
             Inc.multiplier = Inc.multiplier,
-            landuse_area0 = landuse_area0
+            landuse_area0_table = landuse_area0_table
           )
           
           # Save results and create return list
@@ -334,7 +395,7 @@ server <- function(input, output, session) {
                land_distribution_ctot,
                land.requirement_table,
                land.distribution.prop,
-               landuse_area0,
+               landuse_area0_table,
                landuse_lut,
                file=paste0(rv$wd, '/LandRequirement_db.Rdata'))
           
@@ -370,7 +431,22 @@ server <- function(input, output, session) {
       IMPL_graph = rv$IMPL_graph,
       LMPL_graph = rv$LMPL_graph,
       land.requirement_table = rv$land.requirement_table,
-      LRC_graph = rv$LRC_graph
+      LRC_graph = rv$LRC_graph,
+      session_log = format_session_info_table(),
+      sector_path = rv$sector_path,
+      int_con_path = rv$int_con_path,
+      fin_dem_struc_path = rv$fin_dem_struc_path,
+      fin_dem_path = rv$fin_dem_path,
+      add_val_struc_path = rv$add_val_struc_path,
+      add_val_path = rv$add_val_path,
+      labour_path = rv$labour_path,
+      land_distribution_path = rv$land_distribution_path,
+      land_use_path = rv$land_use_path,
+      landuse_table_path = rv$landuse_table_path,
+      unit = rv$unit,
+      location = rv$location,
+      I_O_period = rv$I_O_period,
+      output_dir = rv$wd
     )
     output_file <- paste0("ta_regional1_report_", format(Sys.time(), "%Y-%m-%d_%H-%M-%S"), ".html")
     output_dir <- rv$wd

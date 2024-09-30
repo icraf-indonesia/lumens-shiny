@@ -15,9 +15,9 @@ ui <- fluidPage(
       fileInput("pu_units", "List of Planning Units", accept = c(".csv"), placeholder = "input your csv file"),
       textInput("map_resolution", "Map Resolution", value = 100),
       div(style = "display: flex; flex-direction: column; gap: 10px;",
-          shinyDirButton("wd", "Select Output Directory", "Please select a directory"),
+          shinyDirButton("output_dir", "Select Output Directory", "Please select a directory"),
           verbatimTextOutput("selected_directory", placeholder = TRUE),
-          actionButton("process", "Run PUR Build",
+          actionButton("run_analysis", "Run PUR Build",
                        style = "font-size: 18px; padding: 10px 15px; background-color: #4CAF50; color: white;"),
           hidden(
             actionButton("open_report", "Open Report",
@@ -35,23 +35,13 @@ ui <- fluidPage(
       tabsetPanel(
         tabPanel("User Guide",
                  uiOutput("user_guide"),
-                 div(style = "height: calc(100vh - 100px); overflow-y: auto;",
-                     card_body(
-                       if (file.exists("01_pur1/helpfile/help.Rmd")) {
-                         includeMarkdown("01_pur1/helpfile/help.Rmd")
-                       } else if (file.exists("../helpfile/help.Rmd")) {
-                         includeMarkdown("../helpfile/help.Rmd")
-                       } else {
-                         HTML("<p>User guide file not found.</p>")
-                       }
-                     )
-                 )
+                 div(style = "height: calc(100vh - 100px); overflow-y: auto;")
         ),
-        tabPanel("Analysis",
+        tabPanel("Log",
                  textOutput("selected_dir"),
                  verbatimTextOutput("status_messages"),
                  verbatimTextOutput("error_messages"),
-                 plotOutput("result_plot")
+                 verbatimTextOutput("success_message")
         )
       )
     )

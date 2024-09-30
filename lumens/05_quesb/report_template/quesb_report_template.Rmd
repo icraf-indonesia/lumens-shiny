@@ -47,8 +47,9 @@ check_and_install_packages(
 ```
 
 
+<details>
 
-<details><summary>Click here for Analysis Log</summary>
+<summary>Click here for Analysis Log</summary>
 
 ```{r analysis-log, echo=FALSE}
 
@@ -79,6 +80,7 @@ analysis_log <- tribble(
 analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
   kable_paper("hover", full_width = F )
 ```
+
 </details>
 
 

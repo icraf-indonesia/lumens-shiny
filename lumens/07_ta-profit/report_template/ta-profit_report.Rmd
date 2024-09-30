@@ -1,5 +1,5 @@
 ---
-title: "Trade-off Analysis Profit Report"
+title: "Profitability Analysis Report"
 output: 
   html_document:
     toc: true
@@ -7,6 +7,7 @@ output:
     number_sections: true
     df_print: kable
 params:
+  session_log: NA
   map_carbon1: NA
   map_carbon2: NA
   emission_map: NA
@@ -16,53 +17,110 @@ params:
   npv1_map: NA
   npv2_map: NA
   delta_npv: NA
+  map1_file_path: NULL
+  map2_file_path: NULL
+  npv_file_path: NULL
+  carbon_file_path: NULL
+  year1: NULL
+  year2: NULL
+  raster_nodata: NULL
+  output_dir: NULL
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
+library(knitr)
+library(kableExtra)
+library(tidyr)
+library(pkgdown)
 library(ggplot2)
-library(raster)
+library(htmlwidgets)
+library(DT)
 ```
 
-## Introduction
+<details>
 
-This report presents the results of an analysis based on the provided maps and lookup table
+<summary>Click here for Analysis Log</summary>
 
-## Lookup Table Summary
+```{r analysis-log, echo=FALSE}
+
+analysis_log <- tribble(
+  ~Category,                   ~Details,
+  # "Analysis Start",        params$start_time,
+  # "Analysis End",          params$end_time,
+  "Input Data and Parameters", "",
+  "Land Cover (t1)",      params$map1_file_path,
+  "Land Cover (t2)",   params$map2_file_path,
+  "Profitability data",   params$npv_file_path,
+  "Carbon stock data",   params$carbon_file_path,
+  "Year 1", as.character(params$year1),
+  "Year 2", as.character(params$year2),
+  "NoData land-cover class", as.character(params$raster_nodata),
+  "Output Files", "",
+  "Output Workspace",      paste0(getwd(), " | ", params$output_dir),
+  "Session Summary", "",
+) %>% rbind(format_session_info_table())
+
+analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
+  kable_paper("hover", full_width = F )
+```
+
+</details>
+
+# Introduction
+
+This report presents the results of a Profitability Analysis based on land-use change scenarios. The analysis focuses on assessing the net present value (NPV), opportunity costs, and carbon emissions associated with different land-use changes. This method helps evaluate the financial and environmental impacts of shifting land use and identify trade-offs between profitability and sustainability.
 
 
-* A brief description or summary statistics of the lookup table data can be included here.
+# Analysis Results
 
+The analysis workflow involves several key steps:
 
-## Analysis Results
-
-The maps provided was carbon, emission and sequestration map.
-
-* Calculation or analysis details based on the results can be presented here.
+1. **NPV and Carbon Data Processing**: NPV and carbon data were combined to create a comprehensive lookup table.
+2. **Land-Use Change Analysis**: The land-use change maps were processed to assess changes in NPV and carbon emissions.
+3. **Opportunity Cost Calculation**: The opportunity cost table was built by evaluating the difference between carbon emissions and financial gains across different land uses.
+4. **Visualization**: Maps were generated to visually represent the spatial distribution of NPV changes, carbon emissions, and opportunity costs. Additionally, an opportunity cost curve was plotted to illustrate the trade-off between financial gains and carbon emissions.
 
 ### Opportunity Cost Table
+The Opportunity Cost Table presents a detailed breakdown of the trade-offs between financial gains (measured in net present value, or NPV) and environmental impacts (measured in carbon emissions) for different land-use categories over a given time period. This table is a key component in evaluating the financial viability of land-use decisions while accounting for the environmental costs.
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
-head(params$opcost_table, n=10)
+dt_opcost <- params$opcost_table %>%
+  mutate(across(where(is.numeric), ~ scales::number(.x, accuracy = 0.001, big.mark = ",")))
+
+DT::datatable(dt_opcost) %>%
+  DT::formatRound(columns = 'cum_emrate2', digits = 4)
 ```
 
 ### Opportunity Cost Curve
+The curve visualizes the relationship between potential financial profits and the associated carbon emissions, allowing stakeholders to better understand the trade-offs involved in different land-use strategies.
+
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 plot(params$opcost_curve)
 ```
 
-### NPV Map 1
+## Net Present Value Maps
+The NPV Maps are critical visual outputs that illustrate the financial performance of different land-use categories at two distinct points in time. These maps help in understanding how land-use changes over time impact profitability, providing valuable insights for decision-makers seeking to balance economic and environmental factors.
+
+### NPV Map for Year `r params$year1`
+
+This map serves as a baseline for understanding the initial profitability of different land uses before any land-use changes occur. The map visually displays areas with varying degrees of profitability, using color gradients to indicate the range of NPV values.
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 plot(params$npv1_map)
 ```
 
-### NPV Map 2
+### NPV Map for Year `r params$year2`
+
+This map captures how the financial value of different land uses has evolved over the analysis period due to land-use changes, policy interventions, or natural factors. Like NPV Map for Year `r params$year1`, it uses color gradients to indicate the profitability of various land areas.
+
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 plot(params$npv2_map)
 ```
 
 ### Delta NPV Map
+
+This map highlights the regions where significant changes in NPV occurred due to land-use changes. Areas with high profitability shifts are marked in green, while those with reduced profitability are marked in red.
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 # plot(params$delta_npv)
@@ -74,6 +132,10 @@ plot(params$delta_npv,
        legend.args = list(text = NULL, side = 4, font = 2, line = 2.5, cex = 1.2))
 ```
 
-## Conclusion
+# Conclusion
+The report highlights the key trade-offs between financial returns and environmental sustainability. It provides insights for decision-makers to balance profitability with environmental responsibility in land-use planning. The generated maps and opportunity cost curves serve as tools for evaluating these trade-offs across various scenarios.
 
-* Summarize the key findings or insights from the analysis.
+
+------------------------------------------------------------------------
+
+<font size="1"> LUMENS is free software and comes with ABSOLUTELY NO WARRANTY. Users are responsible for the results generated. Results depend on the quality of the input data ("garbage in, garbage out") and may vary or be sensitive to the parameters used. Please report any problems encountered while using LUMENS as [a GitHub issue](https://github.com/icraf-indonesia/lumens-shiny/issues). Feedback and questions are welcome [Contact Us URL]. </font size>

@@ -1,31 +1,28 @@
-# Tutorial LUMENS - SCIENDO Scenario Builder
+# Overview
 
-## Table of Contents
+The SCIENDO Scenario Builder module calculate 
 
-[1. Brief description of SCIENDO Scenario Builder modelling principles](#_toc_description)
+# Key Concepts:
 
-[2. Preparing inputs for model simulation](#_toc_inputs)
+1.  
 
-[3. How to run the model](#_toc_run)
+# Data Preparation
 
-[4. Outputs of the model](#_toc_outputs)
+Before using the QUES-C Analysis tool, prepare the following:
 
-[5. Useful references](#_toc_refs)
+1.  **QUES-C Database**: A CSV file containing land cover transition between T1 and T2 in each planning unit with the value of carbon stock, emission, and sequestration.
 
-[Annex 1 Complete list of inputs and parameters required by SCIENDO Abacus](#_toc_annex)
+## Using the SCIENDO Scenario Builder Tool
 
-------------------------------------------------------------------------
+Follow these steps to use the tool:
 
-## <a name="_toc_description"></a>1. Brief description of SCIENDO Abacus modelling principles
+1.  **QUES-C Database**
+    -   Click "Browse" and select QUES-C Database CSV file containing the emission factors with their corresponding land cover classes.
+2.  **Run Analysis**
+    -   Click "Run" to start the process.
 
-SCIENDO Scenario Builder is a sub-module of LUMENS
+# Accessing Outputs
 
-## <a name="_toc_inputs"></a>2. Preparing inputs for model simulation
+After the analysis completes, you'll find the following in your selected output directory:
 
-## <a name="_toc_run"></a>3. How to run the model
-
-## <a name="_toc_outputs"></a>4. Outputs of the model
-
-## <a name="_toc_refs"></a>5. Useful references
-
-## <a name="_toc_annex"></a>Annex 1 Complete list of inputs and parameters required by SCIENDO Abacus
+1.  

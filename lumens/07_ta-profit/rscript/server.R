@@ -22,6 +22,7 @@ server <- function(input, output, session) {
     map2_rast = NULL,  # Raster object for the second map
     tbl_npv = NULL,  # NPV data table
     quesc_tbl = NULL,  # Table combining carbon and NPV data
+    dt_quesc_npv = NULL,
     all_tbl_carbon = NULL,  # All carbon data
     tbl_carbon = NULL,  # Processed carbon data table
     period = NULL,  # Time period for the analysis
@@ -37,9 +38,7 @@ server <- function(input, output, session) {
   )
   
   #' Available volumes for file selection, used to set the working directory for saving outputs
-  volumes <- c(
-    getVolumes()()
-  )
+  volumes <- c(Home = fs::path_home(), "R Installation" = R.home(), getVolumes()())
   
   # Set working directory ---------------------------------------------------
   #' Allow users to choose the output directory where all generated files and reports will be saved.
@@ -81,18 +80,21 @@ server <- function(input, output, session) {
   # File Inputs -------------------------------------------------------------
   #' Load and process the first map file, converting it to a raster format
   observeEvent(input$map1_file, {
-    rv$map1_file <- input$map1_file$datapath
-    rv$map1_rast <- raster(rv$map1_file)
+    req(input$map1_file)
+    rv$map1_file <- input$map1_file
+    rv$map1_rast <- rast(rv$map1_file$datapath)
   })
   
   #' Load and process the second map file, converting it to a raster format
   observeEvent(input$map2_file, {
-    rv$map2_file <- input$map2_file$datapath
-    rv$map2_rast <- raster(rv$map2_file)
+    req(input$map2_file)
+    rv$map2_file <- input$map2_file
+    rv$map2_rast <- rast(rv$map2_file$datapath)
   })
   
   #' Load the carbon data file and process it into a table format for analysis
   observeEvent(input$carbon_file, {
+    req(input$carbon_file)
     rv$carbon_file <- input$carbon_file$datapath
     df_c <- read.csv(rv$carbon_file)
     rv$quesc_tbl <- df_c
@@ -101,6 +103,7 @@ server <- function(input, output, session) {
   
   #' Load the NPV data file and extract relevant columns for analysis
   observeEvent(input$npv_file, {
+    req(input$npv_file)  
     rv$npv_file <- input$npv_file$datapath
     df_n <- read.csv(rv$npv_file)
     rv$tbl_npv <- df_n %>% dplyr::select(ID_LC = 1, NPV = 3)
@@ -117,8 +120,20 @@ server <- function(input, output, session) {
   observeEvent(input$process, {
     
     #' Validate input files to ensure all required data is uploaded before proceeding
-    if (is.null(rv$map1_rast) || is.null(rv$map2_rast) || is.null(rv$tbl_carbon) || is.null(rv$tbl_npv)) {
-      showNotification("Please upload all required files", type = "error")
+    if (is.null(rv$map1_rast)) {
+      showNotification("Please upload the first map file", type = "error")
+      return()
+    }
+    if (is.null(rv$map2_rast)) {
+      showNotification("Please upload the second map file", type = "error")
+      return()
+    }
+    if (is.null(rv$tbl_carbon)) {
+      showNotification("Please upload the carbon data file", type = "error")
+      return()
+    }
+    if (is.null(rv$tbl_npv)) {
+      showNotification("Please upload the NPV data file", type = "error")
       return()
     }
     
@@ -127,25 +142,27 @@ server <- function(input, output, session) {
       tryCatch({
         #' Prepare NPV lookup table by combining carbon and NPV data, and calculate total area
         npv_result <- prepare_npv_lookup(rv$tbl_npv, rv$quesc_tbl)
-        rv$quesc_tbl <- npv_result$quesc_tbl
+        rv$dt_quesc_npv <- npv_result$dt_quesc_npv
         tot_area <- npv_result$tot_area
         
         #' Build the opportunity cost table based on the land use change period and total area
-        opcost_result <- build_opcost_table(rv$quesc_tbl, rv$period, tot_area)
+        opcost_result <- build_opcost_table(rv$dt_quesc_npv, rv$period, tot_area)
         rv$opcost_table <- opcost_result$opcost_all
         rv$opcost_table$order <- c(1:nrow(rv$opcost_table))
         
         #' Perform carbon accounting and calculate carbon emissions based on land use change
-        carbon_result <- carbon_accounting(rv$map1_rast, rv$map2_rast, rv$tbl_npv, rv$tbl_carbon, input$raster_nodata)
+        map1_rast <- terra::rast(rv$map1_file$datapath)
+        map2_rast <- terra::rast(rv$map2_file$datapath)
+        carbon_result <- carbon_accounting(map1_rast, map2_rast, rv$tbl_npv, rv$tbl_carbon, input$raster_nodata)
         rv$map_carbon1 <- carbon_result$map_carbon1
         rv$map_carbon2 <- carbon_result$map_carbon2
         rv$emission_map <- carbon_result$emission_map
         
         #' Perform NPV accounting to calculate changes in NPV between the two time periods
-        npv_result <- npv_accounting(rv$map1_rast, rv$map2_rast, rv$tbl_npv)
-        rv$map_npv1 <- npv_result$map_npv1
-        rv$map_npv2 <- npv_result$map_npv2
-        rv$npv_chg_map <- npv_result$npv_chg_map
+        npv_change <- npv_accounting(map1_rast, map2_rast, rv$tbl_npv)
+        rv$map_npv1 <- npv_change$map_npv1
+        rv$map_npv2 <- npv_change$map_npv2
+        rv$npv_chg_map <- npv_change$npv_chg_map
         
         #' Calculate the opportunity cost map by combining NPV changes with carbon emissions
         rv$opcost_map <- calculate_opcost_map(rv$npv_chg_map, rv$emission_map)
@@ -155,6 +172,14 @@ server <- function(input, output, session) {
         
         #' Generate the opportunity cost curve for visualization
         rv$opcost_curve <- generate_opportunity_cost_curve(rv$opcost_table)
+        
+        rv$map1_file_path <- rename_uploaded_file(input$map1_file)
+        rv$map2_file_path <- rename_uploaded_file(input$map2_file)
+        rv$npv_file_path <- rename_uploaded_file(input$npv_file)
+        rv$carbon_file_path <- rename_uploaded_file(input$carbon_file)
+        rv$year1 <- input$year1
+        rv$year2 <- input$year2
+        rv$raster_nodata <- input$raster_nodata
         
         #' Indicate that the process has completed successfully
         setProgress(1, message = "Processing Complete")
@@ -177,6 +202,7 @@ server <- function(input, output, session) {
   #' Create a reactive function to generate the final report after the analysis is complete
   report_content <- reactive({
     params <- list(
+      session_log = format_session_info_table(),
       map_carbon1 = rv$map_carbon1,
       map_carbon2 = rv$map_carbon2,
       emission_map = rv$emission_map,
@@ -185,7 +211,15 @@ server <- function(input, output, session) {
       opcost_curve = rv$opcost_curve,
       npv1_map = rv$map_npv1,
       npv2_map = rv$map_npv1,
-      delta_npv = rv$npv_chg_map
+      delta_npv = rv$npv_chg_map,
+      map1_file_path = rv$map1_file_path,
+      map2_file_path = rv$map2_file_path,
+      npv_file_path = rv$npv_file_path,
+      carbon_file_path = rv$carbon_file_path,
+      year1 = rv$year1,
+      year2 = rv$year2,
+      raster_nodata = rv$raster_nodata,
+      output_dir = rv$wd
     )
     
     output_file <- paste0("ta-profit_report_", format(Sys.time(), "%Y-%m-%d_%H-%M-%S"), ".html")

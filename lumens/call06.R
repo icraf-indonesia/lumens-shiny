@@ -1,0 +1,1 @@
+shiny::runApp('06_quesh/rscript/', launch.browser = T, port = 875)

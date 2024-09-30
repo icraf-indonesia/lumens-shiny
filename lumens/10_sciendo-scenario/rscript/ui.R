@@ -208,11 +208,11 @@ projection_scenario_modification <- layout_column_wrap(
         ),
         nav_panel(
           title = "Description",
-
+          
           p(tags$b("Label"), textOutput("scenario_label")),
           p(tags$b("Description"), textOutput("scenario_desc")),
           div(actionButton("edit_scenario_label_btn", "Edit"), style = "text-align:right;")
-
+          
         )
       ))
   )
@@ -263,7 +263,6 @@ ui <-
       font_scale = 0.9
     ),
     useShinyjs(),
-    extendShinyjs(text = jscode, functions = c("closeWindow")),
     bg = "#FCE5E6",
     header =
       tags$head(
@@ -289,18 +288,19 @@ ui <-
         tags$link(rel = "stylesheet", href = "jsuites.css", type = "text/css"),
         tags$link(rel = "stylesheet", type = "text/css", href = "table.css")
       ),
+    extendShinyjs(text = jscode, functions = c("closeWindow")),
     window_title = "SCIENDO-Scenario Builder",
     title =
-    #   HTML(
-    #   "<span style='color:#E42E34; background:#540b0e; padding:2px 20px 4px 20px; border-radius:15px'>
-    #   <b>REDD<span style='color: white;'>Abacus</span>2</b></span>"
-    # )
-    span(tags$img(height = 18, src = "images/abacus2_logo_white.svg", style = "margin-right:5px"),
-         "SCIENDO", span("ScenarioBuilder", style = "color: white;", .noWS = c('before', "after") ),
-         style = "color:#E42E34; background:#540b0e; padding:2px 20px 4px 20px; border-radius:15px; font-weight:bold"),
-
+      #   HTML(
+      #   "<span style='color:#E42E34; background:#540b0e; padding:2px 20px 4px 20px; border-radius:15px'>
+      #   <b>REDD<span style='color: white;'>Abacus</span>2</b></span>"
+      # )
+      span(tags$img(height = 18, src = "images/abacus2_logo_white.svg", style = "margin-right:5px"),
+           "SCIENDO", span("ScenarioBuilder", style = "color: white;", .noWS = c('before', "after") ),
+           style = "color:#E42E34; background:#540b0e; padding:2px 20px 4px 20px; border-radius:15px; font-weight:bold"),
+    
     underline = TRUE,
-
+    
     ### IMPORT QUESC #############################
     nav_panel(
       title = "Import QUES-C Database",
@@ -313,8 +313,8 @@ ui <-
           fileInput("quescdb", "Load QUES-C Database (.csv)", accept = ".csv"),
           div(style = "display: flex; flex-direction: column; gap: 10px;",
               shinyDirButton("output_dir", "Select output directory", "Please select a directory"),
-              actionButton("processSCIENDO", "Run", 
-                           style = "font-size: 18px; padding: 10px 15px; background-color: #4CAF50; color: white;"),
+              # actionButton("processSCIENDO", "Run", 
+              #              style = "font-size: 18px; padding: 10px 15px; background-color: #4CAF50; color: white;"),
               hidden(
                 actionButton("openReport", "Open Report",
                              style = "font-size: 18px; padding: 10px 15px; background-color: #008CBA; color: white;")
@@ -337,10 +337,17 @@ ui <-
         condition = "output.is_matrix",
         projection_value_box,
         projection_scenario_selection,
-        projection_scenario_modification
+        projection_scenario_modification,
+        actionButton(
+          "process_build_scenario",
+          "Run Analysis",
+          # style = "height:38px; width:100%; padding:5px;",
+          style = "font-size: 18px; padding: 10px 15px; background-color: #4CAF50; color: white;",
+          icon = icon("gear")
+        )
       )
     ),
-
+    
     ### OUTPUT #############################
     # nav_panel(
     #   title = "Download",
@@ -354,7 +361,7 @@ ui <-
       icon = icon("circle-question"),
       includeMarkdown("../helpfile/help.md")
     ),
-
+    
     ### MENU #############################
     nav_spacer(),
     nav_menu(
@@ -368,5 +375,5 @@ ui <-
         div(icon("file-import"), "Import REDD-Abacus-1 data (.car)")
       ))
     )
-
+    
   )

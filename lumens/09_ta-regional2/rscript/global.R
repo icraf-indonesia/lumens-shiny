@@ -24,8 +24,7 @@ install_load(
   "ggplot2",
   "plotly",
   "purrr",
-  "raster",
-  "remotes",
+  "remote",
   "reshape",
   "reshape2",
   "rmarkdown",
@@ -43,6 +42,55 @@ if (!("LUMENSR" %in% rownames(installed.packages()))) {
   do.call("library", list("LUMENSR"))
 }
 library(LUMENSR)
+
+check_and_install_packages <- function(required_packages) {
+  # Check if each package is installed and can be loaded
+  missing_packages <- character(0)
+  for (package in required_packages) {
+    if (!requireNamespace(package, quietly = TRUE)) {
+      missing_packages <- c(missing_packages, package)
+    } else {
+      tryCatch(
+        {
+          library(package, character.only = TRUE)
+          cat(paste0("Package '", package, "' is installed and loaded.\n"))
+        },
+        error = function(e) {
+          missing_packages <<- c(missing_packages, package)
+          cat(paste0("Package '", package, "' is installed but could not be loaded: ", e$message, "\n"))
+        }
+      )
+    }
+  }
+  
+  # If there are missing packages, ask the user if they want to install them
+  if (length(missing_packages) > 0) {
+    cat("\nThe following packages are missing or could not be loaded:\n")
+    cat(paste0("- ", missing_packages, "\n"))
+    
+    install_choice <- readline(prompt = "Do you want to install/reinstall these packages? (y/n): ")
+    
+    if (tolower(install_choice) == "y") {
+      for (package in missing_packages) {
+        cat(paste0("\nAttempting to install package '", package, "'...\n"))
+        tryCatch(
+          {
+            install.packages(package)
+            library(package, character.only = TRUE)
+            cat(paste0("Package '", package, "' has been successfully installed and loaded.\n"))
+          },
+          error = function(e) {
+            cat(paste0("Failed to install package '", package, "': ", e$message, "\n"))
+          }
+        )
+      }
+    } else {
+      cat("\nPackage installation skipped. Some required packages are missing.\n")
+    }
+  } else {
+    cat("\nAll required packages are installed and loaded.\n")
+  }
+}
 
 format_session_info_table <- function() {
   si <- sessionInfo()
@@ -85,11 +133,12 @@ rename_uploaded_file <- function(input_file) {
 
 # Function to calculate totals and create a data frame for a given variable
 create_totals_df <- function(GDP, GDP_values, multiplier, period_name) {
+  
   output_tot_list <- list()
   
   for (i in 1:ncol(GDP_values)) {
     GDP_value <- GDP_values[[i]]
-    output_sector <- GDP_value * GDP$P_OUTPUT
+    output_sector <- GDP_value * as.numeric(GDP$P_OUTPUT)
     sector_total <- output_sector * multiplier
     total <- sum(as.numeric(sector_total), na.rm = TRUE)
     output_tot_list[[i]] <- total

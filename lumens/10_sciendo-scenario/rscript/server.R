@@ -10,7 +10,7 @@ server <- function(input, output, session) {
       "dark")
   color_theme <-
     as.list(bs_get_variables(bs_current_theme(session), varnames = vars))
-
+  
   chart_color <- c(
     paletteer_d("ggthemes::calc"),
     paletteer_d("ggsci::schwifty_rickandmorty"),
@@ -25,7 +25,7 @@ server <- function(input, output, session) {
     paletteer_d("RColorBrewer::Set3"),
     paletteer_dynamic("cartography::multi.pal", 20)
   )
-
+  
   light_color <- c(
     paletteer_d("ggsci::legacy_tron"),
     paletteer_d("ggthemes::Superfishel_Stone"),
@@ -35,7 +35,7 @@ server <- function(input, output, session) {
     paletteer_d("ggthemes::Classic_10_Medium"),
     paletteer_dynamic("cartography::pastel.pal", 20)
   )
-
+  
   get_color <- function(idx = NULL, is_light = F) {
     if (is_light) {
       cl <- light_color
@@ -50,17 +50,17 @@ server <- function(input, output, session) {
     idx[idx==0] <- max_idx
     return(cl[idx])
   }
-
+  
   map_color <-
     colorRampPalette(c("darkgreen", "gold", "red3", "blue3"))
   emission_color <- colorRamp(c("darkgreen", "white", "red3"))
   emission_color_min <- colorRamp(c("darkgreen", "white"))
   emission_color_max <- colorRamp(c("white", "red3"))
-
+  
   options(reactable.theme = reactableTheme(
     style = list(fontFamily = "Arial, Helvetica, sans-serif", fontSize = "1em")
   ))
-
+  
   f_number <- function(v, unit = "", digits = 1) {
     paste(format(
       v,
@@ -69,11 +69,11 @@ server <- function(input, output, session) {
       scientific = F
     ), unit)
   }
-
+  
   f_percent <- function(v) {
     sprintf("%0.1f%%", v * 100)
   }
-
+  
   v <- reactiveValues(
     title = "",
     description = "",
@@ -117,10 +117,10 @@ server <- function(input, output, session) {
     em_plot = NULL,
     report_file = NULL
   )
-
+  
   lc_legend_pal = NULL
   zone_legend_pal = NULL
-
+  
   ### Conditional panel UI logic ###
   conditional_id <-
     c(
@@ -142,7 +142,7 @@ server <- function(input, output, session) {
       "zone_list_df",
       "cstock_list"
     )
-
+  
   mapply(function(id, val) {
     output[[id]] <- reactive({
       if (is.null(v[[val]]))
@@ -151,8 +151,8 @@ server <- function(input, output, session) {
     })
     outputOptions(output, id, suspendWhenHidden = FALSE)
   }, conditional_id, conditional_v)
-
-
+  
+  
   ### Date input UI ###
   lapply(c("map1", "map2"), function(x) {
     id <- paste0(x, "_date")
@@ -160,7 +160,7 @@ server <- function(input, output, session) {
       v[[id]] <- input[[id]]
     })
   })
-
+  
   other_lc_id <- function(id) {
     oid <- ifelse(id == "map1", "map2", "map1")
     odf <- isolate(v[[paste0(oid, "_df")]])
@@ -168,15 +168,15 @@ server <- function(input, output, session) {
       return(odf$id)
     return(NULL)
   }
-
+  
   check_map_input <- function(map_id) {
     #TODO: validate the map input
     reset_scenario()
     return(T)
   }
-
+  
   crs <- NULL
-
+  
   reset_scenario <- function() {
     v$scenario_list <- list(generate_scenario_object(1))
     final_area$sc_lc_df <- NULL
@@ -184,12 +184,12 @@ server <- function(input, output, session) {
     update_scenario_select_options()
     v$selected_scenario_id <- 1
   }
-
+  
   get_map_bbox <- function(m) {
     bb <- st_bbox(st_transform(st_as_sfc(st_bbox(m)), 4326))
     return(as.list(bb))
   }
-
+  
   plot_map <- function(id) {
     m <- v[[paste0(id, "_stars")]]
     if (is.null(m)) {
@@ -209,7 +209,7 @@ server <- function(input, output, session) {
                     colors = c,
                     layerId = 'ID')
   }
-
+  
   observe({
     if (is.null(v$mapz_stars))
       return()
@@ -240,9 +240,9 @@ server <- function(input, output, session) {
         df <- isolate(v$zone_list_df)
         v$zone_list_df <- df[df$zone_id %in% znew_id,]
       }
-
+      
     }
-
+    
     df <- isolate(v$zone_list_df)
     zone_legend_pal <<-
       colorFactor(df$color, df$zone_id, na.color = NA)
@@ -251,19 +251,19 @@ server <- function(input, output, session) {
                      isolate(v$map2_stars),
                      isolate(v$mapz_stars))
   })
-
+  
   observe({
     v$period_year <-
       as.numeric(difftime(as.Date(v$map2_date), as.Date(v$map1_date), unit =
                             "weeks")) / 52.25
   })
-
+  
   get_iteration_year <- function(iteration) {
     y0 <- format(v$map1_date, "%Y")
     y <- as.integer(y0) + round(v$period_year) * iteration
     return(y)
   }
-
+  
   ### LAND COVER LIST ##############################
   update_lc_df <- function(prev_df, lc_id_list, other_id) {
     if (is.null(prev_df)) {
@@ -294,7 +294,7 @@ server <- function(input, output, session) {
       df <- df[df$lc_id %in% curr_id, ]
       df <- df[order(df$lc_id), ]
       v$lc_list_df <- df
-
+      
       df_c <- df_c[df_c$lc_id %in% curr_id, ]
       df_c <- df_c[order(df_c$lc_id), ]
       v$cstock_list <- df_c[cstock_table_def]
@@ -302,7 +302,7 @@ server <- function(input, output, session) {
     lc_legend_pal <<-
       colorFactor(df$color, df$lc_id, na.color = NA)
   }
-
+  
   #### Land cover legend list table ####
   lc_table_def <- c("lc_id", "color", "label", "description")
   lc_column <- data.frame(
@@ -313,16 +313,16 @@ server <- function(input, output, session) {
     width = c(NA, NA, 150, 150),
     readOnly = c(T, F, F, F)
   )
-
+  
   is_color_code <- function(x) {
     res <- try(col2rgb(x), silent = TRUE)
     return(!"try-error" %in% class(res))
   }
-
+  
   is_numeric_str <- function(s) {
     return(!is.na(as.integer(as.character(s))))
   }
-
+  
   #### Zonation list table ####
   zone_table_def <-
     c("zone_id", "color", "label", "description", "area")
@@ -335,7 +335,7 @@ server <- function(input, output, session) {
     mask = c(NA, NA, NA, NA, "#,##"),
     readOnly = c(T, F, F, F, T)
   )
-
+  
   ### Carbon stock list table
   cstock_table_def <- c("lc_id", "c")
   cstock_column <- data.frame(
@@ -349,7 +349,7 @@ server <- function(input, output, session) {
     width = c(NA, 150, 150),
     readOnly = c(T, T, F)
   )
-
+  
   ### LAND COVER CHANGE MATRIX ##############################
   update_lc_matrix <- function(map1, map2, mapz) {
     #TODO: check for CRS consistency and also dimension!
@@ -364,7 +364,7 @@ server <- function(input, output, session) {
         st_dimensions(map2) <- st_dimensions(map1)
         suppressWarnings(as.data.frame(table(c(map1, map2))))
       })
-
+      
       colnames(m) <- c("lc1_id", "lc2_id", "area")
       m$zone_id <- 0
     } else {
@@ -392,7 +392,7 @@ server <- function(input, output, session) {
     m$iteration_id <- 0
     v$lc_changes_df <- m
   }
-
+  
   get_lc_colDef <- function(lc_id_list,
                             align = "left",
                             sticky = NULL,
@@ -427,7 +427,7 @@ server <- function(input, output, session) {
     )
     return(c)
   }
-
+  
   ### CARBON EMISSION CALCULATION ######################
   observe({
     if (is.null(v$lc_changes_df))
@@ -459,7 +459,7 @@ server <- function(input, output, session) {
       v$c_sequestration_total <- sum(df[df$e < 0, "e"], na.rm = T)
     }
   })
-
+  
   ### BOX INFO OF EMISSION ###################
   lapply(c("other", "all"), function(id) {
     output[[paste0("box_", id, "_emission_out")]] <- renderUI({
@@ -483,7 +483,7 @@ server <- function(input, output, session) {
       )
     })
   })
-
+  
   ### EMISSION FROM OTHER SOURCES ###############
   other_table_def <- c("zone_id", "lc_id", "efactor", "source")
   other_column <- data.frame(
@@ -493,25 +493,25 @@ server <- function(input, output, session) {
     width = c(500, 500, 150, 200),
     multiple = c(T, T, F, F)
   )
-
+  
   update_table <- reactiveVal(T)
   all_id <- -999
-
+  
   validate_other_df <- function(df_input) {
     df_input[df_input$source == "", "source"] <- "unknown"
     x_df <- apply(df_input, 1, function(r) {
       zs <- 0
       if(!is.null(v$zone_list_df)) {
-      if (r[["zone_id"]] == "" ||
-          r[["zone_id"]] == all_id || is.na(r[["zone_id"]])) {
-        zs <- v$zone_list_df$zone_id
-      } else {
-        zs <- unlist(strsplit(r[["zone_id"]], split = ";"))
-        if (all_id %in% zs)
+        if (r[["zone_id"]] == "" ||
+            r[["zone_id"]] == all_id || is.na(r[["zone_id"]])) {
           zs <- v$zone_list_df$zone_id
+        } else {
+          zs <- unlist(strsplit(r[["zone_id"]], split = ";"))
+          if (all_id %in% zs)
+            zs <- v$zone_list_df$zone_id
+        }
       }
-      }
-
+      
       if (r[["lc_id"]] == "" ||
           r[["lc_id"]] == all_id || is.na(r[["lc_id"]])) {
         ls = v$lc_list_df$lc_id
@@ -531,7 +531,7 @@ server <- function(input, output, session) {
     x_df[is.na(x_df)] <- 0
     return(x_df)
   }
-
+  
   ### UPDATE ABACUS DATA ######################
   observe({
     if (is.null(v$lc_changes_df))
@@ -551,7 +551,7 @@ server <- function(input, output, session) {
     )
     v$abacus_data <- ab
   })
-
+  
   ### ABACUS DATA IMPORT ##############################
   scenario_colums <- c("zone",
                        "period",
@@ -561,13 +561,13 @@ server <- function(input, output, session) {
                        "area",
                        "def_area",
                        "def_r")
-
+  
   observeEvent(input$abacus_file, {
     v$abacus_file <- input$abacus_file
     if (is.null(v$abacus_file)) {
       return(NULL)
     }
-
+    
     v$map1_file <- NULL
     v$map2_file <- NULL
     v$mapz_file <- NULL
@@ -578,7 +578,7 @@ server <- function(input, output, session) {
     v$map1_df <- NULL
     v$map2_df <- NULL
     v$mapz_df <- NULL
-
+    
     v$abacus_data <- read.abacus(v$abacus_file$datapath)
     p <- v$abacus_data$project_list[[v$selected_project_id]]
     p$landcover$color <- map_color(nrow(p$landcover))
@@ -596,24 +596,24 @@ server <- function(input, output, session) {
     v$map2_date <- as.Date(paste0(p$project$baseyear1, "-07-01"))
     removeModal()
   })
-
+  
   get_period_label <- function(iteration) {
     n <- abs(v$baseline_period[2] - v$baseline_period[1])
     p1 <- v$baseline_period[1] + iteration * n
     p2 <- v$baseline_period[1] + (iteration + 1) * n
     return(paste(p1, "-", p2))
   }
-
+  
   get_landcover_label <- function(id) {
     df <- active_scenario()$abacus_scenario$scenario$landcover
     return(df[df$lc_id == id, "label"])
   }
-
+  
   get_landcover_color <- function(id) {
     df <- active_scenario()$abacus_scenario$scenario$landcover
     return(df[df$lc_id == id, "color"])
   }
-
+  
   observe({
     if (is.null(v$n_iteration)) {
       return()
@@ -627,7 +627,7 @@ server <- function(input, output, session) {
     names(pl) <- n
     updateSelectInput(session, "iteration_select_c", choices = pl)
   })
-
+  
   
   ### QUES-C DATABASE IMPORT #########
   observeEvent(input$quescdb, {
@@ -645,19 +645,6 @@ server <- function(input, output, session) {
         "Please upload the correct data from the output of QUES-C module",
         id = "submit_message", type = "error")
       reset("quescdb")
-      return()
-    }
-  })
-  
-  iv <- InputValidator$new()
-  iv$add_rule("quescdb", sv_required(message = "Please upload QUES-C database"))
-  iv$add_rule("output_dir", sv_required(message = "Please select an output directory"))
-  observeEvent(input$processSCIENDO, {
-    if(!iv$is_valid()) {
-      iv$enable()
-      showNotification(
-        "Please correct the errors in the form and try again",
-        id = "submit_message", type = "error")
       return()
     }
     
@@ -692,14 +679,30 @@ server <- function(input, output, session) {
     v$n_iteration <- p$project$n_iteration
     v$map1_date <- as.Date(paste0(p$project$baseyear0, "-07-01"))
     v$map2_date <- as.Date(paste0(p$project$baseyear1, "-07-01"))
-    updateNavlistPanel(session, "main_page", selected = "Projection")
+    # updateNavlistPanel(session, "main_page", selected = "Projection")
   })
   
-
+  ### RUN ANALYSIS ######### 
+  iv <- InputValidator$new()
+  iv$add_rule("quescdb", sv_required(message = "Please upload QUES-C database"))
+  iv$add_rule("output_dir", sv_required(message = "Please select an output directory"))
+  observeEvent(input$process_build_scenario, {
+    if(!iv$is_valid()) {
+      iv$enable()
+      showNotification(
+        "Please correct the errors in the form and try again",
+        id = "submit_message", type = "error")
+      return()
+    }
+    
+    
+  })
+  
+  
   ### PROJECTION ######################
-
+  
   sc_active_section <- list()
-
+  
   output$edit_scenario <- renderAbacuslib({
     if (is.null(v$abacus_data)) {
       return(NULL)
@@ -714,7 +717,7 @@ server <- function(input, output, session) {
       selected_lc = sc_active_section$lc
     )
   })
-
+  
   output$n_scenario <- renderText({
     df <- active_scenario()$abacus_scenario$scenario$tpm
     if (is.null(df)) {
@@ -722,25 +725,25 @@ server <- function(input, output, session) {
     }
     return(nrow(df[df$lock == 1, ]))
   })
-
+  
   observeEvent(input$edit_scenario_baseline, {
     v$abacus_baseline <- input$edit_scenario_baseline
     v$n_iteration <- v$abacus_baseline$iteration
     final_area$bl_lc_df <-
       get_lc_area_total(v$abacus_baseline$projection$lc_sum_area)
-
+    
     sc <- active_scenario()$abacus_scenario
     # if (is.null(sc)) {
     #   apply_final_lc_area(final_area$bl_lc_df[c(1:3), ])
     # }
     emission_val$bl_sum <-
       sum(v$abacus_baseline$emission$iteration_emission$emission)
-
+    
     update_scenario_select_options()
   })
-
+  
   final_area <- reactiveValues(sc_lc_df = NULL, bl_lc_df = NULL)
-
+  
   output$final_area1 <- renderText({
     if (is.null(final_area$sc_lc_df))
       return()
@@ -748,7 +751,7 @@ server <- function(input, output, session) {
       return()
     f_number(max(final_area$sc_lc_df$area))
   })
-
+  
   output$box_final_area_info <- renderUI({
     df <- final_area$sc_lc_df
     if (is.null(df))
@@ -758,7 +761,7 @@ server <- function(input, output, session) {
     df <- df[order(df$area, decreasing = TRUE), ]
     tagList(p("of", df[1, "lc"]), p("2nd", df[2, "lc"], ":", f_number(df[2, "area"])))
   })
-
+  
   get_lc_area_total <- function(lc_sum_area) {
     a <- lc_sum_area
     i <- max(a$iteration)
@@ -769,7 +772,7 @@ server <- function(input, output, session) {
     ag$lc <- lapply(ag$lc_id, get_landcover_label)
     return(ag)
   }
-
+  
   active_scenario <- function() {
     if (length(v$scenario_list) == 0) {
       v$scenario_list <- list(generate_scenario_object(1))
@@ -779,7 +782,7 @@ server <- function(input, output, session) {
     # print(v$selected_scenario_id)
     v$scenario_list[[v$selected_scenario_id]]
   }
-
+  
   scenario_lc_colums <- c("lc_id",
                           "color",
                           "label",
@@ -787,7 +790,7 @@ server <- function(input, output, session) {
                           "zone_id",
                           "iteration_id",
                           "c")
-
+  
   generate_scenario_object <- function(id = NULL,
                                        label = NULL,
                                        desc = "") {
@@ -807,7 +810,7 @@ server <- function(input, output, session) {
     l$abacus_scenario$scenario$landcover <- lc_df[scenario_lc_colums]
     return(l)
   }
-
+  
   observe({
     if (is.null(v$lc_list_df))
       return()
@@ -817,7 +820,7 @@ server <- function(input, output, session) {
     } else {
       lc_df <- merge(v$lc_list_df, v$cstock_list, by = "lc_id")
     }
-
+    
     if(length(v$scenario_list) == 0) return()
     for (i in 1:length(v$scenario_list)) {
       cn <- c(lc_table_def, "c")
@@ -830,8 +833,8 @@ server <- function(input, output, session) {
       v$scenario_list[[i]]$abacus_scenario$scenario$landcover <- sclc
     }
   })
-
-
+  
+  
   update_scenario_select_options <- function() {
     ch <- as.list(c(1:length(v$scenario_list)))
     n <- unlist(lapply(v$scenario_list, function(x)
@@ -844,7 +847,7 @@ server <- function(input, output, session) {
       selected = v$selected_scenario_id
     )
   }
-
+  
   input_dialog <- function(title = "",
                            desc = "",
                            confirm_id,
@@ -882,9 +885,9 @@ server <- function(input, output, session) {
       )
     )
   }
-
+  
   observeEvent(input$cancel_button_dialog, removeModal())
-
+  
   observeEvent(input$add_scenario, showModal(
     input_dialog(
       title = "Add new scenario",
@@ -896,7 +899,7 @@ server <- function(input, output, session) {
       input_pholder = c("", "Description of scenario")
     )
   ))
-
+  
   observeEvent(input$add_scenario_confirm, {
     removeModal()
     id <- length(v$scenario_list) + 1
@@ -907,7 +910,7 @@ server <- function(input, output, session) {
     update_scenario_select_options()
     v$selected_scenario_id <- id
   })
-
+  
   observeEvent(input$remove_scenario, {
     showModal(
       input_dialog(
@@ -918,14 +921,14 @@ server <- function(input, output, session) {
       )
     )
   })
-
+  
   observeEvent(input$confirm_remove_scenario, {
     removeModal()
     if(length(v$scenario_list) == 1) return()
     v$scenario_list[[v$selected_scenario_id]] <- NULL
     update_scenario_select_options()
   })
-
+  
   observeEvent(input$edit_scenario_label_btn, showModal(
     input_dialog(
       title = "Edit scenario",
@@ -936,7 +939,7 @@ server <- function(input, output, session) {
       input_def = c(active_scenario()$label, active_scenario()$desc)
     )
   ))
-
+  
   observeEvent(input$edit_scenario_label_confirm, {
     removeModal()
     id <- v$selected_scenario_id
@@ -944,35 +947,35 @@ server <- function(input, output, session) {
     v$scenario_list[[id]]$desc <- input$scenario_desc_dialog
     update_scenario_select_options()
   })
-
-
+  
+  
   observe({
     updateSelectInput(session,
                       "select_scenario",
                       selected = v$selected_scenario_id)
   })
-
+  
   output$scenario_label <- renderText(active_scenario()$label)
   output$scenario_desc <- renderText(active_scenario()$desc)
-
+  
   observeEvent(input$select_scenario, {
     if (input$select_scenario == "")
       return()
     v$selected_scenario_id <- as.numeric(input$select_scenario)
   })
-
+  
   ### UPDATE SCENARIO FROM ABACUSLIB WIDGET ##########
-
+  
   observeEvent(input$edit_scenario_update, {
     # print("*** update scenario")
     # print(length(v$scenario_list))
     sc <- input$edit_scenario_update
     ## set active scenario ##
     v$scenario_list[[v$selected_scenario_id]]$abacus_scenario <- sc
-
+    
     final_area$sc_lc_df <-
       get_lc_area_total(sc$projection$lc_sum_area)
-
+    
     # print(final_area$sc_lc_df)
     cn <- c("lc_id", "area")
     adf <- NULL
@@ -986,10 +989,10 @@ server <- function(input, output, session) {
         next
       df <- get_lc_area_total(sc$projection$lc_sum_area)[cn]
       #merge dengan lc dsini
-
+      
       colnames(df) <- c("lc_id", paste0("area_", i))
       # df$lc_id <- df[[paste0("lc_id_", i)]]
-
+      
       if (is.null(adf)) {
         adf <- df
       } else {
@@ -1001,34 +1004,34 @@ server <- function(input, output, session) {
           all = T
         )
       }
-
+      
     }
     # print(adf)
-
+    
     final_area$sc_lc_df <- merge(
       x = final_area$sc_lc_df,
       y = adf,
       by = "lc_id",
       all = T
     )
-
+    
     # apply_final_lc_area(final_area$sc_lc_df[c(1:3), ])
   })
-
+  
   observeEvent(input$edit_scenario_selection, {
     sc_active_section <<- input$edit_scenario_selection
   })
-
+  
   output$final_plot <- renderPlotly({
     if (is.null(v$abacus_baseline)) {
       return()
     }
     # print("plot area")
     # print(input$box_area_full_screen)
-
+    
     data <- final_area$bl_lc_df[c("lc_id", "lc", "area")]
     colnames(data) <- c("lc_id", "label", "baseline")
-
+    
     if (!is.null(final_area$sc_lc_df)) {
       data <- merge(
         x = data,
@@ -1038,7 +1041,7 @@ server <- function(input, output, session) {
       )
       names(data)[names(data) == "area"] <- "scenario"
       data[is.na(data)] <- 0
-
+      
       data$label <- data$lc
       data <- data[order(data$baseline, decreasing = T), ]
     }
@@ -1052,7 +1055,7 @@ server <- function(input, output, session) {
       color = I("white"),
       hovertemplate = paste("%{x}<br>%{y:,.0f} ha")
     )
-
+    
     if (!is.null(final_area$sc_lc_df)) {
       # print(final_area$sc_lc_df)
       if (input$box_final_area_full_screen) {
@@ -1078,7 +1081,7 @@ server <- function(input, output, session) {
           )
       }
     }
-
+    
     fig <- fig %>%
       layout(yaxis = list(title = "Total area (ha)"),
              barmode = "group")
@@ -1120,12 +1123,12 @@ server <- function(input, output, session) {
       ro.observe(el);
     }"
       )
-
+    
     v$f_plot <- fig
     fig
   })
-
-
+  
+  
   #### Scenario list ######################
   output$tpm_list <- renderReactable({
     df <- active_scenario()$abacus_scenario$scenario$tpm
@@ -1143,9 +1146,9 @@ server <- function(input, output, session) {
     df$dif_area <- df$area - df$def_area
     df$dif_r <- df$r - df$def_r
     df[is.na(df)] <- ""
-
+    
     # print(df)
-
+    
     data <- unique(df[, c("lc1", "period", "zone")])
     #TODO if zone is not exist.. remove the grouping
     reactable(
@@ -1214,10 +1217,10 @@ server <- function(input, output, session) {
       }
     )
   })
-
+  
   #### Scenario Land cover list ####
-
-
+  
+  
   output$new_lc_list <- renderReactable({
     s <- active_scenario()$abacus_scenario$scenario
     if (is.null(s$new_lc_id)) {
@@ -1261,7 +1264,7 @@ server <- function(input, output, session) {
       )
     )
   })
-
+  
   observeEvent(input$add_lc_scenario, {
     s <- active_scenario()$abacus_scenario$scenario
     id <- max(s$landcover$lc_id) + 1
@@ -1285,7 +1288,7 @@ server <- function(input, output, session) {
       )
     )
   })
-
+  
   observeEvent(input$add_lc_scenario_dialog, {
     removeModal()
     s <- active_scenario()$abacus_scenario$scenario
@@ -1304,24 +1307,24 @@ server <- function(input, output, session) {
     )
     s$landcover <- rbind(s$landcover, df)
     s$new_lc_id <- c(s$new_lc_id, id)
-
+    
     v$scenario_list[[v$selected_scenario_id]]$abacus_scenario$scenario <- s
   })
-
+  
   edited_ld_id <- NULL
-
+  
   observeEvent(input$edit_lc_scenario, {
     list_id <- getReactableState("new_lc_list", name = "selected", session = session)
     if (is.null(list_id))
       return()
     s <- active_scenario()$abacus_scenario$scenario
     edited_ld_id <<- s$new_lc_id[list_id]
-
+    
     lc <- s$landcover[s$landcover$lc_id == edited_ld_id, ]
     # label <- lc$label
     # desc <- lc$description
     # c <- lc$c
-
+    
     showModal(
       input_dialog(
         title = "Edit land cover",
@@ -1341,9 +1344,9 @@ server <- function(input, output, session) {
         input_pholder = c("", "Description of scenario", "0")
       )
     )
-
+    
   })
-
+  
   observeEvent(input$edit_lc_scenario_dialog, {
     removeModal()
     s <- active_scenario()$abacus_scenario$scenario
@@ -1356,7 +1359,7 @@ server <- function(input, output, session) {
     v$scenario_list[[v$selected_scenario_id]]$abacus_scenario$scenario <- s
     edited_ld_id <<- NULL
   })
-
+  
   observeEvent(input$remove_lc_scenario, {
     list_id <- getReactableState("new_lc_list", name = "selected", session = session)
     if (is.null(list_id))
@@ -1373,7 +1376,7 @@ server <- function(input, output, session) {
       )
     )
   })
-
+  
   observeEvent(input$confirm_remove_lc_scenario, {
     removeModal()
     id <- v$selected_scenario_id
@@ -1381,12 +1384,12 @@ server <- function(input, output, session) {
     v$scenario_list[[id]]$abacus_scenario$scenario$new_lc_id <- a[a != edited_ld_id]
     edited_ld_id <<- 1
   })
-
-
+  
+  
   ### CALCULATE MARGIN OF EMISSION ###
-
+  
   emission_val <- reactiveValues(bl_sum = 0, sc_sum = 0)
-
+  
   output$emission_margin <- renderText({
     sc <- active_scenario()$abacus_scenario
     if (is.null(sc$emission$iteration_emission$emission)) {
@@ -1405,7 +1408,7 @@ server <- function(input, output, session) {
       return(paste0("+", t))
     return(t)
   })
-
+  
   output$box_emission_info <- renderUI({
     # if (input$box_emission_full_screen)
     #   return()
@@ -1417,8 +1420,8 @@ server <- function(input, output, session) {
       f_number(emission_val$sc_sum, "tCO<sub>2</sub>-eq")
     )))
   })
-
-
+  
+  
   output$emission_plot <- renderPlotly({
     if (is.null(v$abacus_baseline)) {
       return()
@@ -1447,10 +1450,10 @@ server <- function(input, output, session) {
       color = I("white"),
       fill = "tozeroy",
       fillcolor = "rgba(255,255,255,0.1)",
-
+      
       hovertemplate = paste0("Period:", x_year[1], "-%{x}<br>%{y:.3s} tCO2-eq"),
       span = I(1)
-
+      
     )
     fig <- fig %>%
       layout(xaxis = list(
@@ -1541,8 +1544,8 @@ server <- function(input, output, session) {
     v$em_plot <- fig
     fig
   })
-
-
+  
+  
   ### INPUT OUTPUT FILE #############################
   
   observeEvent(input$upload_params, {
@@ -1552,7 +1555,7 @@ server <- function(input, output, session) {
       fileInput("upload_parameter", "Load saved parameters (.zip)", accept = ".zip")
     ))
   })
-
+  
   observeEvent(input$import_abacus_1, {
     showModal(modalDialog(
       easyClose = T,
@@ -1564,7 +1567,7 @@ server <- function(input, output, session) {
       )
     ))
   })
-
+  
   config_data <-
     c("title",
       "description",
@@ -1572,16 +1575,16 @@ server <- function(input, output, session) {
       "map2_date",
       "n_iteration")
   config_file <- "config.yaml"
-
-
+  
+  
   # "scenario.tpm",
   # "scenario.baseline_tpm",
   # "scenario.baseline_area"
-
+  
   # "scenario_activities.csv",
   # "scenario_tpm.csv",
   # "baseline_lc_area.csv"
-
+  
   output$download_params <- downloadHandler(
     filename = function() {
       paste("abacus_params.zip")
@@ -1635,21 +1638,21 @@ server <- function(input, output, session) {
     },
     contentType = "application/zip"
   )
-
+  
   observeEvent(input$upload_parameter, {
     print(paste("Extracting the files:", input$upload_parameter$name))
     dpath <- input$upload_parameter$datapath
     upload_parameter(dpath)
     removeModal()
   })
-
+  
   show_alert_file_error <- function(file_error) {
     showNotification(paste("File error! Or it was not a", file_error, "file!"),
                      type = "error")
   }
-
+  
   data_dir <- paste0(tempdir(), "/data_temp")
-
+  
   upload_parameter <- function(dpath) {
     file_list <- NULL
     try({file_list <- unzip(dpath, list = TRUE)}, silent = T)
@@ -1661,7 +1664,7 @@ server <- function(input, output, session) {
     withProgress(message = 'Uploading data', value = 0, {
       n <- nrow(table_file_df) + nrow(map_file_df) + 2
       incProgress(1 / n, detail = paste("Extracting data"))
-
+      
       unzip(dpath, exdir = data_dir)
       ### Input parameter table data ###
       apply(table_file_df, 1, function(d) {
@@ -1679,7 +1682,7 @@ server <- function(input, output, session) {
             i2 <- iv[2]
             v[[i1]][[i2]] <- read.csv(fpath)
           }, silent = T)
-
+          
           if (i1 == "other_emission_df") {
             v[[i1]] <- validate_other_df(v[[i1]])
           }
@@ -1720,7 +1723,7 @@ server <- function(input, output, session) {
           }
         }
       }
-
+      
       if (is.null(sc))
         return()
       for (i in 1:length(sc)) {
@@ -1740,9 +1743,9 @@ server <- function(input, output, session) {
         v$scenario_list[[i]] <- asc
       }
     })
-
+    
   }
-
+  
   #### Output Table #########################
   apply(rbind(table_file_df, output_table_file_df), 1, function(d) {
     output[[paste0(d[["var"]], "_id")]] <- downloadHandler(
@@ -1765,14 +1768,14 @@ server <- function(input, output, session) {
       }
     )
   })
-
+  
   #### Output Scenario #########################
   output$scenario_output_params <- renderUI({
     apply(scenario_file_df, 1, function(d) {
       downloadLink(paste0(d[["var"]], "_id"), (d[["label"]]))
     })
   })
-
+  
   apply(scenario_file_df, 1, function(d) {
     output[[paste0(d[["var"]], "_id")]] <- downloadHandler(
       filename = function() {
@@ -1791,13 +1794,13 @@ server <- function(input, output, session) {
       }
     )
   })
-
+  
   output$scenario_output_download <- renderUI({
     apply(output_scenario_file_df, 1, function(d) {
       downloadLink(paste0(d[["var"]], "_id"), (d[["label"]]))
     })
   })
-
+  
   apply(output_scenario_file_df, 1, function(d) {
     output[[paste0(d[["var"]], "_id")]] <- downloadHandler(
       filename = function() {
@@ -1819,7 +1822,7 @@ server <- function(input, output, session) {
             return()
           if (nrow(df) == 0)
             return()
-
+          
           f <- paste0(d[["file"]], "_", si, ".csv")
           write.csv(df, f, row.names = F, na = "")
           fs <- c(fs, f)
@@ -1853,12 +1856,12 @@ server <- function(input, output, session) {
       final_plot = v$f_plot,
       emission_plot = v$em_plot 
     )
-    output_file <- paste0("sciendo_report_", Sys.Date(), ".html")
+    output_file <- paste0("scen_builder_report_", Sys.Date(), ".html")
     output_dir <- paste0(Sys.getenv("USERPROFILE"), "\\Download")
     v$report_file <- paste(output_dir, output_file, sep = "\\")
     
     render(
-      "../report_template/scenario_report_template.Rmd",
+      "../report_template/scen_builder_report_template.Rmd",
       output_file = output_file,
       output_dir = output_dir,
       params = params
@@ -1866,7 +1869,7 @@ server <- function(input, output, session) {
   })
   
   observeEvent(input$openReport, {
-    report_path <- paste0(v$report_file, "/quesc_report_", Sys.Date(), ".html")
+    report_path <- paste0(v$report_file, "/scen_builder_report_", Sys.Date(), ".html")
     if (file.exists(report_path)) {
       showNotification("Opening report...", type = "message")
       utils::browseURL(report_path)
@@ -1884,5 +1887,5 @@ server <- function(input, output, session) {
     message("Return to main menu!")
     # shinyjs::delay(1000, stopApp())
   })
-
+  
 }

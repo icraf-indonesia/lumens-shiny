@@ -1,5 +1,5 @@
 ---
-title: "Planning Unit Reconciliation: Build - Module Report"
+title: "Planning Unit Reconciliation (Build) Report"
 output: 
   html_document:
     toc: true
@@ -7,6 +7,7 @@ output:
     number_sections: true
     df_print: kable
 params:
+  session_log: NA
   start_time: NA
   end_time: NA
   output_dir: NA
@@ -15,6 +16,10 @@ params:
   database_unresolved_out: NA
   pur_unresolved_vector: NA
   inputs: NA
+  ref_path: NA
+  ref_class_path: NA
+  ref_mapping_path: NA
+  pu_list_path: NA
   summary_data: NA
   dir_PURdbfinal: NA
   dir_UnresolvedCase: NA
@@ -24,130 +29,141 @@ params:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 # knitr::opts_knit$set(root.dir = normalizePath(rprojroot::find_rstudio_root_file()))
-library(knitr)
-library(kableExtra)
-library(dplyr)
-library(ggplot2)
-library(sf)
-library(terra)
-library(raster)
 ```
 
-```{r analysis-log, include=FALSE}
-# Function to safely create a tibble with consistent column lengths
-safe_tibble <- function(...) {
-  args <- list(...)
-  max_length <- max(sapply(args, length))
-  args <- lapply(args, function(x) rep(x, length.out = max_length))
-  do.call(tibble::tibble, args)
-}
-
-analysis_log <- safe_tibble(
-  Category = c(
-    "Analysis Start",
-    "Analysis End",
-    "Input Data and Parameters",
-    "1. Reference map",
-    "2. Planning Unit map",
-    "Output Files",
-    "Output Workspace",
-    "1. Planning Unit Reconciliation Setup Database Table",
-    "2. Unresolved Case table",
-    "3. Planning Unit Setup map"
-  ),
-  Details = c(
-    params$start_time,
-    params$end_time,
-    "",
-    as.character(params$inputs$ref),
-    paste(params$inputs$pu_lut_list, collapse = ", "),
-    "",
-    paste0(getwd(), params$output_dir),
-    file.path(params$output_dir, params$dir_PURdbfinal),
-    file.path(params$output_dir, params$dir_UnresolvedCase),
-    file.path(params$output_dir, params$dir_PUR1shp)
+```{r load libraries, include=FALSE}
+check_and_install_packages(
+  c(
+    "knitr",
+    "kableExtra",
+    "dplyr",
+    "ggplot2",
+    "sf",
+    "terra",
+    "DT",
+    "RColorBrewer",
+    "scales"
   )
 )
-
-# Combine with session info
-session_info <- format_session_info_table()
-analysis_log <- bind_rows(analysis_log, session_info)
-
-analysis_log %>% 
-  kbl(caption = "Analysis Log", escape = FALSE) %>%
-  kable_paper("hover", full_width = F)
 ```
 
-## Summary
+<details><summary>Click here for Analysis Log</summary>
+
+```{r analysis-log, echo=FALSE}
+
+analysis_log <- tribble(
+  ~Category, ~Details,
+  "Analysis Start", params$start_time,
+  "Analysis End", params$end_time,
+  "Input Data and Parameters", "",
+  "1. Reference map", params$ref_path,
+  "2. Reference class table", params$ref_class_path,
+  "3. Reference class table for reference map", params$ref_mapping_path,
+  "4. Planning unit map", paste(params$inputs$pu_lut_list),
+  "Output Files", "",
+  "Output workspace", paste0(getwd(), params$output_dir),
+  "1. Planning unit build table", file.path(params$output_dir, params$dir_PURdbfinal),   
+  "2. Unresolved Case table", file.path(params$output_dir, params$dir_UnresolvedCase),
+  "3. Planning unit build map", file.path(params$output_dir, params$dir_PUR1shp),
+  "Session Summary", "",
+) %>% rbind(format_session_info_table())
+
+analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
+  kable_paper("hover", full_width = F )
+```
+
+</details>
+
+# Summary
 
 The total area of interest is `r format(round(params$summary_data$total_area, 2), big.mark = ",")` hectares. Of this, `r round(params$summary_data$resolved_percentage, 2)`% (`r format(round(params$summary_data$resolved_area, 2), big.mark = ",")` ha) was successfully reconciled, while `r round(params$summary_data$unresolved_percentage, 2)`% (`r format(round(params$summary_data$unresolved_area, 2), big.mark = ",")` ha) remained unresolved and requires further reconciliation action.
 
-## Module brief description
+# Module brief description
 
 Planning unit reconciliation is a process to resolve overlapping permits by referring to function reference maps. Reconciliation is done by analyzing how well the permit data matches the reference data. Permit data can include things like forest management concessions, plantation permits, mining permits, and others. Reference data can be spatial planning data or area designation data.
 
-## Input data
+# Input data
 
-### Reference Map 
+## Reference Map
 
 This data is used as a guide to check if the maps of planning areas match their intended use. These maps can be official maps showing land use or city planning.
 
-```{r}
-#| echo: false
-#| fig-keep: all
-#| message: false
-#| results: false
-#| warning: false
-#| fig.width: 10
-#| fig.height: 4
-
-plot(params$inputs$ref)
+```{r Reference Map, echo=FALSE, message=FALSE, warning=FALSE}
+plot_categorical_raster(params$inputs$ref)
 ```
 
-### Planning Unit Map
+## Planning Unit Map {.tabset}
 
 Planning unit data is used to show how land use is planned in an area. These map-based data show directions for managing or changing land use in a part of the landscape.
 
-```{r}
-#| echo: false
-#| fig-keep: all
-#| message: false
-#| results: false
-#| warning: false
-#| fig.width: 10
-#| fig.height: 4
-
-PUR_stack_new <- subset(params$PUR_stack, 1:(nlyr(params$PUR_stack)-1))
+```{r, Planning_Unit_Maps, echo=FALSE, fig.width=10, fig.height=4, fig.keep='all', results='asis'}
+PUR_stack_new <- subset(params$PUR_stack, 1:(nlyr(params$PUR_stack) - 1))
 zone1 <- subset(params$PUR_stack, nlyr(params$PUR_stack))
-zone <- zone1 %>% classify(cbind(1:length(unique(values(zone1))), 1))
+zone <- classify(zone1, cbind(1:length(unique(values(zone1))), 1))
 zone_poly <- as.polygons(zone)
 
-for (i in 1:nlyr(PUR_stack_new)) {
-     plot(PUR_stack_new[[i]], colNA = NULL, main = paste("Planning Unit", i))
-     plot(zone_poly, add = TRUE, border = "white", lwd = 2)
+PUR_stack_new <- rast(lapply(1:nlyr(PUR_stack_new), function(i) {
+  layer <- PUR_stack_new[[i]]
+  layer[layer == 0] <- NA
+  return(layer)
+}))
+
+render_child <- function(results_list, i){
+  res = knitr::knit_child(
+    text = c(
+      "### Planning Unit `r i` {.tabset}",
+      "",
+      "```{r}",
+      "#| echo=FALSE",
+      "plot(PUR_stack_new[[i]], colNA = NULL, main = paste('Planning Unit', i), plg=list(x='topright'))
+  plot(zone_poly, add = TRUE, border = 'black', lwd = 1)",
+      "```"
+    ),
+  envir = rlang::env(results_list = results_list, i = i),
+  quiet = TRUE
+  )
+  cat(res, sep = '\n')
+  cat("\n")
 }
-# plot(PUR_stack_new[[1]], colNA = NULL)
-# plot(zone_poly, add = TRUE, border = "black", lwd = 2)
+
+for (i in 1:nlyr(PUR_stack_new)) {
+  render_child(results_list = PUR_stack_new, i = i)
+}
+
+# for (i in 1:nlyr(PUR_stack_new)) {
+#   plot(PUR_stack_new[[i]], colNA = NULL, main = paste("Planning Unit", i))
+#   plot(zone_poly, add = TRUE, border = "black", lwd = 1)
+# }
 ```
 
-## Results
+# Results
 
-### Unresolved Cases Zone Map
+## Unresolved Cases Zone Map
 
-```{r}
-#| echo: false
-#| fig-keep: all
-#| message: false
-#| results: false
-#| warning: false
-
-set.seed(15)
+```{r Unresolved-Cases-Zone-Map, echo=FALSE, fig.width=10, fig.height=8}
 unresolved_map <- unique(params$pur_unresolved_vector$Rec_phase2)
-colors <- rgb(runif(length(unresolved_map)), runif(length(unresolved_map)), runif(length(unresolved_map)))
+set.seed(50)
+colors <- brewer.pal(n = min(length(unresolved_map), 8), name = "Set2")
+if (length(unresolved_map) > 8) {
+  colors <- colorRampPalette(colors)(length(unresolved_map))
+}
 
-plot(params$pur_unresolved_vector, col = colors[as.numeric(factor(params$pur_unresolved_vector$Rec_phase2))], border = NA, legend = FALSE)
+layout(matrix(c(1, 2), ncol = 1), heights = c(4, 1))
 
-legend("topright", legend = unresolved_map, fill = colors, cex = 0.5)
+par(mar = c(0, 2, 2, 2), oma = c(0, 0, 0, 0))
+plot(params$pur_unresolved_vector, 
+     col = colors[as.numeric(factor(params$pur_unresolved_vector$Rec_phase2))],
+     border = NA,
+     asp = 1)  
+
+par(mar = c(0, 0, 0, 0))
+plot.new()
+legend("center", 
+       legend = unresolved_map, 
+       fill = colors, 
+       ncol = 3, 
+       cex = 1.2,
+       bty = "n",)
 ```
 
 ```{r key-results-table, echo=FALSE}
@@ -155,18 +171,31 @@ summary_table <- params$db_final2 %>%
   group_by(Rec_phase1b) %>%
   summarise(Area_ha = sum(COUNT) * (res(params$inputs$ref)[1] * res(params$inputs$ref)[2] / 10000)) %>%
   ungroup() %>%
-  mutate(Percentage = Area_ha / sum(Area_ha) * 100) %>%
+  mutate(
+    Percentage = round(Area_ha / sum(Area_ha) * 100, 2),
+    Area_ha = comma(Area_ha, accuracy = 1)
+  ) %>%
   arrange(desc(Area_ha))
 
 DT::datatable(summary_table, colnames=c("Class", "Area (Ha)", "Percentage (%)"))
 ```
 
-### Summary of Unresolved Cases
+## Summary of Unresolved Cases
 
 ```{r key-unresolved-table, echo=FALSE}
-summary_unresolved <- params$database_unresolved_out
+summary_unresolved <- params$database_unresolved_out %>%
+  mutate(
+    Area_ha = COUNT * (res(params$inputs$ref)[1] * res(params$inputs$ref)[2] / 10000),
+    Area_ha = comma(Area_ha, accuracy = 1)
+  )
 
-DT::datatable(summary_unresolved, colnames=c("ID", "Class Type", "PU 1", "PU 2", "PU 3", "PU 4", "Reference", "Area (Ha)"))
+summary_unresolved_display <- summary_unresolved %>%
+  select(ID, Rec_phase1b, PU_1, PU_2, PU_3, PU_4, REFERENCE, Area_ha)
+
+DT::datatable(
+  summary_unresolved_display,
+  colnames = c("ID", "Class Type", "PU 1", "PU 2", "PU 3", "PU 4", "Reference", "Area (Ha)")
+)
 ```
 
 ------------------------------------------------------------------------

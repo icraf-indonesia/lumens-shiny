@@ -774,7 +774,7 @@ plot_categorical_raster <- function(raster_object) {
   if ("color_palette" %in% names(cats(raster_object)[[1]]) && all(grepl("^#[0-9A-Fa-f]{6}$", cats(raster_object)$color_pallete))) {
     fill_scale <- scale_fill_manual(values = cats(raster_object)[[1]]$color_palette, na.value = "white")
   } else {
-    fill_scale <- scale_fill_manual(values = palette.colors(n = 10, "Tableau 10"), na.value = "white")
+    fill_scale <- scale_fill_manual(values = c("#4E79A7", "#F28E2B", "#E15759", "#76B7B2", "#59A14F", "#EDC948", "#B07AA1", "#FF9DA7", "#9C755F","#BAB0AC"), na.value = "white")
   }
   if(!is.na(time(raster_object))) {
     plot_title <- time(raster_object)
@@ -2092,7 +2092,7 @@ generate_preques_report <- function(output_pre_ques,
   # Copy report template and functions to temporary directory
   if (file.exists("../report_template/ques_pre.Rmd")){
     ques_pre_report_path <- "../report_template/ques_pre.Rmd"
-    helper_functions_path <- "../rscript/functions_ques_pre.R"
+    helper_functions_path <- "functions_ques_pre.R"
   } else {
     ques_pre_report_path <- "03_preques/report_template/ques_pre.Rmd"
     helper_functions_path <- "03_preques/rscript/functions_ques_pre.R"

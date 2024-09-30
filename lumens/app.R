@@ -11,7 +11,7 @@ ui <- htmlTemplate("index.html",
                    button08 = actionButton("reDescButton", "RE Descriptive"),
                    button09 = actionButton("reProjButton", "RE Projection"),
                    button10 = actionButton("scenarioBuilderButton", "Scenario Builder"),
-                   button11 = actionButton("trinModelButton", "Train Model"),
+                   button11 = actionButton("trainModelButton", "Train Model"),
                    button12 = actionButton("simulateBuilderButton", "Simulate"),
                    button13 = actionButton("lasemButton", "LASEM")
 )
@@ -67,7 +67,7 @@ server <- function(input, output) {
     system("rscript.exe call10.R")
   })
   
-  observeEvent(input$trinModelButton, {
+  observeEvent(input$trainModelButton, {
     showNotification("Running SCIENDO Train Model", type = "message")
     system("rscript.exe call11.R")
   })
