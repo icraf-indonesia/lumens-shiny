@@ -1226,7 +1226,7 @@ format_session_info_table <- function() {
   )
 
   # Extract platform and OS info
-  platform_os <- paste(si$platform, "|", si[[6]])
+  platform_os <- paste(si$platform, "|", si$running)
 
   # Extract locale info
   locale_info <- strsplit(si[[3]], ";")[[1]]
@@ -1240,8 +1240,6 @@ format_session_info_table <- function() {
     Category = c("R Version", "Platform | OS", ".libPaths", "Locale"),
     Details = c(r_version, platform_os, lib_paths, locale_info)
   )
-
-
 
   return(session_summary)
 }

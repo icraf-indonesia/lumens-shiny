@@ -27,8 +27,6 @@ if (!("LUMENSR" %in% rownames(installed.packages()))) {
 }
 library(LUMENSR)
 
-jscode <- "shinyjs.closeWindow = function() { window.close(); }"
-
 ui <- fluidPage(
   useShinyjs(),
   theme = bs_theme(version = 5),
@@ -56,7 +54,7 @@ ui <- fluidPage(
                          style = "font-size: 18px; padding: 10px 15px; background-color: #008CBA; color: white;")
           ),
           actionButton("returnButton", "Return to Main Menu", 
-                        style = "font-size: 18px; padding: 10px 15px; background-color: #FA8072; color: white;")
+                       style = "font-size: 18px; padding: 10px 15px; background-color: #FA8072; color: white;")
       )
     ),
     mainPanel(

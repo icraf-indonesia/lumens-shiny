@@ -31,20 +31,15 @@ server <- function(input, output, session) {
   })
   
   output$user_guide <- renderUI({
-    guide_paths <- c(
-      "06_quesh/helpfile/quesh_quick_user_guide.Rmd",
-      "../helpfile/quesh_quick_user_guide.Rmd"
-    )
-    
-    for (path in guide_paths) {
-      if (file.exists(path)) {
-        html_content <- rmarkdown::render(path, output_format = "html_fragment", quiet = TRUE)
-        return(HTML(readLines(html_content)))
-      } else {
-        HTML("<p>User guide file not found.</p>")
-      }}
+    path <- "../helpfile/quesh_quick_user_guide.Rmd"
+    if (file.exists(path)) {
+      html_content <- rmarkdown::render(path, output_format = "html_fragment", quiet = TRUE)
+      HTML(readLines(html_content))
+    } else {
+      HTML("<p>User guide file not found.</p>")
+    }
   })
-    
+  
   # Create reactive values for inputs
   rv <- reactiveValues(
     rainfall_file = NULL,
@@ -123,14 +118,6 @@ server <- function(input, output, session) {
   #   )
   #   return(TRUE)
   # })
-  
-  # Set working directory
-  wd <- getwd()
-  wd_lumens <- sub("(.*lumens-shiny).*", "\\1", wd)
-  
-  if (wd != wd_lumens) {
-    setwd(wd_lumens)
-  }
   
   # Run analysis
   observeEvent(input$run_analysis, {
@@ -511,18 +498,20 @@ server <- function(input, output, session) {
             severe_area = erosion_db_t1 %>% filter(Class == "Severe (> 150 ton/ha/yr)") %>% pull(2),
             severe_percentage = erosion_db_t1 %>% filter(Class == "Severe (> 150 ton/ha/yr)") %>% pull(3)
           )
+          
           report_params$summary_data <- summary_data
+          
         }
         
         # Render the R markdown report
         incProgress(0.8, detail = "Preparing report")
         
-        if (rmarkdown::pandoc_available()==FALSE){
-          Sys.setenv(RSTUDIO_PANDOC=paste0(getwd(), "/pandoc"))
+        if (rmarkdown::pandoc_available() == FALSE) {
+          Sys.setenv(RSTUDIO_PANDOC = paste0(getwd(), "/pandoc"))
         }
         
         output_file <- paste0("QUES-H_report_", format(Sys.time(), "%Y-%m-%d_%H-%M-%S"), ".html")
-        
+
         if (file.exists("06_quesh/report_template/quesh_report.Rmd")) {
           path_report <- "06_quesh/report_template/quesh_report.Rmd"
         } else if (file.exists("../report_template/quesh_report.Rmd")) {
@@ -530,7 +519,7 @@ server <- function(input, output, session) {
         } else {
           error("No template file for QuES-H module is found.")
         }
-
+        
         rmarkdown::render(
           input = path_report,
           output_file = output_file,

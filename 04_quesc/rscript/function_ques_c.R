@@ -1,10 +1,10 @@
 summary_text_en <- c("Period",
-               "Total area (ha)",
-               "Total emission (tonne CO2-eq)",
-               "Total sequestration (tonne CO2-eq)",
-               "Nett emission (tonne CO2-eq)",
-               "Emission rate (tonne CO2-eq/year)",
-               "Emission rate per-unit area (tonne CO2-eq/ha.year)")
+                     "Total area (ha)",
+                     "Total emission (tonne CO2-eq)",
+                     "Total sequestration (tonne CO2-eq)",
+                     "Nett emission (tonne CO2-eq)",
+                     "Emission rate (tonne CO2-eq/year)",
+                     "Emission rate per-unit area (tonne CO2-eq/ha.year)")
 
 summary_text_id <- c("Periode", 
                      "Total area (ha)", 
@@ -15,21 +15,21 @@ summary_text_id <- c("Periode",
                      "Laju emisi per-unit area (Ton CO2-eq/ha.tahun)")
 
 summary_zonal_text_en <- list(ID = 1,
-                          "Planning Unit" = 2, 
-                          "Area (Ha)" = 3, 
-                          "Carbon Avg. (Periode 1)" = 4, 
-                          "Carbon Avg. (Periode 2)" = 5, 
-                          "Nett Emission" = 6, 
-                          "Emission Rate" = 7
-                          )
+                              "Planning Unit" = 2, 
+                              "Area (Ha)" = 3, 
+                              "Carbon Avg. (Periode 1)" = 4, 
+                              "Carbon Avg. (Periode 2)" = 5, 
+                              "Nett Emission" = 6, 
+                              "Emission Rate" = 7
+)
 summary_zonal_text_id <- list( ID = 1,
-                          "Unit Perencanaan" = 2, 
-                          "Luas (Ha)" = 3, 
-                          "Rerata Karbon Periode 1" = 4, 
-                          "Rerata Karbon Periode 2" = 5, 
-                          "Emisi bersih" = 6, 
-                          "Laju emisi" = 7
-                          )
+                               "Unit Perencanaan" = 2, 
+                               "Luas (Ha)" = 3, 
+                               "Rerata Karbon Periode 1" = 4, 
+                               "Rerata Karbon Periode 2" = 5, 
+                               "Emisi bersih" = 6, 
+                               "Laju emisi" = 7
+)
 summary_zona_carbon_text_en <- list(ID = 1,
                                     "Planning Unit" = 2, 
                                     "Area (Ha)" = 3, 
@@ -46,7 +46,7 @@ summary_zona_carbon_text_id <- list(ID = 1,
                                     "Emisi bersih (ton CO2-eq)" = 6, 
                                     "Laju emisi (ton CO2-eq)" = 7
 )
-  
+
 format_session_info_table <- function() {
   si <- sessionInfo()
   
@@ -59,8 +59,7 @@ format_session_info_table <- function() {
   )
   
   # Extract platform and OS info
-  # platform_os <- paste(si$platform, "|", si[[6]]) 
-  platform_os <- paste(si$platform)
+  platform_os <- paste(si$platform, "|", si$running)
   
   # Extract locale info
   locale_info <- strsplit(si[[3]], ";")[[1]]
@@ -648,7 +647,7 @@ run_quesc_analysis <- function(lc_t1_path, lc_t2_path, admin_z_path, c_lookup_pa
   lucDummy <- generate_dummy_crosstab(c_lookup_input, zone_lookup_input)
   
   if (!is.null(progress_callback)) progress_callback(0.5, "create QUES-C database")
-
+  
   # join table
   df_lucdb <- c_lookup_input %>% dplyr::rename(ID_LC1 = 1, C_T1 = 3) %>% 
     rename_with(.cols = 2, ~time_points$t1) %>% right_join(lucDummy, by="ID_LC1")

@@ -64,13 +64,13 @@ analysis_log <- tribble(
   "3. Planning unit",             params$inputs$admin_z_path,
   "4. Year of T1",                as.character(params$p1),
   "5. Year of T2",                as.character(params$p2),
-  "6. Carbon stock lookup table", params$input$c_lookup_path,
-  "Output Workspace",             params$input$output_dir,
-  "1. Carbon Map at T1",          paste0(params$input$output_dir, "/carbon_map_t1.tif"),
-  "2. Carbon Map at T2",          paste0(params$input$output_dir, "/carbon_map_t2.tif"),
-  "3. Emission Map",              paste0(params$input$output_dir, "/emission_map.tif"),
-  "4. Sequestration Map",         paste0(params$input$output_dir, "/sequestration_map.tif"),
-  "5. QUES-C Database",           paste0(params$input$output_dir, "/quesc_database.csv"),
+  "6. Carbon stock lookup table", params$inputs$c_lookup_path,
+  "Output Workspace",             params$inputs$output_dir,
+  "1. Carbon Map at T1",          paste0(params$inputs$output_dir, "/carbon_map_t1.tif"),
+  "2. Carbon Map at T2",          paste0(params$inputs$output_dir, "/carbon_map_t2.tif"),
+  "3. Emission Map",              paste0(params$inputs$output_dir, "/emission_map.tif"),
+  "4. Sequestration Map",         paste0(params$inputs$output_dir, "/sequestration_map.tif"),
+  "5. QUES-C Database",           paste0(params$inputs$output_dir, "/quesc_database.csv"),
   "Session Summary",              ""
 ) %>% rbind(params$session_log)
 
@@ -181,11 +181,13 @@ QUES-C Database containing land cover transition between T1 and T2 in each plann
 
 Summary statistics of the table contains `r nrow(params$ques_db)` rows and `r names(params$ques_db)` columns.
 
+
 ```{r load_quesdb, echo=FALSE, message=FALSE, warning=FALSE}
 datatable(params$ques_db)
 ```
 
-## Carbon density map in `r nrow(params$p1)`
+
+## Carbon density map in `r nrow(params$p1)` (in tonne-C/ha)
 
 Carbon map illustrating the distribution and amount of carbon stored in land use/cover data at T1 (in tonne-C/ha).
 
@@ -206,7 +208,7 @@ plot_quesc_results(
 )
 ```
 
-## Carbon density map in `r nrow(params$p2)`
+## Carbon density map in `r nrow(params$p2)` (in tonne-C/ha)
 
 Carbon map illustrating the distribution and amount of carbon stored in land use/cover data at T2 (in tonne-C/ha).
 
@@ -227,7 +229,7 @@ plot_quesc_results(
 
 ## Emission map in `r params$p1`-`r params$p2`
 
-Emission map illustrating a decrease in carbon stock amount from land use/cover T1 to land use/cover T2 (in tonne CO~2~eq).
+Emission map illustrating a decrease in carbon stock amount from land use/cover T1 to land use/cover T2 (in tonne-C/ha).
 
 ```{r emission_map, echo=FALSE}
 plot_quesc_results(
@@ -240,7 +242,7 @@ plot_quesc_results(
 
 ## Sequestration map in `r params$p1`-`r params$p2`
 
-Sequestration map illustrating an increase in carbon stock amount from land use/cover T1 to land use/cover T2 (in tonne CO~2~eq).
+Sequestration map illustrating an increase in carbon stock amount from land use/cover T1 to land use/cover T2 (in tonne-C/ha).
 
 ```{r sequestration_map, echo=FALSE}
 plot_quesc_results(
@@ -251,7 +253,7 @@ plot_quesc_results(
 )
 ```
 
-## Average of Net Emission Rate
+## Averate of Net Emission Rate
 
 ```{r avg_net_em_rate, echo=FALSE}
 s$plot_zone_carbon
@@ -317,7 +319,7 @@ plot_quesc_results(
 )
 ```
 
-## The Largest Source of Emission {.tabset}
+## The Largest Source of Emission  {.tabset}
 
 ### Plot
 
@@ -332,7 +334,7 @@ z$tb_em_total_10_summary %>% kbl(caption = "The Largest Source of Emission", esc
   kable_paper("hover", full_width = F)
 ```
 
-## The Largest Source of Sequestration {.tabset}
+## The Largest Source of Sequestration  {.tabset}
 
 ### Plot
 
@@ -346,6 +348,7 @@ z$largest_sequestration
 z$tb_sq_total_10_summary %>% kbl(caption = "The Largest Source of Sequestration", escape = F) %>%
   kable_paper("hover", full_width = F)
 ```
+
 
 ------------------------------------------------------------------------
 

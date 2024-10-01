@@ -10,6 +10,7 @@ check_and_install_packages(required_packages)
 ui <- fluidPage(
   useShinyjs(),
   theme = bs_theme(version = 5),
+  extendShinyjs(text = jscode, functions = c("closeWindow")),
   titlePanel("QuES-B Module"),
   sidebarLayout(
     sidebarPanel(
@@ -30,13 +31,15 @@ ui <- fluidPage(
           hidden(
             actionButton("open_report", "Open Report",
                          style = "font-size: 18px; padding: 10px 15px; background-color: #008CBA; color: white;")
-          )
+          ),
+          actionButton("returnButton", "Return to Main Menu", 
+                       style = "font-size: 18px; padding: 10px 15px; background-color: #FA8072; color: white;")
       )
     ),
     mainPanel(
       tabsetPanel(
         tabPanel("User Guide", uiOutput("user_guide")),
-        tabPanel("Analysis",
+        tabPanel("Log",
                  textOutput("selected_dir"),
                  verbatimTextOutput("status_messages"),
                  verbatimTextOutput("error_messages"),
@@ -141,6 +144,16 @@ server <- function(input, output, session) {
     } else {
       showNotification("Report file not found.", type = "error")
     }
+  })
+  
+  session$onSessionEnded(function() {
+    stopApp()
+  })
+  
+  observeEvent(input$returnButton, {
+    js$closeWindow()
+    message("Return to main menu!")
+    # shinyjs::delay(1000, stopApp())
   })
 }
 

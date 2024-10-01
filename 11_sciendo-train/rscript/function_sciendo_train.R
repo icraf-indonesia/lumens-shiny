@@ -197,6 +197,9 @@ generate_sciendo_train_report <- function(output, dir) {
     start_time = output$start_time,
     end_time = output$end_time,
     inputs = output$inputs,
+    rc_path = output$rc_path,
+    rc_egoml_path = output$rc_egoml_path,
+    woe_egoml_path = output$woe_egoml_path,
     session_log = output$session_log
   )
   output_file <- paste0("sciendo_train_report_", Sys.Date(), ".html")

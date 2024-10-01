@@ -1,7 +1,7 @@
 ui <- fluidPage(
   useShinyjs(),
   theme = bs_theme(version = 5),
-  # extendShinyjs(text = jscode, functions = c("closeWindow")),
+  extendShinyjs(text = jscode, functions = c("closeWindow")),
   titlePanel("QuES-H Module"),
   sidebarLayout(
     sidebarPanel(

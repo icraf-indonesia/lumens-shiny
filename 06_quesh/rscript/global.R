@@ -23,7 +23,7 @@ install_load(
   "dplyr", 
   "sf", 
   "shinyvalidate",
-  "remote",
+  "remotes",
   "shinyjs",
   "rmarkdown",
   "tools",
