@@ -1,0 +1,368 @@
+---
+title: "SCIENDO DINAMICA 1"
+author: "Alfa"
+format: html
+editor: source
+---
+
+## Load library
+
+```{r}
+library(dplyr)
+library(XML)
+library(splitstackshape)
+```
+
+```{r}
+factor_folder <- "D:/My_Development/RProjects/lumens-shiny/data/lucmodel/factors"
+output_dir <- "D:/My_Development/RProjects/lumens-shiny/data/lucmodel/result_train"
+```
+
+```{r}
+# preparing factors
+listFactors <- factor_folder %>% list.files(full.names=TRUE, pattern=".tif$") %>%
+  data.frame(file=., select=1)
+```
+
+
+```{r}
+factors <- as.character(listFactors$file)
+nFactors <- length(factors)
+```
+
+
+```{r}
+aliasFactor<-NULL
+for (a in 1:nFactors) {
+  temp <- substr(basename(factors[a]), 1, nchar(basename(factors[a])) - 4)
+  aliasFactor <- c(aliasFactor, temp)
+}
+aliasFactor
+```
+
+```{r}
+program_files <- c("C:/Program Files/", "C:/Program Files (x86)/")
+dinamica_dirs <- list.files(program_files, pattern = "^Dinamica EGO", full.names = TRUE)
+dinamica_dirs
+```
+```{r}
+dinamica_path <- sort(dinamica_dirs, decreasing = TRUE)[1]
+dinamica_exe <- dinamica_path %>% 
+  list.files(pattern = "^DinamicaConsole", full.names = TRUE) %>%
+  nth(2)
+  # `[[`(2)
+dinamica_exe
+```
+
+```{r}
+# begin writing tag
+con <- xmlOutputDOM(tag="script")
+# add property
+con$addTag("property", attrs=c(key="dff.date", value="2016-Oct-17 12:02:15"))
+con$addTag("property", attrs=c(key="dff.version", value="3.0.17.20160922"))
+
+# begin.
+# add functor = SaveMap
+con$addTag("functor", attrs=c(name="SaveMap"), close=FALSE)
+con$addTag("property", attrs=c(key="dff.functor.alias", value="saveMap1680"))
+con$addTag("inputport", attrs=c(name="map", peerid=paste("v", nFactors+1,sep="")))
+con$addTag("inputport", attrs=c(name="filename"), paste('"', output_dir, '/sciendo_factor.ers"', sep=''))
+con$addTag("inputport", attrs=c(name="suffixDigits"), 2)
+con$addTag("inputport", attrs=c(name="step"), ".none")
+con$addTag("inputport", attrs=c(name="useCompression"), ".yes")
+con$addTag("inputport", attrs=c(name="workdir"), ".none")
+con$closeTag("functor")
+# end.
+
+# begin.
+# add functor = LoadMap
+for (b in 1:nFactors){
+  con$addTag("functor", attrs=c(name="LoadMap"), close=FALSE)
+  con$addTag("property", attrs=c(key="dff.functor.alias", value=aliasFactor[b]))
+  con$addTag("inputport", attrs=c(name="filename"), paste('"', factors[b], '"', sep=""))
+  con$addTag("inputport", attrs=c(name="nullValue"), ".none")
+  con$addTag("inputport", attrs=c(name="loadAsSparse"), ".no")
+  con$addTag("inputport", attrs=c(name="suffixDigits"), 0)
+  con$addTag("inputport", attrs=c(name="step"), ".none")
+  con$addTag("inputport", attrs=c(name="workdir"), ".none")
+  con$addTag("outputport", attrs=c(name="map", id=paste("v",b,sep="")))
+  con$closeTag("functor") 
+}
+# end.
+
+# begin.
+# add containerfunctor = CreateCubeMap
+con$addTag("containerfunctor", attrs=c(name="CreateCubeMap"), close=FALSE)
+con$addTag("property", attrs=c(key="dff.functor.alias", value="createCubeMap1678"))
+con$addTag("inputport", attrs=c(name="cellType"), ".float32")
+con$addTag("inputport", attrs=c(name="nullValue"), "-9999")
+con$addTag("outputport", attrs=c(name="map", id=paste("v", nFactors+1, sep="")))
+# add subtag functor for CreateCubeMap
+for (c in 1:nFactors) {
+  con$addTag("functor", attrs=c(name="NumberAndNameMap"), close=FALSE)
+  con$addTag("property", attrs=c(key="dff.functor.alias", value=aliasFactor[c]))
+  con$addTag("inputport", attrs=c(name="map", peerid=paste("v", c, sep="")))
+  con$addTag("inputport", attrs=c(name="mapName"), paste('"', aliasFactor[c], '"', sep=""))
+  con$addTag("inputport", attrs=c(name="mapNumber"), 0)
+  con$closeTag("functor")
+}
+con$closeTag("containerfunctor")
+# end.
+```
+
+```{r}
+saveXML(con$value(), file=paste(output_dir, "/01_sciendo_train_raster_cube.egoml", sep=''))
+```
+
+Weight of evidence merupakan nilai bobot yang diperoleh dari hubungan antara adanya kejadian dan tidak adanya kejadian pada setiap kelas faktor
+
+```{r}
+command<-paste('"', dinamica_exe, '" -processors 0 -log-level 4 "', output_dir, '/01_sciendo_train_raster_cube.egoml"', sep="")
+```
+
+```{r}
+result <- system(command)
+result
+```
+
+```{r}
+lc_path <- "D:/My_Development/RProjects/lumens-shiny/data/table/Tabel_landuse_Bungo.csv"
+landuse_1 <- "D:/My_Development/RProjects/lumens-shiny/data/raster/tutupan_lahan_Bungo_2005r.tif"
+landuse_2 <- "D:/My_Development/RProjects/lumens-shiny/data/raster/tutupan_lahan_Bungo_2010r.tif"
+planning_unit <- "D:/My_Development/RProjects/lumens-shiny/data/vector/unit_perencanaan_bungo.shp"
+output_dir <- "D:/My_Development/RProjects/lumens-shiny/data/lucmodel/result_train"
+```
+
+```{r}
+zone_sf <- planning_unit %>% sf::st_read()
+zone <- zone_sf %>% 
+  LUMENSR::rasterise_multipolygon(
+    raster_res = c(100, 100), 
+    field = "IDS" 
+  )
+```
+
+
+```{r}
+z <- zone %>% raster::raster()
+z_path <- paste0(getwd(), "/data/lucmodel/result_train/zone.tif")
+# raster::writeRaster(z, "data/lucmodel/result_train/zone.tif", overwrite = T)
+```
+
+
+
+
+```{r}
+df <- read.csv(lc_path)
+lusim_lc <- data.frame("ID_LC" = as.integer((as.character(df[, 1]))))
+lusim_lc$LC <- df[, 2]
+lusim_lc
+```
+
+```{r}
+static_var <- aliasFactor %>% 
+  data.frame(aliasFactor = .) %>% 
+  mutate(
+    identifier = paste0('&quot;static_var/', aliasFactor, '&quot; 10 500000 1 5,&#x0A;')
+  )
+
+identifier <- do.call(paste, c(as.list(static_var$identifier), sep="        "))
+identifier
+```
+
+
+```{r}
+start <- as.numeric(lusim_lc[1,1])
+length <- as.numeric(nrow(lusim_lc))
+end <- as.numeric(lusim_lc[length,1])
+
+skeleton1<-data.frame(nT1=c(start:end), divider=length)
+skeleton1<-expandRows(skeleton1, 'divider')
+skeleton2<-data.frame(nT2=rep(rep(c(start:end), length)))
+
+skeleton<-cbind(skeleton1, skeleton2)
+skeleton$key<-do.call(paste, c(skeleton[c("nT1", "nT2")], sep = "-&gt;"))
+
+skeleton$transition<-paste("&#x0A;    ", skeleton$key, " [&#x0A;        ", identifier, "    ]", sep='')
+
+skeletonFinal<-do.call(paste, c(as.list(skeleton$transition), sep=","))
+skeletonFinal<-paste('[', skeletonFinal, "&#x0A;]", sep='')
+```
+
+```{r}
+# begin writing tag
+con <- xmlOutputDOM(tag="script")
+# add property
+con$addTag("property", attrs=c(key="dff.date", value="2016-Oct-18 12:59:40"))
+con$addTag("property", attrs=c(key="dff.version", value="3.0.17.20160922"))
+
+# begin.
+# add functor = LoadCategoricalMap
+con$addTag("functor", attrs=c(name="LoadCategoricalMap"), close=FALSE)
+con$addTag("property", attrs=c(key="dff.functor.alias", value="Final Landscape"))
+con$addTag("inputport", attrs=c(name="filename"), paste0('"', landuse_2, '"'))
+con$addTag("inputport", attrs=c(name="nullValue"), ".none")
+con$addTag("inputport", attrs=c(name="loadAsSparse"), ".no")
+con$addTag("inputport", attrs=c(name="suffixDigits"), 0)
+con$addTag("inputport", attrs=c(name="step"), "0")
+con$addTag("inputport", attrs=c(name="workdir"), ".none")
+con$addTag("outputport", attrs=c(name="map", id="v1"))
+con$closeTag("functor")
+# end.
+
+# begin.
+# add functor = LoadCategoricalMap
+con$addTag("functor", attrs=c(name="LoadCategoricalMap"), close=FALSE)
+con$addTag("property", attrs=c(key="dff.functor.alias", value="Initial Landscape"))
+con$addTag("inputport", attrs=c(name="filename"), paste0('"', landuse_1, '"'))
+con$addTag("inputport", attrs=c(name="nullValue"), ".none")
+con$addTag("inputport", attrs=c(name="loadAsSparse"), ".no")
+con$addTag("inputport", attrs=c(name="suffixDigits"), 0)
+con$addTag("inputport", attrs=c(name="step"), "0")
+con$addTag("inputport", attrs=c(name="workdir"), ".none")
+con$addTag("outputport", attrs=c(name="map", id="v2"))
+con$closeTag("functor")
+# end.
+
+# begin.
+# add functor = LoadMap
+con$addTag("functor", attrs=c(name="LoadMap"), close=FALSE)
+con$addTag("property", attrs=c(key="dff.functor.alias", value="Static Variables"))
+con$addTag("inputport", attrs=c(name="filename"), paste('"', output_dir, '/sciendo_factor.ers"', sep=''))
+con$addTag("inputport", attrs=c(name="nullValue"), ".none")
+con$addTag("inputport", attrs=c(name="loadAsSparse"), ".no")
+con$addTag("inputport", attrs=c(name="suffixDigits"), 0)
+con$addTag("inputport", attrs=c(name="step"), "0")
+con$addTag("inputport", attrs=c(name="workdir"), ".none")
+con$addTag("outputport", attrs=c(name="map", id="v3"))
+con$closeTag("functor") 
+# end.
+
+# begin.
+# add functor = LoadCategoricalMap
+con$addTag("functor", attrs=c(name="LoadCategoricalMap"), close=FALSE)
+con$addTag("property", attrs=c(key="dff.functor.alias", value="Regions"))
+con$addTag("inputport", attrs=c(name="filename"), paste0('"', z_path, '"'))
+con$addTag("inputport", attrs=c(name="nullValue"), ".none")
+con$addTag("inputport", attrs=c(name="loadAsSparse"), ".no")
+con$addTag("inputport", attrs=c(name="suffixDigits"), 0)
+con$addTag("inputport", attrs=c(name="step"), "0")
+con$addTag("inputport", attrs=c(name="workdir"), ".none")
+con$addTag("outputport", attrs=c(name="map", id="v4"))
+con$closeTag("functor")
+# end.
+# begin.
+
+# begin.
+# add containerfunctor = ForEachRegion
+con$addTag("containerfunctor", attrs=c(name="ForEachRegion"), close=FALSE)
+con$addTag("property", attrs=c(key="dff.functor.alias", value="forEachRegion"))
+con$addTag("inputport", attrs=c(name="regions", peerid="v4"))
+con$addTag("inputport", attrs=c(name="borderCells"), 0)
+con$addTag("internaloutputport", attrs=c(name="regionManager", id="v5"))
+con$addTag("internaloutputport", attrs=c(name="step", id="v6"))
+
+# add subtag functor for SaveWeights
+con$addTag("functor", attrs=c(name="SaveWeights"), close=FALSE)
+con$addTag("property", attrs=c(key="dff.functor.alias", value="saveWeights"))
+con$addTag("inputport", attrs=c(name="weights", peerid="v10"))
+con$addTag("inputport", attrs=c(name="filename"), paste('"', output_dir, '/woe.dcf"', sep=''))
+con$addTag("inputport", attrs=c(name="suffixDigits"), 6)
+con$addTag("inputport", attrs=c(name="step", peerid="v6"))
+con$addTag("inputport", attrs=c(name="workdir"), ".none")
+con$closeTag("functor")
+
+# add subtag functor for RegionalizeCategoricalMap
+con$addTag("functor", attrs=c(name="RegionalizeCategoricalMap"), close=FALSE)
+con$addTag("property", attrs=c(key="dff.functor.alias", value="Final Landscape (Region)"))
+con$addTag("inputport", attrs=c(name="globalMap", peerid="v1"))
+con$addTag("inputport", attrs=c(name="regionId", peerid="v6"))
+con$addTag("inputport", attrs=c(name="keepNonRegionCells"), ".no")
+con$addTag("inputport", attrs=c(name="regionManager", peerid="v5"))
+con$addTag("outputport", attrs=c(name="regionalMap", id="v7"))
+con$closeTag("functor")
+
+# add subtag functor for RegionalizeCategoricalMap
+con$addTag("functor", attrs=c(name="RegionalizeCategoricalMap"), close=FALSE)
+con$addTag("property", attrs=c(key="dff.functor.alias", value="Initial Landscape (Region)"))
+con$addTag("inputport", attrs=c(name="globalMap", peerid="v2"))
+con$addTag("inputport", attrs=c(name="regionId", peerid="v6"))
+con$addTag("inputport", attrs=c(name="keepNonRegionCells"), ".no")
+con$addTag("inputport", attrs=c(name="regionManager", peerid="v5"))
+con$addTag("outputport", attrs=c(name="regionalMap", id="v8"))
+con$closeTag("functor")
+
+# add subtag functor for RegionalizeMap
+con$addTag("functor", attrs=c(name="RegionalizeMap"), close=FALSE)
+con$addTag("property", attrs=c(key="dff.functor.alias", value="Static Variables (Region)"))
+con$addTag("inputport", attrs=c(name="globalMap", peerid="v3"))
+con$addTag("inputport", attrs=c(name="regionId", peerid="v6"))
+con$addTag("inputport", attrs=c(name="keepNonRegionCells"), ".no")
+con$addTag("inputport", attrs=c(name="regionManager", peerid="v5"))
+con$addTag("outputport", attrs=c(name="regionalMap", id="v9"))
+con$closeTag("functor")
+
+# add subtag functor for SaveTable
+con$addTag("functor", attrs=c(name="SaveTable"), close=FALSE)
+con$addTag("property", attrs=c(key="dff.functor.alias", value="saveTable"))
+con$addTag("inputport", attrs=c(name="table", peerid="v11"))
+con$addTag("inputport", attrs=c(name="filename"), paste('"', output_dir, '/weight_report.csv"', sep=''))
+con$addTag("inputport", attrs=c(name="suffixDigits"), 2)
+con$addTag("inputport", attrs=c(name="step", peerid="v6"))
+con$addTag("inputport", attrs=c(name="workdir"), ".none")
+con$closeTag("functor")
+
+# add subtag functor for DetermineWeightsOfEvidenceCoefficients
+con$addTag("containerfunctor", attrs=c(name="DetermineWeightsOfEvidenceCoefficients"), close=FALSE)
+con$addTag("property", attrs=c(key="dff.functor.alias", value="Weight of Evidence Coefficients"))
+con$addTag("inputport", attrs=c(name="initialLandscape", peerid="v8"))
+con$addTag("inputport", attrs=c(name="finalLandscape", peerid="v7"))
+con$addTag("inputport", attrs=c(name="ranges", peerid="v12"))
+con$addTag("inputport", attrs=c(name="fixAbnormalWeights"), ".no")
+con$addTag("outputport", attrs=c(name="weights", id="v10"))
+con$addTag("outputport", attrs=c(name="report", id="v11"))
+
+con$addTag("functor", attrs=c(name="NameMap"), close=FALSE)
+con$addTag("property", attrs=c(key="dff.functor.alias", value="nameMapCoeff"))
+con$addTag("inputport", attrs=c(name="map", peerid="v9"))
+con$addTag("inputport", attrs=c(name="mapName"), '"static_var"')
+con$closeTag("functor")
+
+con$closeTag("containerfunctor")  
+
+# add subtag functor for DetermineWeightsOfEvidenceRanges
+con$addTag("containerfunctor", attrs=c(name="DetermineWeightsOfEvidenceRanges"), close=FALSE)
+con$addTag("property", attrs=c(key="dff.functor.alias", value="Weight of Evidence Ranges"))
+con$addTag("inputport", attrs=c(name="initialLandscape", peerid="v8"))
+con$addTag("inputport", attrs=c(name="finalLandscape", peerid="v7"))
+con$addTag("inputport", attrs=c(name="skeleton"), skeletonFinal)
+con$addTag("inputport", attrs=c(name="fixAbnormalWeights"), ".no")
+con$addTag("outputport", attrs=c(name="ranges", id="v12"))
+
+con$addTag("functor", attrs=c(name="NameMap"), close=FALSE)
+con$addTag("property", attrs=c(key="dff.functor.alias", value="nameMapRanges"))
+con$addTag("inputport", attrs=c(name="map", peerid="v9"))
+con$addTag("inputport", attrs=c(name="mapName"), '"static_var"')
+con$closeTag("functor")
+
+con$closeTag("containerfunctor")
+con$closeTag("containerfunctor")
+# end.
+```
+
+```{r}
+saveXML(con$value(), file=paste(output_dir, "/02_sciendo_train_woe.egoml", sep=''))
+```
+
+Weight of evidence merupakan nilai bobot yang diperoleh dari hubungan antara adanya kejadian dan tidak adanya kejadian pada setiap kelas faktor
+
+```{r}
+command<-paste('"', dinamica_exe, '" -processors 0 -log-level 4 "', output_dir, '/02_sciendo_train_woe.egoml"', sep="")
+command
+```
+
+```{r}
+result <- system(command)
+result
+```
+
