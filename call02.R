@@ -1,1 +1,1 @@
-shiny::runApp('01_pur2/rscript/', launch.browser = T, port = 875)
+shiny::runApp('02_pur2/rscript/', launch.browser = T, port = 875)
