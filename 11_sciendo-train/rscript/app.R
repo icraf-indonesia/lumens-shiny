@@ -32,14 +32,18 @@ ui <- fluidPage(
                 placeholder = "All related shapefiles (.shp, .dbf, .prj, .shx)"),
       div(style = "display: flex; flex-direction: column; gap: 10px;",
           shinyDirButton("factors_path", "Factor(s) Folder Path", "Choose a folder contains factor files"),
+          verbatimTextOutput("print_factor_dir", placeholder = TRUE),
           shinyDirButton("dinamica_path", "DINAMICA EGO Path (Optional)", "(Optional)"),
           shinyDirButton("wd", "Select output directory", "Please select a directory"),
+          verbatimTextOutput("print_output_dir", placeholder = TRUE),
           actionButton("processTrain", "Run Analysis", 
                        style = "font-size: 18px; padding: 10px 15px; background-color: #4CAF50; color: white;"),
           hidden(
             actionButton("openReport", "Open Report",
                          style = "font-size: 18px; padding: 10px 15px; background-color: #008CBA; color: white;")
-          )
+          ),
+          actionButton("returnButton", "Return to Main Menu", 
+                       style = "font-size: 18px; padding: 10px 15px; background-color: #FA8072; color: white;")
       )
     ),
     mainPanel(
@@ -173,6 +177,14 @@ server <- function(input, output, session) {
     }
   })
   
+  output$print_output_dir <- renderPrint({
+    if(!is.null(rv$wd)) {
+      cat(paste(rv$wd))
+    } else {
+      cat("No output directory selected")
+    }
+  })
+  
   #### Set factors directory ####
   shinyDirChoose(
     input, 
@@ -192,6 +204,14 @@ server <- function(input, output, session) {
       paste0("Selected factors directory: ",  rv$factors_path)
     } else {
       "No factors directory selected"
+    }
+  })
+  
+  output$print_factor_dir <- renderPrint({
+    if(!is.null(rv$factors_path)) {
+      cat(paste(rv$factors_path))
+    } else {
+      cat("No factors directory selected")
     }
   })
   
@@ -297,6 +317,16 @@ server <- function(input, output, session) {
     } else {
       showNotification("Report file not found.", type = "error")
     }
+  })
+  
+  session$onSessionEnded(function() {
+    stopApp()
+  })
+  
+  observeEvent(input$returnButton, {
+    js$closeWindow()
+    message("Return to main menu!")
+    # shinyjs::delay(1000, stopApp())
   })
 }
 
