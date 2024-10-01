@@ -40,13 +40,11 @@ server <- function(input, output, session) {
       if (file.exists(path)) {
         html_content <- rmarkdown::render(path, output_format = "html_fragment", quiet = TRUE)
         return(HTML(readLines(html_content)))
-      }
-    }
-    
-    HTML("<p>User guide file not found.</p>")
+      } else {
+        HTML("<p>User guide file not found.</p>")
+      }}
   })
-  
-  
+    
   # Create reactive values for inputs
   rv <- reactiveValues(
     rainfall_file = NULL,
@@ -479,6 +477,18 @@ server <- function(input, output, session) {
           cat("Started at:", format(start_time, "%Y-%m-%d %H:%M:%S"), "\n")
           cat("Ended at:", format(end_time, "%Y-%m-%d %H:%M:%S"), "\n")
           
+          # Copy report template and functions to temporary directory
+          # temp_dir <- tempdir()
+          # 
+          # if (file.exists("../report_template/quesh_report.Rmd")){
+          #   quesh_report_path <- "../report_template/quesh_report.Rmd"
+          # } else {
+          #   quesh_report_path <- "06_quesh/report_template/quesh_report.Rmd"
+          # }
+          # 
+          # file.copy(quesh_report_path,
+          #           to = file.path(temp_dir, "quesh_report.Rmd"), overwrite = TRUE)
+          
           # Prepare parameters for report
           report_params <- list(
             start_time = as.character(format(start_time, "%Y-%m-%d %H:%M:%S")),
@@ -519,13 +529,14 @@ server <- function(input, output, session) {
         
         # Render the R markdown report
         incProgress(0.8, detail = "Preparing report")
+        # output_file <- paste0("QUES-H_report_", format(Sys.time(), "%Y-%m-%d_%H:%M:%S"), ".html")
         
-        if (!rmarkdown::pandoc_available()) {
-          Sys.setenv(RSTUDIO_PANDOC = paste0(getwd(), "/pandoc"))
+        if (rmarkdown::pandoc_available()==FALSE){
+          Sys.setenv(RSTUDIO_PANDOC=paste0(getwd(), "/pandoc"))
         }
 
         rmarkdown::render(
-          input = "06_quesh/report_template/quesh_report.Rmd",
+          "06_quesh/report_template/quesh_report.Rmd",
           output_file = "QUES-H_report.html",
           output_dir = rv$output_dir,
           params = report_params
