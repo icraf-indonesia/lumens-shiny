@@ -62,7 +62,8 @@ server <- function(input, output, session) {
     lc_t2_file = NULL,
     t1 = NULL,
     t2 = NULL,
-    output_dir = NULL
+    output_dir = NULL,
+    report_file = NULL
   )
   
   # Update reactive values when inputs change
@@ -477,18 +478,6 @@ server <- function(input, output, session) {
           cat("Started at:", format(start_time, "%Y-%m-%d %H:%M:%S"), "\n")
           cat("Ended at:", format(end_time, "%Y-%m-%d %H:%M:%S"), "\n")
           
-          # Copy report template and functions to temporary directory
-          # temp_dir <- tempdir()
-          # 
-          # if (file.exists("../report_template/quesh_report.Rmd")){
-          #   quesh_report_path <- "../report_template/quesh_report.Rmd"
-          # } else {
-          #   quesh_report_path <- "06_quesh/report_template/quesh_report.Rmd"
-          # }
-          # 
-          # file.copy(quesh_report_path,
-          #           to = file.path(temp_dir, "quesh_report.Rmd"), overwrite = TRUE)
-          
           # Prepare parameters for report
           report_params <- list(
             start_time = as.character(format(start_time, "%Y-%m-%d %H:%M:%S")),
@@ -522,25 +511,34 @@ server <- function(input, output, session) {
             severe_area = erosion_db_t1 %>% filter(Class == "Severe (> 150 ton/ha/yr)") %>% pull(2),
             severe_percentage = erosion_db_t1 %>% filter(Class == "Severe (> 150 ton/ha/yr)") %>% pull(3)
           )
-          
           report_params$summary_data <- summary_data
-          
         }
         
         # Render the R markdown report
         incProgress(0.8, detail = "Preparing report")
-        # output_file <- paste0("QUES-H_report_", format(Sys.time(), "%Y-%m-%d_%H:%M:%S"), ".html")
         
         if (rmarkdown::pandoc_available()==FALSE){
           Sys.setenv(RSTUDIO_PANDOC=paste0(getwd(), "/pandoc"))
         }
+        
+        output_file <- paste0("QUES-H_report_", format(Sys.time(), "%Y-%m-%d_%H-%M-%S"), ".html")
+        
+        if (file.exists("06_quesh/report_template/quesh_report.Rmd")) {
+          path_report <- "06_quesh/report_template/quesh_report.Rmd"
+        } else if (file.exists("../report_template/quesh_report.Rmd")) {
+          path_report <- "../report_template/quesh_report.Rmd"
+        } else {
+          error("No template file for QuES-H module is found.")
+        }
 
         rmarkdown::render(
-          "06_quesh/report_template/quesh_report.Rmd",
-          output_file = "QUES-H_report.html",
+          input = path_report,
+          output_file = output_file,
           output_dir = rv$output_dir,
           params = report_params
         )
+        
+        rv$report_file <- paste(rv$output_dir, output_file, sep = "/")
         
       }, error = function(e) {
         cat("An error occurred:\n")
@@ -581,12 +579,15 @@ server <- function(input, output, session) {
   
   # Open report
   observeEvent(input$open_report, {
-    report_path <- file.path(selected_output_dir(), "QUES-H_report.html")
-    if (file.exists(report_path)) {
-      showNotification("Opening report...", type = "message")
-      utils::browseURL(report_path)
+    if (!is.null(rv$report_file) && file.exists(rv$report_file)) {
+      if (.Platform$OS.type == "windows") {
+        showNotification("Opening report...", type = "message")
+        shell.exec(rv$report_file)
+      } else {
+        system2("open", args = rv$report_file)
+      }
     } else {
-      showNotification("Report file not found.", type = "error")
+      showNotification("Report file not found", type = "error")
     }
   })
   
