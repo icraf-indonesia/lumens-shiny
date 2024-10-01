@@ -39,10 +39,9 @@ server <- function(input, output, session) {
       if (file.exists(path)) {
         html_content <- rmarkdown::render(path, output_format = "html_fragment", quiet = TRUE)
         return(HTML(readLines(html_content)))
-      }
-    }
-    
-    HTML("<p>User guide file not found.</p>")
+      } else {
+        HTML("<p>User guide file not found.</p>")
+      }}
   })
   
   # Create reactive values for inputs
