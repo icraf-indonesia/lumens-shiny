@@ -28,19 +28,13 @@ server <- function(input, output, session) {
   })
   
   output$user_guide <- renderUI({
-    guide_paths <- c(
-      "01_pur1/helpfile/help.Rmd",
-      "../helpfile/help.Rmd"
-    )
-    
-    for (path in guide_paths) {
-      if (file.exists(path)) {
-        html_content <- rmarkdown::render(path, output_format = "html_fragment", quiet = TRUE)
-        return(HTML(readLines(html_content)))
-      }
+    path <- "../helpfile/help.Rmd"
+    if (file.exists(path)) {
+      html_content <- rmarkdown::render(path, output_format = "html_fragment", quiet = TRUE)
+      HTML(readLines(html_content))
+    } else {
+      HTML("<p>User guide file not found.</p>")
     }
-    
-    HTML("<p>User guide file not found.</p>")
   })
   
   # Create reactive values for inputs
@@ -65,14 +59,6 @@ server <- function(input, output, session) {
     rv$pu_units <- input$pu_units
     rv$map_resolution <- input$map_resolution
   })
-  
-  # Set working directory
-  wd <- getwd()
-  wd_lumens <- sub("(.*lumens-shiny).*", "\\1", wd)
-  
-  if (wd != wd_lumens) {
-    setwd(wd_lumens)
-  }
   
   #### Run analysis ####
   observeEvent(input$run_analysis, {
@@ -110,6 +96,7 @@ server <- function(input, output, session) {
     showNotification("Analysis is running. Please wait...", type = "message", duration = NULL, id = "running_notification")
     withProgress(message = 'Processing PUR', value = 0, {
       tryCatch({
+        
         start_time <- Sys.time()
         
         # Require each input
@@ -151,10 +138,12 @@ server <- function(input, output, session) {
         colnames(lookup_ref)[ncol(lookup_ref)] <- "REFERENCE"
         ref.name <- names(ref)
         
-        tabel_acuan <- read.table(rv$ref_class$datapath, header = FALSE, sep = ",", skip = 1) %>%
+        ref_class <- rename_uploaded_file(input_file = rv$ref_class)
+        tabel_acuan <- read.table(ref_class, header = FALSE, sep = ",", skip = 1) %>%
           setNames(c("acuan_kelas", "acuan_kode"))
         
-        tabel_mapping <- read.table(rv$ref_mapping$datapath, header = FALSE, sep = ",", skip = 1) %>%
+        ref_mapping <- rename_uploaded_file(input_file = rv$ref_mapping)
+        tabel_mapping <- read.table(ref_mapping, header = FALSE, sep = ",", skip = 1) %>%
           setNames(c("REFERENCE", "IDS")) %>% left_join(lookup_ref, by = "REFERENCE")
         
         if ("COUNT" %in% colnames(tabel_mapping)) {
@@ -164,7 +153,8 @@ server <- function(input, output, session) {
         tabel_mapping <- tabel_mapping %>%rename(IDO = ID)
         
         # Planning unit data preparation
-        pu_list <- read.table(rv$pu_units$datapath, header = FALSE, sep = ",", skip = 1)
+        pu_units <- rename_uploaded_file(input_file = rv$pu_units)
+        pu_list <- read.table(pu_units, header = FALSE, sep = ",", skip = 1)
         n_pu_list <- nrow(pu_list)
         pu_lut_list <- list()
         cmd <- paste()
@@ -482,7 +472,7 @@ server <- function(input, output, session) {
           dataValidation(
             wb = database_unresolved_out_wb,
             sheet = "PUR_unresolved_case",
-            cols = 9,
+            cols = which(colnames(database_unresolved_out1) == 'Reconcile Action'),
             rows = 2:(1 + nrow(database_unresolved_out1)),
             type = "list",
             value = paste0(
@@ -506,9 +496,6 @@ server <- function(input, output, session) {
         
         # Rename file path for report
         ref_path <- rename_uploaded_file(input$ref_map)
-        ref_class_path <- rename_uploaded_file(input$ref_class)
-        ref_mapping_path <- rename_uploaded_file(input$ref_mapping)
-        pu_list_path <- rename_uploaded_file(input$pu_units)
         
         report_params <- list(
           session_log = format_session_info_table(),
@@ -526,9 +513,9 @@ server <- function(input, output, session) {
             pu_lut_list = pu_lut_list
           ),
           ref_path = ref_path,
-          ref_class_path = ref_class_path,
-          ref_mapping_path =  ref_mapping_path,
-          pu_list_path = pu_list_path,
+          ref_class_path = ref_class,
+          ref_mapping_path =  ref_mapping,
+          pu_list_path = pu_units,
           dir_PURdbfinal = "PUR-build_database.dbf",
           dir_UnresolvedCase = "PUR_unresolved_case.xlsx",
           dir_PUR1shp = "PUR_first_phase_result.shp"

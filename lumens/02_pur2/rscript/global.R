@@ -29,7 +29,7 @@ install_load(
   "sf", 
   "readxl",
   "shinyvalidate",
-  "remote",
+  "remotes",
   "shinyjs",
   "rmarkdown",
   "tools",

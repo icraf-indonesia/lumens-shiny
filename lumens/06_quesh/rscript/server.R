@@ -31,21 +31,14 @@ server <- function(input, output, session) {
   })
   
   output$user_guide <- renderUI({
-    guide_paths <- c(
-      "06_quesh/helpfile/quesh_quick_user_guide.Rmd",
-      "../helpfile/quesh_quick_user_guide.Rmd"
-    )
-    
-    for (path in guide_paths) {
-      if (file.exists(path)) {
-        html_content <- rmarkdown::render(path, output_format = "html_fragment", quiet = TRUE)
-        return(HTML(readLines(html_content)))
-      }
+    path <- "../helpfile/quesh_quick_user_guide.Rmd"
+    if (file.exists(path)) {
+      html_content <- rmarkdown::render(path, output_format = "html_fragment", quiet = TRUE)
+      HTML(readLines(html_content))
+    } else {
+      HTML("<p>User guide file not found.</p>")
     }
-    
-    HTML("<p>User guide file not found.</p>")
   })
-  
   
   # Create reactive values for inputs
   rv <- reactiveValues(
@@ -64,7 +57,8 @@ server <- function(input, output, session) {
     lc_t2_file = NULL,
     t1 = NULL,
     t2 = NULL,
-    output_dir = NULL
+    output_dir = NULL,
+    report_file = NULL
   )
   
   # Update reactive values when inputs change
@@ -124,14 +118,6 @@ server <- function(input, output, session) {
   #   )
   #   return(TRUE)
   # })
-  
-  # Set working directory
-  wd <- getwd()
-  wd_lumens <- sub("(.*lumens-shiny).*", "\\1", wd)
-  
-  if (wd != wd_lumens) {
-    setwd(wd_lumens)
-  }
   
   # Run analysis
   observeEvent(input$run_analysis, {
@@ -520,16 +506,28 @@ server <- function(input, output, session) {
         # Render the R markdown report
         incProgress(0.8, detail = "Preparing report")
         
-        if (!rmarkdown::pandoc_available()) {
+        if (rmarkdown::pandoc_available() == FALSE) {
           Sys.setenv(RSTUDIO_PANDOC = paste0(getwd(), "/pandoc"))
         }
+        
+        output_file <- paste0("QUES-H_report_", format(Sys.time(), "%Y-%m-%d_%H-%M-%S"), ".html")
 
+        if (file.exists("06_quesh/report_template/quesh_report.Rmd")) {
+          path_report <- "06_quesh/report_template/quesh_report.Rmd"
+        } else if (file.exists("../report_template/quesh_report.Rmd")) {
+          path_report <- "../report_template/quesh_report.Rmd"
+        } else {
+          error("No template file for QuES-H module is found.")
+        }
+        
         rmarkdown::render(
-          input = "../report_template/quesh_report.Rmd",
-          output_file = "QUES-H_report.html",
+          input = path_report,
+          output_file = output_file,
           output_dir = rv$output_dir,
           params = report_params
         )
+        
+        rv$report_file <- paste(rv$output_dir, output_file, sep = "/")
         
       }, error = function(e) {
         cat("An error occurred:\n")
@@ -570,12 +568,15 @@ server <- function(input, output, session) {
   
   # Open report
   observeEvent(input$open_report, {
-    report_path <- file.path(selected_output_dir(), "QUES-H_report.html")
-    if (file.exists(report_path)) {
-      showNotification("Opening report...", type = "message")
-      utils::browseURL(report_path)
+    if (!is.null(rv$report_file) && file.exists(rv$report_file)) {
+      if (.Platform$OS.type == "windows") {
+        showNotification("Opening report...", type = "message")
+        shell.exec(rv$report_file)
+      } else {
+        system2("open", args = rv$report_file)
+      }
     } else {
-      showNotification("Report file not found.", type = "error")
+      showNotification("Report file not found", type = "error")
     }
   })
   

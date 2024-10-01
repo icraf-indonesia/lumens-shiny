@@ -1,30 +1,73 @@
 ---
-title: "Planning Unit Reconciliation Report"
+title: "Planning Unit Reconciliation (Reconcile) Report"
 output:
   html_document:
     toc: true
     toc_float: true
     number_sections: true
 params:
+  session_log: NA
   start_time: NA
   end_time: NA
   output_dir: NA
   summary_PUR: NA
-  sa: NA
-  dir_sa: NA
-  dir_summary_PUR: NA
   total_area: NA
+  sa: NA
+  unresolved_shp_path: NA
+  unresolved_table_path: NA
+  recon_result_shp_path: NA
+  recon_result_table_path: NA
+  recon_result_shp_dis_path: NA
+  final_lookup_table_path: NA
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
-library(knitr)
-library(kableExtra)
-library(dplyr)
-library(ggplot2)
-library(sf)
-library(terra)
 ```
+
+```{r load library, include=FALSE}
+# source("02_pur2/rscript/global.r")
+check_and_install_packages(
+  c(
+    "knitr",
+    "kableExtra",
+    "dplyr",
+    "ggplot2",
+    "sf",
+    "terra",
+    "dplyr",
+    "DT",
+    "units",
+    "tmap"
+  )
+)
+```
+
+<details><summary>Click here for Analysis Log</summary>
+
+```{r analysis-log, echo=FALSE}
+
+analysis_log <- tribble(
+  ~Category, ~Details,
+  "Analysis Start", params$start_time,
+  "Analysis End", params$end_time,
+  "Input Data and Parameters", "",
+  "1. Unresolved Planning Unit Map", params$unresolved_shp_path,
+  "2. Unresolved Attribute Table", params$unresolved_table_path,
+  "Output Files", "",
+  "Output workspace", paste0(getwd(), params$output_dir),
+  "1. Reconciliation Result Map", file.path(params$output_dir, params$recon_result_shp_path),   
+  "2. Reconciliation Result Table", file.path(params$output_dir, params$recon_result_table_path),
+  "3. Reconciliation Result Map (Dissolved)", file.path(params$output_dir, params$recon_result_shp_dis_path),
+  "4. Final Result Table", file.path(params$output_dir, params$final_lookup_table_path),
+  "Session Summary", "",
+) %>% rbind(format_session_info_table())
+
+analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
+  kable_paper("hover", full_width = F )
+```
+
+</details>
 
 ## Summary
 
@@ -37,25 +80,49 @@ Planning unit reconciliation is a process to resolve overlapping permits by refe
 ## Results
 
 ### Reconciliation Results Map
-```{r}
-#| echo: false
-#| fig-keep: all
-#| message: false
-#| results: false
-#| warning: false
-
-resolved_map <- params$sa
-plot(resolved_map["Rec_phase2"])
+```{r Reconciliation Result Map, echo=FALSE}
+library(tmap)
+tm_shape(params$sa) +
+  tm_polygons("Rec_phase2", palette = "Set3") +
+  tm_layout(
+    legend.outside = TRUE,
+    legend.outside.position = "right",
+    legend.stack = "horizontal",
+    legend.width = 2,
+    legend.outside.size = 0.3,
+    frame = TRUE
+  )
 ```
 
 ### Reconciliation Data Summary
 
 The table below summarizes the final reconciliation results:
 
-```{r}
-table_recon <- params$summary_PUR
+```{r Reconsiliation Result Table, echo=FALSE}
 
-DT::datatable(table_recon, colnames=c("ID", "Class", "Area (Ha)"))
-# kable(table_recon, caption = "Summary of Final Reconciliation Results") %>%
-#   kable_styling(bootstrap_options = c("striped", "hover"))
+table_recon <- params$summary_PUR
+table_recon <- table_recon %>%
+  mutate(Area = as.numeric(units::set_units(Area, "ha")),
+         Area = round(Area, 0))
+total_area <- sum(table_recon$Area, na.rm = TRUE)
+table_recon <- table_recon %>%
+  mutate(Percentage = round(Area / total_area * 100, 2))
+
+# Create a pie chart
+pie_chart <- ggplot(table_recon, aes(x = "", y = Area, fill = Rec_phase2)) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar("y", start = 0) +
+  theme_void() +
+  labs(fill = "Reconciliation Class") +
+  ggtitle("Distribution of Reconciled Areas")
+
+print(pie_chart)
+
+# Create the datatable
+DT::datatable(table_recon, 
+              colnames = c("ID", "Final Resolved Area", "Area (Ha)", "Percentage (%)"),
+              options = list(pageLength = 10, scrollX = TRUE)) %>%
+  formatStyle(columns = names(table_recon), fontSize = '90%') %>%
+  formatRound(columns = "Area", digits = 0) %>%
+  formatRound(columns = "Percentage", digits = 2)
 ```

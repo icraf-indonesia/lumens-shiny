@@ -29,7 +29,7 @@ install_load(
   "sf", 
   "openxlsx",
   "shinyvalidate",
-  "remote",
+  "remotes",
   "shinyjs",
   "rmarkdown",
   "tools",
