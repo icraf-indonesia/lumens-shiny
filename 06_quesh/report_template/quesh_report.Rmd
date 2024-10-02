@@ -8,6 +8,7 @@ output:
     df_print: kable
     self_contained: true
 params:
+  session_log: NA
   start_time: NA
   end_time: NA
   output_dir: NA
@@ -31,18 +32,110 @@ params:
   e_pu_diff_table: NA
   multiseries: NA
   summary_data: NA
+  map_resolution: NA
+  rainfall_path: NA
+  dem_path: NA
+  sand_path: NA
+  silt_path: NA
+  clay_path: NA
+  orgc_path: NA
+  pu_path: NA
+  c_factor_path: NA
+  input_lc: NA
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 # knitr::opts_knit$set(root.dir = normalizePath(rprojroot::find_rstudio_root_file()))
-library(knitr)
-library(kableExtra)
-library(dplyr)
-library(ggplot2)
-library(terra)
-library(DT)
 ```
+
+```{r load-libraries, include=FALSE}
+install_load(
+  "tibble",
+    "knitr",
+    "kableExtra",
+    "dplyr",
+    "ggplot2",
+    "terra",
+    "DT"
+)
+```
+
+<details><summary>Click here for Analysis Log</summary>
+
+```{r analysis-log, echo=FALSE}
+if (params$multiseries == "two_step") {
+  analysis_log <- tribble(
+  ~Category, ~Details,
+  "Analysis Start", params$start_time,
+  "Analysis End", params$end_time,
+  "Input Data and Parameters", "",
+  "1. Annual Rainfall Map", params$rainfall_path,
+  "2. Digital Elevation Model Map", params$dem_path,
+  "3. Sand Percentage Map", params$sand_path,
+  "4. Silt Percentage Map", params$silt_path,
+  "5. Clay Percentage Map", params$clay_path,
+  "6. Soil Organic Carbon Content Map", params$orgc_path,
+  "7. Planning Unit Map", params$pu_path,
+  "8. C Factor Attribute Table", params$c_factor_path,
+  "9. Map Resolution", params$map_resolution,
+  "10. Initial Land Cover/Use Map", as.character(params$input_lc$lc1_path),
+  "11. Final Land Cover/Use Map", as.character(params$input_lc$lc2_path),
+  "12. Initial Year (T1)", as.character(params$t1),
+  "13. Final Year (T2)", as.character(params$t2),
+  "Output Files", "",
+  "Output workspace", file.path(paste0(getwd(), params$output_dir)),
+  "1. R Factor Map", file.path(file.path(params$output_dir, "r_factor.tif")),
+  "2. K Factor Map", file.path(file.path(params$output_dir, "k_factor.tif")),
+  "3. LS Factor Map", file.path(file.path(params$output_dir, "ls_factor.tif")),
+  "4. P Factor Map", file.path(file.path(params$output_dir, "p_factor.tif")),
+  "5. C Factor Map T1", as.character(file.path(params$output_dir, "c_factor", paste0(params$t1), ".tif")),
+  "6. C Factor Map T2", as.character(file.path(params$output_dir, "c_factor", paste0(params$t2), ".tif")),
+  "7. Soil Erosion Map T1", as.character(file.path(params$output_dir, "soil_erosion", paste0(params$t1), ".tif")),
+  "8. Soil Erosion Map T2", as.character(file.path(params$output_dir, "soil_erosion", paste0(params$t2), ".tif")),
+  "9. Soil Erosion Table", as.character(file.path(params$output_dir, "soil_erosion", paste0(params$t1), "-", paste0(params$t2), ".csv")),
+  "10. Soil Erosion Per Planning Unit Table", as.character(file.path(params$output_dir, "soil_erosion_per_planning_unit", paste0(params$t1), "-", paste0(params$t2), ".csv")),
+  "11. Soil Erosion Changes Table", as.character(file.path(params$output_dir, "soil_erosion_changes_per_planning_unit", paste0(params$t1), "-", paste0(params$t2), ".csv")),
+  "Session Summary", "",
+) %>% rbind(format_session_info_table())
+
+analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
+  kable_paper("hover", full_width = F )
+} else {
+  analysis_log <- tribble(
+  ~Category, ~Details,
+  "Analysis Start", params$start_time,
+  "Analysis End", params$end_time,
+  "Input Data and Parameters", "",
+  "1. Annual Rainfall Map", params$rainfall_path,
+  "2. Digital Elevation Model Map", params$dem_path,
+  "3. Sand Percentage Map", params$sand_path,
+  "4. Silt Percentage Map", params$silt_path,
+  "5. Clay Percentage Map", params$clay_path,
+  "6. Soil Organic Carbon Content Map", params$orgc_path,
+  "7. Planning Unit Map", params$pu_path,
+  "8. C Factor Attribute Table", params$c_factor_path,
+  "9. Map Resolution", params$map_resolution,
+  "10. Initial Land Cover/Use Map", as.character(params$input_lc),
+  "11. Year", as.character(params$t1),
+  "Output Files", "",
+  "Output workspace", file.path(paste0(getwd(), params$output_dir)),
+  "1. R Factor Map", file.path(file.path(params$output_dir, "r_factor.tif")),
+  "2. K Factor Map", file.path(file.path(params$output_dir, "k_factor.tif")),
+  "3. LS Factor Map", file.path(file.path(params$output_dir, "ls_factor.tif")),
+  "4. P Factor Map", file.path(file.path(params$output_dir, "p_factor.tif")),
+  "5. C Factor Map", as.character(file.path(params$output_dir, "c_factor", paste0(params$t1), ".tif")),
+  "6. Soil Erosion Map", as.character(file.path(params$output_dir, "soil_erosion", paste0(params$t1), ".tif")),
+  "7. Soil Erosion Table", as.character(file.path(params$output_dir, "soil_erosion", paste0(params$t1), ".csv")),
+  "8. Soil Erosion Per Planning Unit Table", as.character(file.path(params$output_dir, "soil_erosion_per_planning_unit", paste0(params$t1), ".csv")),
+  "Session Summary", "",
+) %>% rbind(format_session_info_table())
+
+analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
+  kable_paper("hover", full_width = F )
+}
+```
+</details>
 
 # Summary
 

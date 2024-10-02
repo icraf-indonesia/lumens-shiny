@@ -1,4 +1,15 @@
-### Required Library ###
+### Required Library ####
+#' Install Required Library
+#' 
+#' Checks if a list of required packages are installed and loaded.
+#'
+#' @param package1 list of 
+#' @param ... parameters to be passed to vector of packages
+#'
+#' @return None. This function is called for its side effects.
+#' @export
+#'
+#' @examples
 install_load <- function (package1, ...)  {
   # convert arguments to vector
   packages <- c(package1, ...)
@@ -261,6 +272,35 @@ calculate_p_shin <- function(slope_pct, p_user){
   return(p_factor_combined)
 }
 
+# Session Log
+format_session_info_table <- function() {
+  si <- sessionInfo()
+  # Extract R version info
+  r_version <- si$R.version[c("major", "minor", "year", "month", "day", "nickname")]
+  r_version <- paste0(
+    "R ", r_version$major, ".", r_version$minor,
+    " (", r_version$year, "-", r_version$month, "-", r_version$day, ")",
+    " '", r_version$nickname, "'"
+  )
+  
+  # Extract platform and OS info
+  platform_os <- paste(si$platform, "|", si$running)
+  
+  # Extract locale info
+  locale_info <- strsplit(si[[3]], ";")[[1]]
+  locale_info <- paste(locale_info, collapse = "<br>")
+  
+  # Extract .libpaths, accomodate multiple library paths
+  lib_paths <- .libPaths() |> paste( collapse = "<br>")
+  
+  # Combine all info into a single tibble
+  session_summary <- tibble(
+    Category = c("R Version", "Platform | OS", ".libPaths", "Locale"),
+    Details = c(r_version, platform_os, lib_paths, locale_info)
+  )
+  return(session_summary)
+}
+
 # Plot Histogram of Soil Erosion Rate -------------------------------------
 hist_erosion <- function(df) {
   ggplot(df, aes(x = `Soil Erosion Rates`)) +
@@ -485,6 +525,16 @@ rasterise_multipolygon <- function(sf_object, raster_res = c(100,100), field = "
   
   # Return the rasterized SpatRaster with legend
   return(rasterised_spatraster)
+}
+
+# Rename uploaded file
+rename_uploaded_file <- function(input_file) {
+  if (is.null(input_file)) return(NULL)
+  
+  old_path <- input_file$datapath
+  new_path <- file.path(dirname(old_path), input_file$name)
+  file.rename(old_path, new_path)
+  return(new_path)
 }
 
 #' Read Shapefile

@@ -159,7 +159,6 @@ check_and_install_packages <- function(required_packages) {
 
 format_session_info_table <- function() {
   si <- sessionInfo()
-  
   # Extract R version info
   r_version <- si$R.version[c("major", "minor", "year", "month", "day", "nickname")]
   r_version <- paste0(
@@ -183,9 +182,6 @@ format_session_info_table <- function() {
     Category = c("R Version", "Platform | OS", ".libPaths", "Locale"),
     Details = c(r_version, platform_os, lib_paths, locale_info)
   )
-  
-  
-  
   return(session_summary)
 }
 

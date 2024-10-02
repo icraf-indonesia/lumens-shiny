@@ -72,12 +72,9 @@ server <- function(input, output, session) {
     rv$pu_file <- input$pu_file
     rv$c_ref_file <- input$c_ref_file
     rv$map_resolution <- input$map_resolution
-    
     if (input$practice == "yes"){
-      
       rv$practice_file <- input$practice_file
     }
-    
     if (input$multiseries == "two_step"){
       rv$lc_t1_file <- input$lc_t1_file
       rv$lc_t2_file <- input$lc_t2_file
@@ -87,37 +84,8 @@ server <- function(input, output, session) {
       rv$lc_t1_file <- input$lc_t1_file
       rv$t1 <- input$t1
     }
-    
     rv$output_dir <- parseDirPath(volumes, input$output_dir)
   })
-  
-  
-  # Input validation
-  # validate_inputs <- reactive({
-  #   validate(
-  #     need(rv$rainfall_file, "Please upload annual rainfall map file"),
-  #     need(rv$dem_file, "Please upload digital elevation map file"),
-  #     need(rv$sand_file, "Please upload sand map file"),
-  #     need(rv$silt_file, "Please upload silt map file"),
-  #     need(rv$clay_file, "Please upload clay map file"),
-  #     need(rv$orgc_file, "Please upload soil organic carbon map file"),
-  #     need(rv$pu_file, "Please upload planning unit map file"),
-  #     need(rv$c_ref_file, "Please upload C factor lookup table file"),
-  #     need(rv$map_resolution, "Please fill map resolution information"),
-  # 
-  #     if (input$practice == "yes"){
-  #       need(rv$practice_file, "Please upload P factor map file")
-  #     },
-  # 
-  #     if (input$multiseries == "two_step"){
-  #       need(rv$lc_t1_file, "Please upload initial land cover/use map file")
-  #       need(rv$t1, "Please fill initial year information of land cover/use")
-  #       need(rv$lc_t2_file, "Please upload final land cover/use map file")
-  #       need(rv$t2, "Please fill final year information of land cover/use")
-  #     }
-  #   )
-  #   return(TRUE)
-  # })
   
   # Run analysis
   observeEvent(input$run_analysis, {
@@ -195,7 +163,7 @@ server <- function(input, output, session) {
       tryCatch({
         start_time <- Sys.time()
         showNotification("Analysis is running. Please wait...", type = "message", duration = NULL, id = "running_notification")
-        
+
         req(rv$output_dir)
         req(rv$rainfall_file)
         req(rv$dem_file)
@@ -206,17 +174,31 @@ server <- function(input, output, session) {
         req(rv$pu_file)
         req(rv$c_ref_file)
         req(rv$map_resolution)
+        
+        rainfall_path <- rename_uploaded_file(input_file = rv$rainfall_file)
+        dem_path <- rename_uploaded_file(input_file = rv$dem_file)
+        sand_path <- rename_uploaded_file(input_file = rv$sand_file)
+        silt_path <- rename_uploaded_file(input_file = rv$silt_file)
+        clay_path <- rename_uploaded_file(input_file = rv$clay_file)
+        orgc_path <- rename_uploaded_file(input_file = rv$orgc_file)
+        pu_path <- rename_uploaded_file(input_file = rv$pu_file)
+        c_factor_path <- rename_uploaded_file(input_file = rv$c_ref_file)
 
         if (input$practice == "yes"){
           req(rv$practice_file)
+          p_factor_path <- rename_uploaded_file(input_file = rv$practice_file)
         }
         if (input$multiseries == "two_step"){
           req(rv$lc_t1_file)
           req(rv$t1)
           req(rv$lc_t2_file)
           req(rv$t2)
+          lc1_path <- rename_uploaded_file(input_file = rv$lc_t1_file)
+          lc2_path <- rename_uploaded_file(input_file = rv$lc_t2_file)
+        } else {
           req(rv$lc_t1_file)
           req(rv$t1)
+          lc1_path <- rename_uploaded_file(input_file = rv$lc_t1_file)
         }
         
         shinyjs::disable("run_analysis")
@@ -227,51 +209,41 @@ server <- function(input, output, session) {
         pu <- rasterise_multipolygon(sf_object = pu1, raster_res = c(rv$map_resolution, rv$map_resolution), field = paste0(colnames(st_drop_geometry(pu1[1]))))
         
         # Prepare R factor input
-        # rainfall <- syncGeom(input = rv$rainfall_file, ref = pu)
-        rainfall <- rast(rv$rainfall_file$datapath)
+        rainfall <- rast(rainfall_path)
         rainfall <- terra::resample(rainfall, pu, method = "near")
         
         # Prepare K factor input
-        # sand <- syncGeom(input = rv$sand_file, ref = pu)
-        # silt <- syncGeom(input = rv$silt_file, ref = pu)
-        # clay <- syncGeom(input = rv$clay_file, ref = pu)
-        # orgc <- syncGeom(input = rv$orgc_file, ref = pu)
-        
-        sand <- rast(rv$sand_file$datapath)
-        silt <- rast(rv$silt_file$datapath)
-        clay <- rast(rv$clay_file$datapath)
-        orgc <- rast(rv$orgc_file$datapath)
-        
+        sand <- rast(sand_path)
+        silt <- rast(silt_path)
+        clay <- rast(clay_path)
+        orgc <- rast(orgc_path)
         sand <- terra::resample(sand, pu)
         silt <- terra::resample(silt, pu)
         clay <- terra::resample(clay, pu)
         orgc <- terra::resample(orgc, pu)
-        
         soil_stack <- c(sand, silt, clay, orgc)
         
         # Prepare LS factor input
-        # dem <- syncGeom(input = rv$dem_file, ref = pu)
-        dem <- rast(rv$dem_file$datapath)
+        dem <- rast(dem_path)
         dem <- terra::resample(dem, pu)
         
         # Prepare C factor input
-        c_ref <- readr::read_csv(rv$c_ref_file$datapath)
+        c_ref <- readr::read_csv(c_factor_path)
         
         if (input$multiseries == "two_step"){
-          landcover_t1 <- rast(rv$lc_t1_file$datapath)
-          landcover_t2 <- rast(rv$lc_t2_file$datapath)
+          landcover_t1 <- rast(lc1_path)
+          landcover_t2 <- rast(lc2_path)
           landcover_t1_viz <- lc_class_categorize(landcover = landcover_t1, c_ref = c_ref)
           landcover_t2_viz <- lc_class_categorize(landcover = landcover_t2, c_ref = c_ref)
           landcover_stack <- c(landcover_t1_viz, landcover_t2_viz)
         } else {
-          landcover_t1 <- rast(rv$lc_t1_file$datapath)
+          landcover_t1 <- rast(lc1_path)
           landcover_t1_viz <- lc_class_categorize(landcover = landcover_t1, c_ref = c_ref)
         }
         
         # Prepare P factor input parameters
         if (input$practice == "yes"){
-          p <- rast(rv$practice_file$datapath)
-          # p_factor <- syncGeom(input = p, ref = pu)
+          p <- rast(p_factor_path)
           p_factor <- terra::resample(p, pu)
         } else {
           p_factor <- pu %>% classify(cbind(1:nrow(unique(pu)), 1))
@@ -383,6 +355,7 @@ server <- function(input, output, session) {
           
           # Prepare parameters for report
           report_params <- list(
+            session_log = format_session_info_table(),
             start_time = as.character(format(start_time, "%Y-%m-%d %H:%M:%S")),
             end_time = as.character(format(end_time, "%Y-%m-%d %H:%M:%S")),
             output_dir = rv$output_dir,
@@ -404,9 +377,21 @@ server <- function(input, output, session) {
             e_pu_df = summary_e_pu_df,
             e_diff_table = erosion_diff_db,
             e_pu_diff_table = summary_e_diff_pu_df,
-            multiseries = input$multiseries
+            multiseries = input$multiseries,
+            map_resolution = rv$map_resolution,
+            rainfall_path = rainfall_path,
+            dem_path = dem_path,
+            sand_path = sand_path,
+            silt_path = silt_path,
+            clay_path = clay_path,
+            orgc_path = orgc_path,
+            pu_path = pu_path,
+            c_factor_path = c_factor_path,
+            input_lc = list(
+              lc1_path = lc1_path, 
+              lc2_path = lc2_path
+            )
           )
-          
           summary_data <- list(
             total_area = sum(erosion_db_t1[[2]]),
             min_erosion_t1 = minmax(erosion_t1)[1],
@@ -427,9 +412,7 @@ server <- function(input, output, session) {
             erosion_decrease = erosion_diff_db %>% filter(Class == "Erosion risk decrease") %>% pull(2),
             erosion_stable = erosion_diff_db %>% filter(Class == "No erosion risk changes") %>% pull(2)
           )
-          
           report_params$summary_data <- summary_data
-          
         } else {
           
           # Redefined the results
@@ -467,6 +450,7 @@ server <- function(input, output, session) {
           
           # Prepare parameters for report
           report_params <- list(
+            session_log = format_session_info_table(),
             start_time = as.character(format(start_time, "%Y-%m-%d %H:%M:%S")),
             end_time = as.character(format(end_time, "%Y-%m-%d %H:%M:%S")),
             output_dir = rv$output_dir,
@@ -485,9 +469,18 @@ server <- function(input, output, session) {
             a = erosion_classified_t1,
             e_table = erosion_db_t1,
             e_pu_df = summary_e_pu_df,
-            multiseries = input$multiseries
+            multiseries = input$multiseries,
+            map_resolution = rv$map_resolution,
+            rainfall_path = rainfall_path,
+            dem_path = dem_path,
+            sand_path = sand_path,
+            silt_path = silt_path,
+            clay_path = clay_path,
+            orgc_path = orgc_path,
+            pu_path = pu_path,
+            c_factor_path = c_factor_path,
+            input_lc = lc1_path
           )
-          
           summary_data <- list(
             total_area = sum(erosion_db_t1[[2]]),
             min_erosion = minmax(erosion_t1)[1],
@@ -498,9 +491,7 @@ server <- function(input, output, session) {
             severe_area = erosion_db_t1 %>% filter(Class == "Severe (> 150 ton/ha/yr)") %>% pull(2),
             severe_percentage = erosion_db_t1 %>% filter(Class == "Severe (> 150 ton/ha/yr)") %>% pull(3)
           )
-          
           report_params$summary_data <- summary_data
-          
         }
         
         # Render the R markdown report
@@ -519,7 +510,7 @@ server <- function(input, output, session) {
         } else {
           error("No template file for QuES-H module is found.")
         }
-        
+
         rmarkdown::render(
           input = path_report,
           output_file = output_file,
