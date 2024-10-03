@@ -7,7 +7,7 @@ ui <- fluidPage(
     sidebarPanel(
       fileInput("ref_map", 
                 "Reference Map", 
-                accept = c(".shp", ".dbf", ".sbn", ".sbx", ".shx", ".prj"), 
+                accept = c(".shp", ".dbf", ".shx", ".prj"), 
                 multiple = T,
                 placeholder = "input all related shapefiles"),
       fileInput("ref_class", "Reference Class", accept = c(".csv"), placeholder = "input your csv file"),

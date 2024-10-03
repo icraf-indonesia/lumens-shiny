@@ -7,7 +7,7 @@ ui <- fluidPage(
     sidebarPanel(
       fileInput("recon_file",
                 "Unresolved Planning Unit Map",
-                accept = c(".shp", ".dbf", ".sbn", ".sbx", ".shx", ".prj"),
+                accept = c(".shp", ".dbf", ".shx", ".prj"),
                 multiple = T,
                 placeholder = "input all related shapefiles"),
       fileInput("unresolved_table", "Unresolved Attribute Table", accept = c(".xlsx"), placeholder = "input your xlsx file"),
