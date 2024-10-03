@@ -34,8 +34,10 @@ ui <- fluidPage(
     mainPanel(
       tabsetPanel(
         tabPanel("User Guide",
-                 uiOutput("user_guide"),
-                 div(style = "height: calc(100vh - 100px); overflow-y: auto;")
+                 div(
+                   style = "height: 800px; overflow-y: scroll; padding: 15px; border: 1px solid #ddd; border-radius: 5px;",
+                   uiOutput("user_guide")
+                 )
         ),
         tabPanel("Log",
                  textOutput("selected_dir"),

@@ -5,9 +5,9 @@ ui <- fluidPage(
   titlePanel("PUR Reconcile Module"),
   sidebarLayout(
     sidebarPanel(
-      fileInput("recon_file", 
-                "Unresolved Planning Unit Map", 
-                accept = c(".shp", ".dbf", ".sbn", ".sbx", ".shx", ".prj"), 
+      fileInput("recon_file",
+                "Unresolved Planning Unit Map",
+                accept = c(".shp", ".dbf", ".sbn", ".sbx", ".shx", ".prj"),
                 multiple = T,
                 placeholder = "input all related shapefiles"),
       fileInput("unresolved_table", "Unresolved Attribute Table", accept = c(".xlsx"), placeholder = "input your xlsx file"),
@@ -25,15 +25,17 @@ ui <- fluidPage(
             actionButton("open_output_folder", "Open Output Folder",
                          style = "font-size: 18px; padding: 10px 15px; background-color: #008CBA; color: white;")
           ),
-          actionButton("returnButton", "Return to Main Menu", 
-                       style = "font-size: 18px; padding: 10px 15px; background-color: #FA8072; color: white;") 
+          actionButton("returnButton", "Return to Main Menu",
+                       style = "font-size: 18px; padding: 10px 15px; background-color: #FA8072; color: white;")
       )
     ),
     mainPanel(
       tabsetPanel(
         tabPanel("User Guide",
-                 uiOutput("user_guide"),
-                 div(style = "height: calc(100vh - 100px); overflow-y: auto;")
+                 div(
+                   style = "height: 800px; overflow-y: scroll; padding: 15px; border: 1px solid #ddd; border-radius: 5px;",
+                   uiOutput("user_guide")
+                 )
         ),
         tabPanel("Log",
                  textOutput("selected_dir"),

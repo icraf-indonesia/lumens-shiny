@@ -190,7 +190,7 @@ server <- function(input, output, session) {
         PUR_stack <- rast(command1)
         
         # 3. Create raster attribute table -------------------------
-        incProgress(0.4, detail = "Creating raster attribute table")
+        incProgress(0.2, detail = "Creating raster attribute table")
         # Create and process the raster attribute table
         eval(parse(text = (paste("PUR<-", cmd, sep = ""))))
         PUR_raster <- raster(PUR)
@@ -220,7 +220,7 @@ server <- function(input, output, session) {
         PUR_db$TEMP_ID <- NULL
         
         # 4. Conduct reconciliation ---------------------------------
-        incProgress(0.5, detail = "Conducting reconciliation")
+        incProgress(0.3, detail = "Conducting reconciliation")
         colnames(PUR_db)[1] <- "unique_id"
         colnames(PUR_db)[2] <- "Freq"
         colnames(PUR_db)[4] <- ref.name
@@ -317,7 +317,7 @@ server <- function(input, output, session) {
         })
         
         # 5. Create and process central attributes -----------------
-        incProgress(0.6, detail = "Processing central attributes")
+        incProgress(0.4, detail = "Processing central attributes")
         central_attr <- central_attr %>%
           as_tibble() %>%
           mutate(numb_ca = row_number()) %>%
@@ -335,7 +335,7 @@ server <- function(input, output, session) {
           mutate(reconcile_attr2 = as.numeric(reconcile_attr2))
         
         # 6. Finalize and save result ----------------
-        incProgress(0.7, detail = "Finalizing results")
+        incProgress(0.5, detail = "Finalizing results")
         
         # Finalize reconciliation results
         PUR_dbfinal <- PUR_dbmod %>%
@@ -402,9 +402,9 @@ server <- function(input, output, session) {
         colnames(db_final2) <- c("ID", "Rec_phase1b" , "COUNT")
         
         # write PUR reconciliation phase 1 raster
-        write.dbf(PUR_dbfinal, paste0(rv$output_dir, "PUR-build_database.dbf"))
+        write.dbf(PUR_dbfinal, paste0(rv$output_dir, "/PUR-build_database.dbf"))
         crs(PUR) <- crs(ref_data)
-        writeRaster(PUR, filename = paste0(rv$output_dir, "PUR_first_phase_result"), format = "GTiff", overwrite = TRUE)
+        writeRaster(PUR, filename = paste0(rv$output_dir, "/PUR_first_phase_result"), format = "GTiff", overwrite = TRUE)
         
         #=Save PUR final database and unresolved case(s)
         database_unresolved <- subset(PUR_dbfinal, Rec_phase1b == "unresolved_case") |> dplyr::select(-ID_rec)
@@ -430,7 +430,7 @@ server <- function(input, output, session) {
         write.table(PUR_dbfinal, paste0(rv$output_dir, "/PUR_dbfinal.csv"), quote = FALSE, row.names = FALSE, sep = ",")
         
         # 7. Handle unresolved case ------------------
-        incProgress(0.8, detail = "Handling unresolved cases")
+        incProgress(0.6, detail = "Handling unresolved cases")
         # Process and save unresolved cases if any
         if (nrow(unresolved_cases) != 0) {
           len <- nrow(database_unresolved)
@@ -492,7 +492,7 @@ server <- function(input, output, session) {
         cat("Ended at:", format(end_time, "%Y-%m-%d %H:%M:%S"), "\n")
         
         # 8. Prepare parameters for report -------------------------
-        incProgress(0.9, detail = "Preparing report")
+        incProgress(0.7, detail = "Preparing report")
         
         # Rename file path for report
         ref_path <- rename_uploaded_file(input$ref_map)
@@ -556,18 +556,22 @@ server <- function(input, output, session) {
         
         rv$report_file <- paste(rv$output_dir, output_file, sep = "/")
         
-        showNotification("Analysis completed successfully!", type = "message")
-        # After successful completion
+        # Post Analysis
+        output$status_messages <- renderText("Analysis completed successfully!")
+        output$success_message <- renderText("Analysis completed successfully! You can now open the output folder or view the report.")
+        output$error_messages <- renderText(NULL)
         shinyjs::show("open_output_folder")
         shinyjs::show("open_report")
         removeNotification(id = "running_notification")
         shinyjs::enable("run_analysis")
-        
+        showNotification("Analysis completed successfully!", type = "message")
       }, error = function(e) {
-        showNotification(paste("An error occurred:", e$message), type = "error")
-      }, finally = {
+        output$status_messages <- renderText(paste("Error in analysis:", e$message))
+        output$error_messages <- renderText(paste("Error in analysis:", e$message))
+        output$success_message <- renderText(NULL)
         removeNotification(id = "running_notification")
         shinyjs::enable("run_analysis")
+        showNotification("Error in analysis. Please check the error messages.", type = "error")
       })
     })
   })

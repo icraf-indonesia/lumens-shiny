@@ -202,7 +202,7 @@ server <- function(input, output, session) {
         }
         
         shinyjs::disable("run_analysis")
-        incProgress(0.2, detail = "Preparing data inputs")
+        incProgress(0.1, detail = "Preparing data inputs")
         
         # Prepare the planning unit
         pu1 <- read_shapefile(shp_input = rv$pu_file)
@@ -250,7 +250,7 @@ server <- function(input, output, session) {
         }
         
         # Run RUSLE analysis
-        incProgress(0.4, detail = "Processing QuES-H analysis")
+        incProgress(0.3, detail = "Processing QuES-H analysis")
         a <- quesh_rusle_calc(rainfall = rainfall, 
                               sand = sand, 
                               silt = silt, 
@@ -264,7 +264,7 @@ server <- function(input, output, session) {
                               multiseries = input$multiseries,
                               pu = pu)
         
-        incProgress(0.6, detail = "Post processing analysis")
+        incProgress(0.5, detail = "Post processing analysis")
         # Reclassify erosion rates based on China National Standard (2008)
         breaks <- c(-Inf, 5, 25, 50, 80, 150, Inf)
         labels <- c("Slight (< 5 ton/ha/yr)", 
@@ -334,7 +334,7 @@ server <- function(input, output, session) {
           summary_e_diff_pu_df <- compute_erosion_per_pu(erosion_classified = e_diff_classified, pu = pu)
           
           # Export the results
-          incProgress(0.7, detail = "Exporting results")
+          incProgress(0.6, detail = "Exporting results")
           writeRaster(r_factor, paste0(rv$output_dir, "/r_factor.tif"), overwrite = TRUE)
           writeRaster(k_factor, paste0(rv$output_dir, "/k_factor.tif"), overwrite = TRUE)
           writeRaster(ls_factor, paste0(rv$output_dir, "/ls_factor.tif"), overwrite = TRUE)
@@ -433,7 +433,7 @@ server <- function(input, output, session) {
           summary_e_pu_df <- compute_erosion_per_pu(erosion_classified = erosion_classified_t1, pu = pu)
           
           # Export the results
-          incProgress(0.7, detail = "Exporting results")
+          incProgress(0.6, detail = "Exporting results")
           writeRaster(r_factor, paste0(rv$output_dir, "/r_factor.tif"), overwrite = TRUE)
           writeRaster(k_factor, paste0(rv$output_dir, "/k_factor.tif"), overwrite = TRUE)
           writeRaster(ls_factor, paste0(rv$output_dir, "/ls_factor.tif"), overwrite = TRUE)
@@ -495,7 +495,7 @@ server <- function(input, output, session) {
         }
         
         # Render the R markdown report
-        incProgress(0.8, detail = "Preparing report")
+        incProgress(0.7, detail = "Preparing report")
         
         if (rmarkdown::pandoc_available() == FALSE) {
           Sys.setenv(RSTUDIO_PANDOC = paste0(getwd(), "/pandoc"))
