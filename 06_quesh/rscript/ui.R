@@ -1,21 +1,20 @@
 ui <- fluidPage(
   useShinyjs(),
   theme = bs_theme(version = 5),
-  # extendShinyjs(text = jscode, functions = c("closeWindow")),
   titlePanel("QuES-H Module"),
   sidebarLayout(
     sidebarPanel(
-      fileInput("rainfall_file", "Total Annual Precipitation Map", accept = c(".tif", ".tiff"), placeholder = "input your raster file"),
-      fileInput("dem_file", "Digital Elevation Model (DEM)", accept = c(".tif", ".tiff"), placeholder = "input your raster file"),
-      fileInput("sand_file", "Sand Content Map", accept = c(".tif", ".tiff"), placeholder = "input your raster file"),
-      fileInput("silt_file", "Silt Content Map", accept = c(".tif", ".tiff"), placeholder = "input your raster file"),
-      fileInput("clay_file", "Clay Content Map", accept = c(".tif", ".tiff"), placeholder = "input your raster file"),
-      fileInput("orgc_file", "Organic Content Map", accept = c(".tif", ".tiff"), placeholder = "input your raster file"),
+      fileInput("rainfall_file", "Total Annual Precipitation Map", accept = c(".tif", ".tiff"), placeholder = "Input your raster file"),
+      fileInput("dem_file", "Digital Elevation Model (DEM)", accept = c(".tif", ".tiff"), placeholder = "Input your raster file"),
+      fileInput("sand_file", "Sand Content Map", accept = c(".tif", ".tiff"), placeholder = "Input your raster file"),
+      fileInput("silt_file", "Silt Content Map", accept = c(".tif", ".tiff"), placeholder = "Input your raster file"),
+      fileInput("clay_file", "Clay Content Map", accept = c(".tif", ".tiff"), placeholder = "Input your raster file"),
+      fileInput("orgc_file", "Organic Content Map", accept = c(".tif", ".tiff"), placeholder = "Input your raster file"),
       fileInput("pu_file", "Planning Unit Map", 
                 accept = c(".shp", ".dbf", ".prj", ".shx"), 
                 multiple = TRUE,
-                placeholder = "input all related shapefiles"),
-      fileInput("c_ref_file", "C Factor Attribute", accept = c(".csv"), placeholder = "input your csv file"),
+                placeholder = "Input all related shapefiles"),
+      fileInput("c_ref_file", "C Factor Attribute", accept = c(".csv"), placeholder = "Input your CSV file"),
       numericInput("map_resolution", "Map Resolution", value = 100),
       
       # Select P Factor Option
@@ -28,7 +27,7 @@ ui <- fluidPage(
       ),
       conditionalPanel(
         condition = "input.practice == 'no'",
-        print("The P factor is assumed to have a value of 1")
+        HTML("The P factor is assumed to have a value of 1")
       ),
       
       # Select Multiple Time Series Option
@@ -36,14 +35,14 @@ ui <- fluidPage(
                    choices = c("Single Step" = "single_step", "Two Step" = "two_step")),
       conditionalPanel(
         condition = "input.multiseries == 'two_step'",
-        fileInput("lc_t1_file", "Initial Land Cover/Use Map", accept = c(".tif", ".tiff"), placeholder = "input your raster file"),
+        fileInput("lc_t1_file", "Initial Land Cover/Use Map", accept = c(".tif", ".tiff"), placeholder = "Input your raster file"),
         numericInput("t1", "Initial Year", value = 2005),
-        fileInput("lc_t2_file", "Final Land Cover/Use Map", accept = c(".tif", ".tiff"), placeholder = "input your raster file"),
-        numericInput("t2", "Final Year", value = 2010),
+        fileInput("lc_t2_file", "Final Land Cover/Use Map", accept = c(".tif", ".tiff"), placeholder = "Input your raster file"),
+        numericInput("t2", "Final Year", value = 2010)
       ),
       conditionalPanel(
         condition = "input.multiseries == 'single_step'",
-        fileInput("lc_t1_file", "Land Cover/Use Map", accept = c(".tif", ".tiff"), placeholder = "input your raster file"),
+        fileInput("lc_t1_file", "Land Cover/Use Map", accept = c(".tif", ".tiff"), placeholder = "Input your raster file"),
         numericInput("t1", "Year", value = 2005)
       ),
       
@@ -66,7 +65,8 @@ ui <- fluidPage(
     ),
     mainPanel(
       tabsetPanel(
-        tabPanel("User Guide", uiOutput("user_guide")),
+        tabPanel("User Guide",
+                 uiOutput("dynamic_guide", inline = TRUE)),
         tabPanel("Log",
                  textOutput("selected_dir"),
                  verbatimTextOutput("status_messages"),

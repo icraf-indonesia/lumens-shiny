@@ -30,21 +30,28 @@ server <- function(input, output, session) {
     }
   })
   
-  output$user_guide <- renderUI({
-    guide_paths <- c(
-      "06_quesh/helpfile/quesh_quick_user_guide.Rmd",
-      "../helpfile/quesh_quick_user_guide.Rmd"
-    )
+  # Dynamically check which user guide file exists
+  output$dynamic_guide <- renderUI({
+    guide_paths <- c("06_quesh/helpfile/quesh_quick_user_guide.Rmd",
+                     "../helpfile/quesh_quick_user_guide.Rmd")
     
+    # Find the first path that exists
+    valid_path <- NULL
     for (path in guide_paths) {
       if (file.exists(path)) {
-        html_content <- rmarkdown::render(path, output_format = "html_fragment", quiet = TRUE)
-        return(HTML(readLines(html_content)))
+        valid_path <- path
+        break
       }
     }
     
-    HTML("<p>User guide file not found.</p>")
+    # If a valid path is found, include it as markdown
+    if (!is.null(valid_path)) {
+      withMathJax(includeMarkdown(valid_path))
+    } else {
+      HTML("User guide file not found.")
+    }
   })
+  
   
   
   # Create reactive values for inputs
