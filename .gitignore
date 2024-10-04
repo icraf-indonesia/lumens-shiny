@@ -5,4 +5,5 @@
 *.Rproj
 /pandoc
 /dev_docs
+/output
 
