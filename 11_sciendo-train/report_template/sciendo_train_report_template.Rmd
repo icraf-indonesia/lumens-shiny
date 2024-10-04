@@ -22,9 +22,34 @@ params:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-
 ```{r load function, include=FALSE, error=TRUE, warning=TRUE, message=TRUE}
 source("../rscript/function_sciendo_train.R")
+render_child <- function(results_list, i) {
+  res = knitr::knit_child(
+   text = c(
+     "### `r i` {.tabset}",
+     "",
+     "#### Table of Weight of Evidence Coefficients in `r i`",
+     "```{r}",
+     "#| echo: false",
+     "weight_report %>%",
+     "  select(-X) %>%",
+     "  mutate(",
+     "    Transition = paste(Transition_From., '->', Transition_To.),",
+     "    Range = paste(Range_Lower_Limit., '->', Range_Upper_Limit.),",
+     "    Significant = if_else(Significant == 1, 'yes', 'no')",
+     ") %>%",
+     "  select(Transition, Variable., Range, Possible_Transitions, Executed_Transitions, Weight_Coefficient, Contrast, Significant) %>%",
+     "  kable() %>%",
+     "  kable_styling(bootstrap_options = c('striped', 'hover'))",
+     "```"
+   ),
+   envir = rlang::env(results_list = results_list, i = i),
+   quiet = TRUE
+  )
+  cat(res, sep = '\n')
+  cat("\n")
+}
 ```
 
 ```{r load_library, include=FALSE}
@@ -103,17 +128,19 @@ This report presents the results of an analysis based on the provided maps and l
 
 ```
 
-## Carbon Stock Lookup Table
-
-The carbon stock being considered is time-averaged above ground carbon stock.
-
-```{r Carbon Stock Lookup Table, echo=FALSE}
-
-```
-
 # Results
 
-## 
+## Table of Weight of Evidence
+
+```{r child_woe_report, echo=FALSE, fig.keep='all', results='asis'}
+listWoeReport <- params$inputs$output_dir %>% list.files(full.names=TRUE, pattern="weight_report*")
+csv_reports <- as.character(listWoeReport)
+for(r in csv_reports){
+  weight_report <- read.csv(csv_reports[r])
+  render_child(results_list = weight_report, i = r)
+}
+```
+
 
 
 ------------------------------------------------------------------------

@@ -25,11 +25,21 @@ ui <- fluidPage(
       fileInput("map2_file", "Land cover map at T2", accept = c("image/tiff")),
       textInput("map2_year", "Year of T2"),
       fileInput("lc_file", "Land Use/Cover Lookup Table (CSV)", accept = c(".csv")),
-      fileInput("mapz_file", 
-                "Planning Unit", 
-                accept = c(".shp", ".dbf", ".sbn", ".sbx", ".shx", ".prj"), 
-                multiple = T, 
-                placeholder = "All related shapefiles (.shp, .dbf, .prj, .shx)"),
+      radioButtons("zone_type", "Planning Unit Input Type", 
+                   choices = c("Raster" = "raster", "Shapefiles" = "shapefile"), inline = T),
+      conditionalPanel(
+        condition = "input.zone_type == 'shapefile'",
+        fileInput("mapz_file", 
+                  "Planning Unit", 
+                  accept = c(".shp", ".dbf", ".sbn", ".sbx", ".shx", ".prj"), 
+                  multiple = T, 
+                  placeholder = "All related shapefiles (.shp, .dbf, .prj, .shx)")
+      ),
+      conditionalPanel(
+        condition = "input.zone_type == 'raster'",
+        fileInput("mapz_file", "Planning Unit", accept = c("image/tiff"))
+      ),
+      fileInput("z_file", "Planning Unit Lookup Table (CSV)", accept = c(".csv")),
       div(style = "display: flex; flex-direction: column; gap: 10px;",
           shinyDirButton("factors_path", "Factor(s) Folder Path", "Choose a folder contains factor files"),
           verbatimTextOutput("print_factor_dir", placeholder = TRUE),
@@ -77,6 +87,7 @@ server <- function(input, output, session) {
     mapz_df = NULL,
     lc_path = NULL,
     lc_df = NULL,
+    z_path = NULL,
     period_year = NULL
   )
   
@@ -105,28 +116,33 @@ server <- function(input, output, session) {
   })
   
   observeEvent(input$mapz_file, {
-    shp <- input$mapz_file
-    if(is.null(shp))
+    mapz <- input$mapz_file
+    if(is.null(mapz))
       return()
     
-    prev_wd <- getwd()
-    uploaded_dir <- dirname(shp$datapath[1])
-    setwd(uploaded_dir)
-    for(i in 1:nrow(shp)){
-      file.rename(shp$datapath[i], shp$name[i])
+    if(input$zone_type == "raster") {
+      rv$mapz_file <- rename_uploaded_file(mapz)
+    } else {
+      shp <- mapz
+      prev_wd <- getwd()
+      uploaded_dir <- dirname(shp$datapath[1])
+      setwd(uploaded_dir)
+      for(i in 1:nrow(shp)){
+        file.rename(shp$datapath[i], shp$name[i])
+      }
+      setwd(prev_wd)
+      
+      rv$mapz_file <- paste(uploaded_dir, shp$name[grep(pattern="*.shp$", shp$name)], sep = "/")
+      
+      zone_sf <- rv$mapz_file %>% st_read()
+      zone <- zone_sf %>% 
+        rasterise_multipolygon(
+          raster_res = c(100, 100), 
+          field = "IDS" 
+        )
+      rv$mapz_df <- data.frame(ID_PU = zone_sf[[1]], PU = zone_sf[[2]])
+      rv$mapz_rast <- zone %>% raster()
     }
-    setwd(prev_wd)
-    
-    rv$mapz_file <- paste(uploaded_dir, shp$name[grep(pattern="*.shp$", shp$name)], sep = "/")
-    
-    zone_sf <- rv$mapz_file %>% st_read()
-    zone <- zone_sf %>% 
-      rasterise_multipolygon(
-        raster_res = c(100, 100), 
-        field = "IDS" 
-      )
-    rv$mapz_df <- data.frame(ID_PU = zone_sf[[1]], PU = zone_sf[[2]])
-    rv$mapz_rast <- zone %>% raster()
   })
   
   #### Read year input ####
@@ -140,7 +156,7 @@ server <- function(input, output, session) {
   #### Read lc lookup table ####
   observeEvent(input$lc_file, {
     f <- input$lc_file
-    rv$lc_path <- f$datapath
+    rv$lc_path <- rename_uploaded_file(f)
     df_c <- read.csv(rv$lc_path)
     
     if(nrow(df_c) == 0)
@@ -153,6 +169,12 @@ server <- function(input, output, session) {
     df <- data.frame("ID_LC" = as.integer((as.character(df_c[, 1]))))
     df$LC <- df_c[, 2]
     rv$lc_df <- df
+  })
+  
+  #### Read zone lookup table ####
+  observeEvent(input$z_file, {
+    f <- input$z_file
+    rv$z_path <- rename_uploaded_file(f)
   })
   
   #### Set working directory ####
@@ -257,6 +279,7 @@ server <- function(input, output, session) {
   iv$add_rule("map1_year", sv_required(message = "Please define the year of T1"))
   iv$add_rule("map2_year", sv_required(message = "Please define the year of T2"))
   iv$add_rule("lc_file", sv_required(message = "Please upload land cover lookup table"))
+  iv$add_rule("z_file", sv_required(message = "Please upload planning unit lookup table"))
   iv$add_rule("factors_path", sv_required(message = "Please select a directory of factors"))
   iv$add_rule("wd", sv_required(message = "Please select an output directory"))
   
@@ -272,8 +295,12 @@ server <- function(input, output, session) {
     
     showNotification("Analysis is running. Please wait...", type = "message", duration = NULL, id = "running_notification")
     
-    zone_path <- paste0(rv$wd, "/zone.tif")
-    writeRaster(rv$mapz_rast, zone_path, datatype = "INT1U", overwrite = T)
+    if(input$zone_type == "raster") {
+      zone_path <- rv$mapz_file
+    } else {
+      zone_path <- paste0(rv$wd, "/zone.tif")
+      writeRaster(rv$mapz_rast, zone_path, datatype = "INT1U", overwrite = T)
+    }
     
     withProgress(message = "Running SCIENDO Train", value = 0, {
       tryCatch({
@@ -281,8 +308,9 @@ server <- function(input, output, session) {
           lc_t1_path = rv$map1_file,
           lc_t2_path = rv$map2_file,
           zone_path = zone_path,
-          lc_lookup_table_path = rv$lc_file,
+          lc_lookup_table_path = rv$lc_path,
           lc_lookup_table = rv$lc_df,
+          z_lookup_table_path = rv$z_path,
           factor_path = rv$factors_path,
           time_points = list(t1 = rv$map1_year, t2 = rv$map2_year),
           dinamica_path = rv$dinamica_path,

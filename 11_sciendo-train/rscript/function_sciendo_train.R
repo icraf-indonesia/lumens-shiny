@@ -608,7 +608,7 @@ run_dinamica_woe_model <- function(dinamica_path = NULL, output_dir, egoml){
 }
 
 run_sciendo_train_process <- function(lc_t1_path, lc_t2_path, zone_path, lc_lookup_table_path,
-                               lc_lookup_table, factor_path, time_points,
+                               lc_lookup_table, z_lookup_table_path, factor_path, time_points,
                                dinamica_path = NULL, output_dir, progress_callback = NULL) {
   start_time <- Sys.time()
   cat("Started at:", format(start_time, "%Y-%m-%d %H:%M:%S"), "\n")
@@ -641,6 +641,7 @@ run_sciendo_train_process <- function(lc_t1_path, lc_t2_path, zone_path, lc_look
       lc_t2_path = lc_t2_path,
       zone_path = zone_path,
       lc_lookup_table_path = lc_lookup_table_path,
+      z_lookup_table_path = z_lookup_table_path,
       factor_path = factor_path,
       year1 = time_points$t1,
       year2 = time_points$t2,
