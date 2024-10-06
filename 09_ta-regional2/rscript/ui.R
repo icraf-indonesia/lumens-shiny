@@ -5,8 +5,8 @@ fluidPage(
   titlePanel("Regional Economic Projection"),
   sidebarLayout(
     sidebarPanel(
-      fileInput("land_req_file", "Land Requirement Database", accept = c(".Rdata")),
-      fileInput("sciendo_db", "SCIENDO Database", accept = c(".csv")),
+      fileInput("land_req_file", "Land Requirement Database", placeholder = "Input RData file from TA Regeco 1", accept = c(".Rdata")),
+      fileInput("sciendo_db", "SCIENDO Database", placeholder = "Input your CSV file", accept = c(".csv")),
       # fileInput("projected_land_use_file", "Projected Landuse", accept = c("image/tiff")),
       div(style = "display: flex; flex-direction: column; gap: 10px;",
           shinyDirButton("wd", "Select Output Directory", "Please select a directory"),
