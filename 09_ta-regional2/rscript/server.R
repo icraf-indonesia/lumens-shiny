@@ -82,11 +82,23 @@ server <- function(input, output, session) {
       showNotification("SCIENDO Database data file is missing.", type = "error")
       return()
     }
+    if (is.null(rv$wd) || length(rv$wd) == 0 || is.na(rv$wd) || rv$wd == "") {
+      showNotification("Output Directory  is missing", type = "error")
+      return()
+    }
     
-    load(rv$land_req)
     
     withProgress(message = 'Running TA Regional 2 Analysis', value = 0, {
       tryCatch({
+        
+        land_req_path <- rename_uploaded_file(input$land_req_file)
+        sciendo_db_path <- rename_uploaded_file(input$sciendo_db)
+        output_dir <- rv$wd
+        
+        load(land_req_path)
+        
+        # Capture the start time at the beginning of the process
+        start_time <- Sys.time()
         
         # Load land use requirement data
         land.requirement.db <- land.requirement_table
@@ -95,7 +107,7 @@ server <- function(input, output, session) {
         lc.list <- subset(landuse_lut, select = c(ID, LC))
 
         # Prepare data for land use change analysis
-        next_data_luc <- rv$sciendo_db
+        next_data_luc <- read.csv(sciendo_db_path)
         landuse_area_table <- as.data.frame(na.omit(next_data_luc))
         landuse_area_table$ID_LC <- NULL
         landuse_area_table$LC <- NULL
@@ -239,8 +251,6 @@ server <- function(input, output, session) {
         db_GDP <- GDP_scen_df[, !(colnames(GDP_scen_df) %in% c("Sector", "Category"))]
         rownames(db_GDP) <- NULL
         
-        browser()
-        
         #' Create bar charts to visualize total Output, Income, and Labour
         db_output_total <- create_totals_df(GDP, db_GDP, 1, "Period BAU")
         output_total_graph <- create_bar_plot(db_output_total, "BAU vs Scenario Output Total")
@@ -255,13 +265,42 @@ server <- function(input, output, session) {
         rv$output_total_graph <- output_total_graph
         rv$income_total_graph <- income_total_graph
         rv$labour_total_graph <- labour_total_graph
-        rv$land_req_path <- rename_uploaded_file(input$land_req_file)
-        rv$sciendo_db_path <- rename_uploaded_file(input$sciendo_db)
+        
+        # Capture the end time at the end of the process
+        end_time <- Sys.time()
+        
+        #### Report Generation ####
+        params <- list(
+          session_log = format_session_info_table(),
+          start_time = as.character(format(start_time, "%Y-%m-%d %H:%M:%S")),
+          end_time = as.character(format(end_time, "%Y-%m-%d %H:%M:%S")),
+          landuse_table = landuse_table,
+          GDP_totals_graph = GDP_totals_graph,
+          GDP_scen_df = GDP_scen_df,
+          output_total_graph = output_total_graph,
+          income_total_graph = income_total_graph,
+          labour_total_graph = labour_total_graph,
+          land_req_path = land_req_path,
+          sciendo_db_path = sciendo_db_path,
+          output_dir = output_dir
+        )
+        
+        output_file <- paste0("ta_regional2_report_", format(Sys.time(), "%Y-%m-%d_%H-%M-%S"), ".html")
+        rv$report_file <- paste(output_dir, output_file, sep = "/")
+        
+        render(
+          "../report_template/ta-regional2_report.Rmd",
+          output_file = output_file,
+          output_dir = output_dir,
+          params = params,
+          envir = new.env(parent = globalenv())
+        )
         
         # Notify user of successful analysis
         output$status_messages <- renderText("Analysis completed successfully!")
         showNotification("Analysis completed successfully!", type = "message")
-        shinyjs::show("viewReport")
+        shinyjs::show("open_report")
+        shinyjs::show("open_output_folder")
         
       }, error = function(e) {
         output$error_messages <- renderText(paste("Error in analysis:", e$message))
@@ -270,36 +309,30 @@ server <- function(input, output, session) {
     })
   })
   
-  #### Report Generation ####
-  #' This section generates a final report in HTML format, summarizing the results of the analysis.
-  
-  report_content <- reactive({
-    params <- list(
-      session_log = format_session_info_table(),
-      landuse_table = rv$landuse_table,
-      GDP_totals_graph = rv$GDP_totals_graph,
-      GDP_scen_df = rv$GDP_scen_df,
-      output_total_graph = rv$output_total_graph,
-      income_total_graph = rv$income_total_graph,
-      labour_total_graph = rv$labour_total_graph,
-      land_req_path = rv$land_req_path,
-      sciendo_db_path = rv$sciendo_db_path,
-      output_dir = rv$wd
-    )
-    output_file <- paste0("ta_regional2_report_", format(Sys.time(), "%Y-%m-%d_%H-%M-%S"), ".html")
-    output_dir <- rv$wd
-    render(
-      "../report_template/ta-regional2_report.Rmd",
-      output_file = output_file,
-      output_dir = output_dir,
-      params = params,
-      envir = new.env(parent = globalenv())
-    )
+  # Open Output Folder button observer
+  observeEvent(input$open_output_folder, {
+    if (!is.null(rv$wd) && dir.exists(rv$wd)) {
+      if (.Platform$OS.type == "windows") {
+        shell.exec(rv$wd)
+      } else {
+        system2("open", args = rv$wd)
+      }
+    } else {
+      showNotification("Output directory not found", type = "error")
+    }
   })
   
-  observeEvent(input$viewReport, {
-    showNotification("Opening report...", type = "message")
-    file.show(report_content())
+  # Open Report button observer
+  observeEvent(input$open_report, {
+    if (!is.null(rv$report_file) && file.exists(rv$report_file)) {
+      if (.Platform$OS.type == "windows") {
+        shell.exec(rv$report_file)
+      } else {
+        system2("open", args = rv$report_file)
+      }
+    } else {
+      showNotification("Report file not found", type = "error")
+    }
   })
   
   session$onSessionEnded(function() {

@@ -210,6 +210,11 @@ build_opcost_table <- function(dt_quesc_npv, period, tot_area) {
 }
 
 carbon_accounting <- function(map1_rast, map2_rast, tbl_npv, tbl_carbon, raster_nodata) {
+  # map1_rast <- rv$map1_rast
+  # map2_rast <- rv$map2_rast
+  # tbl_npv <- rv$tbl_npv
+  # tbl_carbon <- rv$tbl_carbon
+  
   NAflag(map1_rast) <- as.numeric(raster_nodata)
   NAflag(map2_rast) <- as.numeric(raster_nodata)
   

@@ -8,6 +8,8 @@ output:
     df_print: kable
 params:
   session_log: NA
+  start_time: NA
+  end_time: NA
   map_carbon1: NA
   map_carbon2: NA
   emission_map: NA
@@ -44,8 +46,8 @@ library(DT)
 
 analysis_log <- tribble(
   ~Category,                   ~Details,
-  # "Analysis Start",        params$start_time,
-  # "Analysis End",          params$end_time,
+  "Analysis Start",        params$start_time,
+  "Analysis End",          params$end_time,
   "Input Data and Parameters", "",
   "Land Cover (t1)",      params$map1_file_path,
   "Land Cover (t2)",   params$map2_file_path,

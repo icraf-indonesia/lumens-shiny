@@ -8,6 +8,8 @@ output:
     df_print: kable
 params:
   session_log: NA
+  start_time: NA
+  end_time: NA
   landuse_table: NA
   GDP_totals_graph: NA
   GDP_scen_df: NA
@@ -34,8 +36,8 @@ library(DT)
 
 analysis_log <- tribble(
   ~Category,                   ~Details,
-  # "Analysis Start",        params$start_time,
-  # "Analysis End",          params$end_time,
+  "Analysis Start",        params$start_time,
+  "Analysis End",          params$end_time,
   "Input Data and Parameters", "",
   "Land Requirement Database",      params$land_req_path,
   "SCIENDO Database",   params$sciendo_db_path,
