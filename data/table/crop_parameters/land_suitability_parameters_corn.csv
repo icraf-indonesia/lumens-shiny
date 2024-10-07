@@ -1,0 +1,98 @@
+name_common,name_sp,class,name_parameter,value,unit
+maize,Zea mays,S1,clim_humidity,>42,%
+maize,Zea mays,S2,clim_humidity,36-42,%
+maize,Zea mays,S3,clim_humidity,30-36,%
+maize,Zea mays,N,clim_humidity,30<,%
+maize,Zea mays,S1,clim_precipitation_tot,900-1200,mm
+maize,Zea mays,S2,clim_precipitation_tot,1200-1600,mm
+maize,Zea mays,S2,clim_precipitation_tot,500-900,mm
+maize,Zea mays,S3,clim_precipitation_tot,>1600,mm
+maize,Zea mays,S3,clim_precipitation_tot,300-500,mm
+maize,Zea mays,N,clim_precipitation_tot,300<,mm
+maize,Zea mays,S1,clim_temperature_avg,20-26,°C
+maize,Zea mays,S2,clim_temperature_avg,26-30,°C
+maize,Zea mays,S3,clim_temperature_avg,16-20,°C
+maize,Zea mays,S3,clim_temperature_avg,30-32,°C
+maize,Zea mays,N,clim_temperature_avg,16<,°C
+maize,Zea mays,N,clim_temperature_avg,>32,°C
+maize,Zea mays,S1,soil_base_saturation,>50,%
+maize,Zea mays,S2,soil_base_saturation,35-50,%
+maize,Zea mays,S3,soil_base_saturation,35<,%
+maize,Zea mays,S1,soil_cec,>16,cmol
+maize,Zea mays,S2,soil_cec,5-16,cmol
+maize,Zea mays,S3,soil_cec,5<,cmol
+maize,Zea mays,S1,soil_coarse_fragments,15<,%
+maize,Zea mays,S2,soil_coarse_fragments,15-35,%
+maize,Zea mays,S3,soil_coarse_fragments,35-55,%
+maize,Zea mays,N,soil_coarse_fragments,>55,%
+maize,Zea mays,S1,soil_depth,>60,cm
+maize,Zea mays,S2,soil_depth,40-60,cm
+maize,Zea mays,S3,soil_depth,25-40,cm
+maize,Zea mays,N,soil_depth,25<,cm
+maize,Zea mays,S1,soil_drainage,baik;sedang,unitless
+maize,Zea mays,S2,soil_drainage,agakcepat;agakterhambat,unitless
+maize,Zea mays,S3,soil_drainage,terhambat,unitless
+maize,Zea mays,N,soil_drainage,sangatterhambat;cepat,unitless
+maize,Zea mays,S2,soil_erosion_risk,0.15<,unitless
+maize,Zea mays,S3,soil_erosion_risk,0.15-0.9,unitless
+maize,Zea mays,S3,soil_erosion_risk,0.9-1.8,unitless
+maize,Zea mays,N,soil_erosion_risk,1.8-4.8,unitless
+maize,Zea mays,N,soil_erosion_risk,>4.8,unitless
+maize,Zea mays,S1,soil_esp,15<,%
+maize,Zea mays,S2,soil_esp,15-20,%
+maize,Zea mays,S3,soil_esp,20-25,%
+maize,Zea mays,N,soil_esp,>25,%
+maize,Zea mays,S3,soil_flood_height,25,cm
+maize,Zea mays,N,soil_flood_height,>25,cm
+maize,Zea mays,S3,soil_flood_length,7<,hari
+maize,Zea mays,N,soil_flood_length,>7,hari
+maize,Zea mays,S1,soil_k2o,>40,mg/100 g
+maize,Zea mays,S2,soil_k2o,21-40,mg/100 g
+maize,Zea mays,S3,soil_k2o,20-Oct,mg/100 g
+maize,Zea mays,S3,soil_k2o,10<,mg/100 g
+maize,Zea mays,S1,soil_nitrogen,>0.2,%
+maize,Zea mays,S2,soil_nitrogen,0.10-0.20,%
+maize,Zea mays,S3,soil_nitrogen,0.10<,%
+maize,Zea mays,S1,soil_organic_c,>1.2,%
+maize,Zea mays,S2,soil_organic_c,0.8-1.2,%
+maize,Zea mays,S3,soil_organic_c,0.8<,%
+maize,Zea mays,S1,soil_outcrop,5<,%
+maize,Zea mays,S2,soil_outcrop,5-15,%
+maize,Zea mays,S3,soil_outcrop,15-25,%
+maize,Zea mays,N,soil_outcrop,>25,%
+maize,Zea mays,S1,soil_p2o5,>40,mg/100 g
+maize,Zea mays,S2,soil_p2o5,21-40,mg/100 g
+maize,Zea mays,S3,soil_p2o5,15-20,mg/100 g
+maize,Zea mays,S3,soil_p2o5,15<,mg/100 g
+maize,Zea mays,S1,soil_peat_depth,50<,cm
+maize,Zea mays,S2,soil_peat_depth,50-100,cm
+maize,Zea mays,S3,soil_peat_depth,100-150,cm
+maize,Zea mays,N,soil_peat_depth,>150,cm
+maize,Zea mays,S1,soil_peat_maturity,saprik,unitless
+maize,Zea mays,S2,soil_peat_maturity,saprik;hemik,unitless
+maize,Zea mays,S3,soil_peat_maturity,hemik,unitless
+maize,Zea mays,N,soil_peat_maturity,fibrik,unitless
+maize,Zea mays,S1,soil_ph,5.8-7.8,unitless
+maize,Zea mays,S2,soil_ph,5.5-5.8,unitless
+maize,Zea mays,S2,soil_ph,7.8-8.2,unitless
+maize,Zea mays,S3,soil_ph,5.5<,unitless
+maize,Zea mays,S3,soil_ph,>8.2,unitless
+maize,Zea mays,S1,soil_salinity,4<,dS/m
+maize,Zea mays,S2,soil_salinity,4-6,dS/m
+maize,Zea mays,S3,soil_salinity,4-8,dS/m
+maize,Zea mays,N,soil_salinity,>8,dS/m
+maize,Zea mays,S1,soil_slope,3<,%
+maize,Zea mays,S2,soil_slope,3-8,%
+maize,Zea mays,S3,soil_slope,8-15,%
+maize,Zea mays,N,soil_slope,>15,%
+maize,Zea mays,S1,soil_sulfidic_depth,>100,cm
+maize,Zea mays,S2,soil_sulfidic_depth,75-100,cm
+maize,Zea mays,S3,soil_sulfidic_depth,40-75,cm
+maize,Zea mays,N,soil_sulfidic_depth,40<,cm
+maize,Zea mays,S1,soil_surface_rocks,5<,%
+maize,Zea mays,S2,soil_surface_rocks,5-15,%
+maize,Zea mays,S3,soil_surface_rocks,15-40,%
+maize,Zea mays,N,soil_surface_rocks,>40,%
+maize,Zea mays,S1,soil_texture,h_ah_s,unitless
+maize,Zea mays,S3,soil_texture,ak,unitless
+maize,Zea mays,N,soil_texture,k,unitless

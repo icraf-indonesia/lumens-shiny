@@ -1,0 +1,32 @@
+name_common,name_sp,class,name_parameter,value,unit
+white teak,Gmelina arborea,S1,clim_precipitation_tot,1500-2500,mm
+white teak,Gmelina arborea,S2,clim_precipitation_tot,1125-1500,mm
+white teak,Gmelina arborea,S2,clim_precipitation_tot,2500-3750,mm
+white teak,Gmelina arborea,S3,clim_precipitation_tot,750-1125,mm
+white teak,Gmelina arborea,S3,clim_precipitation_tot,3750-5000,mm
+white teak,Gmelina arborea,N,clim_precipitation_tot,<750,mm
+white teak,Gmelina arborea,N,clim_precipitation_tot,>5000,mm
+white teak,Gmelina arborea,S1,clim_temperature_avg,22-34,°C
+white teak,Gmelina arborea,S2,clim_temperature_avg,19-22,°C
+white teak,Gmelina arborea,S2,clim_temperature_avg,34-40,°C
+white teak,Gmelina arborea,S3,clim_temperature_avg,16-19,°C
+white teak,Gmelina arborea,S3,clim_temperature_avg,40-46,°C
+white teak,Gmelina arborea,N,clim_temperature_avg,<16,°C
+white teak,Gmelina arborea,N,clim_temperature_avg, >46,°C
+white teak,Gmelina arborea,S1,soil_depth,>150,cm
+white teak,Gmelina arborea,S2,soil_depth,100-150,cm
+white teak,Gmelina arborea,S3,soil_depth,50-100,cm
+white teak,Gmelina arborea,N,soil_depth,<50,cm
+white teak,Gmelina arborea,S1,soil_elevation,<2100,m
+white teak,Gmelina arborea,N,soil_elevation,>2100,m
+white teak,Gmelina arborea,S1,soil_ph,5-6,unitless
+white teak,Gmelina arborea,S2,soil_ph,4.5-5,unitless
+white teak,Gmelina arborea,S2,soil_ph,6-6.75,unitless
+white teak,Gmelina arborea,S3,soil_ph,4-4.5,unitless
+white teak,Gmelina arborea,S3,soil_ph,6.75-7.5,unitless
+white teak,Gmelina arborea,N,soil_ph,<4,unitless
+white teak,Gmelina arborea,N,soil_ph,>7.5,unitless
+white teak,Gmelina arborea,S1,soil_salinity,<4,dS/m
+white teak,Gmelina arborea,N,soil_salinity,>4,dS/m
+white teak,Gmelina arborea,S1,soil_texture,h_sh_ah_ak_s,unitless
+white teak,Gmelina arborea,S2,soil_texture,k,unitless

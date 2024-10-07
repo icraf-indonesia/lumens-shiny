@@ -1,0 +1,96 @@
+name_common,name_sp,class,name_parameter,value,unit
+rainfed rice,Oryza sativa,S1,clim_humidity,33-90,%
+rainfed rice,Oryza sativa,S2,clim_humidity,30-33,%
+rainfed rice,Oryza sativa,S3,clim_humidity,<30,%
+rainfed rice,Oryza sativa,S3,clim_humidity,>90,%
+rainfed rice,Oryza sativa,S1,clim_temperature_avg,24-29,°C
+rainfed rice,Oryza sativa,S2,clim_temperature_avg,22-24,°C
+rainfed rice,Oryza sativa,S2,clim_temperature_avg,29-32,°C
+rainfed rice,Oryza sativa,S3,clim_temperature_avg,18-22,°C
+rainfed rice,Oryza sativa,S3,clim_temperature_avg,32-35,°C
+rainfed rice,Oryza sativa,N,clim_temperature_avg,18<,°C
+rainfed rice,Oryza sativa,N,clim_temperature_avg,>35,°C
+rainfed rice,Oryza sativa,S1,soil_base_saturation,>50,%
+rainfed rice,Oryza sativa,S2,soil_base_saturation,35-50,%
+rainfed rice,Oryza sativa,S3,soil_base_saturation,35<,%
+rainfed rice,Oryza sativa,S1,soil_cec,>16,cmol
+rainfed rice,Oryza sativa,S2,soil_cec,5-16,cmol
+rainfed rice,Oryza sativa,S3,soil_cec,5<,cmol
+rainfed rice,Oryza sativa,S1,soil_coarse_fragments,3<,%
+rainfed rice,Oryza sativa,S2,soil_coarse_fragments,3-15,%
+rainfed rice,Oryza sativa,S3,soil_coarse_fragments,15-35,%
+rainfed rice,Oryza sativa,N,soil_coarse_fragments,>35,%
+rainfed rice,Oryza sativa,S1,soil_depth,>50,cm
+rainfed rice,Oryza sativa,S2,soil_depth,40-50,cm
+rainfed rice,Oryza sativa,S3,soil_depth,25-40,cm
+rainfed rice,Oryza sativa,N,soil_depth,25<,cm
+rainfed rice,Oryza sativa,S1,soil_drainage,agakterhambat;sedang,unitless
+rainfed rice,Oryza sativa,S2,soil_drainage,terhambat;baik,unitless
+rainfed rice,Oryza sativa,S3,soil_drainage,sangatterhambat;agakcepat,unitless
+rainfed rice,Oryza sativa,N,soil_drainage,cepat,unitless
+rainfed rice,Oryza sativa,S2,soil_erosion_risk,0.15<,unitless
+rainfed rice,Oryza sativa,S3,soil_erosion_risk,0.15-0.9,unitless
+rainfed rice,Oryza sativa,N,soil_erosion_risk,0.9-1.8,unitless
+rainfed rice,Oryza sativa,N,soil_erosion_risk,1.8-4.8,unitless
+rainfed rice,Oryza sativa,S1,soil_esp,20<,%
+rainfed rice,Oryza sativa,S2,soil_esp,20-30,%
+rainfed rice,Oryza sativa,S3,soil_esp,30-40,%
+rainfed rice,Oryza sativa,N,soil_esp,>40,%
+rainfed rice,Oryza sativa,S1,soil_flood_height,25,cm
+rainfed rice,Oryza sativa,S2,soil_flood_height,25-50,cm
+rainfed rice,Oryza sativa,S3,soil_flood_height,50-75,cm
+rainfed rice,Oryza sativa,N,soil_flood_height,>75,cm
+rainfed rice,Oryza sativa,S1,soil_flood_length,tanpa,hari
+rainfed rice,Oryza sativa,S2,soil_flood_length,7<,hari
+rainfed rice,Oryza sativa,S3,soil_flood_length,7-14,hari
+rainfed rice,Oryza sativa,N,soil_flood_length,>14,hari
+rainfed rice,Oryza sativa,S1,soil_k2o,>20,mg/100 g
+rainfed rice,Oryza sativa,S2,soil_k2o,20-Oct,mg/100 g
+rainfed rice,Oryza sativa,S3,soil_k2o,10<,mg/100 g
+rainfed rice,Oryza sativa,S1,soil_nitrogen,>0.2,%
+rainfed rice,Oryza sativa,S2,soil_nitrogen,0.10-0.20,%
+rainfed rice,Oryza sativa,S3,soil_nitrogen,0.10<,%
+rainfed rice,Oryza sativa,S1,soil_organic_c,>1.2,%
+rainfed rice,Oryza sativa,S2,soil_organic_c,0.8-1.2,%
+rainfed rice,Oryza sativa,S3,soil_organic_c,0.8<,%
+rainfed rice,Oryza sativa,S1,soil_outcrop,5<,%
+rainfed rice,Oryza sativa,S2,soil_outcrop,5-15,%
+rainfed rice,Oryza sativa,S3,soil_outcrop,15-25,%
+rainfed rice,Oryza sativa,N,soil_outcrop,>25,%
+rainfed rice,Oryza sativa,S1,soil_p2o5,>40,mg/100 g
+rainfed rice,Oryza sativa,S2,soil_p2o5,21-40,mg/100 g
+rainfed rice,Oryza sativa,S3,soil_p2o5,15-20,mg/100 g
+rainfed rice,Oryza sativa,S3,soil_p2o5,15<,mg/100 g
+rainfed rice,Oryza sativa,S1,soil_peat_depth,50<,cm
+rainfed rice,Oryza sativa,S2,soil_peat_depth,50-100,cm
+rainfed rice,Oryza sativa,S3,soil_peat_depth,100-150,cm
+rainfed rice,Oryza sativa,N,soil_peat_depth,>150,cm
+rainfed rice,Oryza sativa,S1,soil_peat_maturity,saprik,unitless
+rainfed rice,Oryza sativa,S2,soil_peat_maturity,saprik;hemik,unitless
+rainfed rice,Oryza sativa,S3,soil_peat_maturity,hemik,unitless
+rainfed rice,Oryza sativa,N,soil_peat_maturity,fibrik,unitless
+rainfed rice,Oryza sativa,S1,soil_ph,5.5-8.2,unitless
+rainfed rice,Oryza sativa,S2,soil_ph,5.0-5.5,unitless
+rainfed rice,Oryza sativa,S2,soil_ph,8.2-8.5,unitless
+rainfed rice,Oryza sativa,S3,soil_ph,5.0<,unitless
+rainfed rice,Oryza sativa,S3,soil_ph,>8.5,unitless
+rainfed rice,Oryza sativa,S1,soil_salinity,2<,dS/m
+rainfed rice,Oryza sativa,S2,soil_salinity,2-4,dS/m
+rainfed rice,Oryza sativa,S3,soil_salinity,4-6,dS/m
+rainfed rice,Oryza sativa,N,soil_salinity,>6,dS/m
+rainfed rice,Oryza sativa,S1,soil_slope,3<,%
+rainfed rice,Oryza sativa,S2,soil_slope,3-8,%
+rainfed rice,Oryza sativa,S3,soil_slope,8-15,%
+rainfed rice,Oryza sativa,N,soil_slope,>15,%
+rainfed rice,Oryza sativa,S1,soil_sulfidic_depth,>100,cm
+rainfed rice,Oryza sativa,S2,soil_sulfidic_depth,75-100,cm
+rainfed rice,Oryza sativa,S3,soil_sulfidic_depth,40-75,cm
+rainfed rice,Oryza sativa,N,soil_sulfidic_depth,40<,cm
+rainfed rice,Oryza sativa,S1,soil_surface_rocks,5<,%
+rainfed rice,Oryza sativa,S2,soil_surface_rocks,5-15,%
+rainfed rice,Oryza sativa,S3,soil_surface_rocks,15-40,%
+rainfed rice,Oryza sativa,N,soil_surface_rocks,>40,%
+rainfed rice,Oryza sativa,S1,soil_texture,h_ah,unitless
+rainfed rice,Oryza sativa,S2,soil_texture,s,unitless
+rainfed rice,Oryza sativa,S3,soil_texture,ak,unitless
+rainfed rice,Oryza sativa,N,soil_texture,k,unitless
