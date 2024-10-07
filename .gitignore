@@ -5,4 +5,7 @@
 *.Rproj
 /pandoc
 /dev_docs
+/data/lasem
 
+*.html
+/output

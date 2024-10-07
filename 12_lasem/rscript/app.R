@@ -206,7 +206,7 @@ server <- function(input, output, session) {
         input_suit_factors <- input_paths %>% read_raster_files()
         
         stackedRasters <- stack_raster_layers(input_suit_factors,
-                                              input_paths$parameter_name)
+                                              input_paths[["name_parameter"]])
         
         # Load Crop Suitability Table ---------------------------------------------
         incProgress(0.2, detail = "Loading crop suitability data")
@@ -239,7 +239,6 @@ server <- function(input, output, session) {
         
         # c. Actual and potential suitability polygon (should be checked and tidied up)
         file_name_land_suit_shp <- paste0(path_output,"/land_suitability.shp")
-        
         suitability_results[["suitability_polygon"]] %>%
           mutate(across(where(is.list) & !geometry, ~sapply(., function(x) paste(x, collapse = ", ")))) %>%
           sf::st_make_valid() %>%
@@ -365,3 +364,5 @@ server <- function(input, output, session) {
 
 # Run the app
 shinyApp(ui, server)
+
+

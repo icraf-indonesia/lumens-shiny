@@ -38,7 +38,7 @@ perform_suitability_analysis <-
       is.data.frame(suitability_parameter) ||
         inherits(suitability_parameter, "tbl_df")
     )
-    
+
     # 3a. Suitability Analysis Actual
     suitability_map <-
       process_suitability(suitability_factors = harmonised_rasters,
@@ -708,7 +708,7 @@ calculate_suitability_potential_table <- function(lookup_intervention, intervent
   
   # Reading and processing the lookup intervention data
   lookup_intervention <- lookup_intervention |>
-    select(-c("no", "karakteristik_lahan")) |>
+    select(-c("no", "land_characteristics")) |>
     mutate(
       low = ifelse(is.na(low), 0, str_count(low, pattern = fixed("+"))),
       med = ifelse(is.na(med), 0, str_count(med, pattern = fixed("+"))),

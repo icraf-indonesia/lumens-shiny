@@ -89,7 +89,7 @@ suitability_parameter %>%
 
 ```{r climate-soil-data}
 climate_soil_data %>% 
-  select(-c("raster_path", "parameter_name")) %>%
+  select(-c("raster_path", "name_parameter")) %>%
   # kable() %>%
   # kable_styling(bootstrap_options = c("striped", "hover"))
   datatable()
