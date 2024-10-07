@@ -1,0 +1,123 @@
+---
+title: "SCIENDO-Train Report"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+    theme: united
+    highlight: tango
+    df_print: kable
+params:
+  start_time: NA
+  end_time: NA
+  inputs: NA
+  rc_path: NA
+  rc_egoml_path: NA
+  woe_egoml_path: NA
+  session_log: NA  
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r load function, include=FALSE, error=TRUE, warning=TRUE, message=TRUE}
+source("../rscript/function_sciendo_train.R")
+```
+
+```{r load_library, include=FALSE}
+install_load(
+  "raster",
+  "dplyr",
+  "DT",
+  "kableExtra",
+  "htmltools"
+)
+if (!("LUMENSR" %in% rownames(installed.packages()))) {
+  install_github("icraf-indonesia/LUMENSR", force = T)
+  do.call("library", list("LUMENSR"))
+}
+library(LUMENSR)
+```
+
+<details><summary>Click here for Analysis Log</summary>
+
+```{r analysis-log, echo=FALSE}
+analysis_log <- tribble(
+  ~Category,                      ~Details,
+  "Analysis Start",               params$start_time,
+  "Analysis End",                 params$end_time,
+  "Input Data and Parameters",    "",
+  "1. Landcover map at T1",       params$inputs$lc_t1_path,
+  "2. Landcover map at T2",       params$inputs$lc_t2_path,
+  "3. Planning unit",             params$inputs$zone_path,
+  "4. Year of T1",                as.character(params$p1),
+  "5. Year of T2",                as.character(params$p2),
+  "6. Land cover lookup table",   params$inputs$lc_lookup_table_path,
+  "Output Workspace",             params$inputs$output_dir,
+  "1. Raster Cube",               params$inputs$rc_path,
+  "2. EGOML Raster Cube",         params$inputs$rc_egoml_path,
+  "3. EGOML Weight of Evidence",  params$inputs$woe_egoml_path,
+  "Session Summary",              ""
+) %>% rbind(params$session_log)
+
+analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
+  kable_paper("hover", full_width = F )
+```
+
+</details>
+
+# Summary
+
+```{r input-data, echo=FALSE, message=FALSE, warning=FALSE}
+
+```
+
+This report presents the results of an analysis based on the provided maps and lookup table.
+
+
+# Module brief description
+
+- SCIENDO-Train describes the estimation of carbon stock for various land use types in a region using Stock Difference method, where the dynamics of carbon stock are based on the amount of carbon stock at two different points in time.
+
+
+# Input data {.tabset}
+
+## Land-Use/Cover Map in `r params$inputs$p1`
+
+```{r Land-Use/Cover Map T1, echo=FALSE, message=FALSE, warning=FALSE}
+
+```
+
+## Land-Use/Cover Map in `r params$inputs$$p2`
+
+```{r Land-Use/Cover Map T2, echo=FALSE, message=FALSE, warning=FALSE}
+
+```
+
+## Planning Unit
+
+```{r Planning Unit, echo=FALSE, message=FALSE, warning=FALSE}
+
+```
+
+## Carbon Stock Lookup Table
+
+The carbon stock being considered is time-averaged above ground carbon stock.
+
+```{r Carbon Stock Lookup Table, echo=FALSE}
+
+```
+
+# Results
+
+## 
+
+
+------------------------------------------------------------------------
+
+<!-- Mandatory closing statement for all module -->
+
+<font size="1"> LUMENS is free software and comes with ABSOLUTELY NO WARRANTY. Users are responsible for the results generated. Results depend on the quality of the input data ("garbage in, garbage out") and may vary or be sensitive to the parameters used. Please report any problems encountered while using LUMENS as [a GitHub issue](https://github.com/icraf-indonesia/lumens-shiny/issues). Feedback and questions are welcome [Contact Us URL]. </font size>

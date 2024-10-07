@@ -193,9 +193,9 @@ co2_unit <- function(prefix = "", suffix = "") {
 per_ha_unit <- function(prefix = "", suffix = "") {
   span(
     paste0(prefix, "ha"),
-            tags$sup(-1, .noWS = c("after", "before")),
-            suffix,
-            .noWS = c("after", "before"))
+    tags$sup(-1, .noWS = c("after", "before")),
+    suffix,
+    .noWS = c("after", "before"))
 }
 
 quesc_transform <- function(quescdb) {
@@ -275,7 +275,7 @@ generate_car_file <- function(df) {
   general <- paste("file_version=1.2.0")
   write("#GENERAL", temp_car, append = TRUE, sep = "\t")
   write.table(general, temp_car, append = TRUE, quote = FALSE, col.names = FALSE, row.names = FALSE, sep = "\t")
-
+  
   project <- c(
     "title=SCIENDO Abacus",
     "description=LUMENS project",

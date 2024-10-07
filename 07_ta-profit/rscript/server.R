@@ -128,8 +128,7 @@ server <- function(input, output, session) {
       rv$raster_nodata <- as.numeric(input$raster_nodata)
     }
   })
-  
-  
+
   # Data Processing ---------------------------------------------------------
   #' Main processing logic to calculate NPV, opportunity costs, and carbon emissions
   observeEvent(input$process, {
@@ -299,7 +298,76 @@ server <- function(input, output, session) {
       }
     } else {
       showNotification("Report file not found", type = "error")
-    }
+    
+    #' Progress bar to show users that the analysis is running
+    withProgress(message = "Running TA Profit Analysis", value = 0, {
+      tryCatch({
+        #' Prepare NPV lookup table by combining carbon and NPV data, and calculate total area
+        npv_result <- prepare_npv_lookup(rv$tbl_npv, rv$quesc_tbl)
+        rv$dt_quesc_npv <- npv_result$dt_quesc_npv
+        tot_area <- npv_result$tot_area
+        
+        #' Build the opportunity cost table based on the land use change period and total area
+        opcost_result <- build_opcost_table(rv$dt_quesc_npv, rv$period, tot_area)
+        rv$opcost_table <- opcost_result$opcost_all
+        rv$opcost_table$order <- c(1:nrow(rv$opcost_table))
+        
+        #' Perform carbon accounting and calculate carbon emissions based on land use change
+        map1_rast <- terra::rast(rv$map1_file$datapath)
+        map2_rast <- terra::rast(rv$map2_file$datapath)
+        carbon_result <- carbon_accounting(map1_rast, map2_rast, rv$tbl_npv, rv$tbl_carbon, input$raster_nodata)
+        rv$map_carbon1 <- carbon_result$map_carbon1
+        rv$map_carbon2 <- carbon_result$map_carbon2
+        rv$emission_map <- carbon_result$emission_map
+        
+        #' Perform NPV accounting to calculate changes in NPV between the two time periods
+        npv_change <- npv_accounting(map1_rast, map2_rast, rv$tbl_npv)
+        rv$map_npv1 <- npv_change$map_npv1
+        rv$map_npv2 <- npv_change$map_npv2
+        rv$npv_chg_map <- npv_change$npv_chg_map
+        
+        #' Calculate the opportunity cost map by combining NPV changes with carbon emissions
+        rv$opcost_map <- calculate_opcost_map(rv$npv_chg_map, rv$emission_map)
+        
+        #' Generate output maps and save them in the selected directory
+        generate_output_maps(rv$map_carbon1, rv$map_carbon2, rv$emission_map, rv$opcost_map, rv$wd)
+        
+        #' Generate the opportunity cost curve for visualization
+        rv$opcost_curve <- generate_opportunity_cost_curve(rv$opcost_table)
+        
+        rv$map1_file_path <- rename_uploaded_file(input$map1_file)
+        rv$map2_file_path <- rename_uploaded_file(input$map2_file)
+        rv$npv_file_path <- rename_uploaded_file(input$npv_file)
+        rv$carbon_file_path <- rename_uploaded_file(input$carbon_file)
+        rv$year1 <- input$year1
+        rv$year2 <- input$year2
+        rv$raster_nodata <- input$raster_nodata
+        
+        #' Indicate that the process has completed successfully
+        setProgress(1, message = "Processing Complete")
+        showNotification("All outputs have been generated", type = "message")
+        
+        #' Update the status messages in the UI
+        output$status_messages <- renderText("Analysis completed successfully!")
+        showNotification("Analysis completed successfully!", type = "message")
+        shinyjs::show("viewReport")
+        
+      }, error = function(e) {
+        #' Handle errors and display an error message in the UI
+        output$error_messages <- renderText(paste("Error in analysis:", e$message))
+        showNotification(paste("Error in analysis:", e$message), type = "error")
+      })
+    })
+  })
+  
+  session$onSessionEnded(function() {
+    stopApp()
+  })
+  
+  observeEvent(input$returnButton, {
+    js$closeWindow()
+    message("Return to main menu!")
+    # shinyjs::delay(1000, stopApp())
   })
   
   session$onSessionEnded(function() {

@@ -25,7 +25,7 @@ install_load(
   "plotly",
   "purrr",
   "readr",
-  "remote",
+  "remotes",
   "reshape",
   "reshape2",
   "rmarkdown",
@@ -195,14 +195,14 @@ build_opcost_table <- function(dt_quesc_npv, period, tot_area) {
   opcost_tab_p$opcost_log<-log10(opcost_tab_p$opcost)
   is.na(opcost_tab_p) <- sapply(opcost_tab_p, is.infinite)
   opcost_tab_p[is.na(opcost_tab_p)] <- 0
-
+  
   #Build Negative Opcost Table
   opcost_tab_n<- opcost_tab[ which(opcost_tab$opcost < 0),]
   opcost_tab_n<- opcost_tab_n[order(opcost_tab_n$opcost),]
   opcost_tab_n$cum_emrate<-cumsum(opcost_tab_n$emrate)
   opcost_tab_n$opcost_log<-opcost_tab_n$opcost*-1
   opcost_tab_n$opcost_log<-log10(opcost_tab_n$opcost_log)*-1
-
+  
   opcost_all <- rbind(opcost_tab_n, opcost_tab_p)
   opcost_all$cum_emrate2 <- as.factor(opcost_all$cum_emrate)
   
@@ -210,11 +210,6 @@ build_opcost_table <- function(dt_quesc_npv, period, tot_area) {
 }
 
 carbon_accounting <- function(map1_rast, map2_rast, tbl_npv, tbl_carbon, raster_nodata) {
-  # map1_rast <- rv$map1_rast
-  # map2_rast <- rv$map2_rast
-  # tbl_npv <- rv$tbl_npv
-  # tbl_carbon <- rv$tbl_carbon
-  
   NAflag(map1_rast) <- as.numeric(raster_nodata)
   NAflag(map2_rast) <- as.numeric(raster_nodata)
   
