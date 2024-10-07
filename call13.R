@@ -1,0 +1,1 @@
+shiny::runApp('12_lasem/rscript/', launch.browser = T, port = 875)

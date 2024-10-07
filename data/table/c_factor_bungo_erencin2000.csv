@@ -1,0 +1,42 @@
+ID,LC,C_factor
+1,Hutan Primer,0.001
+2,Hutan bekas tebangan kerapatan tinggi,0.001
+3,Hutan bekas tebangan kerapatan rendah,0.001
+4,Hutan Rawa Primer,0.001
+5,Hutan Rawa Sekunder,0.001
+6,Hutan Rawa Primer Gambut,0.001
+7,Hutan Rawa Sekunder Gambut,0.001
+8,Hutan Mangrove Primer,0.001
+9,Hutan Mangrove Sekunder,0.001
+10,Agroforestri karet,0.001
+11,Agoroforestri kelapa/pinang,0.001
+12,Agroforestri kayu manis,0.001
+13,Agroforestri kopi,0.001
+14,Kebun campuran,0.001
+15,HTI Akasia,0.001
+16,Karet monokultur,0.001
+17,Kelapa sawit,0.1
+18,Kelapa,0.1
+19,Semak,0.1
+20,Lahan pertanian,0.2
+21,Sawah,0.2
+22,Perkebunan teh,0.2
+23,Rumput,0.2
+24,Lahan terbuka,1
+25,Pemukiman,0.14
+26,Agroforestri karet gambut,0.001
+27,Agoroforestri kelapa/pinang gambut,0.001
+29,Agroforestri kopi gambut,0.001
+30,Kebun campuran gambut,0.001
+31,HTI Akasia gambut,0.001
+32,Karet monokultur gambut,0.001
+33,Kelapa sawit gambut,0.1
+34,Kelapa gambut,0.1
+35,Semak gambut,0.1
+36,Lahan pertanian gambut,0.2
+37,Sawah gambut,0.2
+39,Rumput gambut,0.2
+40,Lahan terbuka gambut,1
+41,Pemukiman gambut,0.14
+42,Air,0
+43,Kayu manis monokultur,0.001

@@ -27,8 +27,6 @@ if (!("LUMENSR" %in% rownames(installed.packages()))) {
 }
 library(LUMENSR)
 
-jscode <- "shinyjs.closeWindow = function() { window.close(); }"
-
 ui <- fluidPage(
   useShinyjs(),
   theme = bs_theme(version = 5),
@@ -37,29 +35,32 @@ ui <- fluidPage(
   sidebarLayout(
     sidebarPanel(
       fileInput("map1_file", "Land cover map at T1", accept = c("image/tiff")),
+      textInput("map1_year", "Year of T1", value = "1990"),
       fileInput("map2_file", "Land cover map at T2", accept = c("image/tiff")),
+      textInput("map2_year", "Year of T2", value = "2000"),
+      fileInput("carbon_file", "Carbon stock lookup table", accept = c(".csv")),
       fileInput("mapz_file", 
                 "Planning Unit", 
                 accept = c(".shp", ".dbf", ".sbn", ".sbx", ".shx", ".prj"), 
                 multiple = T, 
                 placeholder = "All related shapefiles"),
-      fileInput("carbon_file", "Carbon stock lookup table", accept = c(".csv")),
-      textInput("map1_year", "Year of T1"),
-      textInput("map2_year", "Year of T2"),
       div(style = "display: flex; flex-direction: column; gap: 10px;",
           shinyDirButton("wd", "Select output directory", "Please select a directory"),
+          verbatimTextOutput("print_output_dir", placeholder = TRUE),
           actionButton("processQUESC", "Run", 
                        style = "font-size: 18px; padding: 10px 15px; background-color: #4CAF50; color: white;"),
           hidden(
             actionButton("openReport", "Open Report",
                          style = "font-size: 18px; padding: 10px 15px; background-color: #008CBA; color: white;")
-          )
+          ),
+          actionButton("returnButton", "Return to Main Menu", 
+                       style = "font-size: 18px; padding: 10px 15px; background-color: #FA8072; color: white;")
       )
     ),
     mainPanel(
       tabsetPanel(
-        tabPanel("User Guide", includeMarkdown("../helpfile/help.md")),
-        tabPanel("Analysis",
+        tabPanel("User Guide", includeMarkdown("../helpfile/quesc_help.md")),
+        tabPanel("Log",
                  textOutput("selected_directory"),         
                  verbatimTextOutput("status_messages"),
                  verbatimTextOutput("error_messages"),
@@ -106,6 +107,16 @@ server <- function(input, output, session) {
     return(!is.na(as.integer(as.character(s))))
   }
   
+  # Function to rename uploaded file
+  rename_uploaded_file <- function(input_file) {
+    if (is.null(input_file)) return(NULL)
+    
+    old_path <- input_file$datapath
+    new_path <- file.path(dirname(old_path), input_file$name)
+    file.rename(old_path, new_path)
+    return(new_path)
+  }
+  
   #### Read file inputs ####
   lapply(lc_list, function(id) {
     inputs <- paste0(id, "_file")
@@ -114,8 +125,8 @@ server <- function(input, output, session) {
     df <- paste0(id, "_df")
     
     observeEvent(input[[inputs]], {
-      rv[[files]] <- input[[inputs]]
-      rv[[rasters]] <- rv[[files]]$datapath %>% raster() 
+      rv[[files]] <- rename_uploaded_file(input[[inputs]])
+      rv[[rasters]] <- rv[[files]] %>% raster() 
     })
   })
   
@@ -192,6 +203,14 @@ server <- function(input, output, session) {
     }
   })
   
+  output$print_output_dir <- renderPrint({
+    if(!is.null(rv$wd)) {
+      cat(paste(rv$wd))
+    } else {
+      cat("No output directory selected")
+    }
+  })
+  
   # Input validation
   iv <- InputValidator$new()
   iv$add_rule("map1_file", sv_required(message = "Please upload land cover map at T1"))
@@ -216,7 +235,12 @@ server <- function(input, output, session) {
     
     withProgress(message = "Running QUES-C Analysis", value = 0, {
       tryCatch({
+        c_lookup_path <- rename_uploaded_file(input$carbon_file)
         results <- run_quesc_analysis(
+          lc_t1_path = rv$map1_file,
+          lc_t2_path = rv$map2_file,
+          admin_z_path = rv$mapz_file,
+          c_lookup_path = c_lookup_path,
           lc_t1_input = rv$map1_rast,
           lc_t2_input = rv$map2_rast,
           admin_z_input = rv$mapz_rast,
@@ -237,7 +261,7 @@ server <- function(input, output, session) {
         rv$tbl_quesc <- results$ques_db
         rv$period_year <- as.numeric(results$p1) - as.numeric(results$p2)
         
-        output$status_messages <- renderText("Analysis completed successfully!")
+        output$status_messages <- renderText("STATUS: Analysis completed successfully!")
         output$success_message <- renderText("Analysis completed successfully! You can now open the output folder.")
         output$error_messages <- renderText(NULL)
         removeNotification("running_notification")
@@ -263,6 +287,16 @@ server <- function(input, output, session) {
     } else {
       showNotification("Report file not found.", type = "error")
     }
+  })
+  
+  session$onSessionEnded(function() {
+    stopApp()
+  })
+  
+  observeEvent(input$returnButton, {
+    js$closeWindow()
+    message("Return to main menu!")
+    # shinyjs::delay(1000, stopApp())
   })
 }
 

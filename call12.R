@@ -1,0 +1,1 @@
+shiny::runApp('11_sciendo-simulate/rscript/', launch.browser = T, port = 875)

@@ -51,12 +51,11 @@ analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
 ```
 </details>
 
-# Introduction
 
+# Introduction
 This report presents the results of an analysis based on the provided maps and lookup table
 
 # Analysis Results
-
 The maps provided was carbon, emission and sequestration map.
 
 * Calculation or analysis details based on the results can be presented here.
@@ -94,8 +93,6 @@ plot(params$income_total_graph)
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 plot(params$labour_total_graph)
 ```
-
-
 
 ------------------------------------------------------------------------
 

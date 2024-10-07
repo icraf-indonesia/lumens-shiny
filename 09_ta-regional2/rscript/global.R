@@ -24,7 +24,7 @@ install_load(
   "ggplot2",
   "plotly",
   "purrr",
-  "remote",
+  "remotes",
   "reshape",
   "reshape2",
   "rmarkdown",

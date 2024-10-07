@@ -40,12 +40,14 @@ library(htmlwidgets)
 library(DT)
 ```
 
+
 <details><summary>Click here for Analysis Log</summary>
 
 ```{r analysis-log, echo=FALSE}
 
 analysis_log <- tribble(
   ~Category,                   ~Details,
+
   "Analysis Start",        params$start_time,
   "Analysis End",          params$end_time,
   "Input Data and Parameters", "",
@@ -128,5 +130,6 @@ The report highlights the key trade-offs between financial returns and environme
 
 
 ------------------------------------------------------------------------
+
 
 <font size="1"> LUMENS is free software and comes with ABSOLUTELY NO WARRANTY. Users are responsible for the results generated. Results depend on the quality of the input data ("garbage in, garbage out") and may vary or be sensitive to the parameters used. Please report any problems encountered while using LUMENS as [a GitHub issue](https://github.com/icraf-indonesia/lumens-shiny/issues). Feedback and questions are welcome [Contact Us URL]. </font size>

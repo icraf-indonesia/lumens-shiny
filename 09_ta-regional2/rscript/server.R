@@ -344,4 +344,14 @@ server <- function(input, output, session) {
     message("Return to main menu!")
     # shinyjs::delay(1000, stopApp())
   })
+  
+  session$onSessionEnded(function() {
+    stopApp()
+  })
+  
+  observeEvent(input$returnButton, {
+    js$closeWindow()
+    message("Return to main menu!")
+    # shinyjs::delay(1000, stopApp())
+  })
 }

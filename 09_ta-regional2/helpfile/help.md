@@ -2,8 +2,6 @@
 title: "Regional Economic Projection Module"
 ---
 
-# Regional Economic Projection
-
 ## Table of Contents
 
 [1. Brief description](#_toc_description)
