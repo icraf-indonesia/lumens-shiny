@@ -1,0 +1,185 @@
+---
+title: "Land Suitability Evaluation Module (LaSEM) Report"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+    df_print: paged
+params:
+  start_time: "2024-10-07 11:00:17"
+  end_time: "2024-10-07 11:00:22"
+  file_name_soil_climate_factors_rds: "output/test_lasem/soil_climatic_factors.rds"
+  file_name_land_suit_rds: "output/test_lasem/land_suitability.rds"
+  file_name_land_suit_tif: "output/test_lasem/land_suitability.tif"
+  file_name_land_suit_shp: "output/test_lasem/land_suitability.shp"
+  file_name_land_suit_lookup_csv: "output/test_lasem/land_suitability_lookup.csv"
+  file_name_suit_factors_tif: "output/test_lasem/land_suitability_factors.tif"
+  path_lookup_raster_inputs: "data/lasem/sample_datasets/crop_suitability_spatial_input_tts.csv"
+  path_lookup_crop_suitability: "data/lasem/crop_parameters/kesesuaian_alpukat.csv"
+  path_lookup_intervention: "data/lasem/lookup_tables/lookup_intervention.csv"
+  path_output: "output/test_lasem"
+  session_log: NA
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+library(readr)
+library(dplyr)
+library(terra)
+library(sf)
+library(leaflet)
+library(htmltools)
+library(knitr)
+library(kableExtra)
+library(DT)
+
+suitability_parameter <- read_csv(params$path_lookup_crop_suitability)
+climate_soil_data <- read_csv(params$path_lookup_raster_inputs)
+harmonised_rasters <- readRDS(params$file_name_soil_climate_factors_rds)
+suitability_polygon <- readRDS(params$file_name_land_suit_rds)
+intervention_lookup <- read_csv(params$path_lookup_intervention)
+```
+
+<details><summary>Click here for Analysis Log</summary>
+
+```{r analysis-log, echo=FALSE}
+analysis_log <- tribble(
+  ~Category, ~Details,
+  "Analysis Start", params$start_time,
+  "Analysis End", params$end_time,
+  "Input Data and Parameters", "",
+  "1. Raster inputs lookup", params$inputs$path_lookup_raster_inputs,
+  "2. Crop suitability parameters", params$inputs$path_lookup_crop_suitability,
+  "3. Intervention lookup", params$inputs$path_lookup_intervention,
+  "Outputs", "",
+  "Output Workspace", params$inputs$path_output,
+  "Session Summary", ""
+) %>% rbind(params$session_log)
+analysis_log %>%
+kbl(caption = "Analysis Log", escape = FALSE) %>%
+kable_paper("hover", full_width = F)
+```
+</details>
+
+# Intro
+
+The primary output of this module is a map that displays areas according to their biophysical suitability for a given crop or farming system. This land suitability map informs users about land suitability and the potential for addressing biophysical limiting factors. However, the map strictly considers biophysical factors and does not account for land allocation maps or maps resulting from specific policies or rules. In this analysis, it is assumed that according to Liebig's law of the minimum, the factor that is at the most limiting level will determine the final suitability level.
+
+**Species:** `r suitability_parameter[["name_sp"]][1]`
+
+**Common name:** `r suitability_parameter[["name_common"]][1]`
+
+# Crop environmental requirements
+
+```{r crop-requirements}
+suitability_parameter %>% 
+  select(-c("name_common", "name_sp")) %>%
+  #kable() %>%
+  #datatable(bootstrap_options = c("striped", "hover"))
+  datatable()
+```
+
+# Agroclimatic, soil, and terrain conditions
+
+## List of agroclimatic, soil, and terrain data
+
+```{r climate-soil-data}
+climate_soil_data %>% 
+  select(-c("raster_path", "parameter_name")) %>%
+  # kable() %>%
+  # kable_styling(bootstrap_options = c("striped", "hover"))
+  datatable()
+```
+
+## Maps of agroclimatic, soil, and terrain conditions
+
+```{r agroclimatic-maps, fig.width=12, fig.height=4}
+plot(harmonised_rasters)
+```
+
+# Crop suitability Map
+
+```{r suitability-map}
+# Color palette for suitability levels
+colors <- colorFactor(palette = c("olivedrab","olivedrab2","orange", "red"),
+                      levels = c("S1", "S2", "S3", "N"), ordered = FALSE)
+
+# Create labels for polygons
+suitability_polygon$label_content <- with(
+  suitability_polygon,
+  paste0(
+    "<strong>Suitability Actual:</strong> ", suitability,
+    "<br><strong>Max Potential:</strong> ", suitability_potential_high,
+    "<br><strong>Primary Limiting Factor:</strong> ", limiting_factor_actual,
+    "<br><strong>Secondary Limiting Factor:</strong> ", limiting_factor_potential
+  )
+) %>% lapply(htmltools::HTML)
+
+# Create the leaflet map
+suitability_map <- leaflet(suitability_polygon) %>% 
+  addTiles(group = "OSM (default)") %>% 
+  addProviderTiles(providers$CyclOSM, group = "CyclOSM") %>% 
+  addPolygons(
+    fillColor = ~colors(suitability),
+    fillOpacity = 1,
+    color = "grey",
+    weight = 0.1,
+    smoothFactor = 1, 
+    label = ~label_content,
+    labelOptions = labelOptions(
+      style = list("font-weight" = "normal", "color" = "black"),
+      textsize = "13px",
+      direction = "auto"),
+    group = "Actual"
+  ) %>% 
+  addPolygons(
+    fillColor = ~colors(suitability_potential_high),
+    fillOpacity = 1,
+    color = "grey",
+    weight = 0.1,
+    smoothFactor = 1,
+    label = ~label_content,
+    labelOptions = labelOptions(
+      style = list("font-weight" = "normal", "color" = "black"),
+      textsize = "13px",
+      direction = "auto"),
+    group = "High Intervention"
+  ) %>%
+  addLegend(
+    "bottomright",
+    pal = colors,
+    values = ~factor(c(suitability, suitability_potential_high), levels = c("S1", "S2", "S3", "N")),
+    title = "Suitability Level",
+    opacity = 0.7
+  ) %>%
+  addLayersControl(
+    baseGroups = c("Actual", "High Intervention"),
+    options = layersControlOptions(collapsed = FALSE)
+  )
+
+suitability_map
+```
+
+# Land suitability according to each climate or edaphic factor
+
+```{r suitability-factors}
+suitability_factors <- rast(params$file_name_suit_factors_tif)
+plot(suitability_factors)
+```
+
+# Land suitability improvements
+
+Assumptions regarding the extent to which actual land suitability can be improved to reach its potential based on the level of management.
+
+```{r intervention-lookup}
+intervention_lookup %>% 
+  select(-c("name_parameter")) %>%
+  datatable()
+  # kable(caption = "Intervention Lookup Table") %>%
+  # kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+------------------------------------------------------------------------
+
+<font size="1"> LUMENS is free software and comes with ABSOLUTELY NO WARRANTY. Users are responsible for the results generated. Results depend on the quality of the input data ("garbage in, garbage out") and may vary or be sensitive to the parameters used. Please report any problems encountered while using LUMENS as [a GitHub issue](https://github.com/icraf-indonesia/lumens-shiny/issues). Feedback and questions are welcome [Contact Us URL]. </font size>
