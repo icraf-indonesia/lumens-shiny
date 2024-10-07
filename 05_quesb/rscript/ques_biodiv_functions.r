@@ -1229,7 +1229,7 @@ format_session_info_table <- function() {
   platform_os <- paste(si$platform, "|", si[[6]])
 
   # Extract locale info
-  locale_info <- strsplit(si[[3]], ";")[[1]]
+  locale_info <- strsplit(si[["locale"]], ";")[[1]]
   locale_info <- paste(locale_info, collapse = "<br>")
 
   # Extract .libpaths, accomodate multiple library paths
