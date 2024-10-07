@@ -81,6 +81,17 @@ rename_uploaded_file <- function(input_file) {
   return(new_path)
 }
 
+# Define the is_numeric_str() function to check if a string is numeric
+is_numeric_str <- function(s) {
+  !is.na(as.numeric(s)) && nzchar(s)
+}
+
+# Define a function to check if the input is a string
+is_string <- function(x) {
+  # Check if x is not NULL and is of type character
+  return(!is.null(x) && is.character(x) && length(x) == 1)
+}
+
 check_and_install_packages <- function(required_packages) {
   # Check if each package is installed and can be loaded
   missing_packages <- character(0)
