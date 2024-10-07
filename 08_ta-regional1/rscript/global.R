@@ -1,3 +1,5 @@
+# source('../../helper.R')
+
 ### Required Library ####
 install_load <- function (package1, ...)  {
   # convert arguments to vector
@@ -37,6 +39,8 @@ install_load(
   "shinyjs",
   "DT"
 )
+
+jscode <- "shinyjs.closeWindow = function() { window.close(); }"
 
 format_session_info_table <- function() {
   si <- sessionInfo()
