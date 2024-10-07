@@ -24,11 +24,7 @@ fluidPage(
           actionButton("processTAReg1", "Run Analysis",
                        style = "font-size: 18px; padding: 10px 15px; background-color: #4CAF50; color: white;"),
           hidden(
-            actionButton("open_report", "View Report",
-                         style = "font-size: 18px; padding: 10px 15px; background-color: #008CBA; color: white;")
-          ),
-          hidden(
-            actionButton("open_output_folder", "Open Output Folder",
+            actionButton("viewReport", "View Report",
                          style = "font-size: 18px; padding: 10px 15px; background-color: #008CBA; color: white;")
           ),
           actionButton("returnButton", "Return to Main Menu", 

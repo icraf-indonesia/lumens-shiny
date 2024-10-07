@@ -7,8 +7,6 @@ output:
     number_sections: true
     df_print: kable
 params:
-  start_time: NA
-  end_time: NA
   BPD_graph: NA
   FPD_graph: NA
   LRC_graph: NA
@@ -52,8 +50,8 @@ library(ggplot2)
 
 analysis_log <- tribble(
   ~Category,                   ~Details,
-  "Analysis Start",        params$start_time,
-  "Analysis End",          params$end_time,
+  # "Analysis Start",        params$start_time,
+  # "Analysis End",          params$end_time,
   "Input Data and Parameters", "",
   "Sector table",      params$sector_path,
   "Intermediate Demand table",   params$int_con_path,

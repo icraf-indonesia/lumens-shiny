@@ -41,8 +41,7 @@ server <- function(input, output, session) {
     labour_path = NULL,  # Labour path
     land_distribution_path = NULL,  # Land distribution path
     land_use_path = NULL,  # Land use raster path
-    landuse_table_path = NULL,  # Land use lookup table path
-    report_file = NULL
+    landuse_table_path = NULL  # Land use lookup table path
   )
   
   volumes <- c(Home = fs::path_home(), "R Installation" = R.home(), getVolumes()())
@@ -93,118 +92,77 @@ server <- function(input, output, session) {
     })
   })
   
-  observeEvent(c(input$unit, input$location,input$I_O_period), {
-    rv$unit <- input$unit
-    rv$location <- input$location
-    if (is_numeric_str(input$I_O_period)) {
-      rv$I_O_period <- as.numeric(input$I_O_period)
-    }
-  })
-  
   #### Processing the Data ####
   #' When the user triggers the analysis, process all the input data and compute the required results.
   observeEvent(input$processTAReg1, {
-    
-    # Initialize an empty list to track missing inputs
-    missing_inputs <- c()
-    
-    # Validate input files to ensure all required data is uploaded before proceeding
     if (is.null(rv$sector_data)) {
-      missing_inputs <- c(missing_inputs, "Sector Data File")
+      showNotification("Sector data file is missing.", type = "error")
+      return()
     }
     if (is.null(rv$int_con_data)) {
-      missing_inputs <- c(missing_inputs, "Intermediate Consumption Data File")
+      showNotification("Intermediate Consumption data file is missing.", type = "error")
+      return()
     }
     if (is.null(rv$fin_dem_struc_data)) {
-      missing_inputs <- c(missing_inputs, "Final Demand Component Data File")
+      showNotification("Final Demand structure data file is missing.", type = "error")
+      return()
     }
     if (is.null(rv$fin_dem_data)) {
-      missing_inputs <- c(missing_inputs, "Final Demand Data File")
+      showNotification("Final Demand data file is missing.", type = "error")
+      return()
     }
     if (is.null(rv$add_val_struc_data)) {
-      missing_inputs <- c(missing_inputs, "Added Value Component Data File")
+      showNotification("Added Value structure data file is missing.", type = "error")
+      return()
     }
     if (is.null(rv$add_val_data)) {
-      missing_inputs <- c(missing_inputs, "Added Value Data File")
+      showNotification("Added Value data file is missing.", type = "error")
+      return()
     }
     if (is.null(rv$labour_data)) {
-      missing_inputs <- c(missing_inputs, "Labour Data File")
+      showNotification("Labour data file is missing.", type = "error")
+      return()
     }
     if (is.null(rv$land_distribution_data)) {
-      missing_inputs <- c(missing_inputs, "Land Distribution Data File")
+      showNotification("Land Distribution data file is missing.", type = "error")
+      return()
     }
     if (is.null(rv$land_use_data)) {
-      missing_inputs <- c(missing_inputs, "Land Use Map File")
+      showNotification("Land use map file is missing.", type = "error")
+      return()
     }
     if (is.null(rv$landuse_table_data)) {
-      missing_inputs <- c(missing_inputs, "Land Use Table File")
-    }
-    if (is.null(rv$unit) || length(rv$unit) == 0 || is.na(rv$unit) || rv$unit == "") {
-      missing_inputs <- c(missing_inputs, "Unit Value")
-    }
-    if (is.null(rv$location) || length(rv$location) == 0 || is.na(rv$location) || rv$location == "") {
-      missing_inputs <- c(missing_inputs, "Location Value")
-    }
-    if (is.null(rv$I_O_period)) {
-      missing_inputs <- c(missing_inputs, "IO Period Value")
-    }
-    if (is.null(rv$wd) || length(rv$wd) == 0 || is.na(rv$wd) || rv$wd == "") {
-      missing_inputs <- c(missing_inputs, "Output Directory")
+      showNotification("Land use table file is missing.", type = "error")
+      return()
     }
     
-    # If there are missing inputs, show a notification and stop
-    if (length(missing_inputs) > 0) {
-      showNotification(
-        paste("Please upload the following inputs:", paste(missing_inputs, collapse = ", ")),
-        type = "error"
-      )
-      return(NULL)
-    }
+    rv$results <- isolate({
+      int_con <- rv$int_con_data
+      add_val <- rv$add_val_data
+      int_con.m <- as.matrix(rv$int_con_data)
+      add_val.m <- as.matrix(rv$add_val_data)
+      sector <- rv$sector_data
+      labour <- rv$labour_data
+      land_distribution <- rv$land_distribution_data
+      land_use <- rv$land_use_data
+      fin_dem <- rv$fin_dem_data
+      fin_dem_struc <- rv$fin_dem_struc_data
+      add_val_struc <- rv$add_val_struc_data
+      landuse_lut <- rv$landuse_table_data
+      land_use <- rv$land_use_data
+      
+      #### Save raster to file ####
+      landuse_area0 <- rv$land_use_data
+      landuse_area0_freq <- freq(landuse_area0)
+      landuse_area0_freq$layer<-NULL
+      landuse_area0_table <- as.data.frame(na.omit(landuse_area0_freq))
+      colnames(landuse_area0_table) <- c("ID", "COUNT")
+      rv$landuse_area0_table <- landuse_area0_table
     
       #### Leontief Inverse Calculation ####
       #' Compute the Leontief inverse from the input-output matrix, which is essential for economic impact analysis.
     withProgress(message = 'Running TA Regional 1 Analysis', value = 0, {
       tryCatch({
-        
-        sector_path <- rename_uploaded_file(input$sector_file)
-        int_con_path <- rename_uploaded_file(input$int_con_file)
-        fin_dem_struc_path <- rename_uploaded_file(input$fin_dem_struc_file)
-        fin_dem_path <- rename_uploaded_file(input$fin_dem_file)
-        add_val_struc_path <- rename_uploaded_file(input$add_val_struc_file)
-        add_val_path <- rename_uploaded_file(input$add_val_file)
-        labour_path <- rename_uploaded_file(input$labour_file)
-        land_distribution_path <- rename_uploaded_file(input$land_distribution_file)
-        land_use_path <- rename_uploaded_file(input$land_use_file)
-        landuse_table_path <- rename_uploaded_file(input$landuse_table_file)
-        unit <- input$unit
-        location <- input$location
-        I_O_period <- input$I_O_period
-        output_dir <- rv$wd
-        
-        # Define local variables
-        sector <- read.csv(sector_path, header = FALSE)
-        int_con <- read.csv(int_con_path, header = FALSE)
-        fin_dem_struc <- read.csv(fin_dem_struc_path, header = FALSE)
-        fin_dem <- read.csv(fin_dem_path, header = FALSE)
-        add_val_struc <- read.csv(add_val_struc_path, header = FALSE)
-        add_val <- read.csv(add_val_path, header = FALSE)
-        labour <- read.csv(labour_path, header = FALSE)
-        int_con.m <- as.matrix(read.csv(int_con_path, header = FALSE))
-        add_val.m <- as.matrix(read.csv(add_val_path, header = FALSE))
-        land_distribution <- read.csv(land_distribution_path, header = FALSE)
-        landuse_lut <- read.csv(landuse_table_path, header = TRUE)
-        
-        # Capture the start time at the beginning of the process
-        start_time <- Sys.time()
-        
-        # Define initial Landuse Area
-        landuse_area0 <- rast(land_use_path)
-        landuse_area0_freq <- freq(landuse_area0)
-        landuse_area0_freq$layer<-NULL
-        landuse_area0_table <- as.data.frame(na.omit(landuse_area0_freq))
-        colnames(landuse_area0_table) <- c("ID", "COUNT")
-        rv$landuse_area0_table <- landuse_area0_table
-        
         # Calculate Inverse Leontief
         dim <- ncol(int_con.m)
         int_con.ctot <- colSums(int_con.m)
@@ -250,7 +208,6 @@ server <- function(input, output, session) {
         
         #### Land Requirements Calculation ####
         #' Calculate land requirements based on the input data and save the results in the reactive values.
-        land_use <- rast(land_use_path)
         land.requirement_table <- calculate_land_requirements(land_distribution, land_use, fin_dem, int_con.m, sector)
         land.requirement_table <- land.requirement_table[is.finite(land.requirement_table$LRC), ]
         rv$land.requirement_table <- land.requirement_table
@@ -373,6 +330,19 @@ server <- function(input, output, session) {
         rv$OMPL_graph <- OMPL_graph
         rv$IMPL_graph <- IMPL_graph
         rv$LMPL_graph <- LMPL_graph
+        rv$sector_path <- rename_uploaded_file(input$sector_file)
+        rv$int_con_path <- rename_uploaded_file(input$int_con_file)
+        rv$fin_dem_struc_path <- rename_uploaded_file(input$fin_dem_struc_file)
+        rv$fin_dem_path <- rename_uploaded_file(input$fin_dem_file)
+        rv$add_val_struc_path <- rename_uploaded_file(input$add_val_struc_file)
+        rv$add_val_path <- rename_uploaded_file(input$add_val_file)
+        rv$labour_path <- rename_uploaded_file(input$labour_file)
+        rv$land_distribution_path <- rename_uploaded_file(input$land_distribution_file)
+        rv$land_use_path <- rename_uploaded_file(input$land_use_file)
+        rv$landuse_table_path <- rename_uploaded_file(input$landuse_table_file)
+        rv$unit <- input$unit
+        rv$location <- input$location
+        rv$I_O_period <- input$I_O_period
         
         # Return Results
         list(
@@ -429,95 +399,69 @@ server <- function(input, output, session) {
              landuse_lut,
              file=paste0(rv$wd, '/LandRequirement_db.Rdata'))
         
-        # Capture the end time at the end of the process
-        end_time <- Sys.time()
-        
-        #### Report Generation ####
-        #' This section generates a final report in HTML format, summarizing the results of the analysis.
-        params <- list(
-          start_time = as.character(format(start_time, "%Y-%m-%d %H:%M:%S")),
-          end_time = as.character(format(end_time, "%Y-%m-%d %H:%M:%S")),
-          BPD_graph = BPD_graph,
-          FPD_graph = FPD_graph,
-          Linkages_table = Linkages_table,
-          PRS_graph = PRS_graph,
-          P.sector.selected = P.sector.selected,
-          GDP = GDP,
-          GDP_graph = GDP_graph,
-          multiplier = multiplier,
-          OMPL_graph = OMPL_graph,
-          IMPL_graph = IMPL_graph,
-          LMPL_graph = LMPL_graph,
-          land.requirement_table = land.requirement_table,
-          LRC_graph = LRC_graph,
-          session_log = format_session_info_table(),
-          sector_path = sector_path,
-          int_con_path = int_con_path,
-          fin_dem_struc_path = fin_dem_struc_path,
-          fin_dem_path = fin_dem_path,
-          add_val_struc_path = add_val_struc_path,
-          add_val_path = add_val_path,
-          labour_path = labour_path,
-          land_distribution_path = land_distribution_path,
-          land_use_path = land_use_path,
-          landuse_table_path = landuse_table_path,
-          unit = unit,
-          location = location,
-          I_O_period = I_O_period,
-          output_dir = output_dir
-        )
-        
-        output_file <- paste0("ta_regional1_report_", format(Sys.time(), "%Y-%m-%d_%H-%M-%S"), ".html")
-        rv$report_file <- paste(output_dir, output_file, sep = "/")
-        
-        render(
-          "../report_template/ta-regional1_report.Rmd",
-          output_file = output_file,
-          output_dir = output_dir,
-          params = params,
-          envir = new.env(parent = globalenv())
-        )
-        
         # Notify user of successful completion
         setProgress(1, message = "Processing Complete")
         showNotification("All outputs have been generated", type = "message")
         
         output$status_messages <- renderText("Analysis completed successfully!")
         showNotification("Analysis completed successfully!", type = "message")
-        shinyjs::show("open_report")
-        shinyjs::show("open_output_folder")
+        shinyjs::show("viewReport")
         
       }, error = function(e) {
         output$error_messages <- renderText(paste("Error in analysis:", e$message))
         showNotification(paste("Error in analysis:", e$message), type = "error")
       })
     })
+    })
   })
   
-  # Open Output Folder button observer
-  observeEvent(input$open_output_folder, {
-    if (!is.null(rv$wd) && dir.exists(rv$wd)) {
-      if (.Platform$OS.type == "windows") {
-        shell.exec(rv$wd)
-      } else {
-        system2("open", args = rv$wd)
-      }
-    } else {
-      showNotification("Output directory not found", type = "error")
-    }
+  #### Report Generation ####
+  #' This section generates a final report in HTML format, summarizing the results of the analysis.
+  report_content <- reactive({
+    params <- list(
+      BPD_graph = rv$BPD_graph,
+      FPD_graph = rv$FPD_graph,
+      Linkages_table = rv$Linkages_table,
+      PRS_graph = rv$PRS_graph,
+      P.sector.selected = rv$P.sector.selected,
+      GDP = rv$GDP,
+      GDP_graph = rv$GDP_graph,
+      multiplier = rv$multiplier,
+      OMPL_graph = rv$OMPL_graph,
+      IMPL_graph = rv$IMPL_graph,
+      LMPL_graph = rv$LMPL_graph,
+      land.requirement_table = rv$land.requirement_table,
+      LRC_graph = rv$LRC_graph,
+      session_log = format_session_info_table(),
+      sector_path = rv$sector_path,
+      int_con_path = rv$int_con_path,
+      fin_dem_struc_path = rv$fin_dem_struc_path,
+      fin_dem_path = rv$fin_dem_path,
+      add_val_struc_path = rv$add_val_struc_path,
+      add_val_path = rv$add_val_path,
+      labour_path = rv$labour_path,
+      land_distribution_path = rv$land_distribution_path,
+      land_use_path = rv$land_use_path,
+      landuse_table_path = rv$landuse_table_path,
+      unit = rv$unit,
+      location = rv$location,
+      I_O_period = rv$I_O_period,
+      output_dir = rv$wd
+    )
+    output_file <- paste0("ta_regional1_report_", format(Sys.time(), "%Y-%m-%d_%H-%M-%S"), ".html")
+    output_dir <- rv$wd
+    render(
+      "../report_template/ta-regional1_report.Rmd",
+      output_file = output_file,
+      output_dir = output_dir,
+      params = params,
+      envir = new.env(parent = globalenv())
+    )
   })
   
-  # Open Report button observer
-  observeEvent(input$open_report, {
-    if (!is.null(rv$report_file) && file.exists(rv$report_file)) {
-      if (.Platform$OS.type == "windows") {
-        shell.exec(rv$report_file)
-      } else {
-        system2("open", args = rv$report_file)
-      }
-    } else {
-      showNotification("Report file not found", type = "error")
-    }
+  observeEvent(input$viewReport, {
+    showNotification("Opening report...", type = "message")
+    file.show(report_content())
   })
   
   session$onSessionEnded(function() {
