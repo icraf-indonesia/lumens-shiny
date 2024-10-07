@@ -49,11 +49,14 @@ analysis_log <- tribble(
   "Analysis Start", params$start_time,
   "Analysis End", params$end_time,
   "Input Data and Parameters", "",
-  "1. Raster inputs lookup", params$inputs$path_lookup_raster_inputs,
-  "2. Crop suitability parameters", params$inputs$path_lookup_crop_suitability,
-  "3. Intervention lookup", params$inputs$path_lookup_intervention,
+  "1. Raster inputs lookup", params$path_lookup_raster_inputs,
+  "2. Crop suitability parameters", params$path_lookup_crop_suitability,
+  "3. Intervention lookup", params$path_lookup_intervention,
   "Outputs", "",
-  "Output Workspace", params$inputs$path_output,
+  "1. Land suitability map (raster)", params$file_name_land_suit_tif,
+  "2. Land suitability map lookup table", params$file_name_land_suit_lookup_csv,
+  "3. Land suitability map (polygon)", file_name_land_suit_shp,
+  "Output Workspace", params$path_output,
   "Session Summary", ""
 ) %>% rbind(params$session_log)
 analysis_log %>%
