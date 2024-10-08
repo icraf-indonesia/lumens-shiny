@@ -91,7 +91,7 @@ server <- function(input, output, session) {
   observeEvent(input$run_analysis, {
     # Check if any input is missing
     missing_inputs <- c()
-    
+
     if (is.null(input$output_dir) || is.null(rv$output_dir) || is.null(selected_output_dir())) {
       missing_inputs <- c(missing_inputs, "Output Directory")
     }
@@ -149,7 +149,7 @@ server <- function(input, output, session) {
         missing_inputs <- c(missing_inputs, "Year")
       }
     }
-    
+
     # If there are missing inputs, show a notification and stop
     if (length(missing_inputs) > 0) {
       showNotification(
@@ -163,18 +163,11 @@ server <- function(input, output, session) {
       tryCatch({
         start_time <- Sys.time()
         showNotification("Analysis is running. Please wait...", type = "message", duration = NULL, id = "running_notification")
-
-        req(rv$output_dir)
-        req(rv$rainfall_file)
-        req(rv$dem_file)
-        req(rv$sand_file)
-        req(rv$silt_file)
-        req(rv$clay_file)
-        req(rv$orgc_file)
-        req(rv$pu_file)
-        req(rv$c_ref_file)
-        req(rv$map_resolution)
-        
+        shinyjs::disable("run_analysis")
+        incProgress(0.1, detail = "Preparing data inputs")
+      
+        # Rename uploaded file
+        lapply(list(rv$output_dir, rv$rainfall_file, rv$dem_file, rv$sand_file, rv$silt_file, rv$clay_file, rv$orgc_file, rv$pu_file, rv$c_ref_file, rv$map_resolution), req)
         rainfall_path <- rename_uploaded_file(input_file = rv$rainfall_file)
         dem_path <- rename_uploaded_file(input_file = rv$dem_file)
         sand_path <- rename_uploaded_file(input_file = rv$sand_file)
@@ -200,28 +193,20 @@ server <- function(input, output, session) {
           req(rv$t1)
           lc1_path <- rename_uploaded_file(input_file = rv$lc_t1_file)
         }
-        
-        shinyjs::disable("run_analysis")
-        incProgress(0.1, detail = "Preparing data inputs")
-        
+
         # Prepare the planning unit
         pu1 <- read_shapefile(shp_input = rv$pu_file)
         pu <- rasterise_multipolygon(sf_object = pu1, raster_res = c(rv$map_resolution, rv$map_resolution), field = paste0(colnames(st_drop_geometry(pu1[1]))))
+        names(pu) <- tools::file_path_sans_ext(rv$pu_file$name[1])
         
         # Prepare R factor input
         rainfall <- rast(rainfall_path)
         rainfall <- terra::resample(rainfall, pu, method = "near")
-        
+
         # Prepare K factor input
-        sand <- rast(sand_path)
-        silt <- rast(silt_path)
-        clay <- rast(clay_path)
-        orgc <- rast(orgc_path)
-        sand <- terra::resample(sand, pu)
-        silt <- terra::resample(silt, pu)
-        clay <- terra::resample(clay, pu)
-        orgc <- terra::resample(orgc, pu)
-        soil_stack <- c(sand, silt, clay, orgc)
+        soil_files <- list(sand_path, silt_path, clay_path, orgc_path)
+        soil_stack <- lapply(soil_files, function(file) terra::resample(rast(file), pu))
+        soil_stack <- do.call(c, soil_stack)
         
         # Prepare LS factor input
         dem <- rast(dem_path)
@@ -233,12 +218,12 @@ server <- function(input, output, session) {
         if (input$multiseries == "two_step"){
           landcover_t1 <- rast(lc1_path)
           landcover_t2 <- rast(lc2_path)
-          landcover_t1_viz <- lc_class_categorize(landcover = landcover_t1, c_ref = c_ref)
-          landcover_t2_viz <- lc_class_categorize(landcover = landcover_t2, c_ref = c_ref)
+          landcover_t1_viz <- prepare_lc_data(lc_input = rv$lc_t1_file, lookup_table = c_ref, time_point = rv$t1)
+          landcover_t2_viz <- prepare_lc_data(lc_input = rv$lc_t2_file, lookup_table = c_ref, time_point = rv$t2)
           landcover_stack <- c(landcover_t1_viz, landcover_t2_viz)
         } else {
           landcover_t1 <- rast(lc1_path)
-          landcover_t1_viz <- lc_class_categorize(landcover = landcover_t1, c_ref = c_ref)
+          landcover_t1_viz <- prepare_lc_data(lc_input = rv$lc_t1_file, lookup_table = c_ref, time_point = rv$t1)
         }
         
         # Prepare P factor input parameters
@@ -252,10 +237,10 @@ server <- function(input, output, session) {
         # Run RUSLE analysis
         incProgress(0.3, detail = "Processing QuES-H analysis")
         a <- quesh_rusle_calc(rainfall = rainfall, 
-                              sand = sand, 
-                              silt = silt, 
-                              clay = clay, 
-                              orgc = orgc, 
+                              sand = soil_stack[[1]], 
+                              silt = soil_stack[[2]], 
+                              clay = soil_stack[[3]], 
+                              orgc = soil_stack[[4]], 
                               dem = dem, 
                               landcover_t1 = landcover_t1,
                               landcover_t2 = landcover_t2,

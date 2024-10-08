@@ -229,10 +229,9 @@ if (params$multiseries == "two_step"){
   res = knitr::knit_child(
     text = c(
       "### Land Cover/Use `r t[i]` {.tabset}",
-      "These maps represent categorical raster with each pixel value corresponds to a land cover class in `r params$t1` and `r params$t2`",
-      "```{r, fig.width=12}",
-      "#| echo=FALSE",
-      "plot(lc[[i]], colNA = NULL)",
+      # "These maps represent categorical raster with each pixel value corresponds to a land cover class in `r params$t1` and `r params$t2`",
+      "```{r, message=FALSE, warning=FALSE, echo=FALSE}",
+      "plot_categorical_raster(lc[[i]])",
       "```"
     ),
   envir = rlang::env(results_list = results_list, i = i),
@@ -255,8 +254,8 @@ if (params$multiseries == "two_step"){
 
 This map represents administrative or management zones.
 
-```{r Planning Unit, echo=FALSE, fig.width=12, fig.align='left'}
-plot(params$pu)
+```{r Planning Unit, echo=FALSE, fig.align='left', message=FALSE, warning=FALSE}
+plot_categorical_raster(params$pu)
 ```
 
 # Results

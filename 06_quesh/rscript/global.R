@@ -60,14 +60,17 @@ syncGeom <- function(input, ref){
     `*`(ref1)
 }
 
-# Categorized landcover based on its class --------------------------------
+# Prepare land cover data -------------------------------------------------
 
-lc_class_categorize <- function(landcover, c_ref) {
-  lc_class <-landcover %>% freq() %>%
-    dplyr::select(ID=value) %>%
-    left_join(c_ref, by="ID") %>% dplyr::select(-C_factor)
-  levels(landcover)[[1]] <- lc_class
-  return(landcover)
+prepare_lc_data <- function(lc_input, lookup_table, time_point) {
+  # if(is.null(lc_input) || !file.exists(lc_input$datapath)) {
+  #   stop(paste("Invalid or missing land cover data for time point", time_point))
+  # }
+  lc_path <- rename_uploaded_file(input_file = lc_input)
+  lc_data <- rast(lc_path)
+  lc_raster <- add_legend_to_categorical_raster(raster_file = lc_data, lookup_table = lookup_table, year = time_point)
+  names(lc_raster) <- tools::file_path_sans_ext(lc_input$name)
+  return(lc_raster)
 }
 
 # Calculate erosion for each planning unit class -----------------------------------------------------------------------
@@ -171,7 +174,8 @@ quesh_rusle_calc <- function(rainfall, sand, silt, clay, orgc, dem, landcover_t1
     landcover_c <- landcover
     lookup_lc <- landcover_c %>% freq() %>%
       dplyr::select(ID=value) %>%
-      left_join(c_ref, by="ID") %>% dplyr::select(-LC)
+      # left_join(c_ref, by="ID") %>% dplyr::select(-LC)
+      left_join(c_ref, by = names(c_ref)[1]) %>% dplyr::select(-2)
     levels(landcover_c)[[1]] <- lookup_lc
     c_factor <- landcover_c %>% as.numeric(1) %>% terra::resample(pu, method="near")
     return(c_factor)
@@ -595,6 +599,83 @@ read_shapefile <- function(shp_input) {
   })
 }
 
+# add_legend_to_categorical_raster ----------------------------------------
+
+#' Add legend to categorical raster
+#'
+#' This function adds a legend to a categorical raster file, often containing information about land cover or planning units.
+#'
+#' @param raster_file A categorical raster file (an object of class `SpatRaster`)
+#' @param lookup_table A corresponding lookup table of descriptions for each class category
+#' @param year An optional year to be associated with the raster file
+#'
+#' @return A raster file that contains descriptions for each class category
+#' @importFrom terra levels freq time names
+#' @importFrom stats setNames
+#' @export
+#'
+#' @examples
+#' \dontrun{
+#' add_legend_to_categorical_raster(raster_file = kalbar_11,
+#'               lookup_table = lc_lookup_klhk,
+#'               year = 2011) %>%
+#'               plot()
+#' }
+
+add_legend_to_categorical_raster <- function(raster_file, lookup_table, year = NULL) {
+  # Check if raster_file is a SpatRaster object
+  if (!inherits(raster_file, "SpatRaster")) {
+    stop("raster_file should be a SpatRaster object")
+  }
+  
+  # Check if lookup_table is a data frame
+  if (!is.data.frame(lookup_table)) {
+    stop("lookup_table should be a data frame")
+  }
+  
+  # Check if the first column of lookup_table is numeric or convertible to numeric
+  first_column <- lookup_table[[1]]
+  if (!is.numeric(first_column) && any(is.na(as.numeric(first_column)))) {
+    stop("The first column of lookup_table should be numeric or convertible to numeric")
+  }
+  
+  # Check if year is a numeric value or NULL, and if it consists of 4 digits
+  if (!is.null(year) && (!is.numeric(year) || nchar(as.character(year)) != 4)) {
+    stop("year should be a numeric value consisting of 4 digits")
+  }
+  
+  # Filter lookup_table to only include values present in raster_file
+  lookup_table <- lookup_table[lookup_table[[1]] %in% terra::freq(raster_file)[["value"]], ]
+  
+  # Convert lookup_table into a data frame
+  lookup_table <- data.frame(lookup_table)
+  
+  # Convert the first column to numeric if it is not already
+  if (!is.numeric(first_column)) {
+    lookup_table[[1]] <- as.numeric(first_column)
+  }
+  
+  # Get the names of raster_file
+  name_rast <- names(raster_file)
+  
+  # Set the levels of raster_file to be lookup_table
+  levels(raster_file) <- lookup_table
+  
+  # Set the names of raster_file
+  raster_file <- setNames(raster_file, name_rast)
+  
+  # Set the year if year is not NULL
+  if (!is.null(year)) {
+    terra::time(raster_file, tstep="years") <- year
+  }
+  
+  # Return the modified raster_file
+  return(raster_file)
+}
+
+
+# plot_categorical_raster -------------------------------------------------
+
 #' Plot a categorical raster map
 #'
 #' This function takes a raster object as input and produces a ggplot. If the raster
@@ -614,7 +695,19 @@ plot_categorical_raster <- function(raster_object) {
   if ("color_palette" %in% names(cats(raster_object)[[1]]) && all(grepl("^#[0-9A-Fa-f]{6}$", cats(raster_object)$color_pallete))) {
     fill_scale <- scale_fill_manual(values = cats(raster_object)[[1]]$color_palette, na.value = "white")
   } else {
-    fill_scale <- scale_fill_manual(values = palette.colors(n = 10, "Tableau 10"), na.value = "white")
+    fill_scale <- scale_fill_manual(values = c(
+      "#006400", "#228B22", "#59A14F", "#66C2A5", "#98FB98",
+      "#4E79A7", "#F28E2B", "#E15759", "#76B7B2", "#EDC948", 
+      "#B07AA1", "#FF9DA7", "#9C755F", "#BAB0AC", "#FFBE7D", 
+      "#FF7F0E", "#D62728", "#9467BD", "#8C564B", "#17BECF",
+      "#BCBD22", "#7F7F7F", "#1F77B4", "#FF9896", "#98DF8A",
+      "#C5B0D5", "#C49C94", "#F7B6D2", "#C7C7C7", "#DBDB8D",
+      "#9EDAE5", "#AEC7E8", "#FFBB78", "#E377C2", "#8C564B",
+      "#B5BD89", "#525252", "#A6CEE3", "#FB9A99", "#B2DF8A",
+      "#FDBF6F", "#CAB2D6", "#FFFF99", "#1F78B4", "#33A02C",
+      "#E31A1C", "#6A3D9A", "#FF7F00", "#B15928", "#A1D99B",
+      "#FDD0A2", "#DADAEB"
+    ), na.value = "white")
   }
   if(!is.na(time(raster_object))) {
     plot_title <- time(raster_object)
