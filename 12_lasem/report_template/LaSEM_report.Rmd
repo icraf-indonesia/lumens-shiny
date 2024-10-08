@@ -201,7 +201,7 @@ suitability_map
 
 # Land suitability according to each climate or edaphic factor
 
-```{r suitability-factors}
+```{r suitability-factors, fig.height=8, fig.width=16}
 plot_suitability_factors(suit_by_factors)
 ```
 
