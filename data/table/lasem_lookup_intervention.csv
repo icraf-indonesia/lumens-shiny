@@ -1,0 +1,27 @@
+no,land_characteristics,name_parameter,intervention,low,med,high
+1,Annual average temperature,clim_temperature_avg,FALSE,NA,NA,NA
+2,Dry months,clim_dry_months,TRUE,NA,+,++
+3,Annual rainfall,clim_precipitation_tot,TRUE,NA,+,++
+5,Drainage,soil_drainage,TRUE,NA,+,++
+6,Texture,soil_texture,FALSE,NA,NA,NA
+7,Coarse fragments,soil_coarse_fragments,TRUE,NA,NA,+
+8,Effective depth,soil_depth,TRUE,NA,+,+
+9,Peat maturity,soil_peat_maturity,TRUE,NA,NA,+
+10,Peat thickness,soil_peat_depth,TRUE,NA,NA,+
+11,Soil CEC,soil_cec,TRUE,NA,+,++
+12,Base saturation,soil_base_saturation,TRUE,NA,+,++
+13,pH,soil_ph,TRUE,NA,+,++
+14,Organic C,soil_organic_c,TRUE,NA,+,++
+15,Total N,soil_nitrogen,TRUE,+,++,+++
+16,Available K,soil_k2o,TRUE,+,++,+++
+17,Available P2O5,soil_p2o5,TRUE,+,++,+++
+18,Salinity,soil_salinity,TRUE,NA,+,++
+19,Alkalinity,soil_esp,TRUE,NA,+,++
+20,Sulfidic/pyrite depth,soil_sulfidic_depth,TRUE,NA,+,++
+21,Erosion risk,soil_erosion_risk,TRUE,NA,+,++
+22,Flood height,soil_flood_height,TRUE,NA,+,++
+23,Flood duration,soil_flood_length,TRUE,NA,+,++
+24,Surface rocks,soil_surface_rocks,TRUE,NA,NA,+
+25,Rock outcrops,soil_outcrop,TRUE,NA,NA,+
+26,Slope,soil_slope,TRUE,NA,+,+
+27,Humidity,clim_humidity,TRUE,NA,+,++
