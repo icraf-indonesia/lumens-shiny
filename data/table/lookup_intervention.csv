@@ -1,4 +1,4 @@
-no,land_characteristics,parameter_name,intervention,low,med,high
+no,land_characteristics,name_parameter,intervention,low,med,high
 1,Average annual temperature,clim_temperature_avg,FALSE,NA,NA,NA
 2,Dry months,clim_dry_months,TRUE,NA,+,++
 3,Rainfall/year,clim_precipitation_tot,TRUE,NA,+,++
