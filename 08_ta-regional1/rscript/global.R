@@ -1,3 +1,5 @@
+# source('../../helper.R')
+
 ### Required Library ####
 install_load <- function (package1, ...)  {
   # convert arguments to vector
@@ -38,6 +40,8 @@ install_load(
   "DT"
 )
 
+jscode <- "shinyjs.closeWindow = function() { window.close(); }"
+
 format_session_info_table <- function() {
   si <- sessionInfo()
   
@@ -75,6 +79,17 @@ rename_uploaded_file <- function(input_file) {
   new_path <- file.path(dirname(old_path), input_file$name)
   file.rename(old_path, new_path)
   return(new_path)
+}
+
+# Define the is_numeric_str() function to check if a string is numeric
+is_numeric_str <- function(s) {
+  !is.na(as.numeric(s)) && nzchar(s)
+}
+
+# Define a function to check if the input is a string
+is_string <- function(x) {
+  # Check if x is not NULL and is of type character
+  return(!is.null(x) && is.character(x) && length(x) == 1)
 }
 
 check_and_install_packages <- function(required_packages) {

@@ -7,6 +7,8 @@ output:
     number_sections: true
     df_print: kable
 params:
+  start_time: NA
+  end_time: NA
   BPD_graph: NA
   FPD_graph: NA
   LRC_graph: NA
@@ -44,16 +46,14 @@ library(kableExtra)
 library(ggplot2)
 ```
 
-<details>
-
-<summary>Click here for Analysis Log</summary>
+<details><summary>Click here for Analysis Log</summary>
 
 ```{r analysis-log, echo=FALSE}
 
 analysis_log <- tribble(
   ~Category,                   ~Details,
-  # "Analysis Start",        params$start_time,
-  # "Analysis End",          params$end_time,
+  "Analysis Start",        params$start_time,
+  "Analysis End",          params$end_time,
   "Input Data and Parameters", "",
   "Sector table",      params$sector_path,
   "Intermediate Demand table",   params$int_con_path,
@@ -76,7 +76,6 @@ analysis_log <- tribble(
 analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
   kable_paper("hover", full_width = F )
 ```
-
 </details>
 
 # Introduction
@@ -90,7 +89,6 @@ The maps provided was carbon, emission and sequestration map.
 * Calculation or analysis details based on the results can be presented here.
 
 ## Analysis of Sectoral Linkages 
-
 ### Table 1. Sectoral linkages
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
@@ -101,25 +99,21 @@ DT::datatable(dt_linkage)
 ```
 
 ### Direct Backward Linkages graph
-
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 plot(params$BPD_graph)
 ```
 
 ### Direct Forward Linkages graph 
-
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 plot(params$FPD_graph)
 ```
 
 ### Sectoral typology based on linkages analysis
-
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 plot(params$PRS_graph)
 ```
 
 ### Primary sectors based on potential linkage
-
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 dt_p.sector <- params$P.sector.selected %>%
   mutate(across(where(is.numeric), ~ scales::number(.x, accuracy = 0.001, big.mark = ",")))
@@ -128,9 +122,7 @@ DT::datatable(dt_p.sector)
 ```
 
 ## Analysis of GDP 
-
 ### Sectoral GDP Table
-
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 dt_GDP <- params$GDP %>%
   mutate(across(where(is.numeric), ~ scales::number(.x, accuracy = 0.001, big.mark = ",")))
@@ -140,15 +132,12 @@ DT::datatable(dt_GDP) %>%
 ```
 
 ### GDP graph 
-
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 plot(params$GDP_graph)
 ```
 
 ## Analysis of multiplier 
-
 ### Sectoral Multiplier
-
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 dt_multiplier <- params$multiplier %>%
   mutate(across(where(is.numeric), ~ scales::number(.x, accuracy = 0.001, big.mark = ",")))
@@ -157,25 +146,21 @@ DT::datatable(dt_multiplier)
 ```
 
 ### Output Multiplier
-
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 plot(params$OMPL_graph)
 ```
 
 ### Input Multiplier
-
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 plot(params$IMPL_graph)
 ```
 
 ### Labour Multiplier
-
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 plot(params$LMPL_graph)
 ```
 
 ### Land Requirement Table
-
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 dt_land.requirement_table <- params$land.requirement_table %>%
   mutate(across(where(is.numeric), ~ scales::number(.x, accuracy = 0.01, big.mark = ",")))

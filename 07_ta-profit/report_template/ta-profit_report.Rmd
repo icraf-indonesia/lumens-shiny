@@ -8,6 +8,8 @@ output:
     df_print: kable
 params:
   session_log: NA
+  start_time: NA
+  end_time: NA
   map_carbon1: NA
   map_carbon2: NA
   emission_map: NA
@@ -38,16 +40,22 @@ library(htmlwidgets)
 library(DT)
 ```
 
-<details>
+<<<<<<< HEAD
+=======
 
-<summary>Click here for Analysis Log</summary>
+>>>>>>> 579e4c444db72ebadc98af707bca30d523184331
+<details><summary>Click here for Analysis Log</summary>
 
 ```{r analysis-log, echo=FALSE}
 
 analysis_log <- tribble(
   ~Category,                   ~Details,
-  # "Analysis Start",        params$start_time,
-  # "Analysis End",          params$end_time,
+<<<<<<< HEAD
+=======
+
+>>>>>>> 579e4c444db72ebadc98af707bca30d523184331
+  "Analysis Start",        params$start_time,
+  "Analysis End",          params$end_time,
   "Input Data and Parameters", "",
   "Land Cover (t1)",      params$map1_file_path,
   "Land Cover (t2)",   params$map2_file_path,
@@ -64,7 +72,6 @@ analysis_log <- tribble(
 analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
   kable_paper("hover", full_width = F )
 ```
-
 </details>
 
 # Introduction
@@ -83,7 +90,6 @@ The analysis workflow involves several key steps:
 
 ### Opportunity Cost Table
 The Opportunity Cost Table presents a detailed breakdown of the trade-offs between financial gains (measured in net present value, or NPV) and environmental impacts (measured in carbon emissions) for different land-use categories over a given time period. This table is a key component in evaluating the financial viability of land-use decisions while accounting for the environmental costs.
-
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 dt_opcost <- params$opcost_table %>%
   mutate(across(where(is.numeric), ~ scales::number(.x, accuracy = 0.001, big.mark = ",")))
@@ -94,7 +100,6 @@ DT::datatable(dt_opcost) %>%
 
 ### Opportunity Cost Curve
 The curve visualizes the relationship between potential financial profits and the associated carbon emissions, allowing stakeholders to better understand the trade-offs involved in different land-use strategies.
-
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 plot(params$opcost_curve)
 ```
@@ -103,25 +108,19 @@ plot(params$opcost_curve)
 The NPV Maps are critical visual outputs that illustrate the financial performance of different land-use categories at two distinct points in time. These maps help in understanding how land-use changes over time impact profitability, providing valuable insights for decision-makers seeking to balance economic and environmental factors.
 
 ### NPV Map for Year `r params$year1`
-
 This map serves as a baseline for understanding the initial profitability of different land uses before any land-use changes occur. The map visually displays areas with varying degrees of profitability, using color gradients to indicate the range of NPV values.
-
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 plot(params$npv1_map)
 ```
 
 ### NPV Map for Year `r params$year2`
-
 This map captures how the financial value of different land uses has evolved over the analysis period due to land-use changes, policy interventions, or natural factors. Like NPV Map for Year `r params$year1`, it uses color gradients to indicate the profitability of various land areas.
-
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 plot(params$npv2_map)
 ```
 
 ### Delta NPV Map
-
 This map highlights the regions where significant changes in NPV occurred due to land-use changes. Areas with high profitability shifts are marked in green, while those with reduced profitability are marked in red.
-
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 # plot(params$delta_npv)
 color_palette <- c("darkred", "white", "darkgreen")
@@ -137,5 +136,6 @@ The report highlights the key trade-offs between financial returns and environme
 
 
 ------------------------------------------------------------------------
+
 
 <font size="1"> LUMENS is free software and comes with ABSOLUTELY NO WARRANTY. Users are responsible for the results generated. Results depend on the quality of the input data ("garbage in, garbage out") and may vary or be sensitive to the parameters used. Please report any problems encountered while using LUMENS as [a GitHub issue](https://github.com/icraf-indonesia/lumens-shiny/issues). Feedback and questions are welcome [Contact Us URL]. </font size>

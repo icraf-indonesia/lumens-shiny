@@ -1,3 +1,5 @@
+# source('../../helper.R')
+
 ### Required Library ####
 install_load <- function (package1, ...)  {
   # convert arguments to vector
@@ -40,6 +42,8 @@ if (!("LUMENSR" %in% rownames(installed.packages()))) {
   do.call("library", list("LUMENSR"))
 }
 library(LUMENSR)
+
+jscode <- "shinyjs.closeWindow = function() { window.close(); }"
 
 check_and_install_packages <- function(required_packages) {
   # Check if each package is installed and can be loaded

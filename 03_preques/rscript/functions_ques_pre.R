@@ -54,8 +54,7 @@ ques_pre <- function(lc_t1, lc_t2, admin_, cutoff_landscape = 5000, cutoff_pu = 
     plot_admin <- plot_planning_unit(admin_) #%>% ggplot_to_image(image_width = 20, image_height = 14)
     admin_ <- rasterise_multipolygon(admin_) # convert admin_ to a spatraster
   }
-  
-  
+
   # Guardrails to check the input types
   stopifnot(is(lc_t1, "SpatRaster"), is(lc_t2, "SpatRaster"))
   
@@ -80,16 +79,17 @@ ques_pre <- function(lc_t1, lc_t2, admin_, cutoff_landscape = 5000, cutoff_pu = 
     spatRes <- calc_res_conv_factor_to_ha(lc_t1)
     lc_freq_table <-
       mutate(lc_freq_table, across(c(2,3), ~(spatRes*.x))) %>% # convert to hectares
-      #mutate_if(is.numeric, format, digits=3) %>% 
+                               #mutate_if(is.numeric, format, digits=3) %>% 
+
       mutate(across(c(2,3), ~units::set_units(x = .x, value = "ha")))
   } else {
     cat("Frequency is shown in number of pixels isntead of hectares in the lc_freq_table")
   }
-  
+
   lc_composition_tbl <- lc_freq_table
-  
+
   # Plot land cover composition
-  lc_composition_barplot <- lc_freq_table %>%
+  lc_composition_barplot <- lc_freq_table %>% 
     plot_lc_freq(column_lc_type = "Jenis tutupan lahan",
                  column_T1 = names(lc_freq_table)[2],
                  column_T2 = names(lc_freq_table)[3])
@@ -217,15 +217,13 @@ ques_pre_trajectory <- function(lc_t1_,
   crosstab_traj <- create_crosstab(land_cover = luc_trajectory_map, zone = admin_)[["crosstab_long"]]
   names(crosstab_traj)[1]<- trajectory_column_name
   
-  
-  
   # Create a frequency table of the trajectory map
   table_traj_area <- luc_trajectory_map |>
     terra::freq() |>
     dplyr::group_by(value) |>
     summarise(count=sum(count)) |>
     rename("Trajectory" = 1, "Freq"= 2)
-  
+
   # Convert pixel counts to hectares if convert_to_Ha is TRUE
   if(convert_to_Ha == TRUE) {
     SpatRes <- calc_res_conv_factor_to_ha(raster_input = lc_t1_)
@@ -1063,7 +1061,6 @@ abbreviate_by_column <- function(df, col_names = NULL, remove_vowels= FALSE) {
 
 plot_lc_freq <- function(lc_table, column_lc_type, column_T1, column_T2) {
   # Validate inputs
-  
   stopifnot(is.data.frame(lc_table))
   stopifnot(is.character(column_lc_type))
   stopifnot(is.character(column_T1))
@@ -1093,10 +1090,9 @@ plot_lc_freq <- function(lc_table, column_lc_type, column_T1, column_T2) {
                  names_to = "Year",
                  values_to = "Count") %>% 
     mutate(Count_numeric = as.numeric(Count))
-  
+
   # Wrap the text of Land_Cover_Type to make it fit into two lines
   lc_table_long[[column_lc_type]] <- factor(str_wrap(as.character(lc_table_long[[column_lc_type]]), width = 30))
-  
   roundUp <- function(x) 10^ceiling(log10(x))
   # Create the Timepoint 1 plot with positive values
   plot1 <- ggplot(lc_table_long[lc_table_long$Year == column_T1,],
@@ -1109,7 +1105,6 @@ plot_lc_freq <- function(lc_table, column_lc_type, column_T1, column_T2) {
     theme_minimal() +
     theme(plot.margin = margin(5.5, 50, 5.5, 5.5),
           axis.text.y = element_blank())
-  
   # Create the Timepoint 2 plot with negative values
   plot2 <- ggplot(lc_table_long[lc_table_long$Year == column_T2,],
                   aes(x = Count_numeric, y = .data[[column_lc_type]])) +
@@ -1169,7 +1164,6 @@ lcc_summary_by_pu <- function(crosstab_tbl, pu_column, pu_name, sankey_area_cuto
   filter_crosstab <- crosstab_tbl |>
     dplyr::filter(!!sym(pu_column) %in% pu_name) |>
     dplyr::select(-!!sym(pu_column))
-  
   # filter_crosstab |>
   #   group_by(across(1:2)) |>
   #   summarise(Freq = sum(Freq), Ha = sum(Ha)) |>
@@ -1177,7 +1171,6 @@ lcc_summary_by_pu <- function(crosstab_tbl, pu_column, pu_name, sankey_area_cuto
   #   select( -"Freq") %>% 
   #   rename(lc_t1=1, lc_t2=2) %>% 
   #   tidyr::pivot_wider(names_from = lc_t1, id_cols = lc_t2, values_from = "Ha")
-  
   # Calculate the maximum area from 'Freq' or 'Ha' column
   max_area <- max(filter_crosstab$Freq, filter_crosstab$Ha)
   # Check if sankey_area_cutoff is larger than max_area
@@ -1838,7 +1831,6 @@ check_and_harmonise_geometries <- function(lc_t1, lc_t2, admin) {
   } else {
     message("All input geometries are consistent.")
   }
-  
   return(list(lc_t1 = lc_t1, lc_t2 = lc_t2, admin = admin))
 }
 
@@ -1866,6 +1858,7 @@ check_and_harmonise_geometries <- function(lc_t1, lc_t2, admin) {
 run_preques_analysis <- function(lc_t1_input, lc_t2_input, admin_z_input,
                                  lc_lookup_input, zone_lookup_input, trajectory_lookup_input,
                                  time_points, output_dir, progress_callback = NULL) {
+
   # Run ques-b for lc
   start_time <- Sys.time()
   cat("Started at:", format(start_time, "%Y-%m-%d %H:%M:%S"), "\n")
@@ -1926,7 +1919,7 @@ run_preques_analysis <- function(lc_t1_input, lc_t2_input, admin_z_input,
   } else {
     admin_z <- admin_z_input
   }
-  
+
   if (!is.null(progress_callback)) progress_callback(0.3, "Planning unit data prepared")
   
   harmonised_rasters <-
@@ -1935,15 +1928,15 @@ run_preques_analysis <- function(lc_t1_input, lc_t2_input, admin_z_input,
   lc_data$t1 <- harmonised_rasters$lc_t1
   lc_data$t2 <- harmonised_rasters$lc_t2
   admin_z <- harmonised_rasters$admin
-  
+
   # Run main Pre-QuES analysis
   output_pre_ques <- ques_pre(
     lc_data$t1, lc_data$t2, admin_z,
     convert_to_Ha = TRUE
   )
-  
+
   if (!is.null(progress_callback)) progress_callback(0.5, "Main Pre-QuES analysis completed")
-  
+
   # Run trajectory analysis
   
   output_pre_ques_traj <- ques_pre_trajectory(
@@ -1951,30 +1944,30 @@ run_preques_analysis <- function(lc_t1_input, lc_t2_input, admin_z_input,
     trajectory_column_name = "trajectory",
     convert_to_Ha = TRUE
   )
-  
+
   # output_pre_ques_def <- ques_pre_trajectory(
   #   lc_data$t1, lc_data$t1, admin_z, lc_lookup, lookup_trajectory,
   #   trajectory_column_name = "def",
   #   convert_to_Ha = TRUE
   # )
-  
+
   if (!is.null(progress_callback)) progress_callback(0.7, "Pre-QuES Trajectory analysis completed")
-  
+
   # End of the script
   end_time <- Sys.time()
   cat("Ended at:", format(end_time, "%Y-%m-%d %H:%M:%S"), "\n")
-  
+
   log_params <- list(
     start_time = as.character(format(start_time, "%Y-%m-%d %H:%M:%S")),
     end_time = as.character(format(end_time, "%Y-%m-%d %H:%M:%S")),
     session_log = format_session_info_table(),
     output_dir = output_dir
   )
-  
+
   # Generate and save outputs
   generate_outputs(output_pre_ques, output_pre_ques_traj, #output_pre_ques_def,
                    output_dir, lc_data, admin_z, time_points, log_params)
-  
+
   if (!is.null(progress_callback)) progress_callback(1, "Outputs generated and saved")
   
   return(list(
@@ -2028,7 +2021,7 @@ generate_outputs <- function(output_pre_ques, output_pre_ques_traj, #output_pre_
   # writeRaster(output_pre_ques_def$landscape_level$luc_trajectory_map,
   #             file.path(output_dir, "PreQuES_ForestChangeTrajectory_map.tif"),
   #             overwrite = TRUE)
-  
+
   # Generate Pre-QuES report
   generate_preques_report(
     output_pre_ques,
@@ -2083,21 +2076,22 @@ generate_preques_report <- function(output_pre_ques,
   # dir_def_map <- write_rasters_to_adir(
   #   output_pre_ques_def$landscape_level$luc_trajectory_map,
   #   a_dir = temp_dir)
-  
+
   # Save Pre-QuES output as RDS files
   saveRDS(output_pre_ques, file = file.path(temp_dir, "LUMENS_ques_pre_output.rds"))
   saveRDS(output_pre_ques_traj, file = file.path(temp_dir, "LUMENS_ques_pre_traj_output.rds"))
   # saveRDS(output_pre_ques_def, file = file.path(temp_dir, "LUMENS_ques_pre_def_output.rds"))
-  
+
   # Copy report template and functions to temporary directory
   if (file.exists("../report_template/ques_pre.Rmd")){
     ques_pre_report_path <- "../report_template/ques_pre.Rmd"
-    helper_functions_path <- "functions_ques_pre.R"
+    helper_functions_path <- "../rscript/functions_ques_pre.R"
+
   } else {
     ques_pre_report_path <- "03_preques/report_template/ques_pre.Rmd"
     helper_functions_path <- "03_preques/rscript/functions_ques_pre.R"
   }
-  
+
   file.copy(ques_pre_report_path,
             to = file.path(temp_dir, "PreQuES_report.Rmd"), overwrite = TRUE)
   file.copy(helper_functions_path,
@@ -2120,9 +2114,9 @@ generate_preques_report <- function(output_pre_ques,
   
   # Render the R Markdown report
   if (rmarkdown::pandoc_available()==FALSE){
-    Sys.setenv(RSTUDIO_PANDOC=paste0(getwd(), "/pandoc"))
-  }
-  
+  Sys.setenv(RSTUDIO_PANDOC=paste0(getwd(), "/pandoc"))
+}
+
   rmarkdown::render(
     input = file.path(temp_dir, "PreQuES_report.Rmd"),
     output_file = "PreQuES_report.html",
@@ -2234,7 +2228,7 @@ process_planning_unit <- function(zone_type, zone_input, lc_t1_raster) {
 
 format_session_info_table <- function() {
   si <- sessionInfo()
-  
+
   # Extract R version info
   r_version <- si$R.version[c("major", "minor", "year", "month", "day", "nickname")]
   r_version <- paste0(
@@ -2242,27 +2236,23 @@ format_session_info_table <- function() {
     " (", r_version$year, "-", r_version$month, "-", r_version$day, ")",
     " '", r_version$nickname, "'"
   )
-  
+
   # Extract platform and OS info
-  platform_os <- paste(si$platform, "|", si$running) |> paste( collapse = "<br>")
-  
+  platform_os <- paste(si$platform, "|", si[[6]]) |> paste( collapse = "<br>")
+
   # Extract locale info
   locale_info <- strsplit(si[[3]], ";")[[1]]
   locale_info <- paste(locale_info, collapse = "<br>")
-  
+
   # Extract .libpaths
   lib_paths <- .libPaths() |> paste( collapse = "<br>")
-  
+
   # Combine all info into a single tibble
   session_summary <- tibble(
     Category = c("R Version", "Platform | OS", ".libPaths", "Locale"),
     Details = c(r_version, platform_os, lib_paths, locale_info)
   )
-  
-  
-  
   return(session_summary)
 }
-
 
 easy_to_read_numbers <- scales::label_comma()

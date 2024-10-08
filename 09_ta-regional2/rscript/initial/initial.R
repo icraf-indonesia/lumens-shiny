@@ -1,7 +1,7 @@
 #Impact of Land Using to Regional Economy Indicator Analysis
 land_req="data/LandReq.Rdata"
 projected_land_use="data/raster/tutupan_lahan_Bungo_2010r.tif"
-
+# sciendo_db = "data/table/luc_projection15.csv"
 
 library(reshape2)
 library(ggplot2)
@@ -28,6 +28,12 @@ landuse_area_table<-as.data.frame(na.omit(next_luc_freq))
 colnames(landuse_area_table)<-c("ID", "COUNT")
 landuse_area<-as.matrix(landuse_area_table$COUNT)
 
+next_data_luc<-read.csv(sciendo_db)
+landuse_area_table<-as.data.frame(na.omit(next_data_luc))
+landuse_area_table$ID_LC<-NULL
+landuse_area_table$LC<-NULL
+landuse_area <- landuse_area_table
+
 # landuse_area_map<-raster("C:/Users/ykarimah/Downloads/Result/landuse_area0.tif")
 # landuse_area0_freq<-freq(landuse_area_map)
 landuse_area0_freq<-freq(landuse_area0)
@@ -40,11 +46,28 @@ landuse_table<-cbind(landuse_table, landuse_area)
 landuse_table$LC<-NULL
 # landuse_table<-cbind(lc.list,landuse_area0, landuse_area)
 landuse_area_diag<-diag(as.numeric(as.matrix(landuse_area)))
+# colnames(landuse_table)[1] <- "LAND_USE"
+# colnames(landuse_table)[2] <- "T1_HA"
+# colnames(landuse_table)[3] <- "T2_HA"
+# # landuse_table<-edit(landuse_table)
+# landuse_table$CHANGE<-landuse_table$T2_HA-landuse_table$T1_HA
+
+# Rename the first column to "LAND_USE"
 colnames(landuse_table)[1] <- "LAND_USE"
-colnames(landuse_table)[2] <- "T1_HA"
-colnames(landuse_table)[3] <- "T2_HA"
-# landuse_table<-edit(landuse_table)
-landuse_table$CHANGE<-landuse_table$T2_HA-landuse_table$T1_HA
+
+# Loop through the period columns (assuming the periods start from the 2nd column onwards)
+n_periods <- ncol(landuse_table) - 1  # Number of periods (subtracting 1 for the "LAND_USE" column)
+
+# Rename each period column dynamically
+for (i in 1:n_periods) {
+  colnames(landuse_table)[i + 1] <- paste0("T", i, "_HA")
+}
+
+# Loop through each period and calculate changes between consecutive periods
+for (i in 2:n_periods) {
+  change_col_name <- paste0("CHANGE_T", i-1, "_T", i)  # Create dynamic column name for change
+  landuse_table[[change_col_name]] <- landuse_table[[paste0("T", i, "_HA")]] - landuse_table[[paste0("T", i-1, "_HA")]]
+}
 
 #MODEL FINAL DEMAND
 land.distribution.scen<-land.distribution.prop %*% landuse_area_diag
@@ -102,6 +125,20 @@ GDP_graph<-ggplot(data=GDP_summary.melt, aes(x=SECTOR, y=value, fill=variable)) 
 LC_graph<-ggplot(data=landuse_table, aes(x=LAND_USE, y=CHANGE)) +
   geom_bar(colour="black", stat="identity", position="dodge")+
   guides(fill=FALSE) + xlab("Land use") + ylab("Change") +ggtitle("Land Use Change")+ theme(axis.text.x  = element_text(angle=90, size=6))
+
+# Reshape the data for ggplot
+landuse_melted <- melt(landuse_table, id.vars = "LAND_USE", 
+                       measure.vars = grep("CHANGE_T", colnames(landuse_table), value = TRUE), 
+                       variable.name = "Period", value.name = "Change")
+
+# Create the bar chart
+LC_graph <- ggplot(data = landuse_melted, aes(x = LAND_USE, y = Change, fill = Period)) +
+  geom_bar(colour = "black", stat = "identity", position = "dodge") +
+  guides(fill = guide_legend(title = "Period")) +  # Add a legend for periods
+  xlab("Land Use") + 
+  ylab("Change in Area (ha)") + 
+  ggtitle("Land Use Change Over Time") +
+  theme(axis.text.x = element_text(angle = 90, size = 6))
 
 #CALCULATE TOTAL LABOUR
 Labour_table<-Lab.multiplier
