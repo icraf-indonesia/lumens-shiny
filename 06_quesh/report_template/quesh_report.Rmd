@@ -170,7 +170,7 @@ In ", params$t1, ", the predominant soil erosion class was ",
          " hectares (", format(round(params$summary_data$severe_percentage_t1, 2), big.mark = ","), 
          "%), while in ", params$t2, " this increased to ", format(round(params$summary_data$severe_area_t2, 2), big.mark = ","), 
          " hectares (", format(round(params$summary_data$severe_percentage_t2, 2), big.mark = ","), 
-         "%). These findings highlight significant changes in soil erosion patterns and intensities over the study period.")
+         "%). These findings highlight changes in soil erosion patterns and intensities over the study period.")
 } else {
   paste0("The QuES-H analysis was conducted over an area of interest spanning ", 
          format(round(params$summary_data$total_area, 2), big.mark = ","), 
@@ -220,10 +220,11 @@ plot(params$soil)
 
 ## Land Cover Map {.tabset}
 
-```{r Land Cover, echo=FALSE, fig.width=12, fig.align='left', fig.keep='all', results='asis'}
+```{r Land Cover, echo=FALSE, fig.align='left', fig.keep='all', results='asis', message=FALSE, warning=FALSE}
 if (params$multiseries == "two_step"){
   lc <- params$landcover
   t <- list(params$t1, params$t2)
+  type <- "landcover"
   
   render_child <- function(results_list, i){
   res = knitr::knit_child(
@@ -231,7 +232,7 @@ if (params$multiseries == "two_step"){
       "### Land Cover/Use `r t[i]` {.tabset}",
       # "These maps represent categorical raster with each pixel value corresponds to a land cover class in `r params$t1` and `r params$t2`",
       "```{r, message=FALSE, warning=FALSE, echo=FALSE}",
-      "plot_categorical_raster(lc[[i]])",
+      "plot_categorical_raster(lc[[i]], type = type)",
       "```"
     ),
   envir = rlang::env(results_list = results_list, i = i),
@@ -244,18 +245,18 @@ if (params$multiseries == "two_step"){
   render_child(results_list = lc, i = i)
   }
 } else {
-  cat("This map represents categorical raster with each pixel value corresponds to a land cover class \n")
+  # cat("This map represents categorical raster with each pixel value corresponds to a land cover class \n")
   cat("\n")
-  plot(params$landcover)
+  plot_categorical_raster(params$landcover, type = "landcover")
 }
 ```
 
 ## Planning Unit Map
 
-This map represents administrative or management zones.
+<!-- This map represents administrative or management zones. -->
 
 ```{r Planning Unit, echo=FALSE, fig.align='left', message=FALSE, warning=FALSE}
-plot_categorical_raster(params$pu)
+plot_categorical_raster(params$pu, type = "planning unit")
 ```
 
 # Results
@@ -288,7 +289,7 @@ The topography expressed by the slope length and steepness $LS$ as unitless fact
 
 ### C Factor: Cover Management {.tabset}
 
-```{r C Factor, echo=FALSE, fig.width=12, fig.align='left', fig.keep='all', results='asis'}
+```{r C Factor, echo=FALSE, fig.width=12, fig.align='left', fig.keep='all', results='asis', message=FALSE, warning=FALSE}
 if (params$multiseries == "two_step"){
   c <- params$c
   t <- list(params$t1, params$t2)
@@ -332,19 +333,19 @@ These results were generated using the $RUSLE$ equation, which estimates the ave
 
 ### Soil Erosion at Landscape Level {.tabset}
 
-```{r Soil Erosion Estimation Map, echo=FALSE, fig.width=12, fig.align='left', fig.keep='all', results='asis'}
+```{r Soil Erosion Estimation Map, echo=FALSE, fig.align='left', fig.keep='all', results='asis', message=FALSE, warning=FALSE}
 if (params$multiseries == "two_step"){
   a <- params$a
   t <- list(params$t1, params$t2)
+  type <- "erosion"
   
   render_child <- function(results_list, i){
   res = knitr::knit_child(
     text = c(
       "#### Soil Erosion `r t[i]`",
       "Soil Erosion generated from RUSLE calculation",
-      "```{r, fig.width=12}",
-      "#| echo=FALSE",
-      "plot(a[[i]], colNA = NULL)",
+      "```{r, echo=FALSE, message=FALSE, warning=FALSE}",
+      "plot_categorical_raster(a[[i]], type = type)",
       "```"
     ),
   envir = rlang::env(results_list = results_list, i = i),
@@ -357,7 +358,7 @@ if (params$multiseries == "two_step"){
   render_child(results_list = a, i = i)
   }
 } else {
-  plot(params$a)
+  plot_categorical_raster(params$a, type = type)
 }
 ```
 
@@ -439,9 +440,9 @@ if (params$multiseries == "two_step"){
 }
 ```
 
-```{r Soil Erosion Changes Map, echo=FALSE, fig.width=12, fig.align='left'}
+```{r Soil Erosion Changes Map, echo=FALSE, fig.align='left', message=FALSE, warning=FALSE}
 if (params$multiseries == "two_step"){
-  plot(params$e_diff)
+  plot_categorical_raster(params$e_diff, type = "erosion difference")
 }
 ```
 

@@ -690,37 +690,70 @@ add_legend_to_categorical_raster <- function(raster_file, lookup_table, year = N
 #' @importFrom ggplot2 ggplot theme_bw labs theme scale_fill_manual element_text unit element_blank guides guide_legend
 #' @importFrom tidyterra geom_spatraster scale_fill_hypso_d
 #' @export
-plot_categorical_raster <- function(raster_object) {
+plot_categorical_raster <- function(raster_object, type) {
   # Check if raster_object has a color_pallete column and it contains hex color codes
   if ("color_palette" %in% names(cats(raster_object)[[1]]) && all(grepl("^#[0-9A-Fa-f]{6}$", cats(raster_object)$color_pallete))) {
     fill_scale <- scale_fill_manual(values = cats(raster_object)[[1]]$color_palette, na.value = "white")
   } else {
-    fill_scale <- scale_fill_manual(values = c(
-      "#006400", "#228B22", "#59A14F", "#66C2A5", "#98FB98",
-      "#4E79A7", "#F28E2B", "#E15759", "#76B7B2", "#EDC948", 
-      "#B07AA1", "#FF9DA7", "#9C755F", "#BAB0AC", "#FFBE7D", 
-      "#FF7F0E", "#D62728", "#9467BD", "#8C564B", "#17BECF",
-      "#BCBD22", "#7F7F7F", "#1F77B4", "#FF9896", "#98DF8A",
-      "#C5B0D5", "#C49C94", "#F7B6D2", "#C7C7C7", "#DBDB8D",
-      "#9EDAE5", "#AEC7E8", "#FFBB78", "#E377C2", "#8C564B",
-      "#B5BD89", "#525252", "#A6CEE3", "#FB9A99", "#B2DF8A",
-      "#FDBF6F", "#CAB2D6", "#FFFF99", "#1F78B4", "#33A02C",
-      "#E31A1C", "#6A3D9A", "#FF7F00", "#B15928", "#A1D99B",
-      "#FDD0A2", "#DADAEB"
-    ), na.value = "white")
+    if (type == "erosion") {
+      fill_scale <- scale_fill_manual(values = c(
+        "#77DD77",  # Pastel Green
+        "#C3ECA7",  # Light Green
+        "#FFFACD",  # Light Yellow
+        "#FFD580",  # Pastel Yellow/Orange
+        "#FFB347",  # Pastel Orange
+        "#FF6961"   # Pastel Red
+      ), na.value = "white")
+    } else if (type == "landcover") {
+      fill_scale <- scale_fill_manual(values = c(
+        "#006400", "#228B22", "#59A14F", "#66C2A5", "#98FB98",
+        "#4E79A7", "#F28E2B", "#E15759", "#76B7B2", "#EDC948", 
+        "#B07AA1", "#FF9DA7", "#9C755F", "#BAB0AC", "#FFBE7D", 
+        "#FF7F0E", "#D62728", "#9467BD", "#8C564B", "#17BECF",
+        "#BCBD22", "#7F7F7F", "#1F77B4", "#FF9896", "#98DF8A",
+        "#C5B0D5", "#C49C94", "#F7B6D2", "#C7C7C7", "#DBDB8D",
+        "#9EDAE5", "#AEC7E8", "#FFBB78", "#E377C2", "#8C564B",
+        "#B5BD89", "#525252", "#A6CEE3", "#FB9A99", "#B2DF8A",
+        "#FDBF6F", "#CAB2D6", "#FFFF99", "#1F78B4", "#33A02C",
+        "#E31A1C", "#6A3D9A", "#FF7F00", "#B15928", "#A1D99B",
+        "#FDD0A2", "#DADAEB"
+      ), na.value = "white")
+    } else if (type == "planning unit") {
+      fill_scale <- scale_fill_manual(values = c(
+        "#4E79A7", "#F28E2B", "#E15759", "#006400", "#CAB2D6", 
+        "#76B7B2", "#EDC948", "#8C564B", "#33A02C", "#DADAEB",
+        "#B07AA1", "#FF9DA7", "#9C755F", "#BAB0AC", "#FFBE7D", 
+        "#FF7F0E", "#D62728", "#9467BD", "#8C564B", "#17BECF",
+        "#BCBD22", "#7F7F7F", "#1F77B4", "#FF9896", "#98DF8A",
+        "#C5B0D5", "#C49C94", "#F7B6D2", "#C7C7C7", "#DBDB8D",
+        "#9EDAE5", "#AEC7E8", "#228B22", "#FFBB78", "#E377C2", 
+        "#B5BD89", "#525252", "#A6CEE3", "#FB9A99", "#B2DF8A",
+        "#FDBF6F", "#59A14F", "#66C2A5", "#FFFF99", "#1F78B4", 
+        "#E31A1C", "#6A3D9A", "#FF7F00", "#98FB98", "#B15928", 
+        "#FDD0A2", "#A1D99B"
+      ), na.value = "white")
+    } else if (type == "erosion difference") {
+      fill_scale <- scale_fill_manual(values = c(
+        "#77DD77",  # Pastel Green
+        "#FFFACD",  # Light Yellow
+        "#FF6961"   # Pastel Red
+      ), na.value = "white")
+    }
   }
-  if(!is.na(time(raster_object))) {
+  
+  if (!is.na(time(raster_object))) {
     plot_title <- time(raster_object)
   } else {
     plot_title <- names(raster_object)
   }
+  
   # Generate the plot
   plot_lc <- ggplot() +
     geom_spatraster(data = raster_object) +
     fill_scale +
     theme_bw() +
     labs(title = plot_title, fill = NULL) +
-    guides(fill = guide_legend(title.position = "top", ncol=3))+
+    guides(fill = guide_legend(title.position = "top", ncol = 3)) +
     theme(axis.title.x = element_blank(),
           axis.title.y = element_blank(),
           panel.grid.major = element_blank(),
@@ -730,7 +763,8 @@ plot_categorical_raster <- function(raster_object) {
           legend.key.height = unit(0.25, "cm"),
           legend.key.width = unit(0.25, "cm"),
           legend.position = "bottom",
-          legend.justification = c(0,0.8))
+          legend.justification = c(0, 0.8))
   
   return(plot_lc)
 }
+

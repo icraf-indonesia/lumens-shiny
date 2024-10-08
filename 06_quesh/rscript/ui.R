@@ -1,7 +1,7 @@
 ui <- fluidPage(
   useShinyjs(),
   theme = bs_theme(version = 5),
-  extendShinyjs(text = jscode, functions = c("closeWindow")),
+  # extendShinyjs(text = jscode, functions = c("closeWindow")),
   titlePanel("QuES-H Module"),
   sidebarLayout(
     sidebarPanel(
@@ -69,7 +69,7 @@ ui <- fluidPage(
         tabPanel("User Guide",
                  div(
                    style = "height: 800px; overflow-y: scroll; padding: 15px; border: 1px solid #ddd; border-radius: 5px;",
-                   uiOutput("user_guide")
+                   uiOutput("dynamic_guide", inline = TRUE)
                  )
         ),
         tabPanel("Log",
