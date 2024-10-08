@@ -7,23 +7,27 @@ output:
     number_sections: true
     df_print: paged
 params:
-  start_time: "2024-10-07 11:00:17"
-  end_time: "2024-10-07 11:00:22"
-  file_name_soil_climate_factors_rds: "output/test_lasem/soil_climatic_factors.rds"
-  file_name_land_suit_rds: "output/test_lasem/land_suitability.rds"
-  file_name_land_suit_tif: "output/test_lasem/land_suitability.tif"
-  file_name_land_suit_shp: "output/test_lasem/land_suitability.shp"
-  file_name_land_suit_lookup_csv: "output/test_lasem/land_suitability_lookup.csv"
-  file_name_suit_factors_tif: "output/test_lasem/land_suitability_factors.tif"
-  path_lookup_raster_inputs: "data/lasem/sample_datasets/crop_suitability_spatial_input_tts.csv"
-  path_lookup_crop_suitability: "data/lasem/crop_parameters/kesesuaian_alpukat.csv"
-  path_lookup_intervention: "data/lasem/lookup_tables/lookup_intervention.csv"
-  path_output: "output/test_lasem"
+  start_time: NA
+  end_time: NA
+  file_name_soil_climate_factors_rds: NA
+  file_name_land_suit_rds: NA
+  file_name_land_suit_tif: NA
+  file_name_land_suit_shp: NA
+  file_name_land_suit_lookup_csv: NA
+  file_name_suit_factors_tif: NA
+  path_lookup_raster_inputs: NA
+  path_lookup_crop_suitability: NA
+  path_lookup_intervention: NA
+  path_output: NA
   session_log: NA
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+knitr::opts_chunk$set(
+	echo = FALSE,
+	message = FALSE,
+	warning = FALSE
+)
 library(readr)
 library(dplyr)
 library(terra)
@@ -33,12 +37,15 @@ library(htmltools)
 library(knitr)
 library(kableExtra)
 library(DT)
+library(tidyterra)
+source("../../12_lasem/rscript/LaSEM_functions.R")
 
 suitability_parameter <- read_csv(params$path_lookup_crop_suitability)
 climate_soil_data <- read_csv(params$path_lookup_raster_inputs)
 harmonised_rasters <- readRDS(params$file_name_soil_climate_factors_rds)
 suitability_polygon <- readRDS(params$file_name_land_suit_rds)
 intervention_lookup <- read_csv(params$path_lookup_intervention)
+suit_by_factors <- rast(file_name_suit_factors_tif)
 ```
 
 <details><summary>Click here for Analysis Log</summary>
@@ -90,14 +97,12 @@ suitability_parameter %>%
 ```{r climate-soil-data}
 climate_soil_data %>% 
   select(-c("raster_path", "name_parameter")) %>%
-  # kable() %>%
-  # kable_styling(bootstrap_options = c("striped", "hover"))
   datatable()
 ```
 
 ## Maps of agroclimatic, soil, and terrain conditions
 
-```{r agroclimatic-maps, fig.width=12, fig.height=4}
+```{r agroclimatic-maps, fig.height=8, fig.width=16}
 plot(harmonised_rasters)
 ```
 
@@ -136,6 +141,36 @@ suitability_map <- leaflet(suitability_polygon) %>%
       direction = "auto"),
     group = "Actual"
   ) %>% 
+   addPolygons(
+      fillColor = ~ colors(suitability_potential_low),
+      # Set the fill color based on 'suitability'
+      fillOpacity = 1,
+      color = "grey",
+      weight = 0.1,
+      smoothFactor = 1,
+      label = ~ label_content,
+      # Add labels to polygons
+      labelOptions = labelOptions(
+        style = list("font-weight" = "normal", "color" = "black"),
+        textsize = "13px",
+        direction = "auto"
+      ),
+      group = "Low Intervention"
+    ) |>
+    addPolygons(
+      fillColor = ~ colors(suitability_potential_med),
+      # Set the fill color based on 'suitability'
+      fillOpacity = 1,
+      color = "grey",
+      weight = 0.1,
+      smoothFactor = 1,
+      label = ~ label_content,
+      # Add labels to polygons
+      labelOptions = labelOptions(
+        style = list("font-weight" = "normal", "color" = "black"),
+        textsize = "13px",
+        direction = "auto"),
+        group = "Medium Intervention") |>
   addPolygons(
     fillColor = ~colors(suitability_potential_high),
     fillOpacity = 1,
@@ -157,7 +192,7 @@ suitability_map <- leaflet(suitability_polygon) %>%
     opacity = 0.7
   ) %>%
   addLayersControl(
-    baseGroups = c("Actual", "High Intervention"),
+    baseGroups = c("Actual", "Low Intervention", "Medium Intervention", "High Intervention"),
     options = layersControlOptions(collapsed = FALSE)
   )
 
@@ -167,8 +202,7 @@ suitability_map
 # Land suitability according to each climate or edaphic factor
 
 ```{r suitability-factors}
-suitability_factors <- rast(params$file_name_suit_factors_tif)
-plot(suitability_factors)
+plot_suitability_factors(suit_by_factors)
 ```
 
 # Land suitability improvements
