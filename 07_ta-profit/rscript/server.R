@@ -65,7 +65,7 @@ server <- function(input, output, session) {
     if (file.exists(guide_path)) {
       html_content <- rmarkdown::render(guide_path, output_format = "html_fragment", quiet = TRUE,
                                         output_options = list(metadata = list(title = "Trade-Off Analysis (Profit)")))
-      HTML(readLines(html_content))
+      HTML(paste(readLines(html_content), collapse = "\n"))  # Added collapse to ensure proper HTML rendering
     } else {
       HTML("<p>User guide file not found.</p>")
     }
@@ -121,26 +121,15 @@ server <- function(input, output, session) {
     if (!is.null(rv$year1) && !is.null(rv$year2)) {
       rv$period <- rv$year2 - rv$year1
     }
-<<<<<<< HEAD
   })
   
+  #' Update the raster_nodata value based on user input
   observeEvent(input$raster_nodata, {
     if (is_numeric_str(input$raster_nodata)) {
       rv$raster_nodata <- as.numeric(input$raster_nodata)
     }
   })
   
-  
-=======
-  })
-  
-  observeEvent(input$raster_nodata, {
-    if (is_numeric_str(input$raster_nodata)) {
-      rv$raster_nodata <- as.numeric(input$raster_nodata)
-    }
-  })
-
->>>>>>> 579e4c444db72ebadc98af707bca30d523184331
   # Data Processing ---------------------------------------------------------
   #' Main processing logic to calculate NPV, opportunity costs, and carbon emissions
   observeEvent(input$process, {
@@ -181,204 +170,84 @@ server <- function(input, output, session) {
         type = "error"
       )
       return(NULL)
-<<<<<<< HEAD
-=======
     }
-
-    #' Progress bar to show users that the analysis is running
-    withProgress(message = "Running TA Profit Analysis", value = 0, {
-      tryCatch({
-        
-        # Capture the start time at the beginning of the process
-        start_time <- Sys.time()
-        
-        map1_file_path <- rename_uploaded_file(input$map1_file)
-        map2_file_path <- rename_uploaded_file(input$map2_file)
-        npv_file_path <- rename_uploaded_file(input$npv_file)
-        carbon_file_path <- rename_uploaded_file(input$carbon_file)
-        year1 <- input$year1
-        year2 <- input$year2
-        raster_nodata <- input$raster_nodata
-        output_dir <- rv$wd
-        
-        #' Prepare NPV lookup table by combining carbon and NPV data, and calculate total area
-        npv_result <- prepare_npv_lookup(rv$tbl_npv, rv$quesc_tbl)
-        rv$dt_quesc_npv <- npv_result$dt_quesc_npv
-        tot_area <- npv_result$tot_area
-        
-        #' Build the opportunity cost table based on the land use change period and total area
-        opcost_result <- build_opcost_table(rv$dt_quesc_npv, rv$period, tot_area)
-        opcost_table <- opcost_result$opcost_all
-        opcost_table$order <- c(1:nrow(opcost_table))
-        
-        #' Perform carbon accounting and calculate carbon emissions based on land use change
-        map1_rast <- terra::rast(map1_file_path)
-        map2_rast <- terra::rast(map2_file_path)
-        carbon_result <- carbon_accounting(map1_rast, map2_rast, rv$tbl_npv, rv$tbl_carbon, raster_nodata)
-        map_carbon1 <- carbon_result$map_carbon1
-        map_carbon2 <- carbon_result$map_carbon2
-        emission_map <- carbon_result$emission_map
-        
-        #' Perform NPV accounting to calculate changes in NPV between the two time periods
-        npv_change <- npv_accounting(map1_rast, map2_rast, rv$tbl_npv)
-        map_npv1 <- npv_change$map_npv1
-        map_npv2 <- npv_change$map_npv2
-        npv_chg_map <- npv_change$npv_chg_map
-        
-        #' Calculate the opportunity cost map by combining NPV changes with carbon emissions
-        opcost_map <- calculate_opcost_map(npv_chg_map, emission_map)
-        
-        #' Generate output maps and save them in the selected directory
-        generate_output_maps(map_carbon1, map_carbon2, emission_map, opcost_map, output_dir)
-        
-        #' Generate the opportunity cost curve for visualization
-        opcost_curve <- generate_opportunity_cost_curve(opcost_table)
-        
-        # Capture the end time at the end of the process
-        end_time <- Sys.time()
-        
-        report_params <- list(
-          session_log = format_session_info_table(),
-          start_time = as.character(format(start_time, "%Y-%m-%d %H:%M:%S")),
-          end_time = as.character(format(end_time, "%Y-%m-%d %H:%M:%S")),
-          map_carbon1 = map_carbon1,
-          map_carbon2 = map_carbon2,
-          emission_map = emission_map,
-          opcost_map = opcost_map,
-          opcost_table = opcost_table,
-          opcost_curve = opcost_curve,
-          npv1_map = map_npv1,
-          npv2_map = map_npv1,
-          delta_npv = npv_chg_map,
-          map1_file_path = map1_file_path,
-          map2_file_path = map2_file_path,
-          npv_file_path = npv_file_path,
-          carbon_file_path = carbon_file_path,
-          year1 = year1,
-          year2 = year2,
-          raster_nodata = raster_nodata,
-          output_dir = output_dir
-        )
-        
-        output_file <- paste0("ta-profit_report_", format(Sys.time(), "%Y-%m-%d_%H-%M-%S"), ".html")
-        rv$report_file <- paste(output_dir, output_file, sep = "/")
-        
-        render(
-          "../report_template/ta-profit_report.Rmd",
-          output_file = output_file,
-          output_dir = output_dir,
-          params = report_params,
-          envir = new.env(parent = globalenv())
-        )
-        
-        #' Indicate that the process has completed successfully
-        setProgress(1, message = "Processing Complete")
-        showNotification("All outputs have been generated", type = "message")
-        
-        #' Update the status messages in the UI
-        output$status_messages <- renderText("Analysis completed successfully!")
-        showNotification("Analysis completed successfully!", type = "message")
-        shinyjs::show("open_report")
-        shinyjs::show("open_output_folder")
-        
-      }, error = function(e) {
-        #' Handle errors and display an error message in the UI
-        output$error_messages <- renderText(paste("Error in analysis:", e$message))
-        showNotification(paste("Error in analysis:", e$message), type = "error")
-      })
-    })
-  })
-  
-  # Open Output Folder button observer
-  observeEvent(input$open_output_folder, {
-    if (!is.null(rv$wd) && dir.exists(rv$wd)) {
-      if (.Platform$OS.type == "windows") {
-        shell.exec(rv$wd)
-      } else {
-        system2("open", args = rv$wd)
-      }
-    } else {
-      showNotification("Output directory not found", type = "error")
->>>>>>> 579e4c444db72ebadc98af707bca30d523184331
-    }
-  })
-  
-  # Open Report button observer
-  observeEvent(input$open_report, {
-    if (!is.null(rv$report_file) && file.exists(rv$report_file)) {
-      if (.Platform$OS.type == "windows") {
-        shell.exec(rv$report_file)
-      } else {
-        system2("open", args = rv$report_file)
-      }
-    } else {
-      showNotification("Report file not found", type = "error")
     
     #' Progress bar to show users that the analysis is running
     withProgress(message = "Running TA Profit Analysis", value = 0, {
       tryCatch({
         
+        # Increment progress
+        incProgress(0.1, detail = "Renaming uploaded files")
+        
         # Capture the start time at the beginning of the process
         start_time <- Sys.time()
         
-        map1_file_path <- rename_uploaded_file(input$map1_file)
-        map2_file_path <- rename_uploaded_file(input$map2_file)
-        npv_file_path <- rename_uploaded_file(input$npv_file)
-        carbon_file_path <- rename_uploaded_file(input$carbon_file)
-        year1 <- input$year1
-        year2 <- input$year2
-        raster_nodata <- input$raster_nodata
+        map1_file_path <- rename_uploaded_file(rv$map1_file)
+        map2_file_path <- rename_uploaded_file(rv$map2_file)
+        npv_file_path <- rename_uploaded_file(rv$npv_file)
+        carbon_file_path <- rename_uploaded_file(rv$carbon_file)
+        year1 <- rv$year1
+        year2 <- rv$year2
+        raster_nodata <- rv$raster_nodata
         output_dir <- rv$wd
         
         #' Prepare NPV lookup table by combining carbon and NPV data, and calculate total area
+        incProgress(0.2, detail = "Preparing NPV lookup table")
         npv_result <- prepare_npv_lookup(rv$tbl_npv, rv$quesc_tbl)
         rv$dt_quesc_npv <- npv_result$dt_quesc_npv
-        tot_area <- npv_result$tot_area
+        rv$tot_area <- npv_result$tot_area
         
         #' Build the opportunity cost table based on the land use change period and total area
-        opcost_result <- build_opcost_table(rv$dt_quesc_npv, rv$period, tot_area)
-        opcost_table <- opcost_result$opcost_all
-        opcost_table$order <- c(1:nrow(opcost_table))
+        incProgress(0.3, detail = "Building opportunity cost table")
+        opcost_result <- build_opcost_table(rv$dt_quesc_npv, rv$period, rv$tot_area)
+        rv$opcost_table <- opcost_result$opcost_all
+        rv$opcost_table$order <- c(1:nrow(rv$opcost_table))
         
         #' Perform carbon accounting and calculate carbon emissions based on land use change
+        incProgress(0.4, detail = "Performing carbon accounting")
         map1_rast <- terra::rast(map1_file_path)
         map2_rast <- terra::rast(map2_file_path)
         carbon_result <- carbon_accounting(map1_rast, map2_rast, rv$tbl_npv, rv$tbl_carbon, raster_nodata)
-        map_carbon1 <- carbon_result$map_carbon1
-        map_carbon2 <- carbon_result$map_carbon2
-        emission_map <- carbon_result$emission_map
+        rv$map_carbon1 <- carbon_result$map_carbon1
+        rv$map_carbon2 <- carbon_result$map_carbon2
+        rv$emission_map <- carbon_result$emission_map
         
         #' Perform NPV accounting to calculate changes in NPV between the two time periods
+        incProgress(0.5, detail = "Performing NPV accounting")
         npv_change <- npv_accounting(map1_rast, map2_rast, rv$tbl_npv)
-        map_npv1 <- npv_change$map_npv1
-        map_npv2 <- npv_change$map_npv2
-        npv_chg_map <- npv_change$npv_chg_map
+        rv$map_npv1 <- npv_change$map_npv1
+        rv$map_npv2 <- npv_change$map_npv2
+        rv$npv_chg_map <- npv_change$npv_chg_map
         
         #' Calculate the opportunity cost map by combining NPV changes with carbon emissions
-        opcost_map <- calculate_opcost_map(npv_chg_map, emission_map)
+        incProgress(0.6, detail = "Calculating opportunity cost map")
+        rv$opcost_map <- calculate_opcost_map(rv$npv_chg_map, rv$emission_map)
         
         #' Generate output maps and save them in the selected directory
-        generate_output_maps(map_carbon1, map_carbon2, emission_map, opcost_map, output_dir)
+        incProgress(0.7, detail = "Generating output maps")
+        generate_output_maps(rv$map_carbon1, rv$map_carbon2, rv$emission_map, rv$opcost_map, output_dir)
         
         #' Generate the opportunity cost curve for visualization
-        opcost_curve <- generate_opportunity_cost_curve(opcost_table)
+        incProgress(0.8, detail = "Generating opportunity cost curve")
+        rv$opcost_curve <- generate_opportunity_cost_curve(rv$opcost_table)
         
         # Capture the end time at the end of the process
         end_time <- Sys.time()
         
+        #' Compile report parameters
         report_params <- list(
           session_log = format_session_info_table(),
           start_time = as.character(format(start_time, "%Y-%m-%d %H:%M:%S")),
           end_time = as.character(format(end_time, "%Y-%m-%d %H:%M:%S")),
-          map_carbon1 = map_carbon1,
-          map_carbon2 = map_carbon2,
-          emission_map = emission_map,
-          opcost_map = opcost_map,
-          opcost_table = opcost_table,
-          opcost_curve = opcost_curve,
-          npv1_map = map_npv1,
-          npv2_map = map_npv1,
-          delta_npv = npv_chg_map,
+          map_carbon1 = rv$map_carbon1,
+          map_carbon2 = rv$map_carbon2,
+          emission_map = rv$emission_map,
+          opcost_map = rv$opcost_map,
+          opcost_table = rv$opcost_table,
+          opcost_curve = rv$opcost_curve,
+          npv1_map = rv$map_npv1,
+          npv2_map = rv$map_npv2,  # Fixed: Changed from map_npv1 to map_npv2
+          delta_npv = rv$npv_chg_map,
           map1_file_path = map1_file_path,
           map2_file_path = map2_file_path,
           npv_file_path = npv_file_path,
@@ -389,11 +258,13 @@ server <- function(input, output, session) {
           output_dir = output_dir
         )
         
+        #' Render the report
+        incProgress(0.9, detail = "Rendering report")
         output_file <- paste0("ta-profit_report_", format(Sys.time(), "%Y-%m-%d_%H-%M-%S"), ".html")
-        rv$report_file <- paste(output_dir, output_file, sep = "/")
+        rv$report_file <- file.path(output_dir, output_file)
         
-        render(
-          "../report_template/ta-profit_report.Rmd",
+        rmarkdown::render(
+          input = "../report_template/ta-profit_report.Rmd",
           output_file = output_file,
           output_dir = output_dir,
           params = report_params,
@@ -401,7 +272,7 @@ server <- function(input, output, session) {
         )
         
         #' Indicate that the process has completed successfully
-        setProgress(1, message = "Processing Complete")
+        incProgress(1, detail = "Finalizing")
         showNotification("All outputs have been generated", type = "message")
         
         #' Update the status messages in the UI
@@ -416,10 +287,22 @@ server <- function(input, output, session) {
         showNotification(paste("Error in analysis:", e$message), type = "error")
       })
     })
+  })  # Closing the observeEvent for input$process
+  
+  # Open Report button observer (moved outside the process observer)
+  observeEvent(input$open_report, {
+    if (!is.null(rv$report_file) && file.exists(rv$report_file)) {
+      if (.Platform$OS.type == "windows") {
+        shell.exec(rv$report_file)
+      } else {
+        system2("open", args = rv$report_file)
+      }
+    } else {
+      showNotification("Report file not found", type = "error")
+    }
   })
   
-<<<<<<< HEAD
-  # Open Output Folder button observer
+  # Open Output Folder button observer (assuming you have logic for this)
   observeEvent(input$open_output_folder, {
     if (!is.null(rv$wd) && dir.exists(rv$wd)) {
       if (.Platform$OS.type == "windows") {
@@ -432,36 +315,17 @@ server <- function(input, output, session) {
     }
   })
   
-  # Open Report button observer
-  observeEvent(input$open_report, {
-    if (!is.null(rv$report_file) && file.exists(rv$report_file)) {
-      if (.Platform$OS.type == "windows") {
-        shell.exec(rv$report_file)
-      } else {
-        system2("open", args = rv$report_file)
-      }
-    } else {
-      showNotification("Report file not found", type = "error")
-    }
-=======
+  # Handle session end -------------------------------------------------------
   session$onSessionEnded(function() {
     stopApp()
   })
   
+  # Return to Main Menu button observer -------------------------------------
   observeEvent(input$returnButton, {
     js$closeWindow()
     message("Return to main menu!")
-    # shinyjs::delay(1000, stopApp())
->>>>>>> 579e4c444db72ebadc98af707bca30d523184331
-  })
-  
-  session$onSessionEnded(function() {
-    stopApp()
-  })
-  
-  observeEvent(input$returnButton, {
-    js$closeWindow()
-    message("Return to main menu!")
+    # Uncomment the following line if you want to stop the app after a delay
     # shinyjs::delay(1000, stopApp())
   })
-}
+  
+}  # Closing the server function
