@@ -40,20 +40,13 @@ library(htmlwidgets)
 library(DT)
 ```
 
-<<<<<<< HEAD
-=======
 
->>>>>>> 579e4c444db72ebadc98af707bca30d523184331
 <details><summary>Click here for Analysis Log</summary>
 
 ```{r analysis-log, echo=FALSE}
 
 analysis_log <- tribble(
   ~Category,                   ~Details,
-<<<<<<< HEAD
-=======
-
->>>>>>> 579e4c444db72ebadc98af707bca30d523184331
   "Analysis Start",        params$start_time,
   "Analysis End",          params$end_time,
   "Input Data and Parameters", "",
