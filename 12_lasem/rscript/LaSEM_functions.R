@@ -528,11 +528,12 @@ classify_suitability_predictors <- function(raster_input, suitability_data) {
         )
       ) |> select(texture_kemtan, TEXTURE_USDA)
       
-    } else if (file.exists("inst/extdata/lookup_tables/lookup_texture_usda.csv")) {
-      texture_lookup <- readr::read_csv("inst/extdata/lookup_tables/lookup_texture_usda.csv")
     } else {
-      errorCondition("texture_lookup table is not found")
-    }
+      texture_lookup <- tibble(
+        texture_kemtan = c("sh", "h", "ah", "ah", "s", "s", "h", "s", "ah", "ak", "k", "k"),
+        TEXTURE_USDA = c(1, 2, 5, 4, 10, 8, 3, 7, 6, 9, 11, 12)
+      )
+    } 
     
     # Apply the mapping function to each element in the value list
     suitability_data <- suitability_data %>%
@@ -908,4 +909,32 @@ format_session_info_table <- function() {
   return(session_summary)
 }
 
-
+# Function to plot facet grid with consistent legend
+plot_suitability_factors <- function(raster_data) {
+  # Convert the raster data to a tidy data frame for ggplot
+  raster_df <- as.data.frame(raster_data, xy = TRUE, na.rm = TRUE)
+  
+  # Tidy up the data, ensure proper variable names
+  raster_df <- raster_df %>%
+    pivot_longer(cols = -c(x, y),  # Keep the 'x' and 'y' columns, pivot the rest
+                 names_to = "variable", 
+                 values_to = "suitability") %>%
+    filter(!is.na(suitability)) %>%
+    mutate(suitability = factor(suitability, levels = c("S1", "S2", "S3", "N")))
+  
+  
+  ggplot(raster_df, aes(x = x, y = y, fill = suitability)) +
+    geom_raster() +  
+    scale_fill_manual(values = c("S1" = "darkgreen", 
+                                 "S2" = "lightgreen", 
+                                 "S3" = "darkorange", 
+                                 "N" = "darkred"), 
+                      name = "Suitability") +  
+    facet_wrap(~ variable, ncol = 4) +  
+    theme_minimal() +  
+    theme(legend.position = "right",
+          strip.text = element_text(size = 10, face = "bold"),
+          axis.text = element_blank(),
+          axis.ticks = element_blank()) +
+    labs( x = "Longitude", y = "Latitude")
+}

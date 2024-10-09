@@ -93,20 +93,33 @@ ui <- fluidPage(
   )
 )
 
-# Server
 server <- function(input, output, session) {
   
-  # Directory selection
-  volumes <- c(Home = fs::path_home(), "R Installation" = R.home(), shinyFiles::getVolumes()())
+  # Define volumes first
+  volumes <- c(
+    Home = fs::path_home(),
+    "R Installation" = R.home(),
+    shinyFiles::getVolumes()()
+  )
+  
+  # Initialize shinyDirChoose
   shinyDirChoose(input, "output_dir", roots = volumes, session = session)
   
   # Reactive value to store selected output directory
   selected_output_dir <- reactiveVal(value = NULL)
   
-  # Update reactive value when output directory is selected
+  # Check if the app is running in test mode
+  is_testing <- isTRUE(getOption("shiny.testmode"))
+  
+  # Single observer to set selected_output_dir based on testing mode
   observe({
-    if (!is.null(input$output_dir)) {
-      selected_output_dir(parseDirPath(volumes, input$output_dir))
+    if (is_testing) {
+      # Set to the test output directory
+      selected_output_dir("../../tests/testthat/output/shinytest2_lasem")
+    } else {
+      if (!is.null(input$output_dir)) {
+        selected_output_dir(parseDirPath(volumes, input$output_dir))
+      }
     }
   })
   
@@ -184,21 +197,28 @@ server <- function(input, output, session) {
         path_lookup_intervention <- rv$intervention_csv$datapath
         path_output <- selected_output_dir()
         
-        # Handle path_report_template
-        if (file.exists(normalizePath("12_lasem/report_template/LaSEM_report.Rmd"))){
-          path_report_template <- normalizePath("12_lasem/report_template/LaSEM_report.Rmd")
-        } else if (file.exists(normalizePath("../report_template/LaSEM_report.Rmd"))){
-          path_report_template <- normalizePath("../report_template/LaSEM_report.Rmd")
+        # Handle path_report_template based on testing mode
+        if (is_testing) {
+          path_report_template <- "../../tests/testthat/report_template/LaSEM_report.Rmd"
         } else {
-          stop("Report template file is not found.")
+          if (file.exists(normalizePath("12_lasem/report_template/LaSEM_report.Rmd"))) {
+            path_report_template <- normalizePath("12_lasem/report_template/LaSEM_report.Rmd")
+          } else if (file.exists(normalizePath("../report_template/LaSEM_report.Rmd"))) {
+            path_report_template <- normalizePath("../report_template/LaSEM_report.Rmd")
+          } else {
+            stop("Report template file is not found.")
+          }
+        }
+        
+        # Check if the report template exists
+        if (!file.exists(path_report_template)) {
+          stop(paste("Report template file does not exist at:", path_report_template))
         }
         
         # Load Biophysical Raster Inputs -------------------------------------------
-        
         start_time <- Sys.time()
         cat("Started at:", format(start_time, "%Y-%m-%d %H:%M:%S"), "\n")
         incProgress(0.1, detail = "Loading raster inputs")
-        
         input_paths <-
           read_csv(path_lookup_raster_inputs) %>%
           dplyr::filter(availability %in% "Yes")
@@ -218,9 +238,11 @@ server <- function(input, output, session) {
         
         # Run suitability analysis ------------------------------------------------
         incProgress(0.5, detail = "Performing suitability analysis")
-        suitability_results <- perform_suitability_analysis(harmonised_rasters = stackedRasters,
-                                                            suitability_parameter = cropSuitabilityData,
-                                                            lookup_intervention = interventionTable)
+        suitability_results <- perform_suitability_analysis(
+          harmonised_rasters = stackedRasters,
+          suitability_parameter = cropSuitabilityData,
+          lookup_intervention = interventionTable
+        )
         
         # 4. Export files ------------------------------------------------------------
         incProgress(0.7, detail = "Exporting results")
@@ -258,12 +280,10 @@ server <- function(input, output, session) {
                        driver = "ESRI Shapefile")
         
         # d. Actual suitability raster map
-        
         file_name_land_suit_tif  <- paste0(path_output, "/land_suitability.tif")
         writeRaster(suitability_results[["suitability_raster"]], file_name_land_suit_tif, overwrite = TRUE)
         
         # e. Actual suitability raster lookup table
-        
         file_name_land_suit_lookup_csv  <- paste0(path_output,"/land_suitability_lookup.csv")
         write_csv(suitability_results[["lookup_suitability_factors"]], file_name_land_suit_lookup_csv)
         
@@ -311,6 +331,7 @@ server <- function(input, output, session) {
         
         rv$report_file <- file.path(path_output, output_file)
         
+        # Set success messages
         output$status_messages <- renderText("Analysis completed successfully!")
         output$success_message <- renderText("Analysis completed successfully! You can now open the output folder or view the report.")
         output$error_messages <- renderText(NULL)
@@ -320,6 +341,7 @@ server <- function(input, output, session) {
         showNotification("Analysis completed successfully!", type = "message")
         
       }, error = function(e) {
+        # Handle errors by setting error messages
         output$status_messages <- renderText(paste("Error in analysis:", e$message))
         output$error_messages <- renderText(paste("Error in analysis:", e$message))
         output$success_message <- renderText(NULL)
@@ -361,6 +383,7 @@ server <- function(input, output, session) {
     # You can add additional code here to handle returning to the main menu if needed
   })
 }
+
 
 # Run the app
 shinyApp(ui, server)
