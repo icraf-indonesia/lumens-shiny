@@ -102,8 +102,8 @@ server <- function(input, output, session) {
         
         # Load land use requirement data
         land.requirement.db <- land.requirement_table
-        names(landuse_lut) <- as.character(landuse_lut[1,])
-        landuse_lut <- landuse_lut[-1,]
+        # names(landuse_lut) <- as.character(landuse_lut[1,])
+        # landuse_lut <- landuse_lut[-1,]
         lc.list <- subset(landuse_lut, select = c(ID, LC))
 
         # Prepare data for land use change analysis
