@@ -1,3 +1,5 @@
+source("../../helper.R")
+
 source('ques_biodiv_functions.r')
 
 required_packages <- c("terra", "dplyr", "ggplot2", "shiny", "shinyjs",
@@ -109,7 +111,7 @@ server <- function(input, output, session) {
         lulc_lut_path <- rename_uploaded_file(input$lulc_lut)
         contab_path <- rename_uploaded_file(input$contab)
         fca_path <- if (!is.null(input$fca_path)) rename_uploaded_file(input$fca_path) else NULL
-        
+
         result <- run_ques_b(
           lc_t1_path = lc_t1_path,
           t1 = input$t1_year,
