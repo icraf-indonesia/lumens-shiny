@@ -286,9 +286,10 @@ server <- function(input, output, session) {
         )
         
         output_file <- paste0("ta_regional2_report_", format(Sys.time(), "%Y-%m-%d_%H-%M-%S"), ".html")
-        rv$report_file <- paste(output_dir, output_file, sep = "/")
+        rv$report_file <- file.path(output_dir, output_file)
         
-        render(
+        # Corrected render function
+        rmarkdown::render(
           "../report_template/ta-regional2_report.Rmd",
           output_file = output_file,
           output_dir = output_dir,
