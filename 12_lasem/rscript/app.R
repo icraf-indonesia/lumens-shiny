@@ -18,7 +18,10 @@ required_packages <- c(
   "rmarkdown",
   "kableExtra",
   "htmlTable",
-  "knitr"
+  "knitr",
+  "ggplot2",
+  "patchwork",
+  "tidyterra"
 )
 
 # Function to check and install required packages
