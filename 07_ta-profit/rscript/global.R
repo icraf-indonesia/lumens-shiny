@@ -44,8 +44,6 @@ if (!("LUMENSR" %in% rownames(installed.packages()))) {
 }
 library(LUMENSR)
 
-jscode <- "shinyjs.closeWindow = function() { window.close(); }"
-
 format_session_info_table <- function() {
   si <- sessionInfo()
   
