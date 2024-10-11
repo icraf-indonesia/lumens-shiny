@@ -276,6 +276,53 @@ calculate_p_shin <- function(slope_pct, p_user){
   return(p_factor_combined)
 }
 
+# Calculate statistic (mean and sum) of erosion at planning unit l --------
+
+calculate_erosion_stats <- function(erosion_t1, erosion_t2, pu) {
+  # Calculate erosion difference
+  erosion_diff <- erosion_t2 - erosion_t1
+  
+  # Generate erosion parameter for increase and decrease
+  erosion_increase <- ifel(erosion_diff > 0, erosion_diff, NA)
+  erosion_decrease <- ifel(erosion_diff < 0, erosion_diff, NA)
+  
+  # Calculate sum of soil erosion at planning unit ------------------------
+  # Calculate the sum of erosion for each planning unit (pu)
+  zonal_sum <- zonal(erosion_diff, pu, fun = "sum", na.rm = TRUE)
+  zonal_increase_sum <- zonal(erosion_increase, pu, fun = "sum", na.rm = TRUE)
+  zonal_decrease_sum <- zonal(erosion_decrease, pu, fun = "sum", na.rm = TRUE)
+  
+  # Rename the 'sum' columns for clarity
+  colnames(zonal_increase_sum)[2] <- "increase_sum"
+  colnames(zonal_decrease_sum)[2] <- "decrease_sum"
+  colnames(zonal_sum)[2] <- "net_sum"
+  
+  # Merge the sum data frames by the first column
+  erosion_sum_merged_table <- merge(zonal_increase_sum, zonal_decrease_sum, by = colnames(zonal_increase_sum)[1])
+  erosion_sum_merged_table <- merge(erosion_sum_merged_table, zonal_sum, by = colnames(zonal_sum)[1])
+  
+  # Calculate mean of soil erosion at planning unit -----------------------
+  # Calculate the mean of erosion for each planning unit (pu)
+  zonal_mean <- zonal(erosion_diff, pu, fun = "mean", na.rm = TRUE)
+  zonal_increase_mean <- zonal(erosion_increase, pu, fun = "mean", na.rm = TRUE)
+  zonal_decrease_mean <- zonal(erosion_decrease, pu, fun = "mean", na.rm = TRUE)
+  
+  # Rename the 'mean' columns for clarity
+  colnames(zonal_increase_mean)[2] <- "increase_mean"
+  colnames(zonal_decrease_mean)[2] <- "decrease_mean"
+  colnames(zonal_mean)[2] <- "net_mean"
+  
+  # Merge the mean data frames by the first column
+  erosion_mean_merged_table <- merge(zonal_increase_mean, zonal_decrease_mean, by = colnames(zonal_increase_mean)[1])
+  erosion_mean_merged_table <- merge(erosion_mean_merged_table, zonal_mean, by = colnames(zonal_mean)[1])
+  
+  # Merge the sum and mean tables into one database ------------------------
+  erosion_mean_sum_database <- merge(erosion_sum_merged_table, erosion_mean_merged_table, by = colnames(erosion_sum_merged_table)[1])
+  
+  # Return the final merged table
+  return(erosion_mean_sum_database)
+}
+
 # Session Log
 format_session_info_table <- function() {
   si <- sessionInfo()

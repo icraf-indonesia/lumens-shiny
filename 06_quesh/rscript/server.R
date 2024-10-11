@@ -271,7 +271,7 @@ server <- function(input, output, session) {
                     "Very strong (80-150 ton/ha/yr)", 
                     "Severe (> 150 ton/ha/yr)")
         rcl_matrix <- cbind(breaks[-length(breaks)], breaks[-1], 1:(length(breaks)-1))
-        
+
         # Post Analysis Work
         if (input$multiseries == "two_step"){
           
@@ -311,12 +311,12 @@ server <- function(input, output, session) {
           
           # Calculate erosion difference between two series of time
           e_diff <- erosion_classified_t2 - erosion_classified_t1
-          e_rcl_matrix <- matrix(c(-Inf, -0.0001, 1,  # Class 1: Erosion risk decrease
-                                   -0.0001, 0.0001, 2,  # Class 2: No erosion risk changes
-                                   0.0001, Inf, 3),   # Class 3: Erosion risk increase
+          e_rcl_matrix <- matrix(c(-Inf, -0.0001, 1,  # Class 1: Erosion potential decrease
+                                   -0.0001, 0.0001, 2,  # Class 2: No erosion potential changes
+                                   0.0001, Inf, 3),   # Class 3: Erosion potential increase
                                  ncol = 3, byrow = TRUE)
           e_diff_classified <- classify(e_diff, rcl = e_rcl_matrix)
-          e_labels <- c("Erosion risk decrease", "No erosion risk changes", "Erosion risk increase")
+          e_labels <- c("Soil erosion potential decrease", "No soil erosion potential changes", "Soil erosion potential increase")
           levels(e_diff_classified) <- data.frame(id=1:3, category=e_labels)
           
           # Create erosion difference data table
@@ -329,6 +329,7 @@ server <- function(input, output, session) {
           
           # Calculate erosion difference for each planning unit class
           summary_e_diff_pu_df <- compute_erosion_per_pu(erosion_classified = e_diff_classified, pu = pu)
+          erosion_stat <- calculate_erosion_stats(erosion_t1 = erosion_t1, erosion_t2 = erosion_t2, pu = pu)
           
           # Export the results
           incProgress(0.6, detail = "Exporting results")
@@ -374,6 +375,7 @@ server <- function(input, output, session) {
             e_pu_df = summary_e_pu_df,
             e_diff_table = erosion_diff_db,
             e_pu_diff_table = summary_e_diff_pu_df,
+            e_stat = erosion_stat,
             multiseries = input$multiseries,
             map_resolution = rv$map_resolution,
             rainfall_path = rainfall_path,
@@ -405,9 +407,9 @@ server <- function(input, output, session) {
             severe_percentage_t1 = erosion_db_t1 %>% filter(Class == "Severe (> 150 ton/ha/yr)") %>% pull(3),
             severe_area_t2 = erosion_db_t2 %>% filter(Class == "Severe (> 150 ton/ha/yr)") %>% pull(2),
             severe_percentage_t2 = erosion_db_t2 %>% filter(Class == "Severe (> 150 ton/ha/yr)") %>% pull(3),
-            erosion_increase = erosion_diff_db %>% filter(Class == "Erosion risk increase") %>% pull(2),
-            erosion_decrease = erosion_diff_db %>% filter(Class == "Erosion risk decrease") %>% pull(2),
-            erosion_stable = erosion_diff_db %>% filter(Class == "No erosion risk changes") %>% pull(2)
+            erosion_increase = erosion_diff_db %>% filter(Class == "Soil erosion potential increase") %>% pull(2),
+            erosion_decrease = erosion_diff_db %>% filter(Class == "Soil erosion potential decrease") %>% pull(2),
+            erosion_stable = erosion_diff_db %>% filter(Class == "No soil erosion potential changes") %>% pull(2)
           )
           report_params$summary_data <- summary_data
         } else {

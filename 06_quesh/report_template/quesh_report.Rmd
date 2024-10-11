@@ -30,6 +30,7 @@ params:
   e_pu_df: NA
   e_diff: NA
   e_pu_diff_table: NA
+  e_stat: NA
   multiseries: NA
   summary_data: NA
   map_resolution: NA
@@ -485,6 +486,17 @@ if (params$multiseries == "two_step") {
   render_child("Table of Soil Erosion Changes at Landscape Level")
   render_child("Map of Soil Erosion Changes at Planning Unit Level")
 }
+```
+
+```{r soil erosion stats, echo=FALSE, fig.width=12, fig.align='left', warning=FALSE, message=FALSE}
+e_stats <- params$e_stat %>% 
+  mutate(across(where(is.numeric), scales::comma))
+datatable(
+  e_stats, caption = tags$caption(
+    style = 'caption-side: top; text-align: left; color:black; font-size:150%;',
+    paste('Soil Erosion Changes (Ha) Statistic at Planning Unit Level in', params$t1, '-', params$t2)
+  )
+)
 ```
 ------------------------------------------------------------------------
 
