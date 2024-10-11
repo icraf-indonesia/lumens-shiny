@@ -734,8 +734,8 @@ plot_categorical_raster <- function(raster_object, type) {
       ), na.value = "white")
     } else if (type == "erosion difference") {
       fill_scale <- scale_fill_manual(values = c(
-        "#77DD77",  # Pastel Green
-        "#FFFACD",  # Light Yellow
+        "#006400",  # Pastel Green
+        "grey",  # Grey
         "#FF6961"   # Pastel Red
       ), na.value = "white")
     }
