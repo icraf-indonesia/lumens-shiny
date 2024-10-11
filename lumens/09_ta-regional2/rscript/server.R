@@ -82,20 +82,32 @@ server <- function(input, output, session) {
       showNotification("SCIENDO Database data file is missing.", type = "error")
       return()
     }
+    if (is.null(rv$wd) || length(rv$wd) == 0 || is.na(rv$wd) || rv$wd == "") {
+      showNotification("Output Directory  is missing", type = "error")
+      return()
+    }
     
-    load(rv$land_req)
     
     withProgress(message = 'Running TA Regional 2 Analysis', value = 0, {
       tryCatch({
         
+        land_req_path <- rename_uploaded_file(input$land_req_file)
+        sciendo_db_path <- rename_uploaded_file(input$sciendo_db)
+        output_dir <- rv$wd
+        
+        load(land_req_path)
+        
+        # Capture the start time at the beginning of the process
+        start_time <- Sys.time()
+        
         # Load land use requirement data
         land.requirement.db <- land.requirement_table
-        names(landuse_lut) <- as.character(landuse_lut[1,])
-        landuse_lut <- landuse_lut[-1,]
+        # names(landuse_lut) <- as.character(landuse_lut[1,])
+        # landuse_lut <- landuse_lut[-1,]
         lc.list <- subset(landuse_lut, select = c(ID, LC))
-        
+
         # Prepare data for land use change analysis
-        next_data_luc <- rv$sciendo_db
+        next_data_luc <- read.csv(sciendo_db_path)
         landuse_area_table <- as.data.frame(na.omit(next_data_luc))
         landuse_area_table$ID_LC <- NULL
         landuse_area_table$LC <- NULL
@@ -140,7 +152,7 @@ server <- function(input, output, session) {
           land.requirement.scen <- rowSums(land.distribution.scen)
           
           #' Calculate the total demand for the current period
-          
+
           #' Final demand (fin_dem.rtot) and intermediate consumption (int_con.rtot) 
           #' are summed to determine the total demand for the given simulation period.
           fin_dem.rtot <- rowSums(fin_dem[, t, drop = FALSE])
@@ -148,7 +160,7 @@ server <- function(input, output, session) {
           demand <- fin_dem.rtot + int_con.rtot
           
           #' Adjust land requirement by productivity coefficient
-          
+
           #' The land requirement is adjusted based on the land productivity coefficient 
           #' from the database. Infinite and missing values are handled accordingly.
           land.requirement.coeff <- land.requirement.db$LRC
@@ -158,7 +170,7 @@ server <- function(input, output, session) {
           fin_dem.scen[is.na(fin_dem.scen)] <- 0
           
           #' Calculate the final output for the scenario
-          
+
           #' The Leontief matrix is used to calculate the final output for each scenario 
           #' of land use change. This matrix is rounded and converted to a numeric format.
           fin.output.scen <- Leontief %*% fin_dem.scen
@@ -173,7 +185,7 @@ server <- function(input, output, session) {
           colnames(fin.output.scen)[1] <- "OUTPUT_Scen"
           
           #' Calculate GDP from the output
-          
+
           #' The GDP for the scenario is calculated by multiplying the output by the 
           #' GDP proportion from the output. Missing and infinite values are set to zero.
           GDP.prop.from.output <- GDP.val / demand
@@ -186,7 +198,7 @@ server <- function(input, output, session) {
           colnames(GDP.scen)[1] <- "GDP_scen"
           
           #' Combine base and scenario GDP
-          
+
           #' The base GDP (GDP) and scenario GDP (GDP_scen) are combined into a summary 
           #' table for comparison.
           GDP <- subset(GDP, SECTOR!="Total")
@@ -195,13 +207,13 @@ server <- function(input, output, session) {
           GDP_summary$P_GDP <- NULL
           
           #' Calculate total GDP for the current period
-          
+
           #' The total GDP for the scenario is calculated by summing the values from 
           #' the GDP summary table, ignoring missing values.
           GDP_tot_scen <- sum(GDP_summary$GDP_scen, na.rm = TRUE)
           
           #' Store the GDP results
-          
+ 
           #' The GDP for each simulation period is stored in reactive lists for 
           #' further analysis and plotting.
           GDP_scen.list[[t]] <- GDP.scen
@@ -253,13 +265,43 @@ server <- function(input, output, session) {
         rv$output_total_graph <- output_total_graph
         rv$income_total_graph <- income_total_graph
         rv$labour_total_graph <- labour_total_graph
-        rv$land_req_path <- rename_uploaded_file(input$land_req_file)
-        rv$sciendo_db_path <- rename_uploaded_file(input$sciendo_db)
+        
+        # Capture the end time at the end of the process
+        end_time <- Sys.time()
+        
+        #### Report Generation ####
+        params <- list(
+          session_log = format_session_info_table(),
+          start_time = as.character(format(start_time, "%Y-%m-%d %H:%M:%S")),
+          end_time = as.character(format(end_time, "%Y-%m-%d %H:%M:%S")),
+          landuse_table = landuse_table,
+          GDP_totals_graph = GDP_totals_graph,
+          GDP_scen_df = GDP_scen_df,
+          output_total_graph = output_total_graph,
+          income_total_graph = income_total_graph,
+          labour_total_graph = labour_total_graph,
+          land_req_path = land_req_path,
+          sciendo_db_path = sciendo_db_path,
+          output_dir = output_dir
+        )
+        
+        output_file <- paste0("ta_regional2_report_", format(Sys.time(), "%Y-%m-%d_%H-%M-%S"), ".html")
+        rv$report_file <- file.path(output_dir, output_file)
+        
+        # Corrected render function
+        rmarkdown::render(
+          "../report_template/ta-regional2_report.Rmd",
+          output_file = output_file,
+          output_dir = output_dir,
+          params = params,
+          envir = new.env(parent = globalenv())
+        )
         
         # Notify user of successful analysis
         output$status_messages <- renderText("Analysis completed successfully!")
         showNotification("Analysis completed successfully!", type = "message")
-        shinyjs::show("viewReport")
+        shinyjs::show("open_report")
+        shinyjs::show("open_output_folder")
         
       }, error = function(e) {
         output$error_messages <- renderText(paste("Error in analysis:", e$message))
@@ -268,36 +310,40 @@ server <- function(input, output, session) {
     })
   })
   
-  #### Report Generation ####
-  #' This section generates a final report in HTML format, summarizing the results of the analysis.
-  
-  report_content <- reactive({
-    params <- list(
-      session_log = format_session_info_table(),
-      landuse_table = rv$landuse_table,
-      GDP_totals_graph = rv$GDP_totals_graph,
-      GDP_scen_df = rv$GDP_scen_df,
-      output_total_graph = rv$output_total_graph,
-      income_total_graph = rv$income_total_graph,
-      labour_total_graph = rv$labour_total_graph,
-      land_req_path = rv$land_req_path,
-      sciendo_db_path = rv$sciendo_db_path,
-      output_dir = rv$wd
-    )
-    output_file <- paste0("ta_regional2_report_", format(Sys.time(), "%Y-%m-%d_%H-%M-%S"), ".html")
-    output_dir <- rv$wd
-    render(
-      "../report_template/ta-regional2_report.Rmd",
-      output_file = output_file,
-      output_dir = output_dir,
-      params = params,
-      envir = new.env(parent = globalenv())
-    )
+  # Open Output Folder button observer
+  observeEvent(input$open_output_folder, {
+    if (!is.null(rv$wd) && dir.exists(rv$wd)) {
+      if (.Platform$OS.type == "windows") {
+        shell.exec(rv$wd)
+      } else {
+        system2("open", args = rv$wd)
+      }
+    } else {
+      showNotification("Output directory not found", type = "error")
+    }
   })
   
-  observeEvent(input$viewReport, {
-    showNotification("Opening report...", type = "message")
-    file.show(report_content())
+  # Open Report button observer
+  observeEvent(input$open_report, {
+    if (!is.null(rv$report_file) && file.exists(rv$report_file)) {
+      if (.Platform$OS.type == "windows") {
+        shell.exec(rv$report_file)
+      } else {
+        system2("open", args = rv$report_file)
+      }
+    } else {
+      showNotification("Report file not found", type = "error")
+    }
+  })
+  
+  session$onSessionEnded(function() {
+    stopApp()
+  })
+  
+  observeEvent(input$returnButton, {
+    js$closeWindow()
+    message("Return to main menu!")
+    # shinyjs::delay(1000, stopApp())
   })
   
   session$onSessionEnded(function() {

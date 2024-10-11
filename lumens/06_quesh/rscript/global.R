@@ -1,6 +1,17 @@
-source('../../helper.R')
+source("../../helper.R")
 
-### Required Library ###
+### Required Library ####
+#' Install Required Library
+#' 
+#' Checks if a list of required packages are installed and loaded.
+#'
+#' @param package1 list of 
+#' @param ... parameters to be passed to vector of packages
+#'
+#' @return None. This function is called for its side effects.
+#' @export
+#'
+#' @examples
 install_load <- function (package1, ...)  {
   # convert arguments to vector
   packages <- c(package1, ...)
@@ -51,14 +62,17 @@ syncGeom <- function(input, ref){
     `*`(ref1)
 }
 
-# Categorized landcover based on its class --------------------------------
+# Prepare land cover data -------------------------------------------------
 
-lc_class_categorize <- function(landcover, c_ref) {
-  lc_class <-landcover %>% freq() %>%
-    dplyr::select(ID=value) %>%
-    left_join(c_ref, by="ID") %>% dplyr::select(-C_factor)
-  levels(landcover)[[1]] <- lc_class
-  return(landcover)
+prepare_lc_data <- function(lc_input, lookup_table, time_point) {
+  # if(is.null(lc_input) || !file.exists(lc_input$datapath)) {
+  #   stop(paste("Invalid or missing land cover data for time point", time_point))
+  # }
+  lc_path <- rename_uploaded_file(input_file = lc_input)
+  lc_data <- rast(lc_path)
+  lc_raster <- add_legend_to_categorical_raster(raster_file = lc_data, lookup_table = lookup_table, year = time_point)
+  names(lc_raster) <- tools::file_path_sans_ext(lc_input$name)
+  return(lc_raster)
 }
 
 # Calculate erosion for each planning unit class -----------------------------------------------------------------------
@@ -162,7 +176,8 @@ quesh_rusle_calc <- function(rainfall, sand, silt, clay, orgc, dem, landcover_t1
     landcover_c <- landcover
     lookup_lc <- landcover_c %>% freq() %>%
       dplyr::select(ID=value) %>%
-      left_join(c_ref, by="ID") %>% dplyr::select(-LC)
+      # left_join(c_ref, by="ID") %>% dplyr::select(-LC)
+      left_join(c_ref, by = names(c_ref)[1]) %>% dplyr::select(-2)
     levels(landcover_c)[[1]] <- lookup_lc
     c_factor <- landcover_c %>% as.numeric(1) %>% terra::resample(pu, method="near")
     return(c_factor)
@@ -261,6 +276,82 @@ calculate_p_shin <- function(slope_pct, p_user){
     p_factor_combined[] <- 1
   }
   return(p_factor_combined)
+}
+
+# Calculate statistic (mean and sum) of erosion at planning unit l --------
+
+calculate_erosion_stats <- function(erosion_t1, erosion_t2, pu) {
+  # Calculate erosion difference
+  erosion_diff <- erosion_t2 - erosion_t1
+  
+  # Generate erosion parameter for increase and decrease
+  erosion_increase <- ifel(erosion_diff > 0, erosion_diff, NA)
+  erosion_decrease <- ifel(erosion_diff < 0, erosion_diff, NA)
+  
+  # Calculate sum of soil erosion at planning unit ------------------------
+  # Calculate the sum of erosion for each planning unit (pu)
+  zonal_sum <- zonal(erosion_diff, pu, fun = "sum", na.rm = TRUE)
+  zonal_increase_sum <- zonal(erosion_increase, pu, fun = "sum", na.rm = TRUE)
+  zonal_decrease_sum <- zonal(erosion_decrease, pu, fun = "sum", na.rm = TRUE)
+  
+  # Rename the 'sum' columns for clarity
+  colnames(zonal_increase_sum)[2] <- "increase_sum"
+  colnames(zonal_decrease_sum)[2] <- "decrease_sum"
+  colnames(zonal_sum)[2] <- "net_sum"
+  
+  # Merge the sum data frames by the first column
+  erosion_sum_merged_table <- merge(zonal_increase_sum, zonal_decrease_sum, by = colnames(zonal_increase_sum)[1])
+  erosion_sum_merged_table <- merge(erosion_sum_merged_table, zonal_sum, by = colnames(zonal_sum)[1])
+  
+  # Calculate mean of soil erosion at planning unit -----------------------
+  # Calculate the mean of erosion for each planning unit (pu)
+  zonal_mean <- zonal(erosion_diff, pu, fun = "mean", na.rm = TRUE)
+  zonal_increase_mean <- zonal(erosion_increase, pu, fun = "mean", na.rm = TRUE)
+  zonal_decrease_mean <- zonal(erosion_decrease, pu, fun = "mean", na.rm = TRUE)
+  
+  # Rename the 'mean' columns for clarity
+  colnames(zonal_increase_mean)[2] <- "increase_mean"
+  colnames(zonal_decrease_mean)[2] <- "decrease_mean"
+  colnames(zonal_mean)[2] <- "net_mean"
+  
+  # Merge the mean data frames by the first column
+  erosion_mean_merged_table <- merge(zonal_increase_mean, zonal_decrease_mean, by = colnames(zonal_increase_mean)[1])
+  erosion_mean_merged_table <- merge(erosion_mean_merged_table, zonal_mean, by = colnames(zonal_mean)[1])
+  
+  # Merge the sum and mean tables into one database ------------------------
+  erosion_mean_sum_database <- merge(erosion_sum_merged_table, erosion_mean_merged_table, by = colnames(erosion_sum_merged_table)[1])
+  
+  # Return the final merged table
+  return(erosion_mean_sum_database)
+}
+
+# Session Log
+format_session_info_table <- function() {
+  si <- sessionInfo()
+  # Extract R version info
+  r_version <- si$R.version[c("major", "minor", "year", "month", "day", "nickname")]
+  r_version <- paste0(
+    "R ", r_version$major, ".", r_version$minor,
+    " (", r_version$year, "-", r_version$month, "-", r_version$day, ")",
+    " '", r_version$nickname, "'"
+  )
+  
+  # Extract platform and OS info
+  platform_os <- paste(si$platform, "|", si$running)
+  
+  # Extract locale info
+  locale_info <- strsplit(si[[3]], ";")[[1]]
+  locale_info <- paste(locale_info, collapse = "<br>")
+  
+  # Extract .libpaths, accomodate multiple library paths
+  lib_paths <- .libPaths() |> paste( collapse = "<br>")
+  
+  # Combine all info into a single tibble
+  session_summary <- tibble(
+    Category = c("R Version", "Platform | OS", ".libPaths", "Locale"),
+    Details = c(r_version, platform_os, lib_paths, locale_info)
+  )
+  return(session_summary)
 }
 
 # Plot Histogram of Soil Erosion Rate -------------------------------------
@@ -489,6 +580,16 @@ rasterise_multipolygon <- function(sf_object, raster_res = c(100,100), field = "
   return(rasterised_spatraster)
 }
 
+# Rename uploaded file
+rename_uploaded_file <- function(input_file) {
+  if (is.null(input_file)) return(NULL)
+  
+  old_path <- input_file$datapath
+  new_path <- file.path(dirname(old_path), input_file$name)
+  file.rename(old_path, new_path)
+  return(new_path)
+}
+
 #' Read Shapefile
 #'
 #' This function reads a shapefile from uploaded files, handling file renaming and validation.
@@ -547,6 +648,83 @@ read_shapefile <- function(shp_input) {
   })
 }
 
+# add_legend_to_categorical_raster ----------------------------------------
+
+#' Add legend to categorical raster
+#'
+#' This function adds a legend to a categorical raster file, often containing information about land cover or planning units.
+#'
+#' @param raster_file A categorical raster file (an object of class `SpatRaster`)
+#' @param lookup_table A corresponding lookup table of descriptions for each class category
+#' @param year An optional year to be associated with the raster file
+#'
+#' @return A raster file that contains descriptions for each class category
+#' @importFrom terra levels freq time names
+#' @importFrom stats setNames
+#' @export
+#'
+#' @examples
+#' \dontrun{
+#' add_legend_to_categorical_raster(raster_file = kalbar_11,
+#'               lookup_table = lc_lookup_klhk,
+#'               year = 2011) %>%
+#'               plot()
+#' }
+
+add_legend_to_categorical_raster <- function(raster_file, lookup_table, year = NULL) {
+  # Check if raster_file is a SpatRaster object
+  if (!inherits(raster_file, "SpatRaster")) {
+    stop("raster_file should be a SpatRaster object")
+  }
+  
+  # Check if lookup_table is a data frame
+  if (!is.data.frame(lookup_table)) {
+    stop("lookup_table should be a data frame")
+  }
+  
+  # Check if the first column of lookup_table is numeric or convertible to numeric
+  first_column <- lookup_table[[1]]
+  if (!is.numeric(first_column) && any(is.na(as.numeric(first_column)))) {
+    stop("The first column of lookup_table should be numeric or convertible to numeric")
+  }
+  
+  # Check if year is a numeric value or NULL, and if it consists of 4 digits
+  if (!is.null(year) && (!is.numeric(year) || nchar(as.character(year)) != 4)) {
+    stop("year should be a numeric value consisting of 4 digits")
+  }
+  
+  # Filter lookup_table to only include values present in raster_file
+  lookup_table <- lookup_table[lookup_table[[1]] %in% terra::freq(raster_file)[["value"]], ]
+  
+  # Convert lookup_table into a data frame
+  lookup_table <- data.frame(lookup_table)
+  
+  # Convert the first column to numeric if it is not already
+  if (!is.numeric(first_column)) {
+    lookup_table[[1]] <- as.numeric(first_column)
+  }
+  
+  # Get the names of raster_file
+  name_rast <- names(raster_file)
+  
+  # Set the levels of raster_file to be lookup_table
+  levels(raster_file) <- lookup_table
+  
+  # Set the names of raster_file
+  raster_file <- setNames(raster_file, name_rast)
+  
+  # Set the year if year is not NULL
+  if (!is.null(year)) {
+    terra::time(raster_file, tstep="years") <- year
+  }
+  
+  # Return the modified raster_file
+  return(raster_file)
+}
+
+
+# plot_categorical_raster -------------------------------------------------
+
 #' Plot a categorical raster map
 #'
 #' This function takes a raster object as input and produces a ggplot. If the raster
@@ -561,25 +739,70 @@ read_shapefile <- function(shp_input) {
 #' @importFrom ggplot2 ggplot theme_bw labs theme scale_fill_manual element_text unit element_blank guides guide_legend
 #' @importFrom tidyterra geom_spatraster scale_fill_hypso_d
 #' @export
-plot_categorical_raster <- function(raster_object) {
+plot_categorical_raster <- function(raster_object, type) {
   # Check if raster_object has a color_pallete column and it contains hex color codes
   if ("color_palette" %in% names(cats(raster_object)[[1]]) && all(grepl("^#[0-9A-Fa-f]{6}$", cats(raster_object)$color_pallete))) {
     fill_scale <- scale_fill_manual(values = cats(raster_object)[[1]]$color_palette, na.value = "white")
   } else {
-    fill_scale <- scale_fill_manual(values = palette.colors(n = 10, "Tableau 10"), na.value = "white")
+    if (type == "erosion") {
+      fill_scale <- scale_fill_manual(values = c(
+        "#77DD77",  # Pastel Green
+        "#C3ECA7",  # Light Green
+        "#FFFACD",  # Light Yellow
+        "#FFD580",  # Pastel Yellow/Orange
+        "#FFB347",  # Pastel Orange
+        "#FF6961"   # Pastel Red
+      ), na.value = "white")
+    } else if (type == "landcover") {
+      fill_scale <- scale_fill_manual(values = c(
+        "#006400", "#228B22", "#59A14F", "#66C2A5", "#98FB98",
+        "#4E79A7", "#F28E2B", "#E15759", "#76B7B2", "#EDC948", 
+        "#B07AA1", "#FF9DA7", "#9C755F", "#BAB0AC", "#FFBE7D", 
+        "#FF7F0E", "#D62728", "#9467BD", "#8C564B", "#17BECF",
+        "#BCBD22", "#7F7F7F", "#1F77B4", "#FF9896", "#98DF8A",
+        "#C5B0D5", "#C49C94", "#F7B6D2", "#C7C7C7", "#DBDB8D",
+        "#9EDAE5", "#AEC7E8", "#FFBB78", "#E377C2", "#8C564B",
+        "#B5BD89", "#525252", "#A6CEE3", "#FB9A99", "#B2DF8A",
+        "#FDBF6F", "#CAB2D6", "#FFFF99", "#1F78B4", "#33A02C",
+        "#E31A1C", "#6A3D9A", "#FF7F00", "#B15928", "#A1D99B",
+        "#FDD0A2", "#DADAEB"
+      ), na.value = "white")
+    } else if (type == "planning unit") {
+      fill_scale <- scale_fill_manual(values = c(
+        "#4E79A7", "#F28E2B", "#E15759", "#006400", "#CAB2D6", 
+        "#76B7B2", "#EDC948", "#8C564B", "#33A02C", "#DADAEB",
+        "#B07AA1", "#FF9DA7", "#9C755F", "#BAB0AC", "#FFBE7D", 
+        "#FF7F0E", "#D62728", "#9467BD", "#8C564B", "#17BECF",
+        "#BCBD22", "#7F7F7F", "#1F77B4", "#FF9896", "#98DF8A",
+        "#C5B0D5", "#C49C94", "#F7B6D2", "#C7C7C7", "#DBDB8D",
+        "#9EDAE5", "#AEC7E8", "#228B22", "#FFBB78", "#E377C2", 
+        "#B5BD89", "#525252", "#A6CEE3", "#FB9A99", "#B2DF8A",
+        "#FDBF6F", "#59A14F", "#66C2A5", "#FFFF99", "#1F78B4", 
+        "#E31A1C", "#6A3D9A", "#FF7F00", "#98FB98", "#B15928", 
+        "#FDD0A2", "#A1D99B"
+      ), na.value = "white")
+    } else if (type == "erosion difference") {
+      fill_scale <- scale_fill_manual(values = c(
+        "#006400",  # Pastel Green
+        "grey",  # Grey
+        "#FF6961"   # Pastel Red
+      ), na.value = "white")
+    }
   }
-  if(!is.na(time(raster_object))) {
+  
+  if (!is.na(time(raster_object))) {
     plot_title <- time(raster_object)
   } else {
     plot_title <- names(raster_object)
   }
+  
   # Generate the plot
   plot_lc <- ggplot() +
     geom_spatraster(data = raster_object) +
     fill_scale +
     theme_bw() +
     labs(title = plot_title, fill = NULL) +
-    guides(fill = guide_legend(title.position = "top", ncol=3))+
+    guides(fill = guide_legend(title.position = "top", ncol = 3)) +
     theme(axis.title.x = element_blank(),
           axis.title.y = element_blank(),
           panel.grid.major = element_blank(),
@@ -589,7 +812,8 @@ plot_categorical_raster <- function(raster_object) {
           legend.key.height = unit(0.25, "cm"),
           legend.key.width = unit(0.25, "cm"),
           legend.position = "bottom",
-          legend.justification = c(0,0.8))
+          legend.justification = c(0, 0.8))
   
   return(plot_lc)
 }
+

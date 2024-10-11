@@ -96,7 +96,7 @@ server <- function(input, output, session) {
         
         # 1. Data preparation -------------------------------------------
         shinyjs::disable("run_analysis")
-        incProgress(0.2, detail = "Preparing data inputs")
+        incProgress(0.1, detail = "Preparing data inputs")
         u <- rename_uploaded_file(input_file = input$unresolved_table)
         rv$map_resolution <- as.numeric(rv$map_resolution)
         sa <- read_shapefile(shp_input = rv$recon_file)
@@ -135,7 +135,7 @@ server <- function(input, output, session) {
         }
         
         # 2. Resolve any unresolved cases --------------------------------
-        incProgress(0.6, detail = "Resolve Any Unresolved Cases")
+        incProgress(0.2, detail = "Resolve Any Unresolved Cases")
         
         reconciled_map <- sa %>%
           dplyr::select(-ID_rec) %>% 
@@ -144,7 +144,7 @@ server <- function(input, output, session) {
           select(-`Reconcile Action`)
         
         # 3. Calculate area --------------------------------
-        incProgress(0.7, detail = "Calculating Area")
+        incProgress(0.3, detail = "Calculating Area")
         
         # Check the CRS and verify if the units are in meters
         crs_info <- terra::crs(reconciled_map, proj = TRUE)
@@ -159,7 +159,7 @@ server <- function(input, output, session) {
         }
         
         # 4. Export results --------------------------------
-        incProgress(0.8, detail = "Exporting Results")
+        incProgress(0.4, detail = "Exporting Results")
         
         st_write(reconciled_map, paste0(rv$output_dir, "/PUR_reconciliation_result.shp"),
                  driver = "ESRI Shapefile",
@@ -192,7 +192,7 @@ server <- function(input, output, session) {
         cat("Ended at:", format(end_time, "%Y-%m-%d %H:%M:%S"), "\n")
         
         # 6. Generate report -------------------------
-        incProgress(1, detail = "Preparing Report")
+        incProgress(0.5, detail = "Preparing Report")
         unresolved_shp_path <- rename_uploaded_file(input_file = input$recon_file)
         
         report_params <- list(
@@ -235,18 +235,22 @@ server <- function(input, output, session) {
         
         rv$report_file <- paste(rv$output_dir, "PUR_reconcile_report.html", sep = "/")
         
-        showNotification("Analysis completed successfully!", type = "message")
-        # After successful completion
+        # Post Analysis
+        output$status_messages <- renderText("Analysis completed successfully!")
+        output$success_message <- renderText("Analysis completed successfully! You can now open the output folder or view the report.")
+        output$error_messages <- renderText(NULL)
         shinyjs::show("open_output_folder")
         shinyjs::show("open_report")
         removeNotification(id = "running_notification")
         shinyjs::enable("run_analysis")
-        
+        showNotification("Analysis completed successfully!", type = "message")
       }, error = function(e) {
-        showNotification(paste("An error occurred:", e$message), type = "error")
-      }, finally = {
+        output$status_messages <- renderText(paste("Error in analysis:", e$message))
+        output$error_messages <- renderText(paste("Error in analysis:", e$message))
+        output$success_message <- renderText(NULL)
         removeNotification(id = "running_notification")
         shinyjs::enable("run_analysis")
+        showNotification("Error in analysis. Please check the error messages.", type = "error")
       })
     })
   })

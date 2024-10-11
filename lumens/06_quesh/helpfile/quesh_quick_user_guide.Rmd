@@ -6,6 +6,9 @@ output:
     toc_float: true
     number_sections: true
     df_print: kable
+    math_method:
+      engine: mathjax
+runtime: shiny
 ---
 
 # Overview
@@ -130,9 +133,9 @@ After the analysis completes, you'll find the following raster maps in your sele
 
 -   Annual Soil Loss Map : Estimated soil loss per hectare per year( $\text{t} \cdot \text{ha}^{-1} \cdot \text{yr}^{-1}$ )
 
--   Rainfall-runoff Erosivity Map (R-factor): Erosive force of rainfall ($\text{MJ} \cdot \text{mm} \cdot \text{ha}^{-1} \cdot \text{h}^{-1} \cdot \text{yr}^{-1}$ )
+-   Rainfall-runoff Erosivity Map (R-factor): Erosive force of rainfall ( $\text{MJ} \cdot \text{mm} \cdot \text{ha}^{-1} \cdot \text{h}^{-1} \cdot \text{yr}^{-1}$ )
 
--   Soil Erodibility Map (K-factor): Susceptibility of soil to erosion ($\text{t} \cdot \text{ha} \cdot \text{h} \cdot \text{ha}^{-1} \cdot \text{MJ}^{-1} \cdot \text{mm}^{-1}$ )
+-   Soil Erodibility Map (K-factor): Susceptibility of soil to erosion ( $\text{t} \cdot \text{ha} \cdot \text{h} \cdot \text{ha}^{-1} \cdot \text{MJ}^{-1} \cdot \text{mm}^{-1}$ )
 
 -   Slope Length and Steepness Map (LS-factor): Combined effect of slope length and steepness on erosion (unitless)
 
