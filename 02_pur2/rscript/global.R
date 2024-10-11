@@ -1,3 +1,5 @@
+source('../../helper.R')
+
 ### Required Library ###
 install_load <- function (package1, ...)  {
   # convert arguments to vector
