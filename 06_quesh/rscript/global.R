@@ -221,6 +221,10 @@ quesh_rusle_calc <- function(rainfall, sand, silt, clay, orgc, dem, landcover_t1
 }
 
 # Calculation of P factor  ---------------------------------------------
+# Define p_user as a list of 3 value
+# First value represents contouring, second represent strip cropping, and third represent teracing
+# For example if you just want to implement teracing: p_user <- list(0,0,1)
+# If you want to implement teracing and contouring: p_user <- list(1,0,1)
 
 calculate_p_shin <- function(slope_pct, p_user){
   p_factor_combined <- slope_pct
