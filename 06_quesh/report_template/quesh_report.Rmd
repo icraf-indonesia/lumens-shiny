@@ -458,7 +458,7 @@ render_child <- function(content_type) {
           "    digits = 2",
           "  )"
         )
-      } else if (content_type == "Map of Soil Erosion Changes at Planning Unit Level") {
+      } else if (content_type == "Table of Soil Erosion Area Changes at Planning Unit Level") {
         c(
           "e_pu_diff_table <- params$e_pu_diff_table %>%",
           "  mutate(across(where(is.numeric), scales::comma))",
@@ -468,6 +468,17 @@ render_child <- function(content_type) {
           "    style = 'caption-side: top; text-align: left; color:black; font-size:150%;',",
           "    paste('Soil Erosion Changes (Ha) at Planning Unit Level in', params$t1, '-', params$t2)",
           "  )",
+          ")"
+        )
+      } else if (content_type == "Table of Soil Erosion Changes at Planning Unit Level") {
+        c(
+          "e_stats <- params$e_stat %>% ",
+          "mutate(across(where(is.numeric), scales::comma))",
+          "datatable(",
+          "  e_stats, caption = tags$caption(",
+          "    style = 'caption-side: top; text-align: left; color:black; font-size:150%;',",
+          "    paste('Soil Erosion Changes (Ha) Statistic at Planning Unit Level in', params$t1, '-', params$t2)",
+          "    )",
           ")"
         )
       },
@@ -484,20 +495,11 @@ if (params$multiseries == "two_step") {
   cat("### Soil Erosion Changes {.tabset}\n\n")
   render_child("Map of Soil Erosion Changes")
   render_child("Table of Soil Erosion Changes at Landscape Level")
-  render_child("Map of Soil Erosion Changes at Planning Unit Level")
+  render_child("Table of Soil Erosion Area Changes at Planning Unit Level")
+  render_child("Table of Soil Erosion Changes at Planning Unit Level")
 }
 ```
 
-```{r soil erosion stats, echo=FALSE, fig.width=12, fig.align='left', warning=FALSE, message=FALSE}
-e_stats <- params$e_stat %>% 
-  mutate(across(where(is.numeric), scales::comma))
-datatable(
-  e_stats, caption = tags$caption(
-    style = 'caption-side: top; text-align: left; color:black; font-size:150%;',
-    paste('Soil Erosion Changes (Ha) Statistic at Planning Unit Level in', params$t1, '-', params$t2)
-  )
-)
-```
 ------------------------------------------------------------------------
 
 <font size="1"> LUMENS is free software and comes with ABSOLUTELY NO WARRANTY. Users are responsible for the results generated. Results depend on the quality of the input data ("garbage in, garbage out") and may vary or be sensitive to the parameters used. Please report any problems encountered while using LUMENS as [a GitHub issue](https://github.com/icraf-indonesia/lumens-shiny/issues). Feedback and questions are welcome [Contact Us URL]. </font size>
