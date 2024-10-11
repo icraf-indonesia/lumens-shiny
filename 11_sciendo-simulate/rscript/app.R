@@ -16,7 +16,7 @@ ui <- fluidPage(
   useShinyjs(),
   theme = bs_theme(version = 5),
   extendShinyjs(text = jscode, functions = c("closeWindow")),
-  titlePanel("SCIENDO Train"),
+  titlePanel("SCIENDO Simulate"),
   sidebarLayout(
     sidebarPanel(
       fileInput("map1_file", "Land cover map initial", accept = c("image/tiff")),

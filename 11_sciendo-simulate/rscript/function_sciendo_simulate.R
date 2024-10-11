@@ -597,16 +597,16 @@ run_dinamica_woe_model <- function(dinamica_path = NULL, output_dir, egoml){
   # check .ers file 
   ers_file <- paste0(output_dir, "/sciendo_factor.ers")
   n_woe_report <- output_dir %>% 
-    list.files(full.names=TRUE, pattern="weight_report*")
-    length()
+    list.files(full.names=TRUE, pattern="weight_report*") %>%
+  length()
   if (n_woe_report == 0) {
     stop("There are no single one of WoE Report! Check DINAMICA EGO log.")
   }
 }
 
 run_sciendo_simulate_process <- function(lc_t1_path, lc_t2_path, zone_path, lc_lookup_table_path,
-                               lc_lookup_table, factor_path, time_points,
-                               dinamica_path = NULL, output_dir, progress_callback = NULL) {
+                                         lc_lookup_table, factor_path, time_points,
+                                         dinamica_path = NULL, output_dir, progress_callback = NULL) {
   start_time <- Sys.time()
   cat("Started at:", format(start_time, "%Y-%m-%d %H:%M:%S"), "\n")
   

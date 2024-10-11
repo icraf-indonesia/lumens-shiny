@@ -1,3 +1,5 @@
+source('../../helper.R')
+
 # Define the list of required packages
 required_packages <- c(
   "terra",
@@ -45,9 +47,6 @@ if (file.exists("LaSEM_functions.R")){
 } else {
   stop("LaSEM_functions.R file not found.")
 }
-
-# JavaScript code for closing window
-jscode <- "shinyjs.closeWindow = function() { window.close(); }"
 
 # UI
 ui <- fluidPage(
