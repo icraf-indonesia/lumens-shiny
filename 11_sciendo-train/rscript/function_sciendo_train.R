@@ -181,6 +181,33 @@ generate_dummy_crosstab <- function(landcover, zone){
   return(lucDummy)
 }
 
+create_list_of_weight_report <- function(list_woe_report, df_zone) {
+  listWoeReport <- list_woe_report
+  woe <- list()
+  len <- nrow(df_zone)
+  for(i in 1:len){
+    woe[[paste0("pu", sprintf("%03d", i))]][['name']] <- df_zone[i, 2]
+    woe[[paste0("pu", sprintf("%03d", i))]][['report']] <- listWoeReport[i] %>%
+      read.csv() %>%
+      select(-X) %>%
+      mutate(
+        Transition = paste(Transition_From., "->", Transition_To.),
+        Range = paste(Range_Lower_Limit., "<= v <", Range_Upper_Limit.),
+        Significant = if_else(Significant == 1, "yes", "no")
+      ) %>%
+      select(Transition, Variable., Range, Possible_Transitions, Executed_Transitions, Weight_Coefficient, Contrast, Significant)
+    woe[[paste0("pu", sprintf("%03d", i))]][['unique_transition']] <- woe[[paste0("pu", sprintf("%03d", i))]][['report']] %>% 
+      distinct(Transition) %>% unlist() %>% as.vector()
+  }
+  
+  woe_out <- list(
+    woe = woe,
+    n_zone = len,
+    df_zone = df_zone
+  )
+  
+  return(woe_out)
+}
 
 #' Generate SCIENDO-Train Report
 #' 
@@ -397,171 +424,231 @@ generate_egoml_woe_model <- function(aliasFactor, lusim_lc,
   length <- as.numeric(nrow(lusim_lc))
   end <- as.numeric(lusim_lc[length, 1])
   
-  skeleton1 <- data.frame(nT1=c(start:end), divider=length)
+  skeleton1 <- data.frame(nT1 = c(start:end), divider = length)
   skeleton1 <- expandRows(skeleton1, 'divider')
-  skeleton2 <- data.frame(nT2=rep(rep(c(start:end), length)))
+  skeleton2 <- data.frame(nT2 = rep(rep(c(start:end), length)))
   
   skeleton <- cbind(skeleton1, skeleton2)
   skeleton$key <- do.call(paste, c(skeleton[c("nT1", "nT2")], sep = "-&gt;"))
   
-  skeleton$transition <- paste("&#x0A;    ", skeleton$key, " [&#x0A;        ", identifier, "    ]", sep='')
+  skeleton$transition <- paste("&#x0A;    ", skeleton$key, " [&#x0A;        ", identifier, "    ]", sep = '')
   
-  skeletonFinal <- do.call(paste, c(as.list(skeleton$transition), sep=","))
-  skeletonFinal <- paste('[', skeletonFinal, "&#x0A;]", sep='')
+  skeletonFinal <- do.call(paste, c(as.list(skeleton$transition), sep = ","))
+  skeletonFinal <- paste('[', skeletonFinal, "&#x0A;]", sep = '')
   
   # begin writing tag
-  con <- xmlOutputDOM(tag="script")
+  con <- xmlOutputDOM(tag = "script")
   # add property
-  con$addTag("property", attrs=c(key="dff.date", value="2016-Oct-18 12:59:40"))
-  con$addTag("property", attrs=c(key="dff.version", value="3.0.17.20160922"))
+  con$addTag("property",
+             attrs = c(key = "dff.date", value = "2016-Oct-18 12:59:40"))
+  con$addTag("property",
+             attrs = c(key = "dff.version", value = "3.0.17.20160922"))
   
   # begin.
   # add functor = LoadCategoricalMap
-  con$addTag("functor", attrs=c(name="LoadCategoricalMap"), close=FALSE)
-  con$addTag("property", attrs=c(key="dff.functor.alias", value="Final Landscape"))
-  con$addTag("inputport", attrs=c(name="filename"), paste0('"', lc2_path, '"'))
-  con$addTag("inputport", attrs=c(name="nullValue"), ".none")
-  con$addTag("inputport", attrs=c(name="loadAsSparse"), ".no")
-  con$addTag("inputport", attrs=c(name="suffixDigits"), 0)
-  con$addTag("inputport", attrs=c(name="step"), "0")
-  con$addTag("inputport", attrs=c(name="workdir"), ".none")
-  con$addTag("outputport", attrs=c(name="map", id="v1"))
+  con$addTag("functor",
+             attrs = c(name = "LoadCategoricalMap"),
+             close = FALSE)
+  con$addTag("property",
+             attrs = c(key = "dff.functor.alias", value = "Final Landscape"))
+  con$addTag("inputport",
+             attrs = c(name = "filename"),
+             paste0('"', lc2_path, '"'))
+  con$addTag("inputport", attrs = c(name = "nullValue"), ".none")
+  con$addTag("inputport", attrs = c(name = "loadAsSparse"), ".no")
+  con$addTag("inputport", attrs = c(name = "suffixDigits"), 0)
+  con$addTag("inputport", attrs = c(name = "step"), "0")
+  con$addTag("inputport", attrs = c(name = "workdir"), ".none")
+  con$addTag("outputport", attrs = c(name = "map", id = "v1"))
   con$closeTag("functor")
   # end.
   
+  
   # begin.
   # add functor = LoadCategoricalMap
-  con$addTag("functor", attrs=c(name="LoadCategoricalMap"), close=FALSE)
-  con$addTag("property", attrs=c(key="dff.functor.alias", value="Initial Landscape"))
-  con$addTag("inputport", attrs=c(name="filename"), paste0('"', lc1_path, '"'))
-  con$addTag("inputport", attrs=c(name="nullValue"), ".none")
-  con$addTag("inputport", attrs=c(name="loadAsSparse"), ".no")
-  con$addTag("inputport", attrs=c(name="suffixDigits"), 0)
-  con$addTag("inputport", attrs=c(name="step"), "0")
-  con$addTag("inputport", attrs=c(name="workdir"), ".none")
-  con$addTag("outputport", attrs=c(name="map", id="v2"))
+  con$addTag("functor",
+             attrs = c(name = "LoadCategoricalMap"),
+             close = FALSE)
+  con$addTag("property",
+             attrs = c(key = "dff.functor.alias", value = "Initial Landscape"))
+  con$addTag("inputport",
+             attrs = c(name = "filename"),
+             paste0('"', lc1_path, '"'))
+  con$addTag("inputport", attrs = c(name = "nullValue"), ".none")
+  con$addTag("inputport", attrs = c(name = "loadAsSparse"), ".no")
+  con$addTag("inputport", attrs = c(name = "suffixDigits"), 0)
+  con$addTag("inputport", attrs = c(name = "step"), "0")
+  con$addTag("inputport", attrs = c(name = "workdir"), ".none")
+  con$addTag("outputport", attrs = c(name = "map", id = "v2"))
   con$closeTag("functor")
   # end.
   
   # begin.
   # add functor = LoadMap
-  con$addTag("functor", attrs=c(name="LoadMap"), close=FALSE)
-  con$addTag("property", attrs=c(key="dff.functor.alias", value="Static Variables"))
-  con$addTag("inputport", attrs=c(name="filename"), ers_path)
-  con$addTag("inputport", attrs=c(name="nullValue"), ".none")
-  con$addTag("inputport", attrs=c(name="loadAsSparse"), ".no")
-  con$addTag("inputport", attrs=c(name="suffixDigits"), 0)
-  con$addTag("inputport", attrs=c(name="step"), "0")
-  con$addTag("inputport", attrs=c(name="workdir"), ".none")
-  con$addTag("outputport", attrs=c(name="map", id="v3"))
-  con$closeTag("functor") 
+  con$addTag("functor",
+             attrs = c(name = "LoadMap"),
+             close = FALSE)
+  con$addTag("property",
+             attrs = c(key = "dff.functor.alias", value = "Static Variables"))
+  con$addTag("inputport", attrs = c(name = "filename"), ers_path)
+  con$addTag("inputport", attrs = c(name = "nullValue"), ".none")
+  con$addTag("inputport", attrs = c(name = "loadAsSparse"), ".no")
+  con$addTag("inputport", attrs = c(name = "suffixDigits"), 0)
+  con$addTag("inputport", attrs = c(name = "step"), "0")
+  con$addTag("inputport", attrs = c(name = "workdir"), ".none")
+  con$addTag("outputport", attrs = c(name = "map", id = "v3"))
+  con$closeTag("functor")
   # end.
   
   # begin.
   # add functor = LoadCategoricalMap
-  con$addTag("functor", attrs=c(name="LoadCategoricalMap"), close=FALSE)
-  con$addTag("property", attrs=c(key="dff.functor.alias", value="Regions"))
-  con$addTag("inputport", attrs=c(name="filename"), paste0('"', zone_path, '"'))
-  con$addTag("inputport", attrs=c(name="nullValue"), ".none")
-  con$addTag("inputport", attrs=c(name="loadAsSparse"), ".no")
-  con$addTag("inputport", attrs=c(name="suffixDigits"), 0)
-  con$addTag("inputport", attrs=c(name="step"), "0")
-  con$addTag("inputport", attrs=c(name="workdir"), ".none")
-  con$addTag("outputport", attrs=c(name="map", id="v4"))
+  con$addTag("functor",
+             attrs = c(name = "LoadCategoricalMap"),
+             close = FALSE)
+  con$addTag("property", attrs = c(key = "dff.functor.alias", value = "Regions"))
+  con$addTag("inputport",
+             attrs = c(name = "filename"),
+             paste0('"', zone_path, '"'))
+  con$addTag("inputport", attrs = c(name = "nullValue"), ".none")
+  con$addTag("inputport", attrs = c(name = "loadAsSparse"), ".no")
+  con$addTag("inputport", attrs = c(name = "suffixDigits"), 0)
+  con$addTag("inputport", attrs = c(name = "step"), "0")
+  con$addTag("inputport", attrs = c(name = "workdir"), ".none")
+  con$addTag("outputport", attrs = c(name = "map", id = "v4"))
   con$closeTag("functor")
   # end.
   # begin.
   
   # begin.
   # add containerfunctor = ForEachRegion
-  con$addTag("containerfunctor", attrs=c(name="ForEachRegion"), close=FALSE)
-  con$addTag("property", attrs=c(key="dff.functor.alias", value="forEachRegion"))
-  con$addTag("inputport", attrs=c(name="regions", peerid="v4"))
-  con$addTag("inputport", attrs=c(name="borderCells"), 0)
-  con$addTag("internaloutputport", attrs=c(name="regionManager", id="v5"))
-  con$addTag("internaloutputport", attrs=c(name="step", id="v6"))
+  con$addTag("containerfunctor",
+             attrs = c(name = "ForEachRegion"),
+             close = FALSE)
+  con$addTag("property",
+             attrs = c(key = "dff.functor.alias", value = "forEachRegion"))
+  con$addTag("inputport", attrs = c(name = "regions", peerid = "v4"))
+  con$addTag("inputport", attrs = c(name = "borderCells"), 0)
+  con$addTag("internaloutputport", attrs = c(name = "regionManager", id = "v5"))
+  con$addTag("internaloutputport", attrs = c(name = "step", id = "v6"))
   
   # add subtag functor for SaveWeights
-  con$addTag("functor", attrs=c(name="SaveWeights"), close=FALSE)
-  con$addTag("property", attrs=c(key="dff.functor.alias", value="saveWeights"))
-  con$addTag("inputport", attrs=c(name="weights", peerid="v10"))
-  con$addTag("inputport", attrs=c(name="filename"), paste0('"', dcf_path, '"'))
-  con$addTag("inputport", attrs=c(name="suffixDigits"), 6)
-  con$addTag("inputport", attrs=c(name="step", peerid="v6"))
-  con$addTag("inputport", attrs=c(name="workdir"), ".none")
+  con$addTag("functor",
+             attrs = c(name = "SaveWeights"),
+             close = FALSE)
+  con$addTag("property",
+             attrs = c(key = "dff.functor.alias", value = "saveWeights"))
+  con$addTag("inputport", attrs = c(name = "weights", peerid = "v10"))
+  con$addTag("inputport",
+             attrs = c(name = "filename"),
+             paste0('"', dcf_path, '"'))
+  con$addTag("inputport", attrs = c(name = "suffixDigits"), 6)
+  con$addTag("inputport", attrs = c(name = "step", peerid = "v6"))
+  con$addTag("inputport", attrs = c(name = "workdir"), ".none")
   con$closeTag("functor")
   
   # add subtag functor for RegionalizeCategoricalMap
-  con$addTag("functor", attrs=c(name="RegionalizeCategoricalMap"), close=FALSE)
-  con$addTag("property", attrs=c(key="dff.functor.alias", value="Final Landscape (Region)"))
-  con$addTag("inputport", attrs=c(name="globalMap", peerid="v1"))
-  con$addTag("inputport", attrs=c(name="regionId", peerid="v6"))
-  con$addTag("inputport", attrs=c(name="keepNonRegionCells"), ".no")
-  con$addTag("inputport", attrs=c(name="regionManager", peerid="v5"))
-  con$addTag("outputport", attrs=c(name="regionalMap", id="v7"))
+  con$addTag("functor",
+             attrs = c(name = "RegionalizeCategoricalMap"),
+             close = FALSE)
+  con$addTag("property",
+             attrs = c(key = "dff.functor.alias", value = "Final Landscape (Region)"))
+  con$addTag("inputport", attrs = c(name = "globalMap", peerid = "v1"))
+  con$addTag("inputport", attrs = c(name = "regionId", peerid = "v6"))
+  con$addTag("inputport", attrs = c(name = "keepNonRegionCells"), ".no")
+  con$addTag("inputport", attrs = c(name = "regionManager", peerid = "v5"))
+  con$addTag("outputport", attrs = c(name = "regionalMap", id = "v7"))
   con$closeTag("functor")
   
   # add subtag functor for RegionalizeCategoricalMap
-  con$addTag("functor", attrs=c(name="RegionalizeCategoricalMap"), close=FALSE)
-  con$addTag("property", attrs=c(key="dff.functor.alias", value="Initial Landscape (Region)"))
-  con$addTag("inputport", attrs=c(name="globalMap", peerid="v2"))
-  con$addTag("inputport", attrs=c(name="regionId", peerid="v6"))
-  con$addTag("inputport", attrs=c(name="keepNonRegionCells"), ".no")
-  con$addTag("inputport", attrs=c(name="regionManager", peerid="v5"))
-  con$addTag("outputport", attrs=c(name="regionalMap", id="v8"))
+  con$addTag("functor",
+             attrs = c(name = "RegionalizeCategoricalMap"),
+             close = FALSE)
+  con$addTag("property",
+             attrs = c(key = "dff.functor.alias", value = "Initial Landscape (Region)"))
+  con$addTag("inputport", attrs = c(name = "globalMap", peerid = "v2"))
+  con$addTag("inputport", attrs = c(name = "regionId", peerid = "v6"))
+  con$addTag("inputport", attrs = c(name = "keepNonRegionCells"), ".no")
+  con$addTag("inputport", attrs = c(name = "regionManager", peerid = "v5"))
+  con$addTag("outputport", attrs = c(name = "regionalMap", id = "v8"))
   con$closeTag("functor")
   
   # add subtag functor for RegionalizeMap
-  con$addTag("functor", attrs=c(name="RegionalizeMap"), close=FALSE)
-  con$addTag("property", attrs=c(key="dff.functor.alias", value="Static Variables (Region)"))
-  con$addTag("inputport", attrs=c(name="globalMap", peerid="v3"))
-  con$addTag("inputport", attrs=c(name="regionId", peerid="v6"))
-  con$addTag("inputport", attrs=c(name="keepNonRegionCells"), ".no")
-  con$addTag("inputport", attrs=c(name="regionManager", peerid="v5"))
-  con$addTag("outputport", attrs=c(name="regionalMap", id="v9"))
+  con$addTag("functor",
+             attrs = c(name = "RegionalizeMap"),
+             close = FALSE)
+  con$addTag("property",
+             attrs = c(key = "dff.functor.alias", value = "Static Variables (Region)"))
+  con$addTag("inputport", attrs = c(name = "globalMap", peerid = "v3"))
+  con$addTag("inputport", attrs = c(name = "regionId", peerid = "v6"))
+  con$addTag("inputport", attrs = c(name = "keepNonRegionCells"), ".no")
+  con$addTag("inputport", attrs = c(name = "regionManager", peerid = "v5"))
+  con$addTag("outputport", attrs = c(name = "regionalMap", id = "v9"))
   con$closeTag("functor")
   
   # add subtag functor for SaveTable
-  con$addTag("functor", attrs=c(name="SaveTable"), close=FALSE)
-  con$addTag("property", attrs=c(key="dff.functor.alias", value="saveTable"))
-  con$addTag("inputport", attrs=c(name="table", peerid="v11"))
-  con$addTag("inputport", attrs=c(name="filename"), paste0('"', weight_report_path, '"'))
-  con$addTag("inputport", attrs=c(name="suffixDigits"), 2)
-  con$addTag("inputport", attrs=c(name="step", peerid="v6"))
-  con$addTag("inputport", attrs=c(name="workdir"), ".none")
+  con$addTag("functor",
+             attrs = c(name = "SaveTable"),
+             close = FALSE)
+  con$addTag("property",
+             attrs = c(key = "dff.functor.alias", value = "saveTable"))
+  con$addTag("inputport", attrs = c(name = "table", peerid = "v11"))
+  con$addTag("inputport",
+             attrs = c(name = "filename"),
+             paste0('"', weight_report_path, '"'))
+  con$addTag("inputport", attrs = c(name = "suffixDigits"), 2)
+  con$addTag("inputport", attrs = c(name = "step", peerid = "v6"))
+  con$addTag("inputport", attrs = c(name = "workdir"), ".none")
   con$closeTag("functor")
   
   # add subtag functor for DetermineWeightsOfEvidenceCoefficients
-  con$addTag("containerfunctor", attrs=c(name="DetermineWeightsOfEvidenceCoefficients"), close=FALSE)
-  con$addTag("property", attrs=c(key="dff.functor.alias", value="Weight of Evidence Coefficients"))
-  con$addTag("inputport", attrs=c(name="initialLandscape", peerid="v8"))
-  con$addTag("inputport", attrs=c(name="finalLandscape", peerid="v7"))
-  con$addTag("inputport", attrs=c(name="ranges", peerid="v12"))
-  con$addTag("inputport", attrs=c(name="fixAbnormalWeights"), ".no")
-  con$addTag("outputport", attrs=c(name="weights", id="v10"))
-  con$addTag("outputport", attrs=c(name="report", id="v11"))
+  con$addTag(
+    "containerfunctor",
+    attrs = c(name = "DetermineWeightsOfEvidenceCoefficients"),
+    close = FALSE
+  )
+  con$addTag(
+    "property",
+    attrs = c(key = "dff.functor.alias", value = "Weight of Evidence Coefficients")
+  )
+  con$addTag("inputport", attrs = c(name = "initialLandscape", peerid = "v8"))
+  con$addTag("inputport", attrs = c(name = "finalLandscape", peerid = "v7"))
+  con$addTag("inputport", attrs = c(name = "ranges", peerid = "v12"))
+  con$addTag("inputport", attrs = c(name = "fixAbnormalWeights"), ".no")
+  con$addTag("outputport", attrs = c(name = "weights", id = "v10"))
+  con$addTag("outputport", attrs = c(name = "report", id = "v11"))
   
-  con$addTag("functor", attrs=c(name="NameMap"), close=FALSE)
-  con$addTag("property", attrs=c(key="dff.functor.alias", value="nameMapCoeff"))
-  con$addTag("inputport", attrs=c(name="map", peerid="v9"))
-  con$addTag("inputport", attrs=c(name="mapName"), '"static_var"')
+  con$addTag("functor",
+             attrs = c(name = "NameMap"),
+             close = FALSE)
+  con$addTag("property",
+             attrs = c(key = "dff.functor.alias", value = "nameMapCoeff"))
+  con$addTag("inputport", attrs = c(name = "map", peerid = "v9"))
+  con$addTag("inputport", attrs = c(name = "mapName"), '"static_var"')
   con$closeTag("functor")
   
-  con$closeTag("containerfunctor")  
+  con$closeTag("containerfunctor")
   
   # add subtag functor for DetermineWeightsOfEvidenceRanges
-  con$addTag("containerfunctor", attrs=c(name="DetermineWeightsOfEvidenceRanges"), close=FALSE)
-  con$addTag("property", attrs=c(key="dff.functor.alias", value="Weight of Evidence Ranges"))
-  con$addTag("inputport", attrs=c(name="initialLandscape", peerid="v8"))
-  con$addTag("inputport", attrs=c(name="finalLandscape", peerid="v7"))
-  con$addTag("inputport", attrs=c(name="skeleton"), skeletonFinal)
-  con$addTag("inputport", attrs=c(name="fixAbnormalWeights"), ".no")
-  con$addTag("outputport", attrs=c(name="ranges", id="v12"))
+  con$addTag(
+    "containerfunctor",
+    attrs = c(name = "DetermineWeightsOfEvidenceRanges"),
+    close = FALSE
+  )
+  con$addTag("property",
+             attrs = c(key = "dff.functor.alias", value = "Weight of Evidence Ranges"))
+  con$addTag("inputport", attrs = c(name = "initialLandscape", peerid = "v8"))
+  con$addTag("inputport", attrs = c(name = "finalLandscape", peerid = "v7"))
+  con$addTag("inputport", attrs = c(name = "skeleton"), skeletonFinal)
+  con$addTag("inputport", attrs = c(name = "fixAbnormalWeights"), ".no")
+  con$addTag("outputport", attrs = c(name = "ranges", id = "v12"))
   
-  con$addTag("functor", attrs=c(name="NameMap"), close=FALSE)
-  con$addTag("property", attrs=c(key="dff.functor.alias", value="nameMapRanges"))
-  con$addTag("inputport", attrs=c(name="map", peerid="v9"))
-  con$addTag("inputport", attrs=c(name="mapName"), '"static_var"')
+  con$addTag("functor",
+             attrs = c(name = "NameMap"),
+             close = FALSE)
+  con$addTag("property",
+             attrs = c(key = "dff.functor.alias", value = "nameMapRanges"))
+  con$addTag("inputport", attrs = c(name = "map", peerid = "v9"))
+  con$addTag("inputport", attrs = c(name = "mapName"), '"static_var"')
   con$closeTag("functor")
   
   con$closeTag("containerfunctor")
@@ -600,7 +687,7 @@ run_dinamica_woe_model <- function(dinamica_path = NULL, output_dir, egoml){
   # check .ers file 
   ers_file <- paste0(output_dir, "/sciendo_factor.ers")
   n_woe_report <- output_dir %>% 
-    list.files(full.names=TRUE, pattern="weight_report*")
+    list.files(full.names=TRUE, pattern="weight_report*") %>%
     length()
   if (n_woe_report == 0) {
     stop("There are no single one of WoE Report! Check DINAMICA EGO log.")

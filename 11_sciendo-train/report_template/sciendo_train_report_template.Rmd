@@ -24,46 +24,20 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r load function, include=FALSE, error=TRUE, warning=TRUE, message=TRUE}
 source("../rscript/function_sciendo_train.R")
-render_child <- function(results_list, i) {
-  res = knitr::knit_child(
-   text = c(
-     "### `r i` {.tabset}",
-     "",
-     "#### Table of Weight of Evidence Coefficients in `r i`",
-     "```{r}",
-     "#| echo: false",
-     "weight_report %>%",
-     "  select(-X) %>%",
-     "  mutate(",
-     "    Transition = paste(Transition_From., '->', Transition_To.),",
-     "    Range = paste(Range_Lower_Limit., '->', Range_Upper_Limit.),",
-     "    Significant = if_else(Significant == 1, 'yes', 'no')",
-     ") %>%",
-     "  select(Transition, Variable., Range, Possible_Transitions, Executed_Transitions, Weight_Coefficient, Contrast, Significant) %>%",
-     "  kable() %>%",
-     "  kable_styling(bootstrap_options = c('striped', 'hover'))",
-     "```"
-   ),
-   envir = rlang::env(results_list = results_list, i = i),
-   quiet = TRUE
-  )
-  cat(res, sep = '\n')
-  cat("\n")
+substrRight <- function(x, n){
+  substr(x, nchar(x)-n+1, nchar(x))
 }
 ```
 
 ```{r load_library, include=FALSE}
-install_load(
-  "raster",
-  "dplyr",
-  "DT",
-  "kableExtra",
-  "htmltools"
-)
-if (!("LUMENSR" %in% rownames(installed.packages()))) {
-  install_github("icraf-indonesia/LUMENSR", force = T)
-  do.call("library", list("LUMENSR"))
-}
+library(raster)
+library(dplyr)
+library(DT)
+library(rmarkdown)
+library(kableExtra)
+library(htmltools)
+library(terra)
+library(tidyterra)
 library(LUMENSR)
 ```
 
@@ -78,13 +52,13 @@ analysis_log <- tribble(
   "1. Landcover map at T1",       params$inputs$lc_t1_path,
   "2. Landcover map at T2",       params$inputs$lc_t2_path,
   "3. Planning unit",             params$inputs$zone_path,
-  "4. Year of T1",                as.character(params$p1),
-  "5. Year of T2",                as.character(params$p2),
+  "4. Year of T1",                as.character(params$inputs$year1),
+  "5. Year of T2",                as.character(params$inputs$year2),
   "6. Land cover lookup table",   params$inputs$lc_lookup_table_path,
   "Output Workspace",             params$inputs$output_dir,
-  "1. Raster Cube",               params$inputs$rc_path,
-  "2. EGOML Raster Cube",         params$inputs$rc_egoml_path,
-  "3. EGOML Weight of Evidence",  params$inputs$woe_egoml_path,
+  "1. Raster Cube",               params$rc_path,
+  "2. EGOML Raster Cube",         params$rc_egoml_path,
+  "3. EGOML Weight of Evidence",  params$woe_egoml_path,
   "Session Summary",              ""
 ) %>% rbind(params$session_log)
 
@@ -97,7 +71,35 @@ analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
 # Summary
 
 ```{r input-data, echo=FALSE, message=FALSE, warning=FALSE}
+x <- params$inputs$zone_path
+period <- as.numeric(params$inputs$year2) - as.numeric(params$inputs$year1)
+if(substrRight(x, 3) == "tif"){
+  df_pu <- read.csv(params$inputs$z_lookup_table_path) %>%
+    dplyr::rename(ID_PU = 1, PU = 2)
+  len <- nrow(df_pu)
+  zone_rst <- x %>% raster()
+  zone <- zone_rst %>% terra::rast() %>%
+    add_legend_to_categorical_raster(., lookup_table = df_pu)
+} else {
+  zone_sf <- x %>% st_read(quiet = TRUE)
+  zone <- zone_sf %>% rasterise_multipolygon(raster_res = c(100, 100), field = "IDS")
+  df_pu <- data.frame(ID_PU = zone_sf[[1]], PU = zone_sf[[2]])
+  len <- nrow(df_pu)
+  zone_rst <- zone %>% raster()
+  zone <- zone_rst %>% terra::rast() %>%
+    add_legend_to_categorical_raster(., lookup_table = df_pu)
+}
 
+lc_t1 <- params$inputs$lc_t1_path %>% raster() %>% spatial_sync_raster(zone_rst)
+lc_t2 <- params$inputs$lc_t2_path %>% raster() %>% spatial_sync_raster(zone_rst)
+
+df_lc <- read.csv(params$input$lc_lookup_table_path)
+
+#=Load landuse for two time periods
+lc_t1 <- lc_t1 %>% terra::rast() %>%
+  add_legend_to_categorical_raster(., lookup_table = df_lc, year = as.numeric(params$inputs$year1))
+lc_t2 <- lc_t2 %>% terra::rast() %>%
+  add_legend_to_categorical_raster(., lookup_table = df_lc, year = as.numeric(params$inputs$year2))
 ```
 
 This report presents the results of an analysis based on the provided maps and lookup table.
@@ -105,43 +107,97 @@ This report presents the results of an analysis based on the provided maps and l
 
 # Module brief description
 
-- SCIENDO-Train describes the estimation of carbon stock for various land use types in a region using Stock Difference method, where the dynamics of carbon stock are based on the amount of carbon stock at two different points in time.
+- SCIENDO-Train systematically collects crucial data that represents both the initial and final conditions of a given region. This includes various factor maps, which serve as explanatory variables, providing context and insights into the changes observed over time. By establishing these data points, SCIENDO-Train creates a comprehensive framework for understanding the dynamics of the region.
+
+- The raster cube is an integrated collection of factor maps that captures significant geographic features of the area. This includes maps indicating distance to key landmarks, elevation levels that affect climate and ecosystem dynamics, and various environmental conditions, such as land use and vegetation cover. These factor maps are essential for analyzing spatial relationships and understanding how different elements interact within the region.
+
+- To calculate the probability of the weight of evidence, a comparative analysis of all collected data values is performed. This involves assessing the relationships and variations among the factor maps and their influence on the observed conditions. 
 
 
 # Input data {.tabset}
 
-## Land-Use/Cover Map in `r params$inputs$p1`
+## Land-Use/Cover Map in `r params$inputs$year1`
 
 ```{r Land-Use/Cover Map T1, echo=FALSE, message=FALSE, warning=FALSE}
-
+plot_categorical_raster(lc_t1)
 ```
 
-## Land-Use/Cover Map in `r params$inputs$$p2`
+## Land-Use/Cover Map in `r params$inputs$year2`
 
 ```{r Land-Use/Cover Map T2, echo=FALSE, message=FALSE, warning=FALSE}
-
+plot_categorical_raster(lc_t2)
 ```
 
 ## Planning Unit
 
 ```{r Planning Unit, echo=FALSE, message=FALSE, warning=FALSE}
-
+plot_categorical_raster(zone)
 ```
 
 # Results
 
-## Table of Weight of Evidence
+## Weight of Evidence Report  {.tabset}
 
-```{r child_woe_report, echo=FALSE, fig.keep='all', results='asis'}
+```{r List of Csv of Woe, echo=FALSE}
 listWoeReport <- params$inputs$output_dir %>% list.files(full.names=TRUE, pattern="weight_report*")
-csv_reports <- as.character(listWoeReport)
-for(r in csv_reports){
-  weight_report <- read.csv(csv_reports[r])
-  render_child(results_list = weight_report, i = r)
-}
 ```
 
-
+```{r print significant weight greater than 5, echo=FALSE, fig.keep='all', results='asis'}
+out <- create_list_of_weight_report(listWoeReport, df_pu)
+woe <- out$woe
+df_zone <- out$df_zone
+for(i in 1:out$n_zone){
+  cat("### ", df_zone[i, 2], "\n\n")
+  cat(paste("File location:", listWoeReport[i]))
+  cat('\n\n')
+  # cat(
+  #   paste("Planning Unit:", df_zone[i, 2])
+  # )
+  # cat('\n')
+  # cat('\n')
+  for(j in woe[[paste0("pu", sprintf("%03d", i))]][['unique_transition']]) {
+    report_per_transition <- woe[[paste0("pu", sprintf("%03d", i))]][['report']] %>% 
+      filter(Transition == j) %>%
+      filter(Significant == "yes") %>%
+      filter(Weight_Coefficient > 5)
+    unique_variable <- report_per_transition %>% 
+      distinct(Variable.) %>% 
+      unlist() %>% 
+      as.vector()
+    
+    for(k in unique_variable) {
+      report_per_transition_per_variable <- report_per_transition %>% filter(Variable. == k) %>% 
+        select(
+          Range, Possible_Transitions, Executed_Transitions, Weight_Coefficient, Contrast
+        ) %>%
+        mutate_if(is.double, as.character) %>%
+        bind_rows(summarise(., across(where(is.integer), sum),
+                            across(where(is.character), ~"") ))
+      cat(
+        paste(
+          "Transition:", j, 
+          "Variable:", k, 
+          sep = " ")
+      )
+      
+      cat('\n')
+      cat('\n')
+      cat(
+        knitr::knit_child(
+          text = c(
+            "```{r}",
+            "#| echo: false",
+            "report_per_transition_per_variable %>% print.data.frame(row.names = F)",
+            "```"
+          ), quiet = TRUE
+        ), sep = "\n"
+      )
+      
+      cat('\n')
+    }
+  }
+}
+```
 
 ------------------------------------------------------------------------
 

@@ -175,6 +175,14 @@ server <- function(input, output, session) {
   observeEvent(input$z_file, {
     f <- input$z_file
     rv$z_path <- rename_uploaded_file(f)
+    df_z <- read.csv(rv$z_path)
+    
+    if(nrow(df_z) == 0)
+      return()
+    if(nrow(df_z) < 2)
+      return()
+    if(!is_numeric_str(df_z[1, 1]))
+      return()
   })
   
   #### Set working directory ####
