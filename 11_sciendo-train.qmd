@@ -49,6 +49,7 @@ program_files <- c("C:/Program Files/", "C:/Program Files (x86)/")
 dinamica_dirs <- list.files(program_files, pattern = "^Dinamica EGO", full.names = TRUE)
 dinamica_dirs
 ```
+
 ```{r}
 dinamica_path <- sort(dinamica_dirs, decreasing = TRUE)[1]
 dinamica_exe <- dinamica_path %>% 
@@ -390,8 +391,6 @@ result
 
 ## Generate Report
 
-### PART1
-
 ```{r}
 # preparing factors
 listWoeReport <- output_dir %>% list.files(full.names=TRUE, pattern="weight_report*")
@@ -404,24 +403,21 @@ woe <- list()
 woe$pu001$name <- df_z[1, 2]
 woe$pu001$report <- listWoeReport[1] %>%
   read.csv() %>%
-  dplyr::select(-X) %>%
+  select(-X) %>%
   mutate(
     Transition = paste(Transition_From., "->", Transition_To.),
     Range = paste(Range_Lower_Limit., "<= v <", Range_Upper_Limit.),
     Significant = if_else(Significant == 1, "yes", "no")
   ) %>%
-  dplyr::select(Transition, Variable., Range, Possible_Transitions, Executed_Transitions, Weight_Coefficient, Contrast, Significant)
+  select(Transition, Variable., Range, Possible_Transitions, Executed_Transitions, Weight_Coefficient, Contrast, Significant)
   
 woe$pu001$report
 ```
 
 
 ```{r}
-woe$pu001$unique_transition <- woe$pu001$report %>% 
-  distinct(Transition) %>% 
-  unlist() %>%
-  as.vector()
-report_per_transisition <- woe$pu001$report %>% filter(Transition == woe$pu001$unique_transition[10]) %>% filter(Significant == "yes") 
+woe$pu001$unique_transition <- woe$pu001$report %>% distinct(Transition) %>% unlist() %>% as.vector()
+report_per_transisition <- woe$pu001$report %>% filter(Transition == woe$pu001$unique_transition[10]) 
 unique_variable <- report_per_transisition %>% distinct(Variable.) %>% unlist() %>% as.vector()
 report_per_transisition_per_variable <- report_per_transisition %>% filter(Variable. == unique_variable[1]) 
 cat(
@@ -435,7 +431,7 @@ cat(
 ```{r}
 rp <- report_per_transisition_per_variable %>% 
   select(
-    Range, Possible_Transitions, Executed_Transitions, Weight_Coefficient, Contrast
+    Range, Possible_Transitions, Executed_Transitions, Weight_Coefficient, Significant
   ) %>%
   mutate_if(is.double, as.character) %>%
   bind_rows(summarise(., across(where(is.integer), sum),
@@ -456,10 +452,7 @@ cat('\n')
 ```
 
 
-### PART2
-
 ```{r}
-# separate list from generating text task (1)
 woe <- list()
 len <- nrow(df_z)
 for(i in 1:len){
@@ -480,87 +473,6 @@ for(i in 1:len){
 
 
 ```{r}
-for(j in woe[[paste0("pu", sprintf("%03d", i))]][['unique_transition']]) {
-  report_per_transition <- woe[[paste0("pu", sprintf("%03d", i))]][['report']] %>% 
-    filter(Transition == j) %>%
-    filter(Significant == "yes") %>%
-    filter(Weight_Coefficient > 5)
-  unique_variable <- report_per_transition %>% 
-    distinct(Variable.) %>% 
-    unlist() %>% 
-    as.vector()
-  # len_var <- length(unique_variable)
-  for(k in unique_variable) {
-    report_per_transition_per_variable <- report_per_transition %>% filter(Variable. == k) %>% 
-      select(
-        Range, Possible_Transitions, Executed_Transitions, Weight_Coefficient, Contrast
-      ) %>%
-      mutate_if(is.double, as.character) %>%
-      bind_rows(summarise(., across(where(is.integer), sum),
-                             across(where(is.character), ~"") ))
-    cat(
-      paste(
-        "Transition:", j, 
-        "Variable:", k, 
-        sep = " ")
-    )
-    cat('\n')
-    cat('\n')
-    report_per_transition_per_variable %>% print.data.frame(row.names = F)
-    cat('\n')
-  }
-}
-```
-
-
-### PART3
-
-```{r}
-# separate list from generating text task (2)
-for(i in 1:len){
-  cat(
-    paste("Planning Unit:", df_z[i, 2])
-  )
-  cat('\n')
-  cat('\n')
-  for(j in woe[[paste0("pu", sprintf("%03d", i))]][['unique_transition']]) {
-    report_per_transition <- woe[[paste0("pu", sprintf("%03d", i))]][['report']] %>% 
-      filter(Transition == j) %>%
-      filter(Significant == "yes") %>%
-      filter(Weight_Coefficient > 5)
-    unique_variable <- report_per_transition %>% 
-      distinct(Variable.) %>% 
-      unlist() %>% 
-      as.vector()
-    # len_var <- length(unique_variable)
-    for(k in unique_variable) {
-      report_per_transition_per_variable <- report_per_transition %>% filter(Variable. == k) %>% 
-        select(
-          Range, Possible_Transitions, Executed_Transitions, Weight_Coefficient, Contrast
-        ) %>%
-        mutate_if(is.double, as.character) %>%
-        bind_rows(summarise(., across(where(is.integer), sum),
-                               across(where(is.character), ~"") ))
-      cat(
-        paste(
-          "Transition:", j, 
-          "Variable:", k, 
-          sep = " ")
-      )
-      cat('\n')
-      cat('\n')
-      report_per_transition_per_variable %>% print.data.frame(row.names = F)
-      cat('\n')
-    }
-  }
-}
-```
-
-
-### PART4
-
-```{r}
-# full action
 woe <- list()
 len <- nrow(df_z)
 for(i in 1:len){
@@ -569,6 +481,7 @@ for(i in 1:len){
   read.csv() %>%
   select(-X) %>%
   mutate(
+    
     Transition = paste(Transition_From., "->", Transition_To.),
     Range = paste(Range_Lower_Limit., "<= v <", Range_Upper_Limit.),
     Significant = if_else(Significant == 1, "yes", "no")
@@ -578,20 +491,14 @@ for(i in 1:len){
     distinct(Transition) %>% unlist() %>% as.vector()
   
   # len_trans <- length(woe[[paste0("pu", sprintf("%03d", 1))]][['unique_transition']])
-  for(j in woe[[paste0("pu", sprintf("%03d", i))]][['unique_transition']]) {
-    report_per_transition <- woe[[paste0("pu", sprintf("%03d", i))]][['report']] %>% 
-      filter(Transition == j) %>%
-      filter(Significant == "yes") %>%
-      filter(Weight_Coefficient > 5)
-    unique_variable <- report_per_transition %>% 
-      distinct(Variable.) %>% 
-      unlist() %>% 
-      as.vector()
+  for(j in woe[[paste0("pu", sprintf("%03d", 1))]][['unique_transition']]) {
+    report_per_transition <- woe$pu001$report %>% filter(Transition == j)
+    unique_variable <- report_per_transisition %>% distinct(Variable.) %>% unlist() %>% as.vector()
     # len_var <- length(unique_variable)
     for(k in unique_variable) {
       report_per_transition_per_variable <- report_per_transition %>% filter(Variable. == k) %>% 
         select(
-          Range, Possible_Transitions, Executed_Transitions, Weight_Coefficient, Contrast
+          Range, Possible_Transitions, Executed_Transitions, Weight_Coefficient, Significant
         ) %>%
         mutate_if(is.double, as.character) %>%
         bind_rows(summarise(., across(where(is.integer), sum),

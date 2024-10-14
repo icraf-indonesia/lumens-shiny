@@ -1,0 +1,450 @@
+---
+title: "SCIENDO DINAMICA 2"
+author: "Alfa"
+format: html
+editor: source
+---
+
+## Load library
+
+```{r}
+library(dplyr)
+library(XML)
+library(splitstackshape)
+substrRight <- function(x, n){
+  substr(x, nchar(x)-n+1, nchar(x))
+}
+```
+
+## Load data
+
+```{r}
+scenario_tpm <- read.csv("data/lucmodel/result_scen_builder/scenario_tpm_1 nodeforest.csv")
+scenario_modif <- read.csv("data/lucmodel/result_scen_builder/scenario_modif_1 nodeforest.csv")
+scenario_tpm 
+```
+
+```{r}
+scenario_modif
+```
+
+```{r}
+# for report
+scenario_modif %>% 
+  select(period, zone, lc1, lc2, area)
+```
+
+
+```{r}
+selected_ratio <- scenario_modif %>% 
+  filter(iteration == 1) %>%
+  select(zone_id, lc1_id, lc2_id, r)
+updated_tpm <- scenario_tpm %>% 
+  left_join(selected_ratio, by = c('zone_id', 'lc1_id', 'lc2_id')) %>%
+  mutate(r = ifelse(!is.na(r.y), r.y, r.x)) %>%
+  select(-r.x, -r.y)
+updated_tpm  
+```
+
+```{r}
+n_zone <- updated_tpm %>% distinct(zone_id)
+for(j in n_zone) {
+  df_fin <- updated_tpm %>% 
+    filter(zone_id == j) %>%
+    dplyr::select(-zone_id) %>%
+    filter(lc1_id != lc2_id) %>%
+    dplyr::rename(
+      'From*' = 1,
+      'To*' = 2,
+      Rate = 3
+    )
+}
+```
+
+```{r}
+a <- updated_tpm %>% 
+  filter(zone_id == j) %>%
+  dplyr::select(-zone_id) %>%
+  filter(lc1_id != lc2_id) %>%
+  dplyr::rename(
+    'From*' = 1,
+    'To*' = 2,
+    Rate = 3
+  ) %>% mutate(
+    " " = NA
+  ) 
+a
+```
+
+```{r}
+tm_text <- readLines("C:/Users/anugraha/Desktop/tpm_scen1_iter1_2010-2015/single_step000001.csv")
+tm_text
+```
+
+
+```{r}
+tm_text[1] <- "From*,To*,Rate,"
+writeLines(tm_text, con="C:/Users/anugraha/Desktop/tpm_scen1_iter1_2010-2015/single_step000001.csv")
+```
+
+
+
+```{r}
+paste0('single_step', sprintf("%06d", i), '.csv')
+```
+
+```{r}
+n_zone <- scenario_tpm %>% distinct(zone_id)
+for(k in n_zone) {
+  # df_fin <- scenario_tpm %>% 
+  #   dplyr::filter(zone_id == k) %>%
+  #   dplyr::select(-zone_id) %>%
+  #   dplyr::filter(lc1_id != lc2_id) %>%
+  #   dplyr::rename(
+  #     'From*' = 1,
+  #     'To*' = 2,
+  #     Rate = 3
+  #   )
+  # print(df_fin)
+  
+  tm_file <- paste0(getwd(), '/single_step', sprintf("%06d", k), '.csv')
+  print(tm_file)
+  # write.csv(df_fin, tm_file, row.names = F, na = "")
+}
+```
+
+
+```{r}
+iter <- scenario_modif %>% distinct(iteration) %>% unlist() %>% as.vector()
+period <- scenario_modif %>% distinct(period) %>% unlist() %>% as.vector()
+for(j in 1:length(iter)){
+  selected_ratio <- scenario_modif %>% 
+    dplyr::filter(iteration == iter[j]) %>%
+    dplyr::select(zone_id, lc1_id, lc2_id, r)
+  
+  updated_tpm <- scenario_tpm %>% 
+    left_join(selected_ratio, by = c('zone_id', 'lc1_id', 'lc2_id')) %>%
+    mutate(r = ifelse(!is.na(r.y), r.y, r.x)) %>%
+    dplyr::select(-r.x, -r.y)
+  
+  tm_path <- paste0(output_dir, '/transition_matrix_', j, "_", period[j])
+  dir.create(tm_path, recursive = TRUE, showWarnings = FALSE)
+  
+  scenario_modif_list[[i]][[paste0('updated_tpm_', j)]] <- updated_tpm
+  scenario_modif_list[[i]][[paste0('updated_tpm_', j, '_path')]] <- tm_path
+  
+  zone <- updated_tpm %>% distinct(zone_id) %>% unlist() %>% as.vector()
+  for(k in 1:length(zone)) {
+    df_fin <- updated_tpm %>% 
+      dplyr::filter(zone_id == zone[k]) %>%
+      dplyr::select(-zone_id) %>%
+      dplyr::filter(lc1_id != lc2_id) %>%
+      dplyr::rename(
+        'From*' = 1,
+        'To*' = 2,
+        Rate = 3
+      )
+    
+    tm_file <- paste0(tm_path, '/single_step', sprintf("%06d", zone[k]), '.csv')
+    write.csv(df_fin, tm_file, row.names = F, na = "")
+  }
+}
+```
+
+## Setup path
+
+```{r}
+transition_mtx_folder <- "C:/Users/anugraha/Desktop/transition_matrix_1_2010-2015/"
+ers_file <- "C:/Users/anugraha/Documents/My_Code/01_R_Projects/lumens-shiny/data/lucmodel/result_train/sciendo_factor2.ers"
+dcf_woe_folder <- "C:/Users/anugraha/Documents/My_Code/01_R_Projects/lumens-shiny/data/lucmodel/result_train"
+landuse_1 <- "C:/Users/anugraha/Documents/My_Code/01_R_Projects/lumens-shiny/data/raster/tutupan_lahan_Bungo_2005r.tif"
+lc_path <- "C:/Users/anugraha/Documents/My_Code/01_R_Projects/lumens-shiny/data/table/Tabel_landuse_Bungo.csv"
+planning_unit <- "C:/Users/anugraha/Documents/My_Code/01_R_Projects/lumens-shiny/data/lucmodel/unit_perencanaan.tif"
+output_dir <- "C:/Users/anugraha/Documents/My_Code/01_R_Projects/lumens-shiny/data/lucmodel/result_simulate"
+n_rep <- 2
+```
+
+
+```{r}
+df <- read.csv(lc_path)
+lusim_lc <- data.frame("ID_LC" = as.integer((as.character(df[, 1]))))
+lusim_lc$LC <- df[, 2]
+lusim_lc
+```
+
+```{r}
+start <- as.numeric(lusim_lc[1, 1])
+length <- as.numeric(nrow(lusim_lc))
+end <- as.numeric(lusim_lc[length, 1])
+```
+
+
+```{r}
+skeleton1 <- data.frame(nT1 = c(start:end), divider = length)
+skeleton1 <- expandRows(skeleton1, 'divider')
+skeleton2 <- data.frame(nT2 = rep(rep(c(start:end), length)))
+
+skeleton <- cbind(skeleton1, skeleton2)
+skeleton <- skeleton[skeleton$nT1 != skeleton$nT2, ]
+skeleton <- na.omit(skeleton)
+
+# rebuild the chunk
+skeleton$char <- paste(skeleton$nT1, skeleton$nT2, sep = "-&gt;")
+skeleton$char_fx <- paste0(skeleton$char, " 0.3,&#x0A;")
+skeleton[nrow(skeleton), "char_fx"] <- gsub("3,&", "3&", skeleton[nrow(skeleton), "char_fx"])
+
+txt_skl <- paste(skeleton$char_fx, collapse = "    ")
+txt_skl2 <- gsub("0.3", "2 1 1", txt_skl)
+txt_skl3 <- gsub("2 1 1", "1 1 1", txt_skl2)
+```
+
+```{r}
+# begin writing tag
+con <- xmlOutputDOM(tag="script")
+# add property
+con$addTag("property", attrs=c(key="dff.date", value="2016-Nov-09 17:01:03"))
+con$addTag("property", attrs=c(key="dff.version", value="3.0.17.20160922"))
+
+# begin.
+# add functor = LoadMap
+con$addTag("functor", attrs=c(name="LoadMap"), close=FALSE)
+con$addTag("property", attrs=c(key="dff.functor.alias", value="Static Variables"))
+con$addTag("property", attrs=c(key="dff.functor.comment", value="Static variable maps."))
+con$addTag("inputport", attrs=c(name="filename"), paste('"', ers_file, '"', sep=''))
+con$addTag("inputport", attrs=c(name="nullValue"), ".none")
+con$addTag("inputport", attrs=c(name="loadAsSparse"), ".no")
+con$addTag("inputport", attrs=c(name="suffixDigits"), 0)
+con$addTag("inputport", attrs=c(name="step"), "0")
+con$addTag("inputport", attrs=c(name="workdir"), ".none")
+con$addTag("outputport", attrs=c(name="map", id="v1"))
+con$closeTag("functor") 
+# end.
+
+# begin.
+# add functor = LoadCategoricalMap
+con$addTag("functor", attrs=c(name="LoadCategoricalMap"), close=FALSE)
+con$addTag("property", attrs=c(key="dff.functor.alias", value="Initial Landscape"))
+con$addTag("property", attrs=c(key="dff.functor.comment", value="Initial landscape maps."))
+con$addTag("inputport", attrs=c(name="filename"), paste('"', landuse_1, '"', sep=''))
+con$addTag("inputport", attrs=c(name="nullValue"), ".none")
+con$addTag("inputport", attrs=c(name="loadAsSparse"), ".no")
+con$addTag("inputport", attrs=c(name="suffixDigits"), 0)
+con$addTag("inputport", attrs=c(name="step"), "0")
+con$addTag("inputport", attrs=c(name="workdir"), ".none")
+con$addTag("outputport", attrs=c(name="map", id="v2"))
+con$closeTag("functor")
+# end.
+
+# begin.
+# add functor = LoadCategoricalMap
+con$addTag("functor", attrs=c(name="LoadCategoricalMap"), close=FALSE)
+con$addTag("property", attrs=c(key="dff.functor.alias", value="Planning Unit"))
+con$addTag("property", attrs=c(key="dff.functor.comment", value="Municipalities"))
+con$addTag("inputport", attrs=c(name="filename"), paste('"', planning_unit, '"', sep=''))
+con$addTag("inputport", attrs=c(name="nullValue"), ".none")
+con$addTag("inputport", attrs=c(name="loadAsSparse"), ".no")
+con$addTag("inputport", attrs=c(name="suffixDigits"), 0)
+con$addTag("inputport", attrs=c(name="step"), "0")
+con$addTag("inputport", attrs=c(name="workdir"), ".none")
+con$addTag("outputport", attrs=c(name="map", id="v3"))
+con$closeTag("functor")
+# end.
+
+# begin.
+# add containerfunctor = ForEachRegion
+con$addTag("containerfunctor", attrs=c(name="RegionManager"), close=FALSE)
+con$addTag("property", attrs=c(key="dff.container.collapsed", value="no"))
+con$addTag("property", attrs=c(key="dff.functor.alias", value="regionManager3260"))
+con$addTag("inputport", attrs=c(name="regions", peerid="v3"))
+con$addTag("inputport", attrs=c(name="borderCells"), 0)
+con$addTag("internaloutputport", attrs=c(name="regionManager", id="v4"))
+
+# add containerfunctor = Repeat
+con$addTag("containerfunctor", attrs=c(name="Repeat"), close=FALSE)
+con$addTag("property", attrs=c(key="dff.container.collapsed", value="no"))
+con$addTag("property", attrs=c(key="dff.functor.alias", value="repeat279"))
+con$addTag("property", attrs=c(key="dff.functor.comment", value="Simulation model."))
+con$addTag("inputport", attrs=c(name="iterations"), n_rep)
+con$addTag("internaloutputport", attrs=c(name="step", id="v5"))
+
+# add functor = LoadCategoricalMap
+con$addTag("functor", attrs=c(name="MuxCategoricalMap"), close=FALSE)
+con$addTag("property", attrs=c(key="dff.functor.alias", value="Landscape"))
+con$addTag("inputport", attrs=c(name="initial", peerid="v2"))
+con$addTag("inputport", attrs=c(name="feedback", peerid="v15"))
+con$addTag("outputport", attrs=c(name="map", id="v6"))
+con$closeTag("functor")
+
+# add functor = SaveMap
+con$addTag("functor", attrs=c(name="SaveMap"), close=FALSE)
+con$addTag("property", attrs=c(key="dff.functor.alias", value="saveMap282"))
+con$addTag("inputport", attrs=c(name="map", peerid="v15"))
+con$addTag("inputport", attrs=c(name="filename"), paste('"', output_dir, '/Landscape.tif"', sep=''))
+con$addTag("inputport", attrs=c(name="suffixDigits"), 4)
+con$addTag("inputport", attrs=c(name="step", peerid="v5"))
+con$addTag("inputport", attrs=c(name="useCompression"), ".yes")
+con$addTag("inputport", attrs=c(name="workdir"), ".none")
+con$closeTag("functor")
+
+# add functor = SaveMap
+# con$addTag("functor", attrs=c(name="SaveMap"), close=FALSE)
+# con$addTag("property", attrs=c(key="dff.functor.alias", value="saveMap3414"))
+# con$addTag("inputport", attrs=c(name="map", peerid="v16"))
+# con$addTag("inputport", attrs=c(name="filename"), paste('"', output_dir, '/Probabilities.tif"', sep=''))
+# con$addTag("inputport", attrs=c(name="suffixDigits"), 4)
+# con$addTag("inputport", attrs=c(name="step", peerid="v5"))
+# con$addTag("inputport", attrs=c(name="useCompression"), ".yes")
+# con$addTag("inputport", attrs=c(name="workdir"), ".none")
+# con$closeTag("functor")
+
+# add containerfunctor = ForEachCategory
+con$addTag("containerfunctor", attrs=c(name="ForEachCategory"), close=FALSE)
+con$addTag("property", attrs=c(key="dff.container.collapsed", value="no"))
+con$addTag("property", attrs=c(key="dff.functor.alias", value="forEachCategory283"))
+con$addTag("inputport", attrs=c(name="categorization", peerid="v3"))
+con$addTag("internaloutputport", attrs=c(name="step", id="v7"))
+
+con$addTag("functor", attrs=c(name="IntegerValue"), close=FALSE)
+con$addTag("property", attrs=c(key="dff.functor.alias", value="int290"))
+con$addTag("property", attrs=c(key="dff.functor.comment", value="This operator is used here to force a dependence between two groups."))
+con$addTag("inputport", attrs=c(name="constant"), 0)
+con$addTag("outputport", attrs=c(name="object", id="v8"))
+con$closeTag("functor")
+
+con$addTag("functor", attrs=c(name="LoadTable"), close=FALSE)
+con$addTag("property", attrs=c(key="dff.functor.alias", value="Transition Matrix"))
+con$addTag("property", attrs=c(key="dff.functor.comment", value="Load transition matrix."))
+con$addTag("inputport", attrs=c(name="filename"), paste('"', transition_mtx_folder, '/single_step.csv"', sep=''))
+con$addTag("inputport", attrs=c(name="suffixDigits"), 6)
+con$addTag("inputport", attrs=c(name="step", peerid="v7"))
+con$addTag("inputport", attrs=c(name="workdir"), ".none")
+con$addTag("outputport", attrs=c(name="table", id="v9"))
+con$closeTag("functor")
+
+con$addTag("functor", attrs=c(name="LoadWeights"), close=FALSE)
+con$addTag("property", attrs=c(key="dff.functor.alias", value="Weights of Evidence Coefficients"))
+con$addTag("property", attrs=c(key="dff.functor.comment", value="Load Weights of Evidence coefficients."))
+con$addTag("inputport", attrs=c(name="filename"), paste('"', dcf_woe_folder, '/woe.dcf"', sep=''))
+con$addTag("inputport", attrs=c(name="suffixDigits"), 6)
+con$addTag("inputport", attrs=c(name="step", peerid="v7"))
+con$addTag("inputport", attrs=c(name="workdir"), ".none")
+con$addTag("outputport", attrs=c(name="weights", id="v10"))
+con$closeTag("functor")
+
+con$addTag("functor", attrs=c(name="RegionalCategoricalMap"), close=FALSE)
+con$addTag("property", attrs=c(key="dff.functor.alias", value="regionalCategoricalMap289"))
+con$addTag("property", attrs=c(key="dff.functor.comment", value="Assign a map to the region using the given identifier."))
+con$addTag("inputport", attrs=c(name="globalMapName"), paste('"landscape"', sep=''))
+con$addTag("inputport", attrs=c(name="regionalMap", peerid="v11"))
+con$addTag("inputport", attrs=c(name="regionId", peerid="v7"))
+con$addTag("inputport", attrs=c(name="regionManager", peerid="v4"))
+con$closeTag("functor")
+
+con$addTag("functor", attrs=c(name="AllocateTransitions"), close=FALSE)
+con$addTag("property", attrs=c(key="dff.functor.alias", value="Updated Landscape (Region)"))
+con$addTag("inputport", attrs=c(name="lanscape", peerid="v13"))
+con$addTag("inputport", attrs=c(name="probabilities", peerid="v14"))
+con$addTag("inputport", attrs=c(name="transitionMatrix", peerid="v9"))
+con$addTag("inputport", attrs=c(name="percentOfTransitionsByExpansion"), paste('[&#x0A;    ', txt_skl, ']', sep=''))
+con$addTag("inputport", attrs=c(name="patchExpansionParameters"), paste('[&#x0A;    ', txt_skl2, ']', sep=''))
+con$addTag("inputport", attrs=c(name="patchGenerationParameters"), paste('[&#x0A;    ', txt_skl3, ']', sep=''))
+con$addTag("inputport", attrs=c(name="printTransitionInfo"), ".no")
+con$addTag("outputport", attrs=c(name="resultingLanscape", id="v11"))
+con$closeTag("functor")
+
+con$addTag("functor", attrs=c(name="RegionalizeMap"), close=FALSE)
+con$addTag("property", attrs=c(key="dff.functor.alias", value="Static Variables (Region)"))
+con$addTag("inputport", attrs=c(name="globalMap", peerid="v1"))
+con$addTag("inputport", attrs=c(name="regionId", peerid="v7"))
+con$addTag("inputport", attrs=c(name="keepNonRegionCells"), ".no")
+con$addTag("inputport", attrs=c(name="regionManager", peerid="v4"))
+con$addTag("outputport", attrs=c(name="regionalMap", id="v12"))
+con$closeTag("functor")
+
+con$addTag("functor", attrs=c(name="RegionalizeCategoricalMap"), close=FALSE)
+con$addTag("property", attrs=c(key="dff.functor.alias", value="Landscape (Region)"))
+con$addTag("inputport", attrs=c(name="globalMap", peerid="v6"))
+con$addTag("inputport", attrs=c(name="regionId", peerid="v7"))
+con$addTag("inputport", attrs=c(name="keepNonRegionCells"), ".no")
+con$addTag("inputport", attrs=c(name="regionManager", peerid="v4"))
+con$addTag("outputport", attrs=c(name="regionalMap", id="v13"))
+con$closeTag("functor")
+
+con$addTag("functor", attrs=c(name="RegionalMap"), close=FALSE)
+con$addTag("property", attrs=c(key="dff.functor.alias", value="regionalMap3412"))
+con$addTag("property", attrs=c(key="dff.functor.comment", value="Assign a map to the region using the given identifier."))
+con$addTag("inputport", attrs=c(name="globalMapName"), paste('"probabilities"', sep=''))
+con$addTag("inputport", attrs=c(name="regionalMap", peerid="v14"))
+con$addTag("inputport", attrs=c(name="regionId", peerid="v7"))
+con$addTag("inputport", attrs=c(name="regionManager", peerid="v4"))
+con$closeTag("functor")
+
+con$addTag("containerfunctor", attrs=c(name="CalcWOfEProbabilityMap"), close=FALSE)
+con$addTag("property", attrs=c(key="dff.container.collapsed", value="no"))
+con$addTag("property", attrs=c(key="dff.functor.alias", value="Probabilities (Region)"))
+con$addTag("property", attrs=c(key="dff.functor.extendedcomment", value="Calculate probability map."))
+con$addTag("inputport", attrs=c(name="landscape", peerid="v13"))
+con$addTag("inputport", attrs=c(name="weights", peerid="v10"))
+con$addTag("inputport", attrs=c(name="transitions"), paste('[ ', paste(skeleton$char, collapse = ", "), ']', sep=''))
+con$addTag("inputport", attrs=c(name="cellType"), ".uint8")
+con$addTag("inputport", attrs=c(name="nullValue"), ".default")
+con$addTag("outputport", attrs=c(name="probabilities", id="v14"))
+
+con$addTag("functor", attrs=c(name="NameMap"), close=FALSE)
+con$addTag("property", attrs=c(key="dff.functor.alias", value="nameMap298"))
+con$addTag("inputport", attrs=c(name="map", peerid="v12"))
+con$addTag("inputport", attrs=c(name="mapName"), paste('"static_var"', sep=''))
+con$closeTag("functor")
+
+con$closeTag("containerfunctor") #    CalcWOfEProbabilityMap
+
+con$closeTag("containerfunctor") # ForEachCategory
+
+# add containerfunctor = Group
+con$addTag("containerfunctor", attrs=c(name="Group"), close=FALSE)
+con$addTag("property", attrs=c(key="dff.container.collapsed", value="no"))
+con$addTag("property", attrs=c(key="dff.functor.alias", value="group300"))
+
+con$addTag("functor", attrs=c(name="IntegerValue"), close=FALSE)
+con$addTag("property", attrs=c(key="dff.functor.alias", value="int302"))
+con$addTag("property", attrs=c(key="dff.functor.comment", value="This operator is used here to force a dependence between two groups."))
+con$addTag("inputport", attrs=c(name="constant", peerid="v8"))
+con$closeTag("functor")
+
+con$addTag("functor", attrs=c(name="MergeRegionalCategoricalMaps"), close=FALSE)
+con$addTag("property", attrs=c(key="dff.functor.alias", value="Updated Landscape"))
+con$addTag("property", attrs=c(key="dff.functor.comment", value="Merge all maps assigned to the regions using the given identifier."))
+con$addTag("inputport", attrs=c(name="globalMapName"), paste('"landscape"', sep=''))
+con$addTag("inputport", attrs=c(name="mergeNonRegionCells"), ".no")
+con$addTag("inputport", attrs=c(name="regionManager", peerid="v4"))
+con$addTag("outputport", attrs=c(name="globalMap", id="v15"))
+con$closeTag("functor")
+
+# con$addTag("functor", attrs=c(name="MergeRegionalMaps"), close=FALSE)
+# con$addTag("property", attrs=c(key="dff.functor.alias", value="mergeRegionalMaps3413"))
+# con$addTag("property", attrs=c(key="dff.functor.comment", value="Merge all maps assigned to the regions using the given identifier."))
+# con$addTag("inputport", attrs=c(name="globalMapName"), paste('"probabilities"', sep=''))
+# con$addTag("inputport", attrs=c(name="mergeNonRegionCells"), ".no")
+# con$addTag("inputport", attrs=c(name="regionManager", peerid="v4"))
+# con$addTag("outputport", attrs=c(name="globalMap", id="v16"))
+# con$closeTag("functor")
+
+con$closeTag("containerfunctor") # Group
+
+con$closeTag("containerfunctor")  # Repeat
+con$closeTag("containerfunctor") # RegionManager
+# end.
+```
+
+
+```{r}
+# write egoml
+egoml_file=paste(output_dir, "/03_simulation_per_region_noprob.egoml", sep='')
+saveXML(con$value(), file=egoml_file)
+
+# replace ampersand code character
+egoml_text  <- readLines(egoml_file)
+egoml_text_new  <- gsub(pattern="amp;", replace="", x=egoml_text)
+writeLines(egoml_text_new, con=egoml_file)
+```
+
