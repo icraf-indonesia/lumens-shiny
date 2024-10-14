@@ -11,7 +11,7 @@ output:
 
 # Overview
 
-QuES-B (Quantification of Environmental Services on Biodiversity) analyzes biodiversity conditions at the landscape scale, focusing on the composition and configuration of focal areas. This analysis is performed by calculating the Degree of Integration of Focal Area (DIFA) Index. This guide will help you prepare data, input it into the Shiny app, and interpret the results.
+QuES-B (Quantification of Environmental Services on Biodiversity) analyses biodiversity conditions at the landscape scale by calculating the Degree of Integration of Focal Area (DIFA) Index, which focuses on the composition and configuration of focal areas.
 
 # Key Concepts:
 
@@ -19,56 +19,35 @@ QuES-B (Quantification of Environmental Services on Biodiversity) analyzes biodi
 
 2. **TECI Map**: Illustrates the spatial distribution of focal area fragmentation and integration across the landscape by measuring contrast between adjacent land cover types.
 
-3. **DIFA Index**: Quantifies how well integrated a focal area is within a landscape, indicating its capacity to conserve biodiversity.
+3. **DIFA Index**: Quantifies how well integrated a focal area is within a landscape,  indicating its functionality to maintain biodiversity through the exchange of genes and migration in the face of environmental changes.
 
-# Data Preparation
+# Data and Input Variables
 
 Before using the QuES-B Analysis tool, prepare the following:
 
-1. **Land Cover Map**: A raster file of current land use/land cover (LULC) in GeoTIFF format.
-2. **Land Use/Cover & Focal Area Lookup Table**: A CSV file describing raster values with their corresponding land cover classes. Users define focal areas by selecting specific land cover classes.
+1. **Land Cover Maps**: A raster file of current land use/land cover (LULC) in GeoTIFF format. This must be in GeoTIFF format with the relevant UTM projection system.
+
+2. **Land Use/Cover & Focal Area Lookup Table**: A CSV file describing raster values with their corresponding land cover classes. Users define focal areas by selecting specific land cover classes. Please refer to the manual and example data for the correct column arrangement.
+
 3. **Edge Contrast Table**: An FSQ file defining edge contrast between land cover types.
-4. (Optional) FRAGSTATS Configuration file.
 
-## Using the QuES-B Analysis Tool
+4. **Sampling Points**: A number of sampling points (default is 1000). This is used to generate sampling grids for calculating DIFA. A higher number provides finer DIFA estimation but requires more computing time and resources.
 
-Follow these steps to use the tool:
+5. **Window Size**: The size of the moving window for analysis in metres (default is 1000). Window size represents the dispersal radius, a threshold for ecological connectivity, assuming that taxa associated with the focal area can typically move or disperse up to this distance.
 
-1. **Land Cover**
-   - Click "Browse" and select your prepared land cover raster file. This must be in GeoTIFF format with the relevant UTM projection system.
+6. **Window Shape**: The shape of the moving window (default is Square). Circle shape is more realistic but requires more computing resources and time.
 
-2. **Year**
-   - Enter the year of your land cover data (e.g., 2010). This must be numeric.
+7. **FRAGSTATS Configuration (Optional)**: A default file will be used if not specified. Refer to the manual for further details.
 
-3. **No Data Class**
-   - Enter the value representing missing land cover data in your raster, e.g., cloud or shadow (default is 0).
+8. **FRAGSTATS Path (Optional)**:  A custom path to the Fragstats directory installed on your PC if Fragstats is installed in a custom installation directory. The default path will be used if not specified, assuming the default Fragstats installation directory.
 
-4. **Land Use/Cover & Focal Area Lookup Table**
-   - Click "Browse" and select your prepared CSV file. Refer to the manual and example data for the correct column arrangement.
+## Using the QuES-B Module
 
-5. **Edge Contrast Table**
-   - Click "Browse" and select your prepared FSQ file. Refer to the manual and example data for the correct column arrangement.
+Follow these steps to use the module:
 
-6. **Sampling Points**
-   - Enter the number of sampling points (default is 1000). This is used to generate sampling grids for calculating DIFA. A higher number provides finer DIFA estimation but requires more computing time and resources.
 
-7. **Window Size**
-   - Enter the size of the moving window for analysis in meters (default is 1000). Window size represents the dispersal radius, a threshold for ecological connectivity, assuming that taxa associated with the focal area can typically move or disperse up to this distance.
+![](ques_b_gui_animation_entry.gif){style="max-width:80%;height=auto;"}
 
-8. **Window Shape**
-   - Select the shape of the moving window (default is Square). Circle shape is more realistic but requires more computing resources and time.
-
-9. **FRAGSTATS Configuration**
-   - (Optional) Click "Browse" to select a FRAGSTATS configuration file. A default file will be used if not specified. Refer to the manual for further details.
-
-10. **FRAGSTATS Path**
-    - (Optional) Enter the path to your FRAGSTATS installation. Specify the path to the Fragstats directory installed on your PC if you used a custom installation directory. The default path will be used if not specified, assuming the default Fragstats installation directory.
-
-11. **Output Directory**
-    - Click "Select Output Directory" to choose where results will be saved.
-
-12. **Run Analysis**
-    - Click "Run QuES-B Analysis" to start the process.
 
 # Accessing Outputs
 
@@ -82,7 +61,7 @@ After the analysis completes, you'll find the following in your selected output 
 
 4. **DIFA Plot**: A plot illustrating the Degree of Integration of Focal Area (DIFA) Index, which measures how well integrated the focal habitat is within the landscape. The x-axis represents the Total Edge Contrast Index (TECI), while the y-axis shows the cumulative proportion of focal area. The curve depicts the relationship between habitat fragmentation (TECI) and habitat amount. The area under this curve determines the DIFA score, ranging from 0 to 100%. Higher scores indicate better habitat integration.
 
-5. **QuES-B Report**: An overview of the analysis results in HTML format, providing detailed interpretations and visualizations of these outputs.
+5. **QuES-B Report**: An overview of the analysis results in HTML format, providing a brief interpretations and visualizations of these outputs.
 
 ---
 

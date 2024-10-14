@@ -1,6 +1,6 @@
-# Pre-QUES Land cover change analysis -------------------------------------
+# Pre-QuES Land cover change analysis -------------------------------------
 
-#' @title Pre-QUES Land cover change analysis
+#' @title Pre-QuES Land cover change analysis
 #' @description This function preprocesses land cover data for visualization, calculation, and summarization.
 #' It checks the consistency of input data, creates visualizations of input data, calculates land cover frequency,
 #' creates a crosstabulation of land cover changes, and summarizes results at both the landscape and planning unit level.
@@ -44,46 +44,56 @@
 #' }
 
 ques_pre <- function(lc_t1, lc_t2, admin_, cutoff_landscape = 5000, cutoff_pu = 500, convert_to_Ha = TRUE) {
-
+  
   ## Plot planning unit
-  if (!is(admin_, "SpatRaster")) {
+  if (is(admin_, "SpatRaster")) {
+    plot_admin <- plot_categorical_raster(admin_) #%>% ggplot_to_image(image_width = 20, image_height = 14)
+    
+  } else {
     stopifnot(is(admin_, "sf")) # Ensure admin_ is either SpatRaster or sf (multipolygon)
     plot_admin <- plot_planning_unit(admin_) #%>% ggplot_to_image(image_width = 20, image_height = 14)
     admin_ <- rasterise_multipolygon(admin_) # convert admin_ to a spatraster
-  } else {
-
-    plot_admin <- plot_categorical_raster(admin_) #%>% ggplot_to_image(image_width = 20, image_height = 14)
-
   }
-
 
   # Guardrails to check the input types
   stopifnot(is(lc_t1, "SpatRaster"), is(lc_t2, "SpatRaster"))
-
+  
   # Guardrails to check if the input rasters have attribute tables
   stopifnot(!is.null(cats(lc_t1)[[1]]), !is.null(cats(lc_t2)[[1]]))
-
+  
   # Guardrail to ensure identical extent and projection system
   compareGeom(lc_t1, lc_t2, admin_, stopOnError = TRUE)
-
+  
   # Plot land cover for both periods and the planning unit
   ## Plot land cover T1
   plot_lc_t1 <- plot_categorical_raster(lc_t1) #%>% ggplot_to_image(image_width = 20, image_height = 14)
   ## Plot land cover T2
   plot_lc_t2 <- plot_categorical_raster(lc_t2) #%>% ggplot_to_image(image_width = 20, image_height = 14)
-
-  # Calculate and tabulate land cover composition
+  
+  # Calculate and tabulate land cover composition in Hectares
   lc_freq_table <- calc_lc_freq(raster_list = list(lc_t1, lc_t2)) %>%
     abbreviate_by_column( "Jenis tutupan lahan", remove_vowels = FALSE)
-  lc_composition_tbl <- lc_freq_table #%>%
-  #rmarkdown::paged_table(options = list(cols.min.print = 3))
+  
+  
+  if (grepl("\\+units=m", st_crs(lc_t1)$proj4string)) {
+    spatRes <- calc_res_conv_factor_to_ha(lc_t1)
+    lc_freq_table <-
+      mutate(lc_freq_table, across(c(2,3), ~(spatRes*.x))) %>% # convert to hectares
+                               #mutate_if(is.numeric, format, digits=3) %>% 
+
+      mutate(across(c(2,3), ~units::set_units(x = .x, value = "ha")))
+  } else {
+    cat("Frequency is shown in number of pixels isntead of hectares in the lc_freq_table")
+  }
+
+  lc_composition_tbl <- lc_freq_table
 
   # Plot land cover composition
-  lc_composition_barplot <- lc_freq_table %>%
+  lc_composition_barplot <- lc_freq_table %>% 
     plot_lc_freq(column_lc_type = "Jenis tutupan lahan",
                  column_T1 = names(lc_freq_table)[2],
                  column_T2 = names(lc_freq_table)[3])
-
+  
   # Store visualization results
   input_dataviz <- list(
     plot_lc_t1 = plot_lc_t1,
@@ -98,27 +108,27 @@ ques_pre <- function(lc_t1, lc_t2, admin_, cutoff_landscape = 5000, cutoff_pu = 
   # Create crosstabulation
   crosstab_matrix_landscape <- create_crosstab(land_cover = c(lc_t1, lc_t2))[["crosstab_square"]] |>
     as.data.frame.matrix()
-
+  
   crosstab_result <- create_crosstab(land_cover = c(lc_t1, lc_t2), zone = admin_)[["crosstab_long"]]
-
+  
   # Get spatResolution
   if( convert_to_Ha == TRUE) {
     SpatRes <- calc_res_conv_factor_to_ha(raster_input = lc_t1)
-
+    
     crosstab_result <- mutate(crosstab_result, Ha = Freq*SpatRes)
     crosstab_matrix_landscape <- crosstab_result
   }
-
+  
   # Summarize crosstabulation at landscape level
   # Subsetting the crosstab_result data frame
   selected_cols <- select(crosstab_result, -names(admin_))
-
+  
   # Getting the names of the columns to be grouped
   group_cols <- setdiff(names(selected_cols), c("Freq", "Ha"))
-
+  
   # Grouping the data frame by the columns selected above
   grouped_df <- group_by_at(selected_cols, group_cols)
-
+  
   # Summarizing the grouped data
   if ("Ha" %in% names(grouped_df)) {
     crosstab_landscape <- summarise(grouped_df, Freq = sum(.data[["Freq"]]), Ha = sum(.data[["Ha"]]), .groups = "drop")
@@ -129,19 +139,19 @@ ques_pre <- function(lc_t1, lc_t2, admin_, cutoff_landscape = 5000, cutoff_pu = 
   ## Sankey diagram showing all changes
   sankey_landscape <- crosstab_landscape %>%
     create_sankey(area_cutoff = cutoff_landscape, change_only = FALSE)
-
+  
   ## Sankey diagram showing only changes
   sankey_landscape_chg_only<- crosstab_landscape %>%
     create_sankey(area_cutoff = cutoff_landscape, change_only = TRUE)
-
+  
   # Compute 10 dominant land use changes
   luc_top_10 <- crosstab_landscape %>% calc_top_lcc(n_rows = 10)
-
+  
   # Tabulate and plot 10 dominant land use changes
   luc_top_10_barplot <- luc_top_10 %>%
     plot_lcc_freq_bar(col_T1 = as.character(time(lc_t1)), col_T2 = as.character(time(lc_t2)),
                       Freq = if ("Ha" %in% names(luc_top_10)) "Ha" else "Freq")
-
+  
   # Store results at landscape level
   landscape_level <- list(
     sankey_landscape= sankey_landscape,
@@ -151,12 +161,12 @@ ques_pre <- function(lc_t1, lc_t2, admin_, cutoff_landscape = 5000, cutoff_pu = 
     crosstab_landscape = crosstab_matrix_landscape,
     crosstab_long = crosstab_result
   )
-
+  
   # Compute summaries for each planning unit
   pu_names <- crosstab_result %>% pull(names(admin_)) %>% unique()
   pu_level <- purrr::map(pu_names, ~ lcc_summary_by_pu(crosstab_tbl = crosstab_result, pu_column = names(admin_), pu_name = .x, sankey_area_cutoff = cutoff_pu, n_top_lcc = 10))
   pu_level <- stats::setNames(pu_level,pu_names)
-
+  
   # Return all results
   return(list(input_dataviz = input_dataviz, landscape_level = landscape_level, pu_level = pu_level))
 }
@@ -186,7 +196,13 @@ ques_pre <- function(lc_t1, lc_t2, admin_, cutoff_landscape = 5000, cutoff_pu = 
 #' \dontrun{
 #' ques_pre_trajectory(lc_t1_, lc_t2_, admin_, lookup_traj_reclass, lookup_trajectory_complete)
 #' }
-ques_pre_trajectory <- function(lc_t1_, lc_t2_, admin_, lookup_traj_reclass, lookup_trajectory_complete, trajectory_column_name = "trajectory", convert_to_Ha = TRUE){
+ques_pre_trajectory <- function(lc_t1_,
+                                lc_t2_,
+                                admin_,
+                                lookup_traj_reclass,
+                                lookup_trajectory_complete,
+                                trajectory_column_name = "trajectory",
+                                convert_to_Ha = TRUE) {
   # Calculate the trajectory map
   luc_trajectory_map <-
     calc_trajectory_map(
@@ -196,28 +212,30 @@ ques_pre_trajectory <- function(lc_t1_, lc_t2_, admin_, lookup_traj_reclass, loo
       lookup_trajectory_complete = lookup_trajectory_complete,
       trajectory_column_name = trajectory_column_name
     )
-
+  
   # Create a cross-tabulation of land cover and administrative zones
   crosstab_traj <- create_crosstab(land_cover = luc_trajectory_map, zone = admin_)[["crosstab_long"]]
   names(crosstab_traj)[1]<- trajectory_column_name
-
+  
   # Create a frequency table of the trajectory map
   table_traj_area <- luc_trajectory_map |>
     terra::freq() |>
     dplyr::group_by(value) |>
     summarise(count=sum(count)) |>
-    rename("Trajectory" = 1, "Pixel"= 2)
+    rename("Trajectory" = 1, "Freq"= 2)
 
   # Convert pixel counts to hectares if convert_to_Ha is TRUE
   if(convert_to_Ha == TRUE) {
     SpatRes <- calc_res_conv_factor_to_ha(raster_input = lc_t1_)
     crosstab_traj <- mutate(crosstab_traj, Ha = Freq*SpatRes)
-    table_traj_area <- mutate(table_traj_area, Ha = Pixel*SpatRes) |> select(-Pixel) |> arrange(-Ha) |> tidyr::drop_na()
+    table_traj_area <- mutate(table_traj_area, Ha = Freq*SpatRes) %>% 
+      arrange(-Ha) |>
+      tidyr::drop_na()
   }
-
+  
   # Create a bar plot of the trajectory data
   barplot_traj <- plot_bar_trajectory(table_traj_area)
-
+  
   # Store results at landscape level
   landscape_level <- list(
     luc_trajectory_map = luc_trajectory_map,
@@ -227,9 +245,16 @@ ques_pre_trajectory <- function(lc_t1_, lc_t2_, admin_, lookup_traj_reclass, loo
   )
   # Compute summaries for each planning unit
   pu_names <- crosstab_traj |> pull(names(admin_)) |> unique()
-  pu_level <- purrr::map(pu_names, ~ lcc_trajectory_by_pu(crosstab_tbl = crosstab_traj, pu_column = names(admin_), pu_name = .x))
+  pu_level <- purrr::map(
+    pu_names,
+    ~ lcc_trajectory_by_pu(
+      crosstab_tbl = crosstab_traj,
+      pu_column = names(admin_),
+      pu_name = .x
+    )
+  )
   pu_level <- stats::setNames(pu_level, pu_names)
-
+  
   return(list(landscape_level = landscape_level, pu_level = pu_level))
 }
 
@@ -277,45 +302,45 @@ calc_trajectory_map <-
       reclass_raster_to_categories(raster_map = lc_t1_, reclass_table = lookup_traj_reclass)
     lc_t2_reclass <-
       reclass_raster_to_categories(raster_map = lc_t2_, reclass_table = lookup_traj_reclass)
-
+    
     # Concatenate the reclassified rasters
     concats_result <- concats(lc_t1_reclass, lc_t2_reclass)
-
+    
     # Extract the first level from the "concats_result" and convert it to a data frame.
     # Rename the columns as "ID" and "ID_traj".
     lookup_concats <- levels(concats_result)[[1]] %>%
       data.frame() %>%
       dplyr::rename("ID" = 1, "ID_traj" = 2)
-
+    
     # Create a lookup table for trajectories by subsetting "combinations" for "ID_traj" and "trajectory".
     lookup_traj <-
       lookup_trajectory_complete[c("ID_traj", trajectory_column_name)]
-
+    
     # Perform a left join operation on "lookup_concats" and "lookup_traj" using "ID_traj" as the key.
     # Remove columns "ID" and "ID_traj" from the result.
     lookup_traj <-
       dplyr::left_join(lookup_concats, lookup_traj, by = "ID_traj") %>%
       dplyr::select(-c("ID", "ID_traj"))
-
+    
     # Add categorical information to "concats_result" based on the "lookup_traj".
     map_trajectory <- addCats(concats_result, lookup_traj)
-
+    
     lookup_traj_short <- lookup_traj %>% unique %>% mutate(ID = dplyr::row_number(), .before = 1)
-
+    
     names(map_trajectory) <- trajectory_column_name
-
+    
     reclass_mat <- cats(map_trajectory)[[1]] %>%
       dplyr::select(ID,!!trajectory_column_name) %>%
       left_join(lookup_traj_short, by = trajectory_column_name) %>%
       dplyr::select(-!!trajectory_column_name) %>%
       as.matrix()
-
+    
     map_trajectory <-
       terra::classify(map_trajectory, reclass_mat) %>%
       terra::as.factor()
-
+    
     levels(map_trajectory)<- lookup_traj_short
-
+    
     return(map_trajectory)
   }
 
@@ -341,10 +366,10 @@ plot_bar_trajectory <- function(df) {
   # Get the column names
   cat_col <- names(df)[1]
   val_col <- names(df)[2]
-
+  
   # Convert first column to factor to maintain the order in the plot
   df[[cat_col]] <- factor(df[[cat_col]], levels = df[[cat_col]])
-
+  
   # Create a function to assign colors based on category names
   assign_colors <- function(category) {
     category <- tolower(category)  # Convert to lower case
@@ -358,10 +383,10 @@ plot_bar_trajectory <- function(df) {
       return("grey")
     }
   }
-
+  
   # Apply the function to the first column to create the color vector
   color_vector <- sapply(df[[cat_col]], assign_colors)
-
+  
   # Create the plot
   barplot_traj <-
     ggplot2::ggplot(df, ggplot2::aes(
@@ -385,7 +410,7 @@ plot_bar_trajectory <- function(df) {
       title = NULL
     ) +
     ggplot2::theme(legend.position = "none")
-
+  
   return(barplot_traj)
 }
 
@@ -407,19 +432,19 @@ lcc_trajectory_by_pu <- function(crosstab_tbl, pu_column, pu_name){
   # Error checking
   if (!inherits(crosstab_tbl, "data.frame")) stop("crosstab_tbl must be a data frame.")
   if (!is.character(pu_column)) stop("pu_column must be a character string.")
-
-
+  
+  
   # Check if the required columns exist in the data frame
   if (!pu_column %in% names(crosstab_tbl)) stop(paste("The data frame does not contain the column:", pu_column))
   if (!"Freq" %in% names(crosstab_tbl)) stop("The data frame does not contain the column: Freq")
-
+  
   # Filter the crosstab table based on planning unit and remove the planning unit column
   traj_tbl_pu <- crosstab_tbl %>%
     dplyr::filter(!!sym(pu_column) %in% pu_name) %>%
     dplyr::select(-!!sym(pu_column))
-
+  
   plot_traj_pu <- plot_bar_trajectory(traj_tbl_pu)
-
+  
   # Return a list containing the summary table and the  land cover change trajectory
   return(list(traj_tbl_pu = traj_tbl_pu, plot_traj_pu = plot_traj_pu))
 }
@@ -452,16 +477,16 @@ lcc_trajectory_by_pu <- function(crosstab_tbl, pu_column, pu_name){
 reclass_raster_to_categories <- function(raster_map, reclass_table){
   # Retrieve unique IDs from the raster and rename column to 'Value'
   ID_check <- terra::droplevels(raster_map) |> terra::cats() |> pluck(1) |> select(1)
-
+  
   colnames(reclass_table)[1] <- colnames(ID_check)
-
+  
   # Join the reclassification table with the ID_check,
   # keep only the numeric columns and convert to matrix
   reclass_mat <- left_join(ID_check, reclass_table, by=colnames(ID_check)) %>% select_if(is.numeric) %>% as.matrix()
-
+  
   # Reclassify the raster using the reclassification matrix and convert to factor
   raster_map_reclass <- classify(raster_map, reclass_mat) %>% as.factor()
-
+  
   return(raster_map_reclass)
 }
 
@@ -494,48 +519,48 @@ add_legend_to_categorical_raster <- function(raster_file, lookup_table, year = N
   if (!inherits(raster_file, "SpatRaster")) {
     stop("raster_file should be a SpatRaster object")
   }
-
+  
   # Check if lookup_table is a data frame
   if (!is.data.frame(lookup_table)) {
     stop("lookup_table should be a data frame")
   }
-
+  
   # Check if the first column of lookup_table is numeric or convertible to numeric
   first_column <- lookup_table[[1]]
   if (!is.numeric(first_column) && any(is.na(as.numeric(first_column)))) {
     stop("The first column of lookup_table should be numeric or convertible to numeric")
   }
-
+  
   # Check if year is a numeric value or NULL, and if it consists of 4 digits
   if (!is.null(year) && (!is.numeric(year) || nchar(as.character(year)) != 4)) {
     stop("year should be a numeric value consisting of 4 digits")
   }
-
+  
   # Filter lookup_table to only include values present in raster_file
   lookup_table <- lookup_table[lookup_table[[1]] %in% terra::freq(raster_file)[["value"]], ]
-
+  
   # Convert lookup_table into a data frame
   lookup_table <- data.frame(lookup_table)
-
+  
   # Convert the first column to numeric if it is not already
   if (!is.numeric(first_column)) {
     lookup_table[[1]] <- as.numeric(first_column)
   }
-
+  
   # Get the names of raster_file
   name_rast <- names(raster_file)
-
+  
   # Set the levels of raster_file to be lookup_table
   levels(raster_file) <- lookup_table
-
+  
   # Set the names of raster_file
   raster_file <- setNames(raster_file, name_rast)
-
+  
   # Set the year if year is not NULL
   if (!is.null(year)) {
     terra::time(raster_file, tstep="years") <- year
   }
-
+  
   # Return the modified raster_file
   return(raster_file)
 }
@@ -560,33 +585,33 @@ add_legend_to_categorical_raster <- function(raster_file, lookup_table, year = N
 #' @examples
 #' rasterise_multipolygon(sf_object = ntt_admin, raster_res = c(100,100), field = "ID")
 rasterise_multipolygon <- function(sf_object, raster_res = c(100,100), field = "ID"){
-
+  
   # Error checking
   if (!inherits(sf_object, "sf")) stop("sf_object must be an sf object.")
   if (!all(sf::st_geometry_type(sf_object) == "MULTIPOLYGON")) stop("All features in sf_object must be MULTIPOLYGONs.")  # Check if sf_object has UTM projection
   if (!grepl("\\+proj=utm", st_crs(sf_object)$proj4string)) stop("sf_object must have UTM projection system.")
   if (is.null(sf::st_drop_geometry(sf_object)) || !(field %in% names(sf::st_drop_geometry(sf_object)))) stop("sf_object must contain an attribute table with at least one numeric/factor column.")
   if (!is.numeric(sf_object[[field]]) && !is.factor(sf_object[[field]])) stop("The field must be numeric or a factor.")
-
+  
   # Convert the sf object to a SpatVector
   spatvect <- terra::vect(sf_object)
-
+  
   # Define the extent based on the SpatVector
   raster_extent <- terra::ext(spatvect)
-
+  
   # Create an empty SpatRaster based on the extent, resolution, and CRS
   raster_template <- terra::rast(raster_extent, resolution = raster_res, crs = terra::crs(spatvect))
-
+  
   # Rasterize the SpatVector based on the SpatRaster template
   # Specify the field in the rasterize function
   rasterised_spatraster <- terra::rasterize(spatvect, raster_template, field = field)
-
+  
   # Convert the 'Kabupaten' column of the sf_object to a lookup_table
   lookup_table <- sf::st_drop_geometry(sf_object)
-
+  
   # Add legend to the rasterized SpatRaster using the lookup_table
   levels(rasterised_spatraster) <- lookup_table
-
+  
   # Return the rasterized SpatRaster with legend
   return(rasterised_spatraster)
 }
@@ -616,27 +641,26 @@ plot_planning_unit <- function(planning_unit, map_label = NULL) {
   if(!inherits(planning_unit, "sf")) {
     stop("planning_unit must be an sf object")
   }
-
+  
   # Check if planning_unit is a MULTIPOLYGON
   if(!any(st_is(planning_unit, "MULTIPOLYGON"))) {
     stop("planning_unit must be a MULTIPOLYGON")
   }
-
+  
   # Check if planning_unit has a column named "geometry"
   if(!"geometry" %in% names(planning_unit)) {
     stop("planning_unit must have a column named 'geometry'")
   }
-
+  
   # If map_label is not provided, use the second column
   if(is.null(map_label)) {
     map_label <- names(planning_unit)[2]
   }
-
+  
   # Check if map_label is a string that is present among the names of the sf polygon attribute table
   if(!is.character(map_label) || length(map_label) != 1 || !(map_label %in% names(planning_unit))) {
     stop("map_label must be a string that is present among the names of the sf polygon attribute table")
   }
-
   ggplot() +
     geom_sf(data = planning_unit, fill = "lightgreen", color = "black", size = 0.2) +
     ggrepel::geom_text_repel(
@@ -684,7 +708,7 @@ plot_planning_unit <- function(planning_unit, map_label = NULL) {
 #' @export
 
 plot_lcc_freq_bar <- function(lcc_table, col_T1 = NULL, col_T2 = NULL, Freq = NULL) {
-
+  
   # If col_T1 and col_T2 are NULL, find the first and second character columns
   if(is.null(col_T1) | is.null(col_T2)) {
     char_cols <- names(select_if(lcc_table, is.character))
@@ -695,7 +719,7 @@ plot_lcc_freq_bar <- function(lcc_table, col_T1 = NULL, col_T2 = NULL, Freq = NU
       col_T2 <- char_cols[2]
     }
   }
-
+  
   # If both "Ha" and "Freq" are present, use "Ha"
   if("Ha" %in% names(lcc_table)) {
     Freq <- "Ha"
@@ -704,13 +728,13 @@ plot_lcc_freq_bar <- function(lcc_table, col_T1 = NULL, col_T2 = NULL, Freq = NU
   else if(is.null(Freq)) {
     Freq <- names(select_if(lcc_table, is.numeric))[1]
   }
-
+  
   # Create a new combined label by concatenating the two character columns
   lcc_table[["label"]] <- apply(lcc_table[c(col_T1, col_T2)], 1, paste, collapse = " to ")
-
+  
   # Wrap the text to a maximum width of 30 characters
   lcc_table[["label"]] <- str_wrap( lcc_table[["label"]], width = 30)
-
+  
   # Plot the data
   p <- ggplot(lcc_table, aes(x=reorder(label, !!sym(Freq)), y= !!sym(Freq), fill= !!sym(Freq))) +
     geom_bar(stat = "identity") +
@@ -719,7 +743,7 @@ plot_lcc_freq_bar <- function(lcc_table, col_T1 = NULL, col_T2 = NULL, Freq = NU
     theme_minimal() +
     scale_y_continuous(labels = comma) +
     viridis::scale_fill_viridis(discrete = FALSE, direction = -1, guide = "none", labels = comma)
-
+  
   return(p)
 }
 
@@ -748,7 +772,7 @@ plot_categorical_raster <- function(raster_object) {
   if ("color_palette" %in% names(cats(raster_object)[[1]]) && all(grepl("^#[0-9A-Fa-f]{6}$", cats(raster_object)$color_pallete))) {
     fill_scale <- scale_fill_manual(values = cats(raster_object)[[1]]$color_palette, na.value = "white")
   } else {
-    fill_scale <- scale_fill_hypso_d()
+    fill_scale <- scale_fill_manual(values = c("#4E79A7", "#F28E2B", "#E15759", "#76B7B2", "#59A14F", "#EDC948", "#B07AA1", "#FF9DA7", "#9C755F","#BAB0AC"), na.value = "white")
   }
   if(!is.na(time(raster_object))) {
     plot_title <- time(raster_object)
@@ -772,7 +796,7 @@ plot_categorical_raster <- function(raster_object) {
           legend.key.width = unit(0.25, "cm"),
           legend.position = "bottom",
           legend.justification = c(0,0.8))
-
+  
   return(plot_lc)
 }
 
@@ -792,26 +816,26 @@ plot_categorical_raster <- function(raster_object) {
 #' @importFrom terra crs res
 #' @export
 calc_res_conv_factor_to_ha <- function(raster_input) {
-
+  
   crs <- terra::crs(raster_input, proj=TRUE) # Get the CRS of the raster
-
+  
   # Check if the CRS is in meter unit
   if (grepl("+units=m", crs)) {
     message("Raster map has a projection in metre unit.")
     conversion_factor <- terra::res(raster_input)[1] * terra::res(raster_input)[2] / 10000
     message(paste("Raster map has ", conversion_factor, " Ha spatial resolution. Pre-QuES will automatically generate data in Ha unit."))
-
+    
     # Check if the CRS is in degree unit
   } else if (grepl("+proj=longlat", crs)) {
     message("Raster map has a projection in degree unit.")
     conversion_factor <- terra::res(raster_input)[1] * terra::res(raster_input)[2] * (111319.9 ^ 2) / 10000
     message(paste("Raster map has ", conversion_factor, " Ha spatial resolution. Pre-QuES will automatically generate data in Ha unit."))
-
+    
     # If the CRS is neither in meter nor degree unit, throw an error
   } else {
     stop("Projection of the raster map is unknown")
   }
-
+  
   return(conversion_factor)
 }
 
@@ -853,14 +877,14 @@ calc_res_conv_factor_to_ha <- function(raster_input) {
 #' print(freq_table)
 #' }
 calc_lc_freq <- function(raster_list) {
-
+  
   # Check if input is a single raster layer
   if (class(raster_list)[1] == "SpatRaster") {
     raster_list <- list(raster_list)
   } else if (!is.list(raster_list)) {
     stop("Input must be a list of raster layers or a single raster layer")
   }
-
+  
   # Check if all rasters have the same extent and CRS
   if (length(raster_list) > 1) {
     for (i in 2:length(raster_list)) {
@@ -869,27 +893,27 @@ calc_lc_freq <- function(raster_list) {
       }
     }
   }
-
+  
   # Prepare an empty list to store frequency tables
   freq_tables <- list()
-
+  
   # Loop over all raster layers in the list
   for (i in 1:length(raster_list)) {
     # Check if raster has attributes
     if (is.null(terra::levels(raster_list[[i]]))) {
       warning(paste0("Raster ", i, " has no attributes"))
     }
-
+    
     # Get frequency table
     freq <- terra::freq(raster_list[[i]])
-
+    
     # Rename 'count' column to be specific for each raster
     names(freq)[names(freq) == "count"] <- paste0(names(raster_list[[i]]), "_count")
-
+    
     # Store frequency table in the list
     freq_tables[[i]] <- freq
   }
-
+  
   # Combine frequency tables into one dataframe
   freq_df <- freq_tables[[1]]
   if (length(freq_tables) > 1) {
@@ -898,11 +922,11 @@ calc_lc_freq <- function(raster_list) {
     }
     freq_df <- dplyr::select(freq_df, -layer)
   }
-
+  
   # Sort by the count of the last raster layer in descending order
   freq_df <- dplyr::arrange(freq_df, dplyr::desc(freq_df[[ncol(freq_df)]]))
   freq_df <- dplyr::rename(freq_df, `Jenis tutupan lahan` = value)
-
+  
   # Check if all SpatRaster objects have a time attribute
   all_times_present <- all(sapply(raster_list, function(x) !is.null(time(x))))
   if (all_times_present) {
@@ -950,36 +974,36 @@ abbreviate_by_column <- function(df, col_names = NULL, remove_vowels= FALSE) {
   if(!is.data.frame(df)) {
     stop("df must be a data frame")
   }
-
+  
   # Check if df has at least one column
   if(ncol(df) < 1) {
     stop("df must have at least one column")
   }
-
+  
   # If col_names is NULL, find the first character column
   if(is.null(col_names)) {
     col_names <- names(df)[which(sapply(df, is.character))[1]]
   }
-
+  
   # Check if the provided col_names exist in df
   if(!all(col_names %in% names(df))) {
     stop("Some column names provided are not columns in df")
   }
-
+  
   # Define the abbreviation function
   abbreviate_string <- function(input_string, drop_vowels = remove_vowels) {
-
+    
     # Remove characters after the slash, if any
     string <- textclean::replace_non_ascii(input_string)
     string <- strsplit(string," / ")[[1]][1]
-
+    
     if(isTRUE(drop_vowels)){
       # Replace spaces with underscores
       string <- gsub(" ", "_", string)
-
+      
       # Split string into words
       words <- strsplit(string, "_")[[1]]
-
+      
       # Abbreviate each word by removing the vowels (but keep the first character even if it's a vowel)
       words <- sapply(words, function(word) {
         ifelse(grepl("^[aeiouAEIOU]", word),
@@ -987,19 +1011,19 @@ abbreviate_by_column <- function(df, col_names = NULL, remove_vowels= FALSE) {
                gsub("[aeiouAEIOU]", "", word)
         )
       })
-
+      
       # Combine words back into a single string
       string <- paste(words, collapse = "_")
     }
-
+    
     return(string)
   }
-
+  
   # Apply the abbreviation function to the selected columns
   for (col_name in col_names) {
     df[[col_name]] <- unlist(lapply(df[[col_name]], abbreviate_string))
   }
-
+  
   return(df)
 }
 
@@ -1041,68 +1065,67 @@ plot_lc_freq <- function(lc_table, column_lc_type, column_T1, column_T2) {
   stopifnot(is.character(column_lc_type))
   stopifnot(is.character(column_T1))
   stopifnot(is.character(column_T2))
-
+  
   # Replace NA values with 0
   lc_table <- lc_table %>%
     mutate(!!sym(column_T1) := replace_na(!!sym(column_T1), 0),
            !!sym(column_T2) := replace_na(!!sym(column_T2), 0))
-
+  
   # Reshape data to long format. This structure is more suitable for plotting.
   lc_table_long <- lc_table %>%
-    pivot_longer(cols = c(column_T1, column_T2),
+    pivot_longer(cols = c(all_of(column_T1), all_of(column_T2)),
                  names_to = "Year",
                  values_to = "Count")
-
+  
   # Define the maximum range for the x-axis
   max_range <- max(lc_table_long$Count, na.rm = TRUE)
-
+  
   # Reorder the factor levels of Land_Cover_Type based on the count from Timepoint 1 data
   lc_table_T1 <- lc_table %>%
     mutate(!!column_lc_type := fct_reorder(!!sym(column_lc_type), !!sym(column_T1)))
-
+  
   # Create lc_table_long with new level order
   lc_table_long <- lc_table_T1 %>%
     pivot_longer(cols = c(column_T1, column_T2),
                  names_to = "Year",
-                 values_to = "Count")
+                 values_to = "Count") %>% 
+    mutate(Count_numeric = as.numeric(Count))
 
   # Wrap the text of Land_Cover_Type to make it fit into two lines
   lc_table_long[[column_lc_type]] <- factor(str_wrap(as.character(lc_table_long[[column_lc_type]]), width = 30))
-
-
+  roundUp <- function(x) 10^ceiling(log10(x))
   # Create the Timepoint 1 plot with positive values
   plot1 <- ggplot(lc_table_long[lc_table_long$Year == column_T1,],
-                  aes(x = Count, y = .data[[column_lc_type]])) +
+                  aes(x = Count_numeric, y = .data[[column_lc_type]])) +
     geom_bar(stat = "identity", fill = "lightblue") +
-    scale_x_reverse(breaks = seq(0, max_range, by = 500000),
+    scale_x_reverse(breaks = seq(0, as.numeric(max_range), by = roundUp(as.numeric(max_range)/3)/2),
                     labels = function(x) format(abs(x), big.mark = ",", scientific = FALSE)) +
-    coord_cartesian(xlim = c(max_range,0)) +
-    labs(x = paste("Count -", column_T1), y = "") +
+    coord_cartesian(xlim = c(as.numeric(max_range),0)) +
+    labs(x = paste("Area -", column_T1, "(Ha)"), y = "") +
     theme_minimal() +
     theme(plot.margin = margin(5.5, 50, 5.5, 5.5),
           axis.text.y = element_blank())
-
   # Create the Timepoint 2 plot with negative values
   plot2 <- ggplot(lc_table_long[lc_table_long$Year == column_T2,],
-                  aes(x = Count, y = .data[[column_lc_type]])) +
+                  aes(x = Count_numeric, y = .data[[column_lc_type]])) +
     geom_bar(stat = "identity", fill = "salmon") +
-    labs(x = paste("Count -", column_T2), y = "") +
-    scale_x_continuous(limits = c(0, max_range),
-                       breaks = seq(0, max_range, by = 500000),
+    labs(x = paste("Area -", column_T2, "(Ha)"), y = "") +
+    scale_x_continuous(limits = c(0, as.numeric(max_range)),
+                       breaks = seq(0, as.numeric(max_range), by = roundUp(as.numeric(max_range)/3)/2),
                        labels = function(x) format(abs(x), big.mark = ",", scientific = FALSE)) +
     theme_minimal() +
     theme(plot.margin = margin(5.5, 5.5, 5.5, 50),
           axis.text.y = element_blank())
-
+  
   # Create the label plot. This is the middle plot which just shows the land cover types.
   lc_label <- ggplot(lc_table_long, aes(y = .data[[column_lc_type]])) +
     geom_blank() +
     theme_void() +
     theme(axis.text.y = element_text(angle = 0, hjust = 0.5))
-
+  
   # Arrange the plots side by side using the cowplot package
   final_plot <- plot_grid(plot1, lc_label, plot2, align = "h", nrow = 1, rel_widths = c(1, 0.2, 1))
-
+  
   return(final_plot)
 }
 
@@ -1132,24 +1155,22 @@ lcc_summary_by_pu <- function(crosstab_tbl, pu_column, pu_name, sankey_area_cuto
   if (!is.character(pu_column)) stop("pu_column must be a character string.")
   if (!is.numeric(sankey_area_cutoff)) stop("sankey_area_cutoff must be a numeric value.")
   if (!is.numeric(n_top_lcc)) stop("n_top_lcc must be an integer.")
-
+  
   # Check if the required columns exist in the data frame
   if (!pu_column %in% names(crosstab_tbl)) stop(paste("The data frame does not contain the column:", pu_column))
   if (!"Freq" %in% names(crosstab_tbl)) stop("The data frame does not contain the column: Freq")
-
+  
   # Filter the crosstab table based on planning unit and remove the planning unit column
   filter_crosstab <- crosstab_tbl |>
     dplyr::filter(!!sym(pu_column) %in% pu_name) |>
     dplyr::select(-!!sym(pu_column))
-
-
-
-  filter_crosstab |>
-    group_by_at(c(1,2)) |>
-    summarise(Freq = sum(Freq), Ha = sum(Ha)) |>
-    ungroup() |>
-    tidyr::pivot_wider(names_from = 1, id_cols = 2, values_from = "Ha")
-
+  # filter_crosstab |>
+  #   group_by(across(1:2)) |>
+  #   summarise(Freq = sum(Freq), Ha = sum(Ha)) |>
+  #   ungroup() |>
+  #   select( -"Freq") %>% 
+  #   rename(lc_t1=1, lc_t2=2) %>% 
+  #   tidyr::pivot_wider(names_from = lc_t1, id_cols = lc_t2, values_from = "Ha")
   # Calculate the maximum area from 'Freq' or 'Ha' column
   max_area <- max(filter_crosstab$Freq, filter_crosstab$Ha)
   # Check if sankey_area_cutoff is larger than max_area
@@ -1164,15 +1185,15 @@ lcc_summary_by_pu <- function(crosstab_tbl, pu_column, pu_name, sankey_area_cuto
     sankey_pu <- filter_crosstab |>
       create_sankey(area_cutoff = sankey_area_cutoff, change_only = FALSE)
   }
-
-
-
+  
+  
+  
   # Calculate the top land cover changes based on the filtered crosstab table
   luc_top_pu <- filter_crosstab |>
     calc_top_lcc(n_rows = n_top_lcc)
-
+  
   crosstab_xtab <- filter_crosstab |> dplyr::select(1,2,3)
-
+  
   crosstab_pu <- xtabs(Freq ~ ., data = crosstab_xtab)
   # Return a list containing the Sankey plot and the top land cover changes
   return(list(sankey_pu = sankey_pu, luc_top_pu = luc_top_pu, crosstab_pu = crosstab_pu))
@@ -1210,16 +1231,16 @@ lcc_summary_by_pu <- function(crosstab_tbl, pu_column, pu_name, sankey_area_cuto
 #'   create_sankey(freq_table = synthetic_data, area_cutoff = 0, change_only = FALSE)
 #' }
 create_sankey <- function(freq_table, area_cutoff = 10000, change_only = FALSE) {
-
+  
   # Check if "Freq" column exists and is numeric
   if (!"Freq" %in% colnames(freq_table)) {
     stop("The 'Freq' column does not exist in the data frame.")
   }
-
+  
   if (!is.numeric(freq_table$Freq)) {
     stop("The 'Freq' column should contain numeric values.")
   }
-
+  
   # Check if "Ha" column exists
   if ("Ha" %in% colnames(freq_table)) {
     # Drop "Freq" column
@@ -1228,7 +1249,7 @@ create_sankey <- function(freq_table, area_cutoff = 10000, change_only = FALSE) 
   } else {
     value_col <- "Freq"
   }
-
+  
   if(change_only){
     df_filtered <- freq_table %>%
       mutate_if(is.factor, as.character) %>%
@@ -1240,37 +1261,37 @@ create_sankey <- function(freq_table, area_cutoff = 10000, change_only = FALSE) 
     df_filtered <- freq_table %>%
       dplyr::filter((!!sym(value_col)) > area_cutoff)
   }
-
+  
   # Error handling: if dataframe is empty after filtering
   if(nrow(df_filtered) == 0){
     stop("No data left after filtering, please check your inputs.")
   }
-
+  
   # Get column names (years) without the 'X' prefix and 'Freq'
   colnames_ <- sub("^X", "", names(df_filtered)[-length(names(df_filtered))])
-
+  
   # Use lapply to paste each value with the corresponding year
   df_modified <- df_filtered
   df_modified[-length(names(df_modified))] <- lapply(seq_along(colnames_), function(i)
     paste(df_filtered[[i]], "-", colnames_[i], sep = ""))
-
+  
   # # Apply the suffixes to the selected columns
   # df_filtered <- df_filtered %>%
   #   mutate(across(-length(df_filtered), ~paste(., paste0("_T", which(names(df_filtered) == cur_column())), sep = "")))
-
+  
   sankey_data <- df_modified %>%
     prepare_sankey(col_order = setdiff(colnames(df_modified), value_col), value_col = value_col)
-
+  
   # Add a 'group' column to the 'links' and 'nodes' data frames
   sankey_data$links <- sankey_data$links %>% mutate(group = sankey_data$nodes$name[source + 1])
   sankey_data$nodes <- sankey_data$nodes %>% mutate(group = name)
-
+  
   # Create the Sankey plot
   sankey_plot <- sankeyNetwork(Links = sankey_data$links, Nodes = sankey_data$nodes, Source = "source",
                                Target = "target", Value = "value", NodeID = "name",
                                fontSize = 20, nodeWidth = 30, LinkGroup = "group", NodeGroup = "group"#,colourScale = color_scale
   )
-
+  
   return(sankey_plot)
 }
 
@@ -1321,49 +1342,49 @@ create_crosstab <- function(land_cover, zone) {
   if (!all(sapply(land_cover, function(x) class(x) == "SpatRaster"))) {
     stop("land_cover must be a list of 'SpatRaster' objects.")
   }
-
+  
   # Check if all rasters in the list have levels (categories)
   has_levels <- sapply(land_cover, function(x) !is.null(terra::levels(x)))
   if(!all(has_levels)) {
     warning("Some rasters do not contain levels (categories).")
   }
-
+  
   # Check if all SpatRaster objects have a time attribute
   all_times_present <- all(sapply(land_cover, function(x) !is.null(time(x))))
   if (!all_times_present) {
     stop("All SpatRaster objects must have a time attribute.")
   }
-
+  
   # Rename layers based on year
   names(land_cover) <- as.character(time(land_cover))
   # Create a frequency table using crosstab and convert to a data frame
   # Check if 'zone' object exists
   # Check if 'zone' object exists
   if (!missing(zone)) {
-
+    
     # Check if 'zone' and 'land_cover' have the same projection, extent and resolution
     if (compareGeom(land_cover, zone ,stopOnError = TRUE)) {
-
+      
       crosstab_square <- terra::crosstab(c(land_cover, zone))
-
+      
     } else {
-
+      
       # Raise an error and stop execution
       stop("Zone exists but does not have the same projection, extent, and resolution as land_cover.")
     }
   } else {
     crosstab_square <- terra::crosstab(land_cover, useNA = TRUE, digits = 3)
-
+    
   }
-
+  
   crosstab_long <- crosstab_square %>%
     as.data.frame() %>%
     dplyr::arrange(desc(Freq)) %>% # order by descending Freq
     drop_na()
-
+  
   # Rename columns to remove 'X' at the beginning
   names(crosstab_long) <- gsub("^X", "", names(crosstab_long))
-
+  
   # Filter out rows where Freq is not equal to 0
   crosstab_long <- crosstab_long[crosstab_long$Freq != 0, ]
   # Return the result
@@ -1395,35 +1416,36 @@ calc_top_lcc <- function(crosstab_result, n_rows) {
   if(!is.data.frame(crosstab_result)) {
     stop("crosstab_result must be a data frame")
   }
-
+  
   # Check if crosstab_result has a column named "Freq"
   if(!"Freq" %in% names(crosstab_result)) {
     stop("crosstab_result must have a column named 'Freq'")
   }
-
+  
   # Check if 'Freq' column contains numeric values
   if(!is.numeric(crosstab_result$Freq)) {
     stop("'Freq' column must contain numeric values")
   }
-
+  
   # Check if n_rows is a single number
   if(!is.numeric(n_rows) || length(n_rows) != 1) {
     stop("n_rows must be a single number")
   }
-
+  
   # Check if "Ha" column exists
-  if ("Ha" %in% names(crosstab_result)) {
-    # Drop "Freq" column
-    crosstab_result <- crosstab_result[ , !names(crosstab_result) %in% "Freq"]
-    value_col <- "Ha"
-  } else {
-    value_col <- "Freq"
-  }
-
+  # if ("Ha" %in% names(crosstab_result)) {
+  #   # Drop "Freq" column
+  #   crosstab_result <- crosstab_result[ , !names(crosstab_result) %in% "Freq"]
+  #   value_col <- "Ha"
+  # } else {
+  #   value_col <- "Freq"
+  # }
+  
+  value_col <- "Freq"
   crosstab_result %>%               # Start with the 'crosstab_result' data frame.
     mutate_if(is.factor, as.character) %>%   # For each column, if it is a factor, convert it to character type.
     rowwise() %>%              # Change the operation mode to row-wise. This is useful for operations that need to be performed on each row individually.
-    filter(n_distinct(c_across(-length(crosstab_result))) > 1) %>%  # Filter rows that have more than one distinct value across all columns except the last one.
+    filter(n_distinct(c_across(c(1,2)))>1)  %>%  # Filter rows that have more than one distinct value across all columns except the last one.
     ungroup() %>%              # Remove the row-wise grouping.
     top_n(n_rows, wt = !!sym(value_col)) %>% dplyr::arrange(desc(!!sym(value_col)))   # Select the top n_rows by the selected column value.
 }
@@ -1443,18 +1465,18 @@ calc_top_lcc <- function(crosstab_result, n_rows) {
 #' @param value_col The name of the column to use as the values of the links.
 #' @return A list containing two data frames: 'nodes' and 'links'.
 prepare_sankey <- function(df, col_order, value_col) {
-
+  
   # Create the nodes data frame
   # The nodes are all the unique values from the columns specified in col_order
   nodes <- data.frame(name = unique(as.character(unlist(df[col_order]))))
-
+  
   # Initialize the links data frame
   links <- NULL
-
+  
   # Iterate over the column names in col_order
   # For each pair of consecutive columns, create a new set of links
   for(i in 1:(length(col_order)-1)) {
-
+    
     # Create the new links data frame
     # 'source' is the index in the nodes data frame of the value from the current column
     # 'target' is the index in the nodes data frame of the value from the next column
@@ -1465,11 +1487,11 @@ prepare_sankey <- function(df, col_order, value_col) {
       target = match(df[[col_order[i+1]]], nodes$name) - 1,
       value = df[[value_col]]
     )
-
+    
     # Add the new links to the links data frame
     links <- rbind(links, new_links)
   }
-
+  
   # Return the nodes and links data frames
   return(list(nodes = nodes, links = links))
 }
@@ -1521,19 +1543,19 @@ prepare_lc_data <- function(path, year, lookup_table) {
 write_rasters_to_adir<- function(raster_objects, a_dir) {
   # Initialize a list to store the paths of the written raster files
   raster_paths <- list()
-
+  
   # Iterate over each SpatRaster object
   for (name in names(raster_objects)) {
     # Define the file path
     file_path <- file.path(a_dir, paste0(name, ".tif"))
-
+    
     # Write the SpatRaster object to the a directory
     terra::writeRaster(raster_objects[[name]], file_path,  overwrite=TRUE)
-
+    
     # Append the file path to the list of paths
     raster_paths[[name]] <- file_path
   }
-
+  
   return(raster_paths)
 }
 
@@ -1580,14 +1602,14 @@ check_and_install_packages <- function(required_packages) {
       )
     }
   }
-
+  
   # If there are missing packages, ask the user if they want to install them
   if (length(missing_packages) > 0) {
     cat("\nThe following packages are missing or could not be loaded:\n")
     cat(paste0("- ", missing_packages, "\n"))
-
+    
     install_choice <- readline(prompt = "Do you want to install/reinstall these packages? (y/n): ")
-
+    
     if (tolower(install_choice) == "y") {
       for (package in missing_packages) {
         cat(paste0("\nAttempting to install package '", package, "'...\n"))
@@ -1633,7 +1655,7 @@ color_forest_trajectories <- function() {
     ),
     color_palette = c("#006400", "#FFD700", "#FF4500", "#90EE90" , "#808080")
   )
-
+  
   # Return the color lookup table
   return(color_lookup_def)
 }
@@ -1650,6 +1672,8 @@ color_forest_trajectories <- function() {
 color_landuse_trajectories <- function() {
   # Create the tibble with trajectory categories and their corresponding colors
   color_lookup_trajectory <- tibble(
+    value = c(1,2,3,4,5,6,7,8,9
+    ),
     trajectory = c(
       "Stable natural forest",
       "Recovery to forest",
@@ -1673,7 +1697,7 @@ color_landuse_trajectories <- function() {
       "#FF0000"   # Dark Red for infrastructure loss
     )
   )
-
+  
   # Return the color lookup table
   return(color_lookup_trajectory)
 }
@@ -1695,33 +1719,33 @@ color_landuse_trajectories <- function() {
 #' @examples
 #' rasterise_multipolygon(sf_object = ntt_admin, raster_res = c(100,100), field = "ID")
 rasterise_multipolygon <- function(sf_object, raster_res = c(100,100), field = "ID"){
-
+  
   # Error checking
   if (!inherits(sf_object, "sf")) stop("sf_object must be an sf object.")
   if (!all(sf::st_geometry_type(sf_object) == "MULTIPOLYGON")) stop("All features in sf_object must be MULTIPOLYGONs.")  # Check if sf_object has UTM projection
   if (!grepl("\\+proj=utm", st_crs(sf_object)$proj4string)) stop("sf_object must have UTM projection system.")
   if (is.null(sf::st_drop_geometry(sf_object)) || !(field %in% names(sf::st_drop_geometry(sf_object)))) stop("sf_object must contain an attribute table with at least one numeric/factor column.")
   if (!is.numeric(sf_object[[field]]) && !is.factor(sf_object[[field]])) stop("The field must be numeric or a factor.")
-
+  
   # Convert the sf object to a SpatVector
   spatvect <- terra::vect(sf_object)
-
+  
   # Define the extent based on the SpatVector
   raster_extent <- terra::ext(spatvect)
-
+  
   # Create an empty SpatRaster based on the extent, resolution, and CRS
   raster_template <- terra::rast(raster_extent, resolution = raster_res, crs = terra::crs(spatvect))
-
+  
   # Rasterize the SpatVector based on the SpatRaster template
   # Specify the field in the rasterize function
   rasterised_spatraster <- terra::rasterize(spatvect, raster_template, field = field)
-
+  
   # Convert the 'Kabupaten' column of the sf_object to a lookup_table
   lookup_table <- sf::st_drop_geometry(sf_object)
-
+  
   # Add legend to the rasterized SpatRaster using the lookup_table
   levels(rasterised_spatraster) <- lookup_table
-
+  
   # Return the rasterized SpatRaster with legend
   return(rasterised_spatraster)
 }
@@ -1748,10 +1772,10 @@ rasterise_multipolygon <- function(sf_object, raster_res = c(100,100), field = "
 prepare_lc_data <- function(lc_path, time_point, lc_lookup, original_name) {
   lc_raster <- terra::rast(lc_path)
   lc_raster <- add_legend_to_categorical_raster(lc_raster, lookup_table = lc_lookup, year = time_point)
-
+  
   # Use the original file name (without extension) to name the raster layer
   names(lc_raster) <- tools::file_path_sans_ext(original_name)
-
+  
   return(lc_raster)
 }
 
@@ -1786,34 +1810,33 @@ prepare_lc_data <- function(lc_path, time_point, lc_lookup, original_name) {
 #' @export
 check_and_harmonise_geometries <- function(lc_t1, lc_t2, admin) {
   harmonised_layers <- character()
-
+  
   # Check lc_t2 against lc_t1
   if (!terra::compareGeom(lc_t1, lc_t2, stopOnError = FALSE)) {
     warning("Inconsistent geometry detected for lc_t2. Harmonizing...")
     lc_t2 <- terra::resample(lc_t2, lc_t1, method = "near")
     harmonised_layers <- c(harmonised_layers, "lc_t2")
   }
-
+  
   # Check admin against lc_t1
   if (!terra::compareGeom(lc_t1, admin, stopOnError = FALSE)) {
     warning("Inconsistent geometry detected for admin. Harmonizing...")
     admin <- terra::resample(admin, lc_t1, method = "near")
     harmonised_layers <- c(harmonised_layers, "admin")
   }
-
+  
   if (length(harmonised_layers) > 0) {
     message("Harmonization complete. The following layers were harmonised to match lc_t1:")
     message(paste("-", harmonised_layers, collapse = "\n"))
   } else {
     message("All input geometries are consistent.")
   }
-
   return(list(lc_t1 = lc_t1, lc_t2 = lc_t2, admin = admin))
 }
 
-#' Run Pre-QUES Analysis
+#' Run Pre-QuES Analysis
 #'
-#' This function performs the main Pre-QUES (Quantifying Ecosystem Services) analysis,
+#' This function performs the main Pre-QuES (Quantifying Ecosystem Services) analysis,
 #' including land cover change and trajectory analysis.
 #'
 #' @param lc_t1_input List. Land cover data for time point 1.
@@ -1836,13 +1859,16 @@ run_preques_analysis <- function(lc_t1_input, lc_t2_input, admin_z_input,
                                  lc_lookup_input, zone_lookup_input, trajectory_lookup_input,
                                  time_points, output_dir, progress_callback = NULL) {
 
+  # Run ques-b for lc
+  start_time <- Sys.time()
+  cat("Started at:", format(start_time, "%Y-%m-%d %H:%M:%S"), "\n")
   # Load lookup tables
   lc_lookup <- if(!is.null(lc_lookup_input) && file.exists(lc_lookup_input$datapath)) {
     read.csv(lc_lookup_input$datapath)
   } else {
     stop("Invalid or missing Land Use/Cover Lookup Table")
   }
-
+  
   lookup_zone <- if(!is.null(zone_lookup_input)) {
     if(inherits(zone_lookup_input, "data.frame")) {
       zone_lookup_input
@@ -1854,13 +1880,13 @@ run_preques_analysis <- function(lc_t1_input, lc_t2_input, admin_z_input,
   } else {
     NULL
   }
-
+  
   lookup_trajectory <- if(!is.null(trajectory_lookup_input) && file.exists(trajectory_lookup_input$datapath)) {
     read.csv(trajectory_lookup_input$datapath)
   } else {
-    stop("Invalid or missing Trajectory Rules file")
+    stop("Invalid or missing Trajectory lookup table")
   }
-
+  
   # Prepare land cover data
   prepare_lc_data <- function(lc_input, time_point) {
     if(is.null(lc_input) || !file.exists(lc_input$datapath)) {
@@ -1871,15 +1897,20 @@ run_preques_analysis <- function(lc_t1_input, lc_t2_input, admin_z_input,
     names(lc_raster) <- tools::file_path_sans_ext(lc_input$name)
     return(lc_raster)
   }
-
+  
   lc_data <- list(
     t1 = prepare_lc_data(lc_t1_input, time_points[["t1"]]),
     t2 = prepare_lc_data(lc_t2_input, time_points[["t2"]])
   )
-
+  if (!grepl("\\+proj=utm", st_crs(lc_data$t1)$proj4string)) 
+    stop("Land use/cover T1 must have UTM projection system.")
+  if (!grepl("\\+units=m", st_crs(lc_data$t1)$proj4string)) {
+    stop("Land use/covert T1 must have units in meters.")
+  }
+  
   if (!is.null(progress_callback)) progress_callback(0.2, "Land cover data prepared")
-
-
+  
+  
   # Prepare administrative zones data
   if(!inherits(admin_z_input, "SpatRaster")){
     admin_z <- terra::rast(admin_z_input$datapath) %>%
@@ -1889,59 +1920,69 @@ run_preques_analysis <- function(lc_t1_input, lc_t2_input, admin_z_input,
     admin_z <- admin_z_input
   }
 
-
-
   if (!is.null(progress_callback)) progress_callback(0.3, "Planning unit data prepared")
-
+  
   harmonised_rasters <-
     check_and_harmonise_geometries(lc_t1 = lc_data$t1, lc_t2 = lc_data$t2, admin = admin_z)
-
+  
   lc_data$t1 <- harmonised_rasters$lc_t1
   lc_data$t2 <- harmonised_rasters$lc_t2
   admin_z <- harmonised_rasters$admin
 
-  # Run main PreQUES analysis
+  # Run main Pre-QuES analysis
   output_pre_ques <- ques_pre(
     lc_data$t1, lc_data$t2, admin_z,
     convert_to_Ha = TRUE
   )
 
-  if (!is.null(progress_callback)) progress_callback(0.5, "Main PreQUES analysis completed")
+  if (!is.null(progress_callback)) progress_callback(0.5, "Main Pre-QuES analysis completed")
 
   # Run trajectory analysis
+  
   output_pre_ques_traj <- ques_pre_trajectory(
     lc_data$t1, lc_data$t2, admin_z, lc_lookup, lookup_trajectory,
     trajectory_column_name = "trajectory",
     convert_to_Ha = TRUE
   )
 
-  output_pre_ques_def <- ques_pre_trajectory(
-    lc_data$t1, lc_data$t1, admin_z, lc_lookup, lookup_trajectory,
-    trajectory_column_name = "def",
-    convert_to_Ha = TRUE
+  # output_pre_ques_def <- ques_pre_trajectory(
+  #   lc_data$t1, lc_data$t1, admin_z, lc_lookup, lookup_trajectory,
+  #   trajectory_column_name = "def",
+  #   convert_to_Ha = TRUE
+  # )
+
+  if (!is.null(progress_callback)) progress_callback(0.7, "Pre-QuES Trajectory analysis completed")
+
+  # End of the script
+  end_time <- Sys.time()
+  cat("Ended at:", format(end_time, "%Y-%m-%d %H:%M:%S"), "\n")
+
+  log_params <- list(
+    start_time = as.character(format(start_time, "%Y-%m-%d %H:%M:%S")),
+    end_time = as.character(format(end_time, "%Y-%m-%d %H:%M:%S")),
+    session_log = format_session_info_table(),
+    output_dir = output_dir
   )
 
-  if (!is.null(progress_callback)) progress_callback(0.7, "Trajectory analysis completed")
-
   # Generate and save outputs
-  generate_outputs(output_pre_ques, output_pre_ques_traj, output_pre_ques_def,
-                   output_dir, lc_data, admin_z, time_points)
+  generate_outputs(output_pre_ques, output_pre_ques_traj, #output_pre_ques_def,
+                   output_dir, lc_data, admin_z, time_points, log_params)
 
   if (!is.null(progress_callback)) progress_callback(1, "Outputs generated and saved")
-
+  
   return(list(
     output_pre_ques = output_pre_ques,
-    output_pre_ques_traj = output_pre_ques_traj,
-    output_pre_ques_def = output_pre_ques_def
+    output_pre_ques_traj = output_pre_ques_traj
+    #output_pre_ques_def = output_pre_ques_def
   ))
 }
 
-#' Generate Outputs for Pre-QUES Analysis
+#' Generate Outputs for Pre-QuES Analysis
 #'
-#' This function generates and saves various outputs from the Pre-QUES analysis,
+#' This function generates and saves various outputs from the Pre-QuES analysis,
 #' including CSV files and raster maps.
 #'
-#' @param output_pre_ques List. Output from main Pre-QUES analysis.
+#' @param output_pre_ques List. Output from main Pre-QuES analysis.
 #' @param output_pre_ques_traj List. Output from trajectory analysis.
 #' @param output_pre_ques_def List. Output from deforestation analysis.
 #' @param output_dir Character string. Directory to save output files.
@@ -1953,44 +1994,52 @@ run_preques_analysis <- function(lc_t1_input, lc_t2_input, admin_z_input,
 #' @importFrom utils write.csv
 #'
 #' @export
-generate_outputs <- function(output_pre_ques, output_pre_ques_traj, output_pre_ques_def,
-                             output_dir, lc_data, admin_z, time_points) {
+generate_outputs <- function(output_pre_ques, output_pre_ques_traj, #output_pre_ques_def,
+                             output_dir, lc_data, admin_z, time_points, log_params) {
   # Create output directory if it doesn't exist
   dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
-
+  
   # Export the Pre-QuES land use change transition table
   write.csv(output_pre_ques$landscape_level$crosstab_long,
-            file.path(output_dir, "PreQUES_luc_change_transition_table.csv"),
+            file.path(output_dir, "PreQuES_luc_change_transition_table.csv"),
             row.names = FALSE)
-
+  
   # Export Change Trajectory lookup table and raster
   cats(output_pre_ques_traj$landscape_level$luc_trajectory_map)[[1]] %>%
     rename(ChangeTrajectory = trajectory) %>%
-    write.csv(file.path(output_dir, "PreQUES_ChangeTrajectory_lookup.csv"),
+    write.csv(file.path(output_dir, "PreQuES_ChangeTrajectory_lookup.csv"),
               row.names = FALSE)
   writeRaster(output_pre_ques_traj$landscape_level$luc_trajectory_map,
-              file.path(output_dir, "PreQUES_ChangeTrajectory_map.tif"),
+              file.path(output_dir, "PreQuES_ChangeTrajectory_map.tif"),
               overwrite = TRUE)
-
+  
   # Export Forest Change Trajectory lookup table and raster
-  cats(output_pre_ques_def$landscape_level$luc_trajectory_map)[[1]] %>%
-    rename(ForestChangeTrajectory = def) %>%
-    write.csv(file.path(output_dir, "PreQUES_ForestChangeTrajectory_lookup.csv"),
-              row.names = FALSE)
-  writeRaster(output_pre_ques_def$landscape_level$luc_trajectory_map,
-              file.path(output_dir, "PreQUES_ForestChangeTrajectory_map.tif"),
-              overwrite = TRUE)
+  # cats(output_pre_ques_def$landscape_level$luc_trajectory_map)[[1]] %>%
+  #   rename(ForestChangeTrajectory = def) %>%
+  #   write.csv(file.path(output_dir, "PreQuES_ForestChangeTrajectory_lookup.csv"),
+  #             row.names = FALSE)
+  # writeRaster(output_pre_ques_def$landscape_level$luc_trajectory_map,
+  #             file.path(output_dir, "PreQuES_ForestChangeTrajectory_map.tif"),
+  #             overwrite = TRUE)
 
-  # Generate PreQUES report
-  generate_preques_report(output_pre_ques, output_pre_ques_traj, output_pre_ques_def,
-                          output_dir, lc_data, admin_z, time_points)
+  # Generate Pre-QuES report
+  generate_preques_report(
+    output_pre_ques,
+    output_pre_ques_traj,
+    #output_pre_ques_def,
+    output_dir,
+    lc_data,
+    admin_z,
+    time_points,
+    log_params
+  )
 }
 
-#' Generate Pre-QUES Report
+#' Generate Pre-QuES Report
 #'
-#' This function generates a report for the Pre-QUES analysis using R Markdown.
+#' This function generates a report for the Pre-QuES analysis using R Markdown.
 #'
-#' @param output_pre_ques List. Output from main Pre-QUES analysis.
+#' @param output_pre_ques List. Output from main Pre-QuES analysis.
 #' @param output_pre_ques_traj List. Output from trajectory analysis.
 #' @param output_pre_ques_def List. Output from deforestation analysis.
 #' @param output_dir Character string. Directory to save the report.
@@ -2001,8 +2050,15 @@ generate_outputs <- function(output_pre_ques, output_pre_ques_traj, output_pre_q
 #' @importFrom rmarkdown render
 #'
 #' @export
-generate_preques_report <- function(output_pre_ques, output_pre_ques_traj, output_pre_ques_def,
-                                    output_dir, lc_data, admin_z, time_points) {
+generate_preques_report <- function(output_pre_ques,
+                                    output_pre_ques_traj,
+                                    #output_pre_ques_def,
+                                    output_dir,
+                                    lc_data,
+                                    admin_z,
+                                    time_points,
+                                    log_params
+) {
   # Set up temporary directory for report generation
   temp_dir <- tempdir()
   # Write raster objects to temporary directory
@@ -2010,28 +2066,37 @@ generate_preques_report <- function(output_pre_ques, output_pre_ques_traj, outpu
     t1 = write_rasters_to_adir(lc_data$t1, a_dir = temp_dir),
     t2 = write_rasters_to_adir(lc_data$t2, a_dir = temp_dir)
   )
-
+  
   dir_zone <- write_rasters_to_adir(admin_z, a_dir = temp_dir)
-
+  
   # Write trajectory maps to temporary directory
   dir_traj_map <- write_rasters_to_adir(
     output_pre_ques_traj$landscape_level$luc_trajectory_map,
     a_dir = temp_dir)
-  dir_def_map <- write_rasters_to_adir(
-    output_pre_ques_def$landscape_level$luc_trajectory_map,
-    a_dir = temp_dir)
+  # dir_def_map <- write_rasters_to_adir(
+  #   output_pre_ques_def$landscape_level$luc_trajectory_map,
+  #   a_dir = temp_dir)
 
-  # Save PreQUES output as RDS files
+  # Save Pre-QuES output as RDS files
   saveRDS(output_pre_ques, file = file.path(temp_dir, "LUMENS_ques_pre_output.rds"))
   saveRDS(output_pre_ques_traj, file = file.path(temp_dir, "LUMENS_ques_pre_traj_output.rds"))
-  saveRDS(output_pre_ques_def, file = file.path(temp_dir, "LUMENS_ques_pre_def_output.rds"))
+  # saveRDS(output_pre_ques_def, file = file.path(temp_dir, "LUMENS_ques_pre_def_output.rds"))
 
   # Copy report template and functions to temporary directory
-  file.copy("03_preques/report_template/ques_pre.Rmd",
-            to = file.path(temp_dir, "PreQUES_report.Rmd"), overwrite = TRUE)
-  file.copy("03_preques/rscript/functions_ques_pre.R",
-            to = file.path(temp_dir, "functions_ques_pre.R"), overwrite = TRUE)
+  if (file.exists("../report_template/ques_pre.Rmd")){
+    ques_pre_report_path <- "../report_template/ques_pre.Rmd"
+    helper_functions_path <- "../rscript/functions_ques_pre.R"
 
+  } else {
+    ques_pre_report_path <- "03_preques/report_template/ques_pre.Rmd"
+    helper_functions_path <- "03_preques/rscript/functions_ques_pre.R"
+  }
+
+  file.copy(ques_pre_report_path,
+            to = file.path(temp_dir, "PreQuES_report.Rmd"), overwrite = TRUE)
+  file.copy(helper_functions_path,
+            to = file.path(temp_dir, "functions_ques_pre.R"), overwrite = TRUE)
+  
   # Prepare parameters for report rendering
   report_params <- list(
     dir_lc_t1_ = basename(dir_landuse$t1[[1]]),
@@ -2039,21 +2104,22 @@ generate_preques_report <- function(output_pre_ques, output_pre_ques_traj, outpu
     dir_admin_ = basename(dir_zone[[1]]),
     dir_ques_pre = "LUMENS_ques_pre_output.rds",
     dir_traj_map_ = basename(dir_traj_map[[1]]),
-    dir_def_map_ = basename(dir_def_map[[1]]),
+    # dir_def_map_ = basename(dir_def_map[[1]]),
     dir_ques_pre_traj = "LUMENS_ques_pre_traj_output.rds",
-    dir_ques_pre_def = "LUMENS_ques_pre_def_output.rds",
+    # dir_ques_pre_def = "LUMENS_ques_pre_def_output.rds",
     cutoff_landscape = 100,
-    cutoff_pu = 0
+    cutoff_pu = 0,
+    log_params= log_params
   )
-
+  
   # Render the R Markdown report
   if (rmarkdown::pandoc_available()==FALSE){
   Sys.setenv(RSTUDIO_PANDOC=paste0(getwd(), "/pandoc"))
 }
 
   rmarkdown::render(
-    input = file.path(temp_dir, "PreQUES_report.Rmd"),
-    output_file = "PreQUES_report.html",
+    input = file.path(temp_dir, "PreQuES_report.Rmd"),
+    output_file = "PreQuES_report.html",
     output_dir = output_dir,
     params = report_params
   )
@@ -2073,14 +2139,14 @@ generate_preques_report <- function(output_pre_ques, output_pre_ques_traj, outpu
 #' @export
 read_shapefile <- function(shp_input) {
   if (is.null(shp_input)) return(NULL)
-
+  
   prev_wd <- getwd()
   on.exit(setwd(prev_wd), add = TRUE)  # This ensures we always return to the previous working directory
-
+  
   tryCatch({
     uploaded_dir <- dirname(shp_input$datapath[1])
     setwd(uploaded_dir)
-
+    
     for (i in 1:nrow(shp_input)) {
       old_path <- shp_input$datapath[i]
       new_path <- file.path(uploaded_dir, shp_input$name[i])
@@ -2092,22 +2158,22 @@ read_shapefile <- function(shp_input) {
         cat("File exists (new):", file.exists(new_path), "\n")
       }
     }
-
+    
     shp_file <- shp_input$name[grep(pattern = "*.shp$", shp_input$name)]
     if (length(shp_file) == 0) {
       stop("No .shp file found in the uploaded files.")
     }
-
+    
     required_extensions <- c("shp", "dbf", "prj", "shx")
     missing_files <- required_extensions[!required_extensions %in% tools::file_ext(list.files(uploaded_dir))]
     if (length(missing_files) > 0) {
       stop(paste("Missing required shapefile components:", paste(missing_files, collapse = ", ")))
     }
-
+    
     cat("About to read shapefile:", shp_file, "\n")
     cat("Files in directory after renaming:\n")
     print(list.files(uploaded_dir))
-
+    
     # Read and return the shapefile
     sf_object <- sf::st_read(shp_file)
     return(sf_object)
@@ -2138,256 +2204,55 @@ process_planning_unit <- function(zone_type, zone_input, lc_t1_raster) {
     lookup_zone <- NULL
   } else {
     sf_object <- read_shapefile(zone_input)
-
+    
     if (is.null(sf_object)) {
       stop("Failed to read shapefile. Please check your input.")
     }
-
+    
     # Rename columns
     sf_object <- sf_object %>%
       dplyr::rename(Value = 1, planning_unit = 2)
-
+    
     # Create lookup table from shapefile attributes
     lookup_zone <- sf::st_drop_geometry(sf_object)
-
+    
     lc_t1_res <- terra::res(lc_t1_raster)
     zone_raster <- rasterise_multipolygon(sf_object, raster_res = lc_t1_res, field = "Value")
   }
-
+  
   # Ensure the planning unit raster matches the LC T1 raster
   zone_raster <- terra::resample(zone_raster, lc_t1_raster, method = "near")
   return(list(zone_raster = zone_raster, lookup_zone = lookup_zone))
 }
 
 
+format_session_info_table <- function() {
+  si <- sessionInfo()
 
-#' Pre-QuES Analysis Shiny Application
-#'
-#' This function creates and runs a Shiny application for performing Pre-QuES
-#' (Quantification of Ecosystem Services) analysis. The app allows users to upload
-#' land cover data, planning unit information, and various lookup tables to
-#' perform land use change and trajectory analysis.
-#'
-#' @description
-#' The app provides a user interface for:
-#' \itemize{
-#'   \item Uploading land cover data for two time points
-#'   \item Uploading a land cover lookup table
-#'   \item Choosing between raster and shapefile input for planning units
-#'   \item Uploading planning unit data and related lookup tables
-#'   \item Uploading trajectory rules
-#'   \item Selecting an output directory
-#'   \item Running the Pre-QuES analysis
-#'   \item Viewing analysis status and opening the output folder
-#' }
-#'
-#' @details
-#' The server-side logic handles file uploads, input validation, running the
-#' Pre-QuES analysis, and displaying results or error messages. It uses reactive
-#' values to manage the state of inputs and outputs.
-#'
-#' @note
-#' This application requires the following packages:
-#' shiny, shinyjs, shinyFiles, terra, dplyr, sf
-#'
-#' @return A Shiny app object
-#'
-#' @import shiny
-#' @import shinyjs
-#' @import shinyFiles
-#' @importFrom terra rast
-#' @importFrom dplyr %>%
-#' @importFrom sf st_read
-#'
-#' @export
-preques_app <- function() {
-  # Define a list of required packages for the Pre-QuES analysis and Shiny app
-  required_packages <- c(
-    "terra", "dplyr", "tidyterra", "ggplot2", "forcats", "stringr",
-    "cowplot", "networkD3", "scales", "purrr", "rmarkdown",
-    "kableExtra", "htmlTable", "knitr", "magrittr", "tidyr",
-    "rlang", "stats", "utils", "methods", "sf", "ggrepel",
-    "viridis", "textclean", "shiny", "shinydashboard", "shinyjs",
-    "shinyFiles"
+  # Extract R version info
+  r_version <- si$R.version[c("major", "minor", "year", "month", "day", "nickname")]
+  r_version <- paste0(
+    "R ", r_version$major, ".", r_version$minor,
+    " (", r_version$year, "-", r_version$month, "-", r_version$day, ")",
+    " '", r_version$nickname, "'"
   )
 
-  # Check if required packages are installed, and install them if not
-  check_and_install_packages(required_packages)
+  # Extract platform and OS info
+  platform_os <- paste(si$platform, "|", si[[6]]) |> paste( collapse = "<br>")
 
-  ui <- fluidPage(
-    tags$head(
-      tags$style(HTML("
-        .shiny-input-container {width: 100% !important;}
-        .shiny-file-input-progress {width: 100% !important;}
-        .form-control {width: 100% !important;}
-        .btn {width: 100%;}
-      "))
-    ),
-    useShinyjs(),
-    titlePanel("Pre-QuES Analysis"),
-    fluidRow(
-      column(8, offset = 2,
-             fileInput("lc_t1", "Land Use/Cover T1", accept = c(".tif", ".tiff")),
-             fileInput("lc_t2", "Land Use/Cover T2", accept = c(".tif", ".tiff")),
-             fileInput("lookup_lc", "Land Use/Cover Lookup Table (CSV)", accept = c(".csv")),
-             radioButtons("zone_type", "Planning Units Input Type",
-                          choices = c("Raster" = "raster", "Shapefile" = "shapefile")),
-             conditionalPanel(
-               condition = "input.zone_type == 'raster'",
-               fileInput("zone_raster", "Planning Units (Raster)", accept = c(".tif", ".tiff")),
-               fileInput("lookup_zone", "Planning Units Lookup (CSV)", accept = c(".csv"))
-             ),
-             conditionalPanel(
-               condition = "input.zone_type == 'shapefile'",
-               fileInput("zone_shapefile", "Planning Units (Shapefile)",
-                         accept = c(".shp", ".dbf", ".prj", ".shx"), multiple = TRUE)
-             ),
-             fileInput("lookup_trajectory", "Trajectory Rules (CSV)", accept = c(".csv")),
-             numericInput("t1_year", "T1 Year", value = 1990),
-             numericInput("t2_year", "T2 Year", value = 2020),
-             shinyDirButton("output_dir", "Select Output Directory", "Please select a directory"),
-             textOutput("selected_dir"),
-             br(),
-             br(),
-             actionButton("run_analysis", "Run Pre-QuES Analysis"),
-             br(),
-             br(),
-             actionButton("open_output_folder", "Open Output Folder"),
-             br(),
-             br(),
-             textOutput("status_messages"),
-             textOutput("error_messages"),
-             textOutput("success_message")
-      )
-    )
+  # Extract locale info
+  locale_info <- strsplit(si[[3]], ";")[[1]]
+  locale_info <- paste(locale_info, collapse = "<br>")
+
+  # Extract .libpaths
+  lib_paths <- .libPaths() |> paste( collapse = "<br>")
+
+  # Combine all info into a single tibble
+  session_summary <- tibble(
+    Category = c("R Version", "Platform | OS", ".libPaths", "Locale"),
+    Details = c(r_version, platform_os, lib_paths, locale_info)
   )
-
-  server <- function(input, output, session) {
-    # Directory selection
-    volumes <- c(Home = fs::path_home(), "R Installation" = R.home(), getVolumes()())
-    shinyDirChoose(input, "output_dir", roots = volumes, session = session)
-
-    # Hide the "Open Output Folder" button initially
-    shinyjs::hide("open_output_folder")
-
-    # Reactive value to store selected output directory
-    selected_output_dir <- reactiveVal(NULL)
-
-    # Update reactive value when output directory is selected
-    observe({
-      if (!is.null(input$output_dir)) {
-        selected_output_dir(parseDirPath(volumes, input$output_dir))
-      }
-    })
-
-    # Display selected output directory
-    output$selected_dir <- renderText({
-      if (!is.null(selected_output_dir())) {
-        paste("Selected output directory:", selected_output_dir())
-      } else {
-        "No output directory selected"
-      }
-    })
-
-    # Create reactive values for inputs
-    rv <- reactiveValues(
-      lc_t1 = NULL,
-      lc_t2 = NULL,
-      lookup_lc = NULL,
-      zone_input = NULL,
-      lookup_zone = NULL,
-      lookup_trajectory = NULL
-    )
-
-    # Update reactive values when inputs change
-    observe({
-      rv$lc_t1 <- input$lc_t1
-      rv$lc_t2 <- input$lc_t2
-      rv$lookup_lc <- input$lookup_lc
-      rv$lookup_trajectory <- input$lookup_trajectory
-
-      if (input$zone_type == "raster") {
-        rv$zone_input <- input$zone_raster
-        rv$lookup_zone <- input$lookup_zone
-      } else {
-        rv$zone_input <- input$zone_shapefile
-        rv$lookup_zone <- NULL  # Will be created from shapefile
-      }
-    })
-
-    # Input validation
-    validate_inputs <- reactive({
-      validate(
-        need(rv$lc_t1, "Please upload Land Use/Cover T1 file"),
-        need(rv$lc_t2, "Please upload Land Use/Cover T2 file"),
-        need(rv$lookup_lc, "Please upload Land Use/Cover Lookup Table (CSV) file"),
-        need(input$zone_type, "Please select Planning Units Input Type"),
-        need(rv$zone_input, "Please upload Planning Units file"),
-        need(if(input$zone_type == "raster") rv$lookup_zone else TRUE, "Please upload Planning Units Lookup (CSV) file for raster input"),
-        need(rv$lookup_trajectory, "Please upload Trajectory Rules (CSV) file"),
-        need(selected_output_dir(), "Please select an output directory")
-      )
-      return(TRUE)
-    })
-
-    # Run analysis
-    observeEvent(input$run_analysis, {
-      req(validate_inputs())
-
-      showNotification("Analysis is running. Please wait...", type = "message", duration = NULL, id = "running_notification")
-      withProgress(message = 'Running Pre-QuES Analysis', value = 0, {
-        tryCatch({
-          # Load LC T1 raster
-          lc_t1_raster <- terra::rast(rv$lc_t1$datapath)
-
-          # Process planning unit input
-          zone_data <- process_planning_unit(
-            zone_type = input$zone_type,
-            zone_input = rv$zone_input,
-            lc_t1_raster = lc_t1_raster
-          )
-
-          results <- run_preques_analysis(
-            lc_t1_input = rv$lc_t1,
-            lc_t2_input = rv$lc_t2,
-            admin_z_input = zone_data$zone_raster,
-            lc_lookup_input = rv$lookup_lc,
-            zone_lookup_input = if(input$zone_type == "raster") rv$lookup_zone else zone_data$lookup_zone,
-            trajectory_lookup_input = rv$lookup_trajectory,
-            time_points = list(t1 = input$t1_year, t2 = input$t2_year),
-            output_dir = selected_output_dir(),
-            progress_callback = function(value, detail) {
-              setProgress(value = value, message = detail)
-            }
-          )
-
-          output$status_messages <- renderText("Analysis completed successfully!")
-          output$success_message <- renderText("Analysis completed successfully! You can now open the output folder.")
-          output$error_messages <- renderText(NULL)
-          shinyjs::show("open_output_folder")
-          removeNotification("running_notification")
-          showNotification("Analysis completed successfully!", type = "message")
-        }, error = function(e) {
-          output$status_messages <- renderText(paste("Error in analysis:", e$message))
-          output$error_messages <- renderText(paste("Error in analysis:", e$message))
-          output$success_message <- renderText(NULL)
-          removeNotification("running_notification")
-          showNotification("Error in analysis. Please check the error messages.", type = "error")
-        })
-      })
-    })
-
-    # Open output folder
-    observeEvent(input$open_output_folder, {
-      if (!is.null(selected_output_dir())) {
-        if (.Platform$OS.type == "windows") {
-          shell.exec(selected_output_dir())
-        } else {
-          system2("open", selected_output_dir())
-        }
-      }
-    })
-  }
-
-  shinyApp(ui, server)
+  return(session_summary)
 }
+
+easy_to_read_numbers <- scales::label_comma()

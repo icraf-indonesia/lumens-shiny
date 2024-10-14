@@ -1,0 +1,129 @@
+---
+title: "QuES-H Soil Erosion Risk Modelling Quick Guide"
+output: 
+  html_document: 
+    toc: true
+    toc_float: true
+    number_sections: true
+    df_print: kable
+    math_method:
+      engine: mathjax
+runtime: shiny
+---
+
+# Overview
+
+QuES-H (Quantification of Ecosystem Services) is a hydrological assessment module that analyzes hydrological environmental services. The current version features a soil erosion risk module based on the Revised Universal Soil Loss Equation (RUSLE), with plans to expand its capabilities to include additional hydrological analyses in the future.
+
+# Key Concepts
+
+The Revised Universal Soil Loss Equation (RUSLE) is an empirical model widely used in soil conservation and watershed management. It provides a method for estimating annual soil loss due to water erosion. Key features of RUSLE is predicting long-term average annual soil loss.
+
+RUSLE can support for land use planning and soil conservation strategies in several ways, including quantifying soil erosion risk across landscapes, identifying areas prone to high erosion rates, and comparing soil loss rates under various land management scenarios
+
+**The RUSLE Equation**
+
+$$
+A = R \times K \times LS \times C \times P
+$$
+
+RUSLE is a multiplicative model where each factor influences the overall soil loss. Soil loss ($A$) is the average annual soil loss per unit area (tons per hectare per year). All factors except R and K are dimensionless. The model can be applied at field, watershed, or regional scales, depending on data availability.
+
+**Components**
+
+1.  $R$-factor (Rainfall-runoff erosivity)
+
+    Requires long-term rainfall data, preferably 20+ years. Often estimated from annual precipitation, or obtained from pre-calculated maps
+
+2.  $K$-factor (Soil erodibility)
+
+    Based on soil texture, organic matter content, structure, and permeability.
+
+3.  $LS$-factor (Slope length and steepness)
+
+    Derived from Digital Elevation Models (DEMs) and flow accumulation data.
+
+4.  $C$-factor (Cover management)
+
+    Incorporates land use and cover data derived from field surveys or through a classification of land cover types using satellite imagery.
+
+5.  $P$-factor (Support practice)
+
+    Accounts for conservation practices like terracing, contouring, and strip cropping.
+
+# Data and Input Variables
+
+1.  Total Annual Precipitation Map (GeoTIFF format)
+
+    -   Represents the total rainfall for each pixel over a year (mm/year)
+
+2.  Digital Elevation Model (DEM) (GeoTIFF format)
+
+    -   Represents the terrain elevation (meters above sea level)
+
+3.  Soil Properties Maps (GeoTIFF format)
+
+    -   Clay content (%)
+
+    -   Silt content (%)
+
+    -   Sand content (%)
+
+    -   Soil organic content (g/kg)
+
+4.  Land Cover Map (GeoTIFF format)
+
+    -   Categorical raster with each pixel value corresponds to a land cover class
+
+5.  Land Cover Lookup Table (CSV format)
+
+    -   Lookup table containing raster values (ID) with their corresponding land cover class, C-factor value, and P-factor value.
+
+6.  Planning Unit Map (Shapefile format)
+
+    -   A polygon shapefile of administrative or management zones.
+
+***Note***
+
+*While detailed long-term data is preferred when available, this module focuses on methods using publicly available spatial data.*
+
+*The module will use these inputs to calculate the RUSLE factors (R, K, LS, C, P) internally.*
+
+*Users should ensure that all raster inputs are properly aligned (i.e., with identical projection systems, extents, and resolutions) and have consistent no-data values.*
+
+*The lookup table allows flexibility in assigning C and P factors based on local conditions or literature values.*
+
+# Using The Module
+
+Follow these steps to use the module:
+
+![](images/QUES-H_GUI_10pfs.gif){style="max-width:80%; height:auto;"}
+
+# Accessing Outputs
+
+After the analysis completes, you'll find the following raster maps in your selected output directory:
+
+-   Annual Soil Loss Map : Estimated soil loss per hectare per year( $\text{t} \cdot \text{ha}^{-1} \cdot \text{yr}^{-1}$ )
+
+-   Rainfall-runoff Erosivity Map (R-factor): Erosive force of rainfall ( $\text{MJ} \cdot \text{mm} \cdot \text{ha}^{-1} \cdot \text{h}^{-1} \cdot \text{yr}^{-1}$ )
+
+-   Soil Erodibility Map (K-factor): Susceptibility of soil to erosion ( $\text{t} \cdot \text{ha} \cdot \text{h} \cdot \text{ha}^{-1} \cdot \text{MJ}^{-1} \cdot \text{mm}^{-1}$ )
+
+-   Slope Length and Steepness Map (LS-factor): Combined effect of slope length and steepness on erosion (unitless)
+
+-   Cover Management Map (C-factor): Effect of land cover and crop management on soil erosion (unitless)
+
+-   Support Practice Map (P-factor): Impact of support practices on soil erosion (unitless)
+
+-   **QuES-H Report**: An HTML file providing an overview of the analysis results, including:
+
+    -   Data visualisation on input data
+    -   Data visualisation on the overall estimated annual erosion map
+    -   Data visualisation on each RUSLE components
+    -   Descriptive statistics of annual erosion at landscape and planning unit levels
+
+------------------------------------------------------------------------
+
+For more detailed information or troubleshooting, refer to the full QuES-H documentation or contact the tool developers.
+
+<font size="1">LUMENS is free software and comes with ABSOLUTELY NO WARRANTY. Users are responsible for the results generated. Results depend on the quality of the input data ("garbage in, garbage out") and may vary or be sensitive to the parameters used. Please report any problems encountered while using LUMENS as [a GitHub issue](https://github.com/icraf-indonesia/lumens-shiny/issues). Feedback and questions are welcome [Contact Us URL].</font>

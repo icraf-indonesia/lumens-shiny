@@ -1,45 +1,52 @@
-## Help Page for PUR Build Module
+---
+title: "Planning Unit Reconciliation (Build) Quick Guide"
+output: 
+  html_document: 
+    toc: true
+    toc_float: true
+    number_sections: true
+    df_print: kable
+---
 
-## 1. Description
+# Overview
 
-Planning unit reconciliation is a process to resolve overlapping permits by referring to function reference maps. Reconciliation is done by analyzing how well the permit data matches the reference data. Permit data can include things like forest management concessions, plantation permits, mining permits, and others. Reference data can be spatial planning data or area designation data.
+Planning unit reconciliation is a process to resolve overlapping permits by referring to function reference maps. Permit data can include things like forest management concessions, plantation permits, mining permits, and others. Reference data can be spatial planning data or area designation data. PUR Build module construct the overlay of planning units map to identified the overlaped zones. 
 
-## 2. Required Data
+# Data and Input Variables
 
-![](image/input%20data.png)
+1.  Reference Map (Shapefile format)
+    -   Represents zonation that will become the reference for PUR analysis
+2.  Reference Class (CSV format)
+    -   Lookup table containing class function that will become the reference for all the planning units. Consist of ID column and Class Definition.
+3.  Reference Class of Reference Map (CSV format)
+    -   Lookup table containing reference map values (ID) with their corresponding classification of reference class (ID of reference class)
+4.  Planning Unit List (CSV format)
+    -   Lookup table containing list of planning units (name, identity, and shapefile path) with their corresponding of reference class classification.
 
-## 3. Running Model
+# Using The Module
 
-### 3.1 Input data
+Follow these steps to use the module:
 
-#### Shapefile data (select all related shapefile):
+![](images/PURbuild-01.gif){style="max-width:80%; height:auto;"}
 
-![](image/shapefile.png)
+# Accessing Outputs
 
-#### Tabular data:
+After the analysis completes, you'll find the following output data in your selected output directory:
 
--   reference class ![](image/ref_class.png)
--   reference class of reference map ![](image/ref_mapping.png)
--   planning unit list ![](image/pu_units.png)
+-   Planning Unit Building (GeoTiff)
 
-#### Map resolution
+-   Planning Unit Building (Shapefile)
 
-Default value: 100
+-   Unresolved Case Attribute Result (CSV)
 
-### 3.2 Set working directory
+-   **PUR Build Report**: An HTML file providing an overview of the analysis results, including:
 
-![](image/set%20wd.png)
+    -   Data visualisation on input data
+    -   Data visualisation on planning unit building
+    -   Descriptive statistics of planning unit and unresolved cases
 
-### 3.3 Run the module
+------------------------------------------------------------------------
 
-![](image/run.png)
+For more detailed information or troubleshooting, refer to the full QuES-H documentation or contact the tool developers.
 
-## 4. Output
-
-### 4.1 Exported data
-
-![](image/exported%20data.png)
-
-### 4.2 Report file
-
-![](image/report.png)
+<font size="1">LUMENS is free software and comes with ABSOLUTELY NO WARRANTY. Users are responsible for the results generated. Results depend on the quality of the input data ("garbage in, garbage out") and may vary or be sensitive to the parameters used. Please report any problems encountered while using LUMENS as [a GitHub issue](https://github.com/icraf-indonesia/lumens-shiny/issues). Feedback and questions are welcome [Contact Us URL].</font>

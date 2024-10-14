@@ -1,0 +1,82 @@
+name_common,name_sp,class,name_parameter,value,unit
+silk tree,Albizia falcataria,S1,clim_dry_months,0-2,unitless
+silk tree,Albizia falcataria,S2,clim_dry_months,2-4,unitless
+silk tree,Albizia falcataria,N,clim_dry_months,>4,unitless
+silk tree,Albizia falcataria,S1,clim_precipitation_tot,2500-3000,mm
+silk tree,Albizia falcataria,S2,clim_precipitation_tot,3000-4000,mm
+silk tree,Albizia falcataria,S2,clim_precipitation_tot,2000-2500,mm
+silk tree,Albizia falcataria,N,clim_precipitation_tot,>4000,mm
+silk tree,Albizia falcataria,N,clim_precipitation_tot,2000<,mm
+silk tree,Albizia falcataria,S1,clim_temperature_avg,21-30,°C
+silk tree,Albizia falcataria,S2,clim_temperature_avg,30-34,°C
+silk tree,Albizia falcataria,S2,clim_temperature_avg,19-21,°C
+silk tree,Albizia falcataria,N,clim_temperature_avg,>34,°C
+silk tree,Albizia falcataria,N,clim_temperature_avg,19<,°C
+silk tree,Albizia falcataria,S1,soil_cec,>16,cmol
+silk tree,Albizia falcataria,S2,soil_cec,5-16,cmol
+silk tree,Albizia falcataria,S3,soil_cec,5<,cmol
+silk tree,Albizia falcataria,S2,soil_depth,>100,cm
+silk tree,Albizia falcataria,S3,soil_depth,75-100,cm
+silk tree,Albizia falcataria,N,soil_depth,75<,cm
+silk tree,Albizia falcataria,S1,soil_drainage,baik;agakcepat;sedang,unitless
+silk tree,Albizia falcataria,S2,soil_drainage,agakterhambat;agakcepat,unitless
+silk tree,Albizia falcataria,S3,soil_drainage,cepat,unitless
+silk tree,Albizia falcataria,N,soil_drainage,terhambat;sangatterhambat;cepat,unitless
+silk tree,Albizia falcataria,S1,soil_erosion_risk,0.15<,unitless
+silk tree,Albizia falcataria,S2,soil_erosion_risk,0.15-0.9,unitless
+silk tree,Albizia falcataria,S2,soil_erosion_risk,0.9-1.8,unitless
+silk tree,Albizia falcataria,S3,soil_erosion_risk,1.8-4.8,unitless
+silk tree,Albizia falcataria,N,soil_erosion_risk,>4.8,unitless
+silk tree,Albizia falcataria,S2,soil_flood_height,25,cm
+silk tree,Albizia falcataria,S3,soil_flood_height,25-50,cm
+silk tree,Albizia falcataria,N,soil_flood_height,>50,cm
+silk tree,Albizia falcataria,S2,soil_flood_length,7<,hari
+silk tree,Albizia falcataria,S3,soil_flood_length,7-14,hari
+silk tree,Albizia falcataria,N,soil_flood_length,>14,hari
+silk tree,Albizia falcataria,S1,soil_k2o,>20,mg/100 g
+silk tree,Albizia falcataria,S2,soil_k2o,10-20,mg/100 g
+silk tree,Albizia falcataria,S3,soil_k2o,10<,mg/100 g
+silk tree,Albizia falcataria,S1,soil_nitrogen,>0.2,%
+silk tree,Albizia falcataria,S2,soil_nitrogen,0.10-0.20,%
+silk tree,Albizia falcataria,S3,soil_nitrogen,0.10<,%
+silk tree,Albizia falcataria,S1,soil_organic_c,>0.4,%
+silk tree,Albizia falcataria,S2,soil_organic_c,0.4<,%
+silk tree,Albizia falcataria,S1,soil_outcrop,2<,%
+silk tree,Albizia falcataria,S2,soil_outcrop,2-10,%
+silk tree,Albizia falcataria,S3,soil_outcrop,10-25,%
+silk tree,Albizia falcataria,N,soil_outcrop,>25,%
+silk tree,Albizia falcataria,S1,soil_p2o5,>20,mg/100 g
+silk tree,Albizia falcataria,S2,soil_p2o5,15-20,mg/100 g
+silk tree,Albizia falcataria,S3,soil_p2o5,15<,mg/100 g
+silk tree,Albizia falcataria,S2,soil_peat_depth,100<,cm
+silk tree,Albizia falcataria,S3,soil_peat_depth,100-200,cm
+silk tree,Albizia falcataria,N,soil_peat_depth,>200,cm
+silk tree,Albizia falcataria,S2,soil_peat_maturity,saprik,unitless
+silk tree,Albizia falcataria,S3,soil_peat_maturity,hemik,unitless
+silk tree,Albizia falcataria,N,soil_peat_maturity,hemik;fibrik,unitless
+silk tree,Albizia falcataria,S1,soil_ph,5.5-7.0,unitless
+silk tree,Albizia falcataria,S2,soil_ph,7.0-7.5,unitless
+silk tree,Albizia falcataria,S2,soil_ph,5.0-5.5,unitless
+silk tree,Albizia falcataria,S3,soil_ph,7.5-8.0,unitless
+silk tree,Albizia falcataria,S3,soil_ph,4.5-5.0,unitless
+silk tree,Albizia falcataria,N,soil_ph,>8.0,unitless
+silk tree,Albizia falcataria,N,soil_ph,4.5<,unitless
+silk tree,Albizia falcataria,S1,soil_salinity,2<,dS/m
+silk tree,Albizia falcataria,S2,soil_salinity,2-4,dS/m
+silk tree,Albizia falcataria,S3,soil_salinity,4-8,dS/m
+silk tree,Albizia falcataria,N,soil_salinity,>8,dS/m
+silk tree,Albizia falcataria,S1,soil_slope,8<,%
+silk tree,Albizia falcataria,S2,soil_slope,8-15,%
+silk tree,Albizia falcataria,S3,soil_slope,15-40,%
+silk tree,Albizia falcataria,N,soil_slope,>40,%
+silk tree,Albizia falcataria,S1,soil_sulfidic_depth,>175,cm
+silk tree,Albizia falcataria,S2,soil_sulfidic_depth,125-175,cm
+silk tree,Albizia falcataria,S3,soil_sulfidic_depth,75-125,cm
+silk tree,Albizia falcataria,N,soil_sulfidic_depth,75<,cm
+silk tree,Albizia falcataria,S1,soil_surface_rocks,3<,%
+silk tree,Albizia falcataria,S2,soil_surface_rocks,3-15,%
+silk tree,Albizia falcataria,S3,soil_surface_rocks,15-40,%
+silk tree,Albizia falcataria,N,soil_surface_rocks,>40,%
+silk tree,Albizia falcataria,S1,soil_texture,s_ah_h,unitless
+silk tree,Albizia falcataria,S2,soil_texture,k_ak,unitless
+silk tree,Albizia falcataria,S3,soil_texture,sh,unitless

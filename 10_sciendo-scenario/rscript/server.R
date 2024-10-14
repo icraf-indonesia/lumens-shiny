@@ -751,7 +751,7 @@ server <- function(input, output, session) {
       }
       
       end_time <- Sys.time()
-  
+      
       out <- list(
         start_time = as.character(format(start_time, "%Y-%m-%d %H:%M:%S")),
         end_time = as.character(format(end_time, "%Y-%m-%d %H:%M:%S")),

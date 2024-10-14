@@ -1,0 +1,100 @@
+---
+title: "Regional Economic Projection Report"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+    df_print: kable
+params:
+  session_log: NA
+  start_time: NA
+  end_time: NA
+  landuse_table: NA
+  GDP_totals_graph: NA
+  GDP_scen_df: NA
+  output_total_graph: NA
+  income_total_graph: NA
+  labour_total_graph: NA
+  output_dir: NA
+  land_req_path: NA
+  sciendo_db_path: NA
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(knitr)
+library(ggplot2)
+library(kableExtra)
+library(htmlwidgets)
+library(DT)
+```
+
+<details><summary>Click here for Analysis Log</summary>
+
+```{r analysis-log, echo=FALSE}
+
+analysis_log <- tribble(
+  ~Category,                   ~Details,
+  "Analysis Start",        params$start_time,
+  "Analysis End",          params$end_time,
+  "Input Data and Parameters", "",
+  "Land Requirement Database",      params$land_req_path,
+  "SCIENDO Database",   params$sciendo_db_path,
+  "Output Files", "",
+  "Output Workspace",      paste0(getwd(), " | ", params$output_dir),
+  "Session Summary", "",
+) %>% rbind(format_session_info_table())
+
+analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
+  kable_paper("hover", full_width = F )
+```
+</details>
+
+
+# Introduction
+This report presents the results of an analysis based on the provided maps and lookup table
+
+# Analysis Results
+The maps provided was carbon, emission and sequestration map.
+
+* Calculation or analysis details based on the results can be presented here.
+
+## GDP Each Sector
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+dt_gdp_sector <- params$GDP_scen_df %>%
+  mutate(across(where(is.numeric), scales::comma))
+
+DT::datatable(dt_gdp_sector) %>%
+  DT::formatStyle(columns = 3:ncol(dt_gdp_sector), 
+              `render` = JS("function(data, type, row, meta) {
+                                return type === 'display' && data !== null
+                                ? parseFloat(data).toFixed(2)
+                                : data;
+                            }"))
+```
+
+## GDP Total
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+plot(params$GDP_totals_graph)
+```
+
+## Output Total
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+plot(params$output_total_graph)
+```
+
+## Income Total
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+plot(params$income_total_graph)
+```
+
+## Labour Total
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+plot(params$labour_total_graph)
+```
+
+------------------------------------------------------------------------
+
+<font size="1"> LUMENS is free software and comes with ABSOLUTELY NO WARRANTY. Users are responsible for the results generated. Results depend on the quality of the input data ("garbage in, garbage out") and may vary or be sensitive to the parameters used. Please report any problems encountered while using LUMENS as [a GitHub issue](https://github.com/icraf-indonesia/lumens-shiny/issues). Feedback and questions are welcome [Contact Us URL]. </font size>
+

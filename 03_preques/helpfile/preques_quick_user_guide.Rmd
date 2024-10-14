@@ -1,0 +1,62 @@
+---
+title: "Pre-QuES Quick Guide"
+output: 
+  html_document: 
+    toc: true
+    toc_float: true
+    number_sections: true
+    df_print: kable
+---
+
+# Overview
+
+Pre-QuES (Preliminary Quantification of Ecosystem Services), a land use change assessment module, quantifies land cover types and their changes over time, identifies specific land use change trajectories, breaks down changes by administrative or planning units, and visualises land use dynamics through maps and Sankey-charts, providing key information to identify potential drivers of land use change.
+
+# Key Concepts:
+
+1. **Land Cover Maps**: Raster files of categorical values representing the spatial distribution of land use/cover types at different time points.
+
+2. **Planning Unit Map**: A raster file delineating administrative or management zones for land use planning.
+
+3. **Land Use/Cover Change**: The transition of land cover types between two time periods.
+
+4. **Change Trajectories**: Specific patterns of land use change, such as deforestation, degradation, or recovery.
+
+# Data Preparation
+
+Before using the Pre-QuES Analysis tool, prepare the following:
+
+1. **Land Cover Maps**: Two raster files (GeoTIFF format) representing land use/cover for two different time points.
+2. **Planning Unit Map**: A complete shapefile dataset representing administrative or management zones. The dataset includes all necessary file components (.shp, .dbf, .shx, and .prj).
+3. **Land Use/Cover Lookup Table**: A CSV file describing raster values with their corresponding land cover classes.
+4. **Trajectory Rules**: A CSV file defining rules for classifying land use change trajectories.
+
+## Using the Pre-QuES Module
+
+Follow these steps to use the module:
+
+![](pre_ques_gui_entry.gif){style="max-width:80%;height=auto;"}
+
+# Accessing Outputs
+
+After the analysis completes, you'll find the following in your selected output directory:
+
+1. **Pre-QuES Land Use Change Transition Table**: A CSV file detailing land cover transitions between T1 and T2.
+
+2. **Change Trajectory Map**: A GeoTIFF file illustrating spatial patterns of land use change trajectories.
+
+3. **Forest Change Trajectory Map**: A GeoTIFF file showing forest-specific change patterns (e.g., deforestation, degradation).
+
+4. **Pre-QuES Report**: An HTML file providing a comprehensive overview of the analysis results, including:
+   - Land cover composition tables and graphs
+   - Sankey diagrams of land use dynamics
+   - Top land use changes at landscape and planning unit levels
+   - Trajectory analysis results and visualizations
+
+These outputs will help you understand land use change patterns, identify potential drivers of change, and inform land use planning and management decisions.
+
+---
+
+For more detailed information or troubleshooting, refer to the full Pre-QuES documentation or contact the tool developers.
+
+<font size="1">LUMENS is free software and comes with ABSOLUTELY NO WARRANTY. Users are responsible for the results generated. Results depend on the quality of the input data ("garbage in, garbage out") and may vary or be sensitive to the parameters used. Please report any problems encountered while using LUMENS as [a GitHub issue](https://github.com/icraf-indonesia/lumens-shiny/issues). Feedback and questions are welcome [Contact Us URL].</font>

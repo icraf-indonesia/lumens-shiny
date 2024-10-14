@@ -224,9 +224,13 @@ setupTECIParameters <- function(landuse,
   # Create a temporary directory
   temp_dir <- tempfile(pattern = "TECI_temp_")
   dir.create(temp_dir, showWarnings = FALSE)
-
+  
   # Write the landuse raster to the temporary directory
   lu_path <- file.path(temp_dir, basename(sources(landuse)))
+  
+  if (!endsWith(tolower(lu_path), ".tif")) {
+    lu_path <- paste0(lu_path, ".tif")
+  }
   writeRaster(landuse, filename = lu_path,  overwrite = TRUE)
 
   # Initialize parameters list
@@ -405,7 +409,7 @@ reclassify_to_binary <- function(raster, target_value) {
     # If x equals target_value, return 1
     # Else, if x is NA, return NA
     # Otherwise, return 0
-    ifelse(x == target_value, 1, ifelse(is.na(x), NA, 0))
+    ifelse(x %in% target_value, 1, ifelse(is.na(x), NA, 0))
   }
 
   app(raster, reclass)
@@ -656,16 +660,31 @@ executeFragstats <- function(params) {
 #'
 #' @export
 processTECIOutput <- function(params) {
+  desc_tab <- read.csv(params$classdesc)
+  id_focal <- desc_tab %>% filter(Enabled %in% TRUE) %>% pull(ID)
   # Construct path to TECI output
   mwout <- paste0(params$lu_path, '_mw1')
-  teci_file <- list.files(mwout, full.names = TRUE)[1]
+  teci_file_name <- paste0("teci_", id_focal, ".tif")
+  teci_files <- list.files(mwout, full.names = TRUE)
+  matching_file <- teci_files[grep(paste0("/", teci_file_name, "$"), teci_files, fixed = FALSE)][1]
+  
+  # Check if a match was found
+  if (length(matching_file) == 0) {
+    print("No matching file found")
+  } else if (length(matching_file) > 1) {
+    print("Multiple matching files found. Using the first match.")
+    print(matching_file[1])
+  } else {
+    print("Matching file found:")
+    print(matching_file)
+  }
 
-  if(is.null(teci_file) || !file.exists(teci_file)) {
+  if(is.null(matching_file) || !file.exists(matching_file)) {
     stop("TECI output file not found.")
   }
 
   # Read TECI raster
-  teci_raster <- rast(teci_file)
+  teci_raster <- rast(matching_file)
 
   # Set NA value
   NAflag(teci_raster) <- -999
@@ -745,44 +764,45 @@ teci_analysis <- function(landuse,
                           windowsize = 1000,
                           window.shape = 1,
                           raster.nodata = 0,
-                          fragstats_path = NULL) {
-
+                          fragstats_path = NULL,
+                          timestep = NULL) {
+  
   # Check if the output directory exists
   if (!dir.exists(output_dir)) {
     stop("Error: The specified output directory does not exist: ", output_dir)
   }
-
   # Calculate total area of the landscape (in Hectares)
   total_area_ <- landuse %>%
     create_binary_raster() %>%
     # Convert to ha
     suppressWarnings(aggregate(., fact = c(100, 100) / res(.),
-              fun = "modal")) %>%
+                               fun = "modal")) %>%
     freq() %>%
-    pull(count)
-
+    pull(count) %>% 
+    sum()
+  
   # Read and process the class descriptor file
   classdesc_tbl <- classdesc %>%
     read.csv() %>%
     rename(ID = 1, CLASS = 2, BIODIV = 3) %>%
     filter(!ID %in% raster.nodata)
-
+  
   # Prepare the class descriptor for Fragstats
   classdesc_fcd <- classdesc_tbl %>%
     rename(ID = 1, Name = 2, Enabled = 3) %>%
     mutate(Enabled = as.logical(Enabled)) %>%
     mutate(IsBackground = FALSE)
-
+  
   # Create a path for the processed class descriptor file
   classdesc_path <- paste0(output_dir, "/", "habitat_lookup.fcd")
-
+  
   # Write the processed class descriptor to a file
   write.table(classdesc_fcd,
               classdesc_path,
               sep = ",",
               row.names = FALSE,
               quote = FALSE)
-
+  
   # Set up parameters for TECI analysis
   params <- setupTECIParameters(landuse = landuse,
                                 output_dir = output_dir,
@@ -794,66 +814,81 @@ teci_analysis <- function(landuse,
                                 window.shape = window.shape,
                                 raster.nodata = raster.nodata,
                                 fragstats_path = NULL)
-
+  
   # Retrieve focal area ID (land cover class that represents a habitat of interest)
   focal_area_ID <- classdesc_tbl %>%
     filter(BIODIV %in% 1) %>%
     pull(1) %>%
     .[1]
-
+  
   # Create a focal area map
   focal_area_map <- reclassify_to_binary(landuse, focal_area_ID)
-
+  
   # Set name and time attributes for the focal area raster
   names(focal_area_map) <- paste0(
     "focal_area_", focal_area_ID, "_",
+    if (!is.null(timestep)) paste0(timestep, "_"),
     sub("\\.[^.]+$", "", basename(terra::sources(landuse))))
-
-  terra::time(focal_area_map, tstep = "years") <- time(landuse)
-
+  
+  terra::time(focal_area_map, tstep = "years") <- timestep
+  
   # Construct output file path and write focal area result to file
-  focal_area_path <- file.path(output_dir,
-                               paste0("focal_area_",
-                                      focal_area_ID,
-                                      "_",
-                                      basename(terra::sources(landuse))))
-
+  focal_area_filename <- paste0("focal_area_",
+                                focal_area_ID,
+                                if (!is.null(timestep)) paste0("_", timestep),
+                                "_",
+                                sub("\\.[^.]+$", "", basename(terra::sources(landuse))))
+  
+  focal_area_path <- file.path(output_dir, focal_area_filename)
+  
+  if (!endsWith(tolower(focal_area_path), ".tif")) {
+    focal_area_path <- paste0(focal_area_path, ".tif")
+  }
+  
   writeRaster(focal_area_map, focal_area_path, overwrite = TRUE)
+  
   # Set up Fragstats database
   db_conn <- setupFragstatsDatabase(params)
-
+  
   # Update Fragstats parameters
   updateFragstatsParameters(db_conn, params)
-
+  
   # Insert landscape layer into Fragstats database
   insertLandscapeLayer(db_conn, params)
-
+  
   # Execute Fragstats for TECI calculation
   executeFragstats(params)
-
+  
   # Process TECI output
   result <- processTECIOutput(params)
 
   # Set name and time attributes for the TECI result raster
   names(result) <- paste0(
     "teci_", focal_area_ID, "_",
+    if (!is.null(timestep)) paste0(timestep, "_"),
     sub("\\.[^.]+$", "", basename(terra::sources(landuse))))
-
-  terra::time(result, tstep = "years") <- time(landuse)
-
+  
+  terra::time(result, tstep = "years") <- timestep
+  
   # Construct output file path and write TECI result to file
-  teci_path <- file.path(output_dir,
-                         paste0("teci_",
-                                focal_area_ID,
-                                "_",
-                                basename(terra::sources(landuse))))
-
+  teci_filename <- paste0("teci_",
+                          focal_area_ID,
+                          if (!is.null(timestep)) paste0("_", timestep),
+                          "_",
+                          sub("\\.[^.]+$", "", basename(terra::sources(landuse))))
+  
+  teci_path <- file.path(output_dir, teci_filename)
+  
+  if (!endsWith(tolower(teci_path), ".tif")) {
+    teci_path <- paste0(teci_path, ".tif")
+  }
+  
   writeRaster(result, teci_path, overwrite = TRUE)
-
+  
   # Clean up temporary directory and close database connection
   unlink(params$temp_dir, recursive = TRUE)
   dbDisconnect(db_conn)
-
+  
   # Return the resulting TECI raster, focal area raster, and total area
   return(list(
     teci = rast(teci_path),
@@ -1179,44 +1214,232 @@ quesb_single_period <- function(lulc_lut_path,
               overwrite = TRUE)
 
   # Perform TECI analysis
-  teci_lc_t1 <- teci_analysis(
+  teci_t1 <- teci_analysis(
     landuse = lc_t1,
     output_dir = output_dir,
-    classdesc = lulc_lut_path,  # Class descriptor file
-    cont_fsq = contab_path,  # Contrast file
-    fca = fca_path,  # Fragstats model file (optional)
-    adjacent_only = 1,  # Consider only adjacent cells
-    windowsize = window_size,  # Moving window size
-    window.shape = window.shape,  # Window shape (0 for square, 1 for circle)
-    raster.nodata = raster.nodata,  # NoData value
-    fragstats_path = fragstats_path  # Path to Fragstats software (optional)
+    classdesc = lulc_lut_path,
+    cont_fsq = contab_path,
+    fca = fca_path,
+    adjacent_only = 1,
+    windowsize = window_size,
+    window.shape = window.shape,
+    raster.nodata = raster.nodata,
+    fragstats_path = fragstats_path,
+    timestep = t1  # Pass the time period for t1
   )
 
   # Calculate DIFA (Degree of Integration of Focal Areas) table
-  difa_lc_t1 <- calculate_difa(teci_map = teci_lc_t1$teci,
-                               focal_area = teci_lc_t1$focal_area,
+  difa_teci_t1 <- calculate_difa(teci_map = teci_t1$teci,
+                               focal_area = teci_t1$focal_area,
                                sampling_grid = sampling_grid,
                                output_dir = output_dir,
-                               total_area_landscape = teci_lc_t1$total_area)
+                               total_area_landscape = teci_t1$total_area)
 
   # Return results
   return(
-    list(teci_map = teci_lc_t1$teci,
-         focal_area = teci_lc_t1$focal_area,
-         total_area = teci_lc_t1$total_area %>% units::as_units("ha"),
-         difa_table = difa_lc_t1$difa_table,
-         difa_score = difa_lc_t1$difa_score,
-         path_teci_map = teci_lc_t1$path_teci_map,
-         path_focal_area = teci_lc_t1$path_focal_area,
+    list(teci_map_t1 = teci_t1$teci,
+         focal_area_t1 = teci_t1$focal_area,
+         total_area = teci_t1$total_area %>% units::as_units("ha"),
+         difa_table_t1 = teci_t1$difa_table,
+         difa_score_t1 = teci_t1$difa_score,
+         path_teci_map_t1 = teci_t1$path_teci_map,
+         path_focal_area_t1 = teci_t1$path_focal_area,
          path_sampling_grid = sampling_grid_path,
-         path_difa_table = difa_lc_t1$difa_path)
+         path_difa_table_t1 = difa_teci_t1$difa_path)
+  )
+}
+
+
+quesb_two_periods <- function(lulc_lut_path,
+                              lc_t1_path,
+                              t1,
+                              lc_t2_path,
+                              t2,
+                              raster.nodata = 0,
+                              contab_path,
+                              sampling_points = 1000,
+                              window_size = 1000,
+                              window.shape = 0,
+                              output_dir,
+                              fca_path = NULL,
+                              fragstats_path = NULL) {
+  
+  
+  # Load and prepare data
+  # Load land use/land cover lookup table
+  lulc_lut <- read.csv(lulc_lut_path)
+  
+  # Load and prepare land cover maps
+  lc_t1 <- prepare_lc_data(lc_t1_path, year = t1, lookup_table = lulc_lut)
+  lc_t2 <- prepare_lc_data(lc_t2_path, year = t2, lookup_table = lulc_lut)
+  
+  # Harmonize NoData values
+  list_lc <- harmonise_nodata(lc_t1, lc_t2, nodata_value = raster.nodata)
+  lc_t1 <- list_lc[[1]]
+  lc_t2 <- list_lc[[2]]
+  
+  # Harmonize geometries
+  list_lc <- check_and_harmonise_geometries(lc_t1, lc_t2)
+  lc_t1 <- list_lc$lc_t1
+  lc_t2 <- list_lc$lc_t2
+  
+  # Generate sampling grid
+  sampling_grid <- generate_sampling_grid(lc_t1, n = sampling_points)
+  
+  # Save sampling grid
+  sampling_grid_path <- file.path(output_dir,
+                                  paste0("sampling_grid",
+                                         "_",
+                                         tools::file_path_sans_ext(
+                                           basename(
+                                             terra::sources(lc_t1))), ".shp"))
+  writeVector(sampling_grid,
+              sampling_grid_path,
+              filetype = "ESRI Shapefile",
+              overwrite = TRUE)
+  # Perform TECI analysis for both time periods
+  teci_t1 <- teci_analysis(
+    landuse = lc_t1,
+    output_dir = output_dir,
+    classdesc = lulc_lut_path,
+    cont_fsq = contab_path,
+    fca = fca_path,
+    adjacent_only = 1,
+    windowsize = window_size,
+    window.shape = window.shape,
+    raster.nodata = raster.nodata,
+    fragstats_path = fragstats_path,
+    timestep = t1  # Pass the time period for t1
+  )
+  
+  teci_t2 <- teci_analysis(
+    landuse = lc_t2,
+    output_dir = output_dir,
+    classdesc = lulc_lut_path,
+    cont_fsq = contab_path,
+    fca = fca_path,
+    adjacent_only = 1,
+    windowsize = window_size,
+    window.shape = window.shape,
+    raster.nodata = raster.nodata,
+    fragstats_path = fragstats_path,
+    timestep = t2  # Pass the time period for t2
+  )
+  
+  
+  
+  # Calculate DIFA for both time periods
+  difa_t1 <- calculate_difa(
+    teci_map = teci_t1$teci,
+    focal_area = teci_t1$focal_area,
+    sampling_grid = sampling_grid,
+    output_dir = output_dir,
+    total_area_landscape = teci_t1$total_area
+  )
+  
+  difa_t2 <- calculate_difa(
+    teci_map = teci_t2$teci,
+    focal_area = teci_t2$focal_area,
+    sampling_grid = sampling_grid,
+    output_dir = output_dir,
+    total_area_landscape = teci_t2$total_area
+  )
+  
+  # Calculate TECI Difference map
+  teci_2_bin<- reclassify_to_binary(teci_t2$teci, 1) %>% reclassify_to_binary(0) %>% 
+    classify( cbind(NA,0))
+  teci_1_bin<- reclassify_to_binary(teci_t1$teci, 1) %>% reclassify_to_binary(0)%>% 
+    classify( cbind(NA,0))
+  teci_bin <- teci_2_bin + teci_1_bin
+  teci_bin <- reclassify_to_binary(teci_bin, c(1,2)) %>% 
+    classify(cbind(0,NA))
+    
+  teci_focal_change <- (teci_2_bin + teci_1_bin) %>%
+    classify(cbind(0,NA))
+  
+  teci_bin_diff<- teci_focal_change %>% classify(cbind(1,NA)) %>% 
+    classify(cbind(2,1))
+  
+  teci_loss <- teci_focal_change %>%  classify(cbind(2,NA)) %>% 
+    classify(cbind(1,999)) %>% classify(cbind(NA,0))
+    
+  
+  teci_t2_reclassed <- classify(teci_t2$teci, cbind(NA,0))
+  teci_t1_reclassed <- classify(teci_t1$teci, cbind(NA,0))
+  
+  constant_focal_area <- ((teci_t2_reclassed - teci_t1_reclassed)*teci_bin_diff) %>%
+    reclassify_to_binary(0) %>%
+    reclassify_to_binary(1) %>%
+    classify(cbind(NA,0))
+  
+  # Calculate the difference between TECI maps
+  teci_diff <- ((teci_t2_reclassed - teci_t1_reclassed)*teci_bin_diff) %>% 
+    classify(cbind(NA,0))
+  
+  teci_decrease <- (teci_diff<0) %>% classify(cbind(TRUE,2)) 
+  teci_increase <- (teci_diff>0) %>% classify(cbind(TRUE,3)) 
+  
+  # interpretation
+  # 999 means focal area loss (disconnected)
+  # positive value 0-100 increase in total edge contrast value (segregated)
+  # negative value -100-0 decrease in total edge contrast value (integrated)
+  net_change <- (teci_diff+ teci_loss)*teci_bin
+  
+  # Save the difference map
+  teci_diff_path <- file.path(output_dir, paste0("teci_change_",t1,"_",t2,".tif"))
+  writeRaster(net_change, teci_diff_path, overwrite = TRUE)
+  
+  # interpretation net_change_category
+  # 4 means focal area loss (disconnected)
+  # 3 increase in total edge contrast value (segregated)
+  # 2 decrease in total edge contrast value (integrated)
+  # 1 core focal area with 0 teci value
+  net_change_category_lookup_table <- tibble(Value= c(1:4),
+         Description = c("Fully integrated core focal area",
+                         "Decrease in total edge contrast value (integration)",
+                         "Increase in total edge contrast value (segregation)",
+                         "Focal edge area loss"))
+  
+  net_change_category <- (constant_focal_area+teci_increase+teci_decrease+classify(teci_loss, cbind(999,4))) %>% 
+    classify(cbind(0,NA))
+  
+  levels(net_change_category)[[1]]<- data.frame(net_change_category_lookup_table)
+  
+  # Save the difference category map
+  teci_diff_reclassed_path <- file.path(output_dir, paste0("teci_change_categories",t1,"_",t2,".tif"))
+  writeRaster(net_change_category, teci_diff_reclassed_path, overwrite = TRUE)
+  
+  # Return results
+  return(
+    list(
+      teci_map_t1 = teci_t1$teci,
+      teci_map_t2 = teci_t2$teci,
+      teci_difference = net_change,
+      teci_diff_category = net_change_category,
+      focal_area_t1 = teci_t1$focal_area,
+      focal_area_t2 = teci_t2$focal_area,
+      total_area = teci_t1$total_area %>% units::as_units("ha"),
+      difa_table_t1 = difa_t1$difa_table,
+      difa_score_t1 = difa_t1$difa_score,
+      difa_table_t2 = difa_t2$difa_table,
+      difa_score_t2 = difa_t2$difa_score,
+      path_teci_map_t1 = teci_t1$path_teci_map,
+      path_teci_map_t2 = teci_t2$path_teci_map,
+      path_focal_area_t1 = teci_t1$path_focal_area,
+      path_focal_area_t2 = teci_t2$path_focal_area,
+      path_sampling_grid = sampling_grid_path,
+      path_difa_table_t1 = difa_t1$difa_path,
+      path_difa_table_t2 = difa_t2$difa_path,
+      path_teci_difference = teci_diff_path,
+      path_teci_diff_category = teci_diff_reclassed_path
+    )
   )
 }
 
 
 format_session_info_table <- function() {
   si <- sessionInfo()
-
+  
   # Extract R version info
   r_version <- si$R.version[c("major", "minor", "year", "month", "day", "nickname")]
   r_version <- paste0(
@@ -1224,27 +1447,26 @@ format_session_info_table <- function() {
     " (", r_version$year, "-", r_version$month, "-", r_version$day, ")",
     " '", r_version$nickname, "'"
   )
-
+  
   # Extract platform and OS info
-  platform_os <- paste(si$platform, "|", si[[6]])
-
+  platform_os <- paste(si$platform, "|", si$running)
+  
   # Extract locale info
   locale_info <- strsplit(si[[3]], ";")[[1]]
   locale_info <- paste(locale_info, collapse = "<br>")
-
+  
   # Extract .libpaths, accomodate multiple library paths
   lib_paths <- .libPaths() |> paste( collapse = "<br>")
-
+  
   # Combine all info into a single tibble
   session_summary <- tibble(
     Category = c("R Version", "Platform | OS", ".libPaths", "Locale"),
     Details = c(r_version, platform_os, lib_paths, locale_info)
   )
-
-
-
+  
   return(session_summary)
 }
+
 
 
 # plot_categorical_raster -------------------------------------------------
@@ -1422,48 +1644,35 @@ check_and_install_packages <- function(required_packages) {
 #' @importFrom utils dir.create list.files
 #' @importFrom methods is
 #' @export
-run_ques_b <- function(lc_t1_path, t1, nodata_class, lulc_lut_path, contab_path,
+run_ques_b <- function(lc_t1_path, t1, lc_t2_path = NULL, t2 = NULL, nodata_class, lulc_lut_path, contab_path,
                        sampling_points, window_size, window.shape, fca_path = NULL,
                        fragstats_path = NULL, output_dir, report_template_path) {
-
   # Create output directory
   dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
-
-  # Run ques-b for lc
+  
+  # Run QuES-B analysis
   start_time <- Sys.time()
   cat("Started at:", format(start_time, "%Y-%m-%d %H:%M:%S"), "\n")
-  quesb_result <- quesb_single_period(
-    lc_t1_path = lc_t1_path,
-    t1 = t1,
-    raster.nodata = nodata_class,
-    lulc_lut_path = lulc_lut_path,
-    contab_path = contab_path,
-    output_dir = output_dir,
-    sampling_points = sampling_points,
-    window_size = window_size,
-    window.shape = window.shape,
-    fca_path = fca_path,
-    fragstats_path = fragstats_path[1]
-  )
-
-  # End of the script
-  end_time <- Sys.time()
-  cat("Ended at:", format(end_time, "%Y-%m-%d %H:%M:%S"), "\n")
-
-  session_log <- format_session_info_table()
-
-  report_params <- list(
-    start_time = as.character(format(start_time, "%Y-%m-%d %H:%M:%S")),
-    end_time = as.character(format(end_time, "%Y-%m-%d %H:%M:%S")),
-    output_dir = output_dir,
-    total_area = quesb_result$total_area,
-    dir_teci_map = basename(quesb_result$path_teci_map),
-    dir_focal_area_ = basename(quesb_result$path_focal_area),
-    dir_sampling_grid = basename(quesb_result$path_sampling_grid),
-    dir_difa_table = basename(quesb_result$path_difa_table),
-    difa_table = quesb_result$difa_table,
-    difa_score = quesb_result$difa_score,
-    inputs = list(
+  if (!is.null(lc_t2_path) && !is.null(t2)) {
+    # Run two-period analysis
+    quesb_result <- quesb_two_periods(
+      lc_t1_path = lc_t1_path,
+      t1 = t1,
+      lc_t2_path = lc_t2_path,
+      t2 = t2,
+      raster.nodata = nodata_class,
+      lulc_lut_path = lulc_lut_path,
+      contab_path = contab_path,
+      output_dir = output_dir,
+      sampling_points = sampling_points,
+      window_size = window_size,
+      window.shape = window.shape,
+      fca_path = fca_path,
+      fragstats_path = fragstats_path[1]
+    )
+  } else {
+    # Run single-period analysis
+    quesb_result <- quesb_single_period(
       lc_t1_path = lc_t1_path,
       t1 = t1,
       raster.nodata = nodata_class,
@@ -1472,201 +1681,101 @@ run_ques_b <- function(lc_t1_path, t1, nodata_class, lulc_lut_path, contab_path,
       output_dir = output_dir,
       sampling_points = sampling_points,
       window_size = window_size,
+      window.shape = window.shape,
+      fca_path = fca_path,
+      fragstats_path = fragstats_path[1]
+    )
+  }
+  
+  # End of the script
+  end_time <- Sys.time()
+  cat("Ended at:", format(end_time, "%Y-%m-%d %H:%M:%S"), "\n")
+  session_log <- format_session_info_table()
+  
+  # Prepare parameters for report rendering
+  report_params <- list(
+    start_time = as.character(format(start_time, "%Y-%m-%d %H:%M:%S")),
+    end_time = as.character(format(end_time, "%Y-%m-%d %H:%M:%S")),
+    output_dir = output_dir,
+    total_area = quesb_result$total_area,  # Ensure total_area is included
+    session_log = session_log,
+    inputs = list(
+      lc_t1_path = fs::path_abs(lc_t1_path),
+      t1 = t1,
+      raster.nodata = nodata_class,
+      lulc_lut_path = fs::path_abs(lulc_lut_path),
+      contab_path = fs::path_abs(contab_path),
+      output_dir = fs::path_abs(output_dir),
+      sampling_points = sampling_points,
+      window_size = window_size,
       window.shape = window.shape
     ),
-    session_log = session_log
+    dir_sampling_grid = basename(quesb_result$path_sampling_grid)
   )
-
-  # Prepare parameters for report rendering
-  report_params$inputs$fca_path <- if(is.null(fca_path)) {"teciuf.fca"} else {fca_path}
-
-  if (is.null(report_params$inputs$fragstats_path)) {
-    program_files <- c("C:/Program Files/", "C:/Program Files (x86)/")
-    fragstats_dirs <- list.files(program_files, pattern = "^Fragstats 4", full.names = TRUE)
-    if (length(fragstats_dirs) == 0) {
-      stop("No Fragstats 4.x installation found.")
-    }
-    # Sort directories to use the latest version if multiple are found
-    report_params$inputs$fragstats_path <- sort(fragstats_dirs, decreasing = TRUE)[1]
+  
+  if (!is.null(lc_t2_path) && !is.null(t2)) {
+    report_params$inputs$lc_t2_path <- lc_t2_path
+    report_params$inputs$t2 <- t2
+    report_params$dir_teci_map_t1 <- basename(quesb_result$path_teci_map_t1)
+    report_params$dir_teci_map_t2 <- basename(quesb_result$path_teci_map_t2)
+    report_params$dir_focal_area_t1 <- basename(quesb_result$path_focal_area_t1)
+    report_params$dir_focal_area_t2 <- basename(quesb_result$path_focal_area_t2)
+    report_params$dir_teci_difference <- basename(quesb_result$path_teci_difference)
+    report_params$dir_teci_diff_category <- basename(quesb_result$path_teci_diff_category)
+    report_params$dir_difa_table_t1 <- basename(quesb_result$path_difa_table_t1)
+    report_params$dir_difa_table_t2 <- basename(quesb_result$path_difa_table_t2)
+    report_params$difa_score_t1 <- quesb_result$difa_score_t1
+    report_params$difa_score_t2 <- quesb_result$difa_score_t2
+    
+  } else {
+    report_params$dir_teci_map_t1 <- basename(quesb_result$path_teci_map_t1)
+    report_params$dir_focal_area_t1 <- basename(quesb_result$path_focal_area_t1)
+    report_params$dir_difa_table_t1 <- basename(quesb_result$path_difa_table_t1)
+    report_params$difa_score_t1 <- quesb_result$difa_score_t1
   }
 
+  report_params_path <- file.path(output_dir, "output_parameters.rds") %>% fs::path_abs()
+  save(report_params, file= report_params_path)
+  
   # Render the R Markdown report
-  if (!rmarkdown::pandoc_available()) {
-    Sys.setenv(RSTUDIO_PANDOC = paste0(getwd(), "/pandoc"))
-  }
-
   rmarkdown::render(
     input = report_template_path,
     output_file = "QuES_B_report.html",
     output_dir = output_dir,
-    params = report_params
+    params = report_params,
+    knit_root_dir = getwd()
   )
-
+  
   return(report_params)
 }
 
 
-#' QuES-B Analysis Shiny Application
-#'
-#' This function creates and runs a Shiny application for performing QuES-B
-#' (Quantification of Ecosystem Services - Biodiversity) analysis. The app allows users to upload
-#' land cover data and various lookup tables to perform the analysis.
-#'
-#' @return A Shiny app object
-#'
-#' @import shiny
-#' @import shinyjs
-#' @import shinyFiles
-#' @importFrom terra rast
-#' @importFrom dplyr %>%
-#' @importFrom sf st_read
-#'
-#' @export
-quesb_app <- function() {
-  # Define a list of required packages for the QuES-B analysis and Shiny app
-  required_packages <- c("terra", "dplyr", "ggplot2", "shiny", "shinyjs",
-                         "shinyFiles", "caTools", "sf", "DBI", "RSQLite",
-                         "rmarkdown", "bslib")
 
-  # Check if required packages are installed, and install them if not
-  check_and_install_packages(required_packages)
-
-  ui <- fluidPage(
-    useShinyjs(),
-    theme = bs_theme(version = 5),
-    titlePanel("QuES-B Module"),
-    sidebarLayout(
-      sidebarPanel(
-        fileInput("lc_t1", "Land Cover", accept = c(".tif", ".tiff")),
-        numericInput("t1_year", "Year", value = 2010),
-        numericInput("nodata_class", "No Data Class", value = 0),
-        fileInput("lulc_lut", "Land Use/Cover & Focal Area Lookup Table (CSV)", accept = c(".csv")),
-        fileInput("contab", "Edge Contrast Table (FSQ)", accept = c(".fsq")),
-        numericInput("sampling_points", "Sampling Points", value = 1000),
-        numericInput("window_size", "Window Size", value = 1000),
-        selectInput("window_shape", "Window Shape", choices = c("Square" = 1, "Circle" = 2), selected = 1),
-        fileInput("fca_path", "FRAGSTATS Configuration ", accept = c(".fca"), placeholder = "(Optional)"),
-        div(style = "display: flex; flex-direction: column; gap: 10px;",
-            shinyDirButton("fragstats_path", "FRAGSTATS Path (Optional)", "(Optional)"),
-            shinyDirButton("output_dir", "Select Output Directory", "Please select a directory"),
-            actionButton("run_analysis", "Run QuES-B Analysis",
-                         style = "font-size: 18px; padding: 10px 15px; background-color: #4CAF50; color: white;"),
-            hidden(
-              actionButton("open_report", "Open Report",
-                           style = "font-size: 18px; padding: 10px 15px; background-color: #008CBA; color: white;")
-            )
-        )
-      ),
-      mainPanel(
-        tabsetPanel(
-          tabPanel("User Guide", uiOutput("user_guide")),
-          tabPanel("Analysis",
-                   textOutput("selected_dir"),
-                   verbatimTextOutput("status_messages"),
-                   verbatimTextOutput("error_messages"),
-                   plotOutput("result_plot")
-          )
-        )
-      )
+plot_teci_difference_map <- function(teci_diff_raster) {
+  library(ggplot2)
+  library(tidyterra)
+  
+  # Create the plot
+  ggplot() +
+    geom_spatraster(data = teci_diff_raster) +
+    scale_fill_gradient2(
+      low = "green",
+      mid = "white",
+      high = "red",
+      midpoint = 0,
+      name = "TECI Difference"
+    ) +
+    theme_bw() +
+    labs(title = "TECI Difference Map") +
+    theme(
+      axis.title.x = element_blank(),
+      axis.title.y = element_blank(),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      legend.title = element_text(size = 12),
+      legend.text = element_text(size = 10),
+      legend.key.height = unit(0.5, "cm"),
+      legend.key.width = unit(0.5, "cm"),
+      legend.position = "right"
     )
-  )
-
-  server <- function(input, output, session) {
-    # Directory selection
-    volumes <- c(Home = fs::path_home(), "R Installation" = R.home(), getVolumes()())
-    shinyDirChoose(input, "output_dir", roots = volumes, session = session)
-
-    # Display selected output directory
-    output$selected_dir <- renderText({
-      if (!is.null(input$output_dir)) {
-        paste("Selected output directory:", parseDirPath(volumes, input$output_dir))
-      } else {
-        "No output directory selected"
-      }
-    })
-
-    # Directory selection for FRAGSTATS
-    shinyDirChoose(input, "fragstats_path", roots = volumes, session = session)
-
-    # Display selected FRAGSTATS directory
-    output$selected_fragstats_dir <- renderText({
-      if (!is.null(input$fragstats_path)) {
-        paste("Selected FRAGSTATS directory:", parseDirPath(volumes, input$fragstats_path))
-      } else {
-        "No FRAGSTATS directory selected (Optional)"
-      }
-    })
-
-    # Render user guide
-    output$user_guide <- renderUI({
-      guide_path <- "05_quesb/helpfile/quesb_quick_user_guide.Rmd"
-      if (file.exists(guide_path)) {
-        html_content <- rmarkdown::render(guide_path, output_format = "html_fragment", quiet = TRUE)
-        HTML(readLines(html_content))
-      } else {
-        HTML("<p>User guide file not found.</p>")
-      }
-    })
-
-    # Function to rename uploaded file
-    rename_uploaded_file <- function(input_file) {
-      if (is.null(input_file)) return(NULL)
-
-      old_path <- input_file$datapath
-      new_path <- file.path(dirname(old_path), input_file$name)
-      file.rename(old_path, new_path)
-      return(new_path)
-    }
-
-    observeEvent(input$run_analysis, {
-      req(input$lc_t1, input$lulc_lut, input$contab, input$output_dir)
-
-      showNotification("Analysis is running. Please wait...", type = "message", duration = NULL)
-
-      withProgress(message = 'Running QuES-B Analysis', value = 0, {
-        tryCatch({
-          # Rename uploaded files
-          lc_t1_path <- rename_uploaded_file(input$lc_t1)
-          lulc_lut_path <- rename_uploaded_file(input$lulc_lut)
-          contab_path <- rename_uploaded_file(input$contab)
-          fca_path <- if (!is.null(input$fca_path)) rename_uploaded_file(input$fca_path) else NULL
-
-          result <- run_ques_b(
-            lc_t1_path = lc_t1_path,
-            t1 = input$t1_year,
-            nodata_class = input$nodata_class,
-            lulc_lut_path = lulc_lut_path,
-            contab_path = contab_path,
-            sampling_points = input$sampling_points,
-            window_size = input$window_size,
-            window.shape = as.numeric(input$window_shape),
-            fca_path = fca_path,
-            fragstats_path = if (!is.null(input$fragstats_path)) parseDirPath(volumes, input$fragstats_path) else NULL,
-            output_dir = parseDirPath(volumes, input$output_dir),
-            report_template_path = "../report_template/quesb_report_template.Rmd"
-          )
-
-          output$status_messages <- renderText("Analysis completed successfully!")
-          showNotification("Analysis completed successfully!", type = "message")
-          shinyjs::show("open_report")
-
-        }, error = function(e) {
-          output$error_messages <- renderText(paste("Error in analysis:", e$message))
-          showNotification(paste("Error in analysis:", e$message), type = "error")
-        })
-      })
-    })
-
-    observeEvent(input$open_report, {
-      report_path <- paste0(parseDirPath(volumes, input$output_dir), "/QuES_B_report.html")
-      if (file.exists(report_path)) {
-        showNotification("Opening report...", type = "message")
-        utils::browseURL(report_path)
-      } else {
-        showNotification("Report file not found.", type = "error")
-      }
-    })
-  }
-
-  shinyApp(ui, server)
 }

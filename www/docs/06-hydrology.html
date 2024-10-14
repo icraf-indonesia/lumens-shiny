@@ -1,0 +1,1534 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.4.552">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>LUMENS User Guide - 6&nbsp; Hydrology</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+  margin-bottom: 0em;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
+
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<link href="./12-lasem.html" rel="next">
+<link href="./05-biodiversity.html" rel="prev">
+<link href=".//media/favicon.ico" rel="icon">
+<script src="site_libs/quarto-html/quarto.js"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "sidebar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "start",
+  "type": "textbox",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+
+</head>
+
+<body class="nav-sidebar floating">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+  <nav class="quarto-secondary-nav">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./ques.html">Quantification of Environmental Services (QUES)</a></li><li class="breadcrumb-item"><a href="./06-hydrology.html"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">Quantification of Ecosystem Services – Hydrological Assessment (QuES-H)</span></a></li></ol></nav>
+        <a class="flex-grow-1" role="button" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+      <button type="button" class="btn quarto-search-button" aria-label="" onclick="window.quartoOpenSearch();">
+        <i class="bi bi-search"></i>
+      </button>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto">
+    <div class="pt-lg-2 mt-2 text-left sidebar-header sidebar-header-stacked">
+      <a href="./index.html" class="sidebar-logo-link">
+      <img src="./media/Logomark_LUMENS.png" alt="" class="sidebar-logo py-0 d-lg-inline d-none">
+      </a>
+    <div class="sidebar-title mb-0 py-0">
+      <a href="./">LUMENS User Guide</a> 
+        <div class="sidebar-tools-main tools-wide">
+    <div class="dropdown">
+      <a href="" title="" id="quarto-navigation-tool-dropdown-0" class="quarto-navigation-tool dropdown-toggle px-1" data-bs-toggle="dropdown" aria-expanded="false" aria-label=""><i class="bi bi-shuffle"></i></a>
+      <ul class="dropdown-menu" aria-labelledby="quarto-navigation-tool-dropdown-0">
+          <li>
+            <a class="dropdown-item sidebar-tools-main-item" href="https://help.lumens.or.id">
+            English
+            </a>
+          </li>
+          <li>
+            <a class="dropdown-item sidebar-tools-main-item" href="https://help.lumens.or.id/id">
+            Bahasa
+            </a>
+          </li>
+      </ul>
+    </div>
+    <a href="https://lumens.or.id" title="" class="quarto-navigation-tool px-1" aria-label=""><i class="bi bi-globe"></i></a>
+    <a href="https://github.com/icraf-indonesia/lumensbook" title="" class="quarto-navigation-tool px-1" aria-label=""><i class="bi bi-github"></i></a>
+</div>
+    </div>
+      </div>
+        <div class="mt-2 flex-shrink-0 align-items-center">
+        <div class="sidebar-search">
+        <div id="quarto-search" class="" title="Search"></div>
+        </div>
+        </div>
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Preface</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./intro.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">About LUMENS</span></a>
+  </div>
+</li>
+        <li class="px-0"><hr class="sidebar-divider hi "></li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a href="./pur.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Planning Unit Reconciliation (PUR)</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-1" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./01-build.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">1</span>&nbsp; <span class="chapter-title">Building planning unit</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./02-reconcile.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">Planning unit reconciliation</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a href="./ques.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Quantification of Environmental Services (QUES)</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-2" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./03-preques.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">Land use changes and trajectories</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./04-carbon.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">Carbon stock dynamic</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./05-biodiversity.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Biodiversity</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./06-hydrology.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">Quantification of Ecosystem Services – Hydrological Assessment (QuES-H)</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./12-lasem.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Land Suitability Evaluation Module (LaSEM)</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a href="./ta.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Trade-Off Analysis (TA)</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-3" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./07-profitability.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">7</span>&nbsp; <span class="chapter-title">Profitability Analysis</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./08-regional1.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Regional Economic Descriptive Analysis</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./09-regional2.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Regional Economic Projection</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a href="./sciendo.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Scenario Simulation and Development (SCIENDO)</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-4" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-4" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./10-scenario.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Scenario Builder</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./11-lucm.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">8</span>&nbsp; <span class="chapter-title">Land Use Change Modelling using DINAMICA</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="px-0"><hr class="sidebar-divider hi "></li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./summary.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Summary</span></a>
+  </div>
+</li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-5" aria-expanded="true">
+ <span class="menu-text">Appendices</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-5" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-5" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./references.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">References</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul>
+  <li><a href="#description" id="toc-description" class="nav-link active" data-scroll-target="#description"><span class="header-section-number">6.1</span> Description</a></li>
+  <li><a href="#usage" id="toc-usage" class="nav-link" data-scroll-target="#usage"><span class="header-section-number">6.2</span> Usage</a>
+  <ul class="collapse">
+  <li><a href="#workflow" id="toc-workflow" class="nav-link" data-scroll-target="#workflow"><span class="header-section-number">6.2.1</span> Workflow</a></li>
+  <li><a href="#step-by-step-instructions" id="toc-step-by-step-instructions" class="nav-link" data-scroll-target="#step-by-step-instructions"><span class="header-section-number">6.2.2</span> Step-by-step instructions</a></li>
+  <li><a href="#tips" id="toc-tips" class="nav-link" data-scroll-target="#tips"><span class="header-section-number">6.2.3</span> Tips</a></li>
+  </ul></li>
+  <li><a href="#data-requirements" id="toc-data-requirements" class="nav-link" data-scroll-target="#data-requirements"><span class="header-section-number">6.3</span> Data Requirements</a>
+  <ul class="collapse">
+  <li><a href="#input-data-parameters" id="toc-input-data-parameters" class="nav-link" data-scroll-target="#input-data-parameters"><span class="header-section-number">6.3.1</span> Input Data &amp; Parameters</a></li>
+  <li><a href="#example-datasets" id="toc-example-datasets" class="nav-link" data-scroll-target="#example-datasets"><span class="header-section-number">6.3.2</span> Example Datasets</a></li>
+  <li><a href="#data-acquisition" id="toc-data-acquisition" class="nav-link" data-scroll-target="#data-acquisition"><span class="header-section-number">6.3.3</span> Data Acquisition</a></li>
+  </ul></li>
+  <li><a href="#outputs" id="toc-outputs" class="nav-link" data-scroll-target="#outputs"><span class="header-section-number">6.4</span> Outputs</a>
+  <ul class="collapse">
+  <li><a href="#output-files" id="toc-output-files" class="nav-link" data-scroll-target="#output-files"><span class="header-section-number">6.4.1</span> Output Files</a></li>
+  <li><a href="#report-interpretation" id="toc-report-interpretation" class="nav-link" data-scroll-target="#report-interpretation"><span class="header-section-number">6.4.2</span> Report Interpretation</a></li>
+  </ul></li>
+  <li><a href="#theoretical-background" id="toc-theoretical-background" class="nav-link" data-scroll-target="#theoretical-background"><span class="header-section-number">6.5</span> Theoretical Background</a>
+  <ul class="collapse">
+  <li><a href="#model-description" id="toc-model-description" class="nav-link" data-scroll-target="#model-description"><span class="header-section-number">6.5.1</span> <strong>Model Description</strong></a></li>
+  <li><a href="#key-assumptions" id="toc-key-assumptions" class="nav-link" data-scroll-target="#key-assumptions"><span class="header-section-number">6.5.2</span> <strong>Key Assumptions</strong></a></li>
+  <li><a href="#limitations" id="toc-limitations" class="nav-link" data-scroll-target="#limitations"><span class="header-section-number">6.5.3</span> <strong>Limitations</strong></a></li>
+  <li><a href="#references" id="toc-references" class="nav-link" data-scroll-target="#references"><span class="header-section-number">6.5.4</span> <strong>References</strong></a></li>
+  </ul></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./ques.html">Quantification of Environmental Services (QUES)</a></li><li class="breadcrumb-item"><a href="./06-hydrology.html"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">Quantification of Ecosystem Services – Hydrological Assessment (QuES-H)</span></a></li></ol></nav>
+<div class="quarto-title">
+<div class="quarto-title-block"><div><h1 class="title"><span id="sec-hydro" class="quarto-section-identifier"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">Hydrology</span></span></h1><button type="button" class="btn code-tools-button" id="quarto-code-tools-source"><i class="bi"></i> Code</button></div></div>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="description" class="level2" data-number="6.1">
+<h2 data-number="6.1" class="anchored" data-anchor-id="description"><span class="header-section-number">6.1</span> Description</h2>
+<p>This module estimates soil erosion by water using the Revised Universal Soil Loss Equation (RUSLE). The result of this analysis allows stakeholders to understand the extent of erosion at one or two specified times across a given area, contributing to the formulation of spatially explicit strategies on enhancing soil conservation.</p>
+<p>RUSLE is an empirical model widely used in soil conservation and watershed management. It provides a method for estimating annual soil loss due to water erosion. A key feature of RUSLE is predicting long-term average annual soil loss.</p>
+</section>
+<section id="usage" class="level2" data-number="6.2">
+<h2 data-number="6.2" class="anchored" data-anchor-id="usage"><span class="header-section-number">6.2</span> Usage</h2>
+<section id="workflow" class="level3" data-number="6.2.1">
+<h3 data-number="6.2.1" class="anchored" data-anchor-id="workflow"><span class="header-section-number">6.2.1</span> Workflow</h3>
+<p>The workflow for this module can be divided into four key steps.</p>
+<ol type="1">
+<li><p><strong>Data preparation</strong>. In this step, users prepare the necessary data, noting the correct input specifications.</p></li>
+<li><p><strong>Upload data</strong>. Once all the data has been prepared, users input the data by clicking Browse or manually dragging the input data to the correct attribute.</p></li>
+<li><p><strong>Set parameters</strong>. The user sets the parameters of the multiple time series analysis they wish to conduct, which includes map resolution, single or two step analysis options, and output directory. For single step analysis, the user must input the landcover map and assign the year of analysis. For two step analysis, the user must input T1 and T2 landcover map and assign the years for both data. Finally, the user selects the output directory they wish to have the results stored.</p></li>
+<li><p><strong>Analyze results</strong>. Upon completion, the user will find the analysis results in the module or directly in the output folder. The module generates a webpage report containing a brief description of the module, summary of input data, and maps on soil loss analysis components.</p></li>
+</ol>
+<p><img src="images/QuES-H/QuesH-1.png" class="img-fluid"></p>
+</section>
+<section id="step-by-step-instructions" class="level3" data-number="6.2.2">
+<h3 data-number="6.2.2" class="anchored" data-anchor-id="step-by-step-instructions"><span class="header-section-number">6.2.2</span> Step-by-step instructions</h3>
+<p><strong>Step 1: Uploading Data</strong></p>
+<ol type="1">
+<li><p>Input your data into the left-hand side of the module by selecting the ‘Browse’ button for each data or drag your file from your computer into the data input box. Ensure that you upload the correct data input for each parameter. A blue bar with ‘Upload complete’ will appear once you have successfully input your data for each parameter.</p>
+<ul>
+<li><p>Total Annual Precipitation Map: Click “Browse” and select your GeoTIFF file containing the total annual precipitation data (mm/year).</p></li>
+<li><p>Digital Elevation Model (DEM): Click “Browse” and select your GeoTIFF file containing the digital elevation model data (meters above sea level).</p></li>
+<li><p>Soil Properties:&nbsp; Click “Browse” for each of the following soil property GeoTIFF files: Clay content (%); Silt content (%); Sand content (%); and Organic Soil content (%)</p></li>
+</ul></li>
+<li><p>Land Cover Map: Click “Browse” and select your GeoTIFF file containing the land cover classification data.</p></li>
+<li><p>Planning Units: Click “Browse” and select your planning unit shapefile. Select your planning unit file in .dbf, .prj, .shp, and .shx extensions. You may drag more than 1 file at once.</p></li>
+<li><p>Look-up Table for Land Use/Cover, C-factor, and P-factor: Click “Browse” and select your CSV file containing the lookup table with columns for:</p>
+<ul>
+<li><p>Land cover class</p></li>
+<li><p>C-factor value</p></li>
+<li><p>P-factor value</p></li>
+</ul></li>
+</ol>
+<p><img src="images/QuES-H/QuesH-2.png" class="img-fluid"></p>
+<p><strong>Step 2: Setting Analysis Parameters</strong></p>
+<ol type="1">
+<li><p>Set your desired map resolution. The default map resolution is 100, meaning 1-pixel accounts for 100m x 100m. Note that the lower the resolution input means the more detailed each pixel can store information, hence will require longer processing time.</p>
+<p><img src="images/QuES-H/QuesH-3.png" class="img-fluid"></p></li>
+<li><p>Choose whether you would like to create a single or two step time series analysis by selecting the corresponding circle.</p>
+<p><img src="images/QuES-H/QuesH-4.png" class="img-fluid"></p></li>
+<li><p>Input your land cover/land use map and label the corresponding year (T1). If you selected two step time series analysis, do the same for your T2.</p>
+<p><img src="images/QuES-H/QuesH-5.png" class="img-fluid"></p></li>
+<li><p>Select your output directory where you wish to save your report. Finish by clicking ‘Select’.</p>
+<p><img src="images/QuES-H/QuesH6.png" class="img-fluid"></p></li>
+</ol>
+<p><strong>Step 3: Running the Analysis</strong></p>
+<p>Click on ‘Run QuES-H Analysis’ to initiate the analysis. A progress bar will appear on the bottom right corner, indicating the analysis status. Once completed, you may access your results by clicking ‘Open Report’ or ‘Open Output Folder’.</p>
+<p><img src="images/QuES-H/QuesH-7.png" class="img-fluid"></p>
+</section>
+<section id="tips" class="level3" data-number="6.2.3">
+<h3 data-number="6.2.3" class="anchored" data-anchor-id="tips"><span class="header-section-number">6.2.3</span> Tips</h3>
+<ul>
+<li><p>While detailed long-term data is preferred when available, this module focuses on methods using publicly available spatial data.</p></li>
+<li><p>Users should ensure that all raster inputs are properly aligned (i.e., with identical projection systems, extents, and resolutions) and have consistent no-data values.</p></li>
+<li><p>The look-up table allows flexibility in assigning C and P factors based on local conditions or literature values.</p></li>
+</ul>
+</section>
+</section>
+<section id="data-requirements" class="level2" data-number="6.3">
+<h2 data-number="6.3" class="anchored" data-anchor-id="data-requirements"><span class="header-section-number">6.3</span> Data Requirements</h2>
+<section id="input-data-parameters" class="level3" data-number="6.3.1">
+<h3 data-number="6.3.1" class="anchored" data-anchor-id="input-data-parameters"><span class="header-section-number">6.3.1</span> Input Data &amp; Parameters</h3>
+<table class="table">
+<colgroup>
+<col style="width: 16%">
+<col style="width: 16%">
+<col style="width: 16%">
+<col style="width: 16%">
+<col style="width: 16%">
+<col style="width: 16%">
+</colgroup>
+<tbody>
+<tr class="odd">
+<td><strong>No</strong></td>
+<td><strong>Data Name</strong></td>
+<td><strong>Type</strong></td>
+<td><strong>Format</strong></td>
+<td><strong>Projection Requirements</strong></td>
+<td><strong>Description</strong></td>
+</tr>
+<tr class="even">
+<td>1.</td>
+<td>Land Cover Map (Time 1)</td>
+<td>Categorical raster</td>
+<td>GeoTIFF</td>
+<td>UTM</td>
+<td>A map classifying land use types for the start year.</td>
+</tr>
+<tr class="odd">
+<td>2.</td>
+<td>Land Cover Map (Time 2)</td>
+<td>Categorical raster</td>
+<td>GeoTIFF</td>
+<td>UTM</td>
+<td>A map classifying land use types for the end year</td>
+</tr>
+<tr class="even">
+<td>3.</td>
+<td>Total annual precipitation</td>
+<td>Categorical raster</td>
+<td>GeoTIFF</td>
+<td></td>
+<td>A map of total rainfall over a year (mm/year)</td>
+</tr>
+<tr class="odd">
+<td>4.</td>
+<td>Digital Elevation Model (DEM)</td>
+<td>Categorical raster</td>
+<td>GeoTIFF</td>
+<td></td>
+<td>A map of the terrain elevation (meters above sea level)</td>
+</tr>
+<tr class="even">
+<td>5.</td>
+<td>Soil properties maps</td>
+<td>Categorical raster</td>
+<td>GeoTIFF</td>
+<td></td>
+<td>Maps of clay, silt, sand, and soil organic content.</td>
+</tr>
+<tr class="odd">
+<td>6.</td>
+<td>Land cover look up table</td>
+<td>Table</td>
+<td>CSV</td>
+<td></td>
+<td>A table containing raster values with corresponding land cover class.</td>
+</tr>
+<tr class="even">
+<td>7.</td>
+<td>Planning unit</td>
+<td>Vector</td>
+<td>Shapefile</td>
+<td></td>
+<td>A polygon shapefile of administrative or management zones.</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="example-datasets" class="level3" data-number="6.3.2">
+<h3 data-number="6.3.2" class="anchored" data-anchor-id="example-datasets"><span class="header-section-number">6.3.2</span> Example Datasets</h3>
+<p>Practice data sets used in this module can be accessed at <strong>agroforestri.id/lumens-ques-h</strong></p>
+</section>
+<section id="data-acquisition" class="level3" data-number="6.3.3">
+<h3 data-number="6.3.3" class="anchored" data-anchor-id="data-acquisition"><span class="header-section-number">6.3.3</span> Data Acquisition</h3>
+<p>Land cover maps can often be obtained from global or official national data. For creating your own land cover maps from satellite imagery, consider using software such as Google Earth Engine, ArcGIS and R.</p>
+</section>
+</section>
+<section id="outputs" class="level2" data-number="6.4">
+<h2 data-number="6.4" class="anchored" data-anchor-id="outputs"><span class="header-section-number">6.4</span> Outputs</h2>
+<section id="output-files" class="level3" data-number="6.4.1">
+<h3 data-number="6.4.1" class="anchored" data-anchor-id="output-files"><span class="header-section-number">6.4.1</span> Output Files</h3>
+<table class="table">
+<colgroup>
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 58%">
+</colgroup>
+<tbody>
+<tr class="odd">
+<td><strong>File Name</strong></td>
+<td><strong>Type</strong></td>
+<td><strong>Description</strong></td>
+</tr>
+<tr class="even">
+<td>c_factor</td>
+<td>TIF File</td>
+<td>A map of crop management values</td>
+</tr>
+<tr class="odd">
+<td>soil_erosion</td>
+<td>TIF File</td>
+<td>A map of soil erosion susceptibility.</td>
+</tr>
+<tr class="even">
+<td>soil_erosion_reclass</td>
+<td>TIF File</td>
+<td>A map of soil erosion susceptibility reclassed.</td>
+</tr>
+<tr class="odd">
+<td>soil_erosion_per_planningunit[SUFFIX]</td>
+<td>Xlsx</td>
+<td>Table of extent of soil erosion per planning unit</td>
+</tr>
+<tr class="even">
+<td>soil_erosion[SUFFIX]</td>
+<td>Xlsx</td>
+<td>Table of extent of soil erosion per category.</td>
+</tr>
+<tr class="odd">
+<td>p_factor</td>
+<td>TIF File</td>
+<td>A map of support practices on soil erosion.</td>
+</tr>
+<tr class="even">
+<td>ls_factor</td>
+<td>TIF File</td>
+<td>A map of combined slope length and steepness.</td>
+</tr>
+<tr class="odd">
+<td>k_factor</td>
+<td>TIF File</td>
+<td>A map of soil erosion susceptibility</td>
+</tr>
+<tr class="even">
+<td>QUES-H_report</td>
+<td>Html</td>
+<td>A report summarizing the analysis results with visualizations and tables</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="report-interpretation" class="level3" data-number="6.4.2">
+<h3 data-number="6.4.2" class="anchored" data-anchor-id="report-interpretation"><span class="header-section-number">6.4.2</span> Report Interpretation</h3>
+<p>The QuES-H module report consists of 4 main sections: Summary, Brief Description, Input Data, and Results.</p>
+<p><strong>Section 1: Summary</strong></p>
+<p>In this section, you will find basic details of the data you have input, including total area of interest, periods of analysis, estimated soil erosion rates specific to each class, and overall patterns within the study period. For policymakers, the summary highlights a general understanding of soil erosion dynamics, which may be used as initial context for strategic planning on soil conservation efforts. &nbsp;</p>
+<p><strong>Section 2: Module Description</strong></p>
+<p>This section states the focus of the module, namely on soil erosion risk assessment using the Revised Universal Soil Loss Equation (RUSLE) and mentions plans for future hydrological analysis features.</p>
+<p><strong>Section 3: Input Data</strong></p>
+<p>This section will present all input data to users in map format.</p>
+<ol type="1">
+<li><p><strong>Total annual precipitation map displays the distribution of rainfall across the region over the span of one year.</strong> Each pixel in the map represents the total rainfall in millimeters (mm) per year. Areas with the highest total annual precipitation are displayed in yellow-green shades, while blue-purple shades indicate regions with lower annual precipitation. Identifying areas with higher or lower levels of precipitation allows users to understand conditions of water availability, agricultural potential and flood risks.</p>
+<p><img src="images/QuES-H/QuesH-13.png" class="img-fluid"></p></li>
+<li><p><strong>The Digital Elevation Model (DEM) map illustrates the terrain elevation meters above sea level.</strong> Areas with higher elevations are displayed in yellow-green, while areas with lower elevations are displayed in blue-purple. This map is helpful for understanding the topography of the area, providing insight towards drainage patterns and erosion potential.</p>
+<p><img src="images/QuES-H/QuesH-9.png" width="343" height="226"></p></li>
+<li><p><strong>Soil properties maps showcase soil characteristics, defined by clay, silt, sand, and organic soil content, at a depth of 0 to 5cm in the study area.</strong> Each map has a color scale bar indicating the range of values, with the highest values in the yellow-green spectrum and the lowest in the blue-purple spectrum. Use this to identify variations across the region. By analyzing all four maps together, you can better understand the relationships between soil components (e.g., areas with high clay content may have different organic carbon levels compared to sandy regions).</p>
+<p><img src="images/QuES-H/QuesH-10.png" class="img-fluid"></p>
+<ul>
+<li><p><strong>Sand content map</strong> shows the content of sand in soil at a depth of 0 to 5cm. Areas with high sand content tend to have more porous soils with better drainage but lower nutrient retention, while areas with lower sand content may have more compact soils.</p></li>
+<li><p><strong>Silt content map</strong> shows the content of silt in soil at the same depth. Areas with higher silt content are likely to retain moisture better than those with less silt, influencing water retention capacity and soil fertility. However, the same areas may also be prone to erosion.</p></li>
+<li><p><strong>Clay content map</strong> illustrates the percentage of clay in soil. Areas with rich clay content may hold more water and nutrients than areas with less clay but may have poor drainage potentially leading to waterlogging in certain areas.</p></li>
+<li><p><strong>Soil organic carbon (SOC) content map</strong> illustrates soil organic carbon in grams per kilogram. High SOC areas are generally more fertile and better for plant growth, while lower SOC regions might indicate depleted or less fertile soils.</p></li>
+</ul></li>
+<li><p><strong>Land cover map</strong> displays spatial information on land cover classes of the study area within the set time frame. Using a categorical raster format, each pixel displays different land cover classes. The map is aided with a legend on the right-hand side that lists the land cover classes and their corresponding colours.</p>
+<p><img src="images/QuES-H/QuesH-11.png" class="img-fluid"></p>
+<p><img src="images/QuES-H/QuesH-12.png" class="img-fluid"></p>
+<ul>
+<li><p><strong>Identify the dominant land cover classes and their spatial distribution.</strong> The dominant color on the map shows the dominant land cover classes in the study area. In the picture above, for instance, dark blue areas are found in the bottom left-hand corner of the map while blue-green areas are found in most of the study area. This may indicate that forest areas, shown in dark blue, are found in concentration, while the majority of the study area shown in blue-green are of agriculture-based land uses, such as rubber, oil palm, and agroforestry.</p></li>
+<li><p><strong>Compare changes in land use over time.</strong> You may identify shifts in the spatial distribution of land use classes over T1 dan T2. For example, the increase of green pixels in 2010 from previously dark blue pixels in 2005 may indicate agricultural expansion on once forest-based land uses.</p></li>
+</ul></li>
+<li><p><strong>Planning unit map</strong> displays the management zones of the study area. The map shown corresponds to the legend on the right-hand side of the map, indicating the color of each zone.</p></li>
+</ol>
+<p><strong>Section 4: Results</strong></p>
+<p>The report presents two analysis results, namely RUSLE factor maps and estimated soil erosion.</p>
+<p><strong>RUSLE Factor Maps</strong></p>
+<p>This section visualizes each RUSLE factor through a spatial distribution map. Users will find distribution maps for R factor (rainfall erosivity), K factor (soil erodibility), LS factor (length and steepness), C factor (cover management), and P factor (practice management). For all maps, areas with higher factor values displayed to towards the shade of yellow, while areas with lower factor values are displayed to towards the shade of dark blue.</p>
+<ol type="1">
+<li><p><strong>R factor</strong> map shows the spatial distribution of the effect of rainfall on soil erosion. The erosivity of rainfall is interpreted as the average amount of rainfall erosivity energy per area, calculated based on hourly rainfall intensities and averaged over a year. Rainfall erosivity is mostly affected by short-term, high-intensity precipitation events. This factor was generated using the method of Moore (1979). Higher R factor areas suggest more intense rainfall events that are more likely to cause erosion. Lower R factor areas have less erosive rainfall.</p>
+<p><img src="images/QuES-H/QuesH-13.png" class="img-fluid"></p></li>
+<li><p><strong>K factor</strong> map illustrates the spatial distribution of soil erodibility based on its soil properties measured in tons of soil loss per hectare per unit of rainfall erosivity. This factor was generated using the method of Williams (1995) by combining physical soil parameters such as sand, silt, and clay fractions, along with the organic carbon (or organic matter) fraction in the topsoil layer. Areas with higher K factor values are more prone to erosion than areas with lower K factor values.</p>
+<p><img src="images/QuES-H/QuesH-14.png" class="img-fluid"></p></li>
+<li><p><strong>LS factor</strong> map (unitless) displays the combined effects of length and slope on erosion potential. This factor was generated from digital elevation model data using the method of Moore &amp; Burch (1986). Areas with higher LS factor values suggest steeper or longer slopes, contributing to higher potential of soil erosion.</p>
+<p><img src="images/QuES-H/QuesH-15.png" class="img-fluid"></p></li>
+<li><p><strong>C factor</strong> maps (unitless) illustrate the effects of vegetation cover on the overall impact of soil erosion. This factor was generated using land use classifications from land cover products and agronomic statistics, with&nbsp;C factor values are either available from government data, global data products, or derived from research references. The&nbsp;C factor relates the soil loss from land with specific vegetation cover to the soil loss that would occur from clean-tilled, continuously fallow land. Areas with more vegetation are more protected from higher impacts of raindrop on the soil.</p>
+<p>In two step time series analysis, the module will generate the C factor map for T1 dan T2.</p>
+<p><img src="images/QuES-H/QuesH-16.png" class="img-fluid"></p></li>
+<li><p><strong>P factor</strong> map (unitless) illustrates the spatial distribution of support practice impact on soil erosion. The control practices can reduce the potential of erosion by reducing the amount and velocity of run-off, modifying the flow pattern and direction of surface run-off. The value ranges of P factor are between 0 and 1. In this model, as the P factor is assumed to be equal to 1, the module generates a single-color map.</p>
+<p><img src="images/QuES-H/QuesH-17.png" class="img-fluid"></p></li>
+</ol>
+<p><strong>Estimation of Soil Erosion</strong></p>
+<p>Users will find estimation of soil erosion at landscape level and at the planning unit level.</p>
+<ol type="1">
+<li><p><strong>Soil Erosion at Landscape Level</strong></p>
+<p>Soil erosion results are categorized into six categories, namely Slight erosion (&lt;5 ton/ha/year), Mild (5-25 ton/ha/year), Moderate (25-50 ton/ha/year), Strong (50-80 ton/ha/year), Very Strong (80-150 ton/ha/year) and Severe (&gt;150 ton/ha/year). The darker the color on the map indicates a lighter estimation of soil erosion. Conversely, a lighter color suggests stronger soil erosion. For two step analysis, the module will generate maps for T1 and T2.</p>
+<p><img src="images/clipboard-1339903909.png" class="img-fluid"></p>
+<p>For a more detailed account of soil erosion per category, the soil erosion map distribution correlates with the subsequent table. Users will find and be able sort soil erosion rates by area and percentage.</p>
+<p>As policymakers, the information on soil erosion at the landscape level suggests important insights on the severity of soil erosion, where it occurs, and trend. In particular, the information may be useful in identifying high risk areas, understand landscape variability, assert baseline data and foster collaboration in implementing soil conservation strategies.</p>
+<p><img src="images/QuES-H/QuesH-20.png" class="img-fluid"></p></li>
+<li><p><strong>Soil Erosion at Planning Unit Level</strong></p>
+<p>The following three tables present the crosstabulation of soil erosion categories for each planning unit in the study year(s). For instance, users will be able to identify and compare the total area of all soil erosion categories planning unit <em>Hutan Lindung</em> (ha), noting that planning unit <em>Perkebunan</em> and <em>Pertanian Lahan Basah</em> has a larger area with severe soil erosion risk, at 1.442 and 1.522 ha respectively in 2010. For two step analysis, users are supplemented with a trajectory table of soil erosion changes from T1 to T2.</p></li>
+</ol>
+<p>Insights from these tables could provide valuable information for policymakers, for instance:</p>
+<ol type="1">
+<li><p><strong>Identify priority areas for intervention.</strong> With spatially explicit insights, policymakers will be able to identify high-risk areas for soil erosion mitigation and landscape restoration. Using the planning unit, land management policies may be able to focus on land uses that are more vulnerable to soil erosion.</p></li>
+<li><p><strong>Identify spatial distribution of soil erosion risk factors.</strong> The module generates maps for each RUSLE factor, suggesting spatially explicit information on areas with lower or higher risk. This allows for more specific strategies on increasing soil erosion resiliency.</p></li>
+<li><p><strong>Identify trends over multiple periods of time.</strong> Trajectory of soil erosion between T1 and T2 provides insight into the areas with no changes, decreasing and increasing risk of soil erosion.</p></li>
+</ol>
+</section>
+</section>
+<section id="theoretical-background" class="level2" data-number="6.5">
+<h2 data-number="6.5" class="anchored" data-anchor-id="theoretical-background"><span class="header-section-number">6.5</span> Theoretical Background</h2>
+<section id="model-description" class="level3" data-number="6.5.1">
+<h3 data-number="6.5.1" class="anchored" data-anchor-id="model-description"><span class="header-section-number">6.5.1</span> <strong>Model Description</strong></h3>
+<p>This module calculates soil erosion based on the Revised Universal Soil Loss Equation (RUSLE) equation: <strong>A = R * K * LS * C * P.</strong></p>
+<p><img src="images/QuES-H/QuesH-21.png" class="img-fluid"></p>
+</section>
+<section id="key-assumptions" class="level3" data-number="6.5.2">
+<h3 data-number="6.5.2" class="anchored" data-anchor-id="key-assumptions"><span class="header-section-number">6.5.2</span> <strong>Key Assumptions</strong></h3>
+<ul>
+<li><p>P factor in this module uses RUSLE factors preparation methods found here: <a href="https://penerbit.brin.go.id/press/catalog/download/538/511/11585?inline=1" class="uri">https://penerbit.brin.go.id/press/catalog/download/538/511/11585?inline=1</a> In this model, P factor is assumed 1.</p></li>
+<li><p>C factor is assumed to directly influenced by the vegetation type, stage of vegetation growth and percentage of vegetation cover. In currect script, we use this from Erencin et al.&nbsp;2000; Panagos et al.&nbsp;2015 <a href="https://www.researchgate.net/publication/340816115_Spatial_Estimation_of_Soil_Erosion_Using_RUSLE_Modeling_A_case_study_of_Dolakha_District_Nepal">(PDF) Spatial Estimation of Soil Erosion Using RUSLE Modeling: A case study of Dolakha District, Nepal (researchgate.net)</a></p></li>
+</ul>
+</section>
+<section id="limitations" class="level3" data-number="6.5.3">
+<h3 data-number="6.5.3" class="anchored" data-anchor-id="limitations"><span class="header-section-number">6.5.3</span> <strong>Limitations</strong></h3>
+<ul>
+<li>Accuracy is limited by the quality and resolution of the input maps.</li>
+</ul>
+</section>
+<section id="references" class="level3" data-number="6.5.4">
+<h3 data-number="6.5.4" class="anchored" data-anchor-id="references"><span class="header-section-number">6.5.4</span> <strong>References</strong></h3>
+<p><span class="citation" data-cites="tian2021">(<a href="references.html#ref-tian2021" role="doc-biblioref">Tian et al. 2021</a>)</span></p>
+
+
+<!-- -->
+
+<div id="refs" class="references csl-bib-body hanging-indent" data-entry-spacing="0" role="list" style="display: none">
+<div id="ref-tian2021" class="csl-entry" role="listitem">
+Tian, Pei, Zhanliang Zhu, Qimeng Yue, Yi He, Zhaoyi Zhang, Fanghua Hao, Wenzhao Guo, Lin Chen, and Muxing Liu. 2021. <span>“Soil Erosion Assessment by RUSLE with Improved P Factor and Its Validation: Case Study on Mountainous and Hilly Areas of Hubei Province, China.”</span> <em>International Soil and Water Conservation Research</em> 9 (3): 433–44. <a href="https://doi.org/10.1016/j.iswcr.2021.04.007">https://doi.org/10.1016/j.iswcr.2021.04.007</a>.
+</div>
+</div>
+</section>
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const isCodeAnnotation = (el) => {
+    for (const clz of el.classList) {
+      if (clz.startsWith('code-annotation-')) {                     
+        return true;
+      }
+    }
+    return false;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    text: function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+  const viewSource = window.document.getElementById('quarto-view-source') ||
+                     window.document.getElementById('quarto-code-tools-source');
+  if (viewSource) {
+    const sourceUrl = viewSource.getAttribute("data-quarto-source-url");
+    viewSource.addEventListener("click", function(e) {
+      if (sourceUrl) {
+        // rstudio viewer pane
+        if (/\bcapabilities=\b/.test(window.location)) {
+          window.open(sourceUrl);
+        } else {
+          window.location.href = sourceUrl;
+        }
+      } else {
+        const modal = new bootstrap.Modal(document.getElementById('quarto-embedded-source-code-modal'));
+        modal.show();
+      }
+      return false;
+    });
+  }
+  function toggleCodeHandler(show) {
+    return function(e) {
+      const detailsSrc = window.document.querySelectorAll(".cell > details > .sourceCode");
+      for (let i=0; i<detailsSrc.length; i++) {
+        const details = detailsSrc[i].parentElement;
+        if (show) {
+          details.open = true;
+        } else {
+          details.removeAttribute("open");
+        }
+      }
+      const cellCodeDivs = window.document.querySelectorAll(".cell > .sourceCode");
+      const fromCls = show ? "hidden" : "unhidden";
+      const toCls = show ? "unhidden" : "hidden";
+      for (let i=0; i<cellCodeDivs.length; i++) {
+        const codeDiv = cellCodeDivs[i];
+        if (codeDiv.classList.contains(fromCls)) {
+          codeDiv.classList.remove(fromCls);
+          codeDiv.classList.add(toCls);
+        } 
+      }
+      return false;
+    }
+  }
+  const hideAllCode = window.document.getElementById("quarto-hide-all-code");
+  if (hideAllCode) {
+    hideAllCode.addEventListener("click", toggleCodeHandler(false));
+  }
+  const showAllCode = window.document.getElementById("quarto-show-all-code");
+  if (showAllCode) {
+    showAllCode.addEventListener("click", toggleCodeHandler(true));
+  }
+    var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+    var mailtoRegex = new RegExp(/^mailto:/);
+      var filterRegex = new RegExp("https:\/\/help\.lumens\.or\.id");
+    var isInternal = (href) => {
+        return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+    }
+    // Inspect non-navigation links and adorn them if external
+ 	var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool)');
+    for (var i=0; i<links.length; i++) {
+      const link = links[i];
+      if (!isInternal(link.href)) {
+        // undo the damage that might have been done by quarto-nav.js in the case of
+        // links that we want to consider external
+        if (link.dataset.originalHref !== undefined) {
+          link.href = link.dataset.originalHref;
+        }
+      }
+    }
+  function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+    const config = {
+      allowHTML: true,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start',
+    };
+    if (contentFn) {
+      config.content = contentFn;
+    }
+    if (onTriggerFn) {
+      config.onTrigger = onTriggerFn;
+    }
+    if (onUntriggerFn) {
+      config.onUntrigger = onUntriggerFn;
+    }
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      if (note) {
+        return note.innerHTML;
+      } else {
+        return "";
+      }
+    });
+  }
+  const xrefs = window.document.querySelectorAll('a.quarto-xref');
+  const processXRef = (id, note) => {
+    // Strip column container classes
+    const stripColumnClz = (el) => {
+      el.classList.remove("page-full", "page-columns");
+      if (el.children) {
+        for (const child of el.children) {
+          stripColumnClz(child);
+        }
+      }
+    }
+    stripColumnClz(note)
+    if (id === null || id.startsWith('sec-')) {
+      // Special case sections, only their first couple elements
+      const container = document.createElement("div");
+      if (note.children && note.children.length > 2) {
+        container.appendChild(note.children[0].cloneNode(true));
+        for (let i = 1; i < note.children.length; i++) {
+          const child = note.children[i];
+          if (child.tagName === "P" && child.innerText === "") {
+            continue;
+          } else {
+            container.appendChild(child.cloneNode(true));
+            break;
+          }
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(container);
+        }
+        return container.innerHTML
+      } else {
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        return note.innerHTML;
+      }
+    } else {
+      // Remove any anchor links if they are present
+      const anchorLink = note.querySelector('a.anchorjs-link');
+      if (anchorLink) {
+        anchorLink.remove();
+      }
+      if (window.Quarto?.typesetMath) {
+        window.Quarto.typesetMath(note);
+      }
+      // TODO in 1.5, we should make sure this works without a callout special case
+      if (note.classList.contains("callout")) {
+        return note.outerHTML;
+      } else {
+        return note.innerHTML;
+      }
+    }
+  }
+  for (var i=0; i<xrefs.length; i++) {
+    const xref = xrefs[i];
+    tippyHover(xref, undefined, function(instance) {
+      instance.disable();
+      let url = xref.getAttribute('href');
+      let hash = undefined; 
+      if (url.startsWith('#')) {
+        hash = url;
+      } else {
+        try { hash = new URL(url).hash; } catch {}
+      }
+      if (hash) {
+        const id = hash.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note !== null) {
+          try {
+            const html = processXRef(id, note.cloneNode(true));
+            instance.setContent(html);
+          } finally {
+            instance.enable();
+            instance.show();
+          }
+        } else {
+          // See if we can fetch this
+          fetch(url.split('#')[0])
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.getElementById(id);
+            if (note !== null) {
+              const html = processXRef(id, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      } else {
+        // See if we can fetch a full url (with no hash to target)
+        // This is a special case and we should probably do some content thinning / targeting
+        fetch(url)
+        .then(res => res.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const htmlDoc = parser.parseFromString(html, "text/html");
+          const note = htmlDoc.querySelector('main.content');
+          if (note !== null) {
+            // This should only happen for chapter cross references
+            // (since there is no id in the URL)
+            // remove the first header
+            if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+              note.children[0].remove();
+            }
+            const html = processXRef(null, note);
+            instance.setContent(html);
+          } 
+        }).finally(() => {
+          instance.enable();
+          instance.show();
+        });
+      }
+    }, function(instance) {
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            div.style.left = 0;
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+        // Handle positioning of the toggle
+    window.addEventListener(
+      "resize",
+      throttle(() => {
+        elRect = undefined;
+        if (selectedAnnoteEl) {
+          selectCodeLines(selectedAnnoteEl);
+        }
+      }, 10)
+    );
+    function throttle(fn, ms) {
+    let throttle = false;
+    let timer;
+      return (...args) => {
+        if(!throttle) { // first call gets through
+            fn.apply(this, args);
+            throttle = true;
+        } else { // all the others get throttled
+            if(timer) clearTimeout(timer); // cancel #2
+            timer = setTimeout(() => {
+              fn.apply(this, args);
+              timer = throttle = false;
+            }, ms);
+        }
+      };
+    }
+      // Attach click handler to the DT
+      const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+      for (const annoteDlNode of annoteDls) {
+        annoteDlNode.addEventListener('click', (event) => {
+          const clickedEl = event.target;
+          if (clickedEl !== selectedAnnoteEl) {
+            unselectCodeLines();
+            const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+            if (activeEl) {
+              activeEl.classList.remove('code-annotation-active');
+            }
+            selectCodeLines(clickedEl);
+            clickedEl.classList.add('code-annotation-active');
+          } else {
+            // Unselect the line
+            unselectCodeLines();
+            clickedEl.classList.remove('code-annotation-active');
+          }
+        });
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+<nav class="page-navigation">
+  <div class="nav-page nav-page-previous">
+      <a href="./05-biodiversity.html" class="pagination-link" aria-label="Biodiversity">
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Biodiversity</span></span>
+      </a>          
+  </div>
+  <div class="nav-page nav-page-next">
+      <a href="./12-lasem.html" class="pagination-link" aria-label="Land Suitability Evaluation Module (LaSEM)">
+        <span class="nav-page-text">Land Suitability Evaluation Module (LaSEM)</span> <i class="bi bi-arrow-right-short"></i>
+      </a>
+  </div>
+</nav><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
+<div class="sourceCode" id="cb1" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu"># Hydrology {#sec-hydro}</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>title: "Quantification of Ecosystem Services – Hydrological Assessment (QuES-H)"</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>editor: </span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  markdown: </span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    wrap: sentence</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="fu">## Description</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>This module estimates soil erosion by water using the Revised Universal Soil Loss Equation (RUSLE).</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>The result of this analysis allows stakeholders to understand the extent of erosion at one or two specified times across a given area, contributing to the formulation of spatially explicit strategies on enhancing soil conservation.</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>RUSLE is an empirical model widely used in soil conservation and watershed management.</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>It provides a method for estimating annual soil loss due to water erosion.</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>A key feature of RUSLE is predicting long-term average annual soil loss.</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a><span class="fu">## Usage</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a><span class="fu">### Workflow</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>The workflow for this module can be divided into four key steps.</span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a><span class="ss">1.  </span>**Data preparation**.</span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>    In this step, users prepare the necessary data, noting the correct input specifications.</span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a><span class="ss">2.  </span>**Upload data**.</span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>    Once all the data has been prepared, users input the data by clicking Browse or manually dragging the input data to the correct attribute.</span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a><span class="ss">3.  </span>**Set parameters**.</span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>    The user sets the parameters of the multiple time series analysis they wish to conduct, which includes map resolution, single or two step analysis options, and output directory.</span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>    For single step analysis, the user must input the landcover map and assign the year of analysis.</span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>    For two step analysis, the user must input T1 and T2 landcover map and assign the years for both data.</span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>    Finally, the user selects the output directory they wish to have the results stored.</span>
+<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a><span class="ss">4.  </span>**Analyze results**.</span>
+<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>    Upon completion, the user will find the analysis results in the module or directly in the output folder.</span>
+<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a>    The module generates a webpage report containing a brief description of the module, summary of input data, and maps on soil loss analysis components.</span>
+<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a><span class="al">![](images/QuES-H/QuesH-1.png)</span></span>
+<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a><span class="fu">### Step-by-step instructions</span></span>
+<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a>**Step 1: Uploading Data**</span>
+<span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a><span class="ss">1.  </span>Input your data into the left-hand side of the module by selecting the ‘Browse’ button for each data or drag your file from your computer into the data input box.</span>
+<span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a>    Ensure that you upload the correct data input for each parameter.</span>
+<span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a>    A blue bar with ‘Upload complete’ will appear once you have successfully input your data for each parameter.</span>
+<span id="cb1-50"><a href="#cb1-50" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-51"><a href="#cb1-51" aria-hidden="true" tabindex="-1"></a><span class="ss">    -   </span>Total Annual Precipitation Map: Click “Browse” and select your GeoTIFF file containing the total annual precipitation data (mm/year).</span>
+<span id="cb1-52"><a href="#cb1-52" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-53"><a href="#cb1-53" aria-hidden="true" tabindex="-1"></a><span class="ss">    -   </span>Digital Elevation Model (DEM): Click “Browse” and select your GeoTIFF file containing the digital elevation model data (meters above sea level).</span>
+<span id="cb1-54"><a href="#cb1-54" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-55"><a href="#cb1-55" aria-hidden="true" tabindex="-1"></a><span class="ss">    -   </span>Soil Properties:&nbsp; Click “Browse” for each of the following soil property GeoTIFF files: Clay content (%); Silt content (%); Sand content (%); and Organic Soil content (%)</span>
+<span id="cb1-56"><a href="#cb1-56" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-57"><a href="#cb1-57" aria-hidden="true" tabindex="-1"></a><span class="ss">2.  </span>Land Cover Map: Click “Browse” and select your GeoTIFF file containing the land cover classification data.</span>
+<span id="cb1-58"><a href="#cb1-58" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-59"><a href="#cb1-59" aria-hidden="true" tabindex="-1"></a><span class="ss">3.  </span>Planning Units: Click “Browse” and select your planning unit shapefile.</span>
+<span id="cb1-60"><a href="#cb1-60" aria-hidden="true" tabindex="-1"></a>    Select your planning unit file in .dbf, .prj, .shp, and .shx extensions.</span>
+<span id="cb1-61"><a href="#cb1-61" aria-hidden="true" tabindex="-1"></a>    You may drag more than 1 file at once.</span>
+<span id="cb1-62"><a href="#cb1-62" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-63"><a href="#cb1-63" aria-hidden="true" tabindex="-1"></a><span class="ss">4.  </span>Look-up Table for Land Use/Cover, C-factor, and P-factor: Click “Browse” and select your CSV file containing the lookup table with columns for:</span>
+<span id="cb1-64"><a href="#cb1-64" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-65"><a href="#cb1-65" aria-hidden="true" tabindex="-1"></a><span class="ss">    -   </span>Land cover class</span>
+<span id="cb1-66"><a href="#cb1-66" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-67"><a href="#cb1-67" aria-hidden="true" tabindex="-1"></a><span class="ss">    -   </span>C-factor value</span>
+<span id="cb1-68"><a href="#cb1-68" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-69"><a href="#cb1-69" aria-hidden="true" tabindex="-1"></a><span class="ss">    -   </span>P-factor value</span>
+<span id="cb1-70"><a href="#cb1-70" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-71"><a href="#cb1-71" aria-hidden="true" tabindex="-1"></a><span class="al">![](images/QuES-H/QuesH-2.png)</span></span>
+<span id="cb1-72"><a href="#cb1-72" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-73"><a href="#cb1-73" aria-hidden="true" tabindex="-1"></a>**Step 2: Setting Analysis Parameters**</span>
+<span id="cb1-74"><a href="#cb1-74" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-75"><a href="#cb1-75" aria-hidden="true" tabindex="-1"></a><span class="ss">1.  </span>Set your desired map resolution.</span>
+<span id="cb1-76"><a href="#cb1-76" aria-hidden="true" tabindex="-1"></a>    The default map resolution is 100, meaning 1-pixel accounts for 100m x 100m.</span>
+<span id="cb1-77"><a href="#cb1-77" aria-hidden="true" tabindex="-1"></a>    Note that the lower the resolution input means the more detailed each pixel can store information, hence will require longer processing time.</span>
+<span id="cb1-78"><a href="#cb1-78" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-79"><a href="#cb1-79" aria-hidden="true" tabindex="-1"></a>    <span class="al">![](images/QuES-H/QuesH-3.png)</span></span>
+<span id="cb1-80"><a href="#cb1-80" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-81"><a href="#cb1-81" aria-hidden="true" tabindex="-1"></a><span class="ss">2.  </span>Choose whether you would like to create a single or two step time series analysis by selecting the corresponding circle.</span>
+<span id="cb1-82"><a href="#cb1-82" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-83"><a href="#cb1-83" aria-hidden="true" tabindex="-1"></a>    <span class="al">![](images/QuES-H/QuesH-4.png)</span></span>
+<span id="cb1-84"><a href="#cb1-84" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-85"><a href="#cb1-85" aria-hidden="true" tabindex="-1"></a><span class="ss">3.  </span>Input your land cover/land use map and label the corresponding year (T1).</span>
+<span id="cb1-86"><a href="#cb1-86" aria-hidden="true" tabindex="-1"></a>    If you selected two step time series analysis, do the same for your T2.</span>
+<span id="cb1-87"><a href="#cb1-87" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-88"><a href="#cb1-88" aria-hidden="true" tabindex="-1"></a>    <span class="al">![](images/QuES-H/QuesH-5.png)</span></span>
+<span id="cb1-89"><a href="#cb1-89" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-90"><a href="#cb1-90" aria-hidden="true" tabindex="-1"></a><span class="ss">4.  </span>Select your output directory where you wish to save your report.</span>
+<span id="cb1-91"><a href="#cb1-91" aria-hidden="true" tabindex="-1"></a>    Finish by clicking ‘Select’.</span>
+<span id="cb1-92"><a href="#cb1-92" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-93"><a href="#cb1-93" aria-hidden="true" tabindex="-1"></a>    <span class="al">![](images/QuES-H/QuesH6.png)</span></span>
+<span id="cb1-94"><a href="#cb1-94" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-95"><a href="#cb1-95" aria-hidden="true" tabindex="-1"></a>**Step 3: Running the Analysis**</span>
+<span id="cb1-96"><a href="#cb1-96" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-97"><a href="#cb1-97" aria-hidden="true" tabindex="-1"></a>Click on ‘Run QuES-H Analysis’ to initiate the analysis.</span>
+<span id="cb1-98"><a href="#cb1-98" aria-hidden="true" tabindex="-1"></a>A progress bar will appear on the bottom right corner, indicating the analysis status.</span>
+<span id="cb1-99"><a href="#cb1-99" aria-hidden="true" tabindex="-1"></a>Once completed, you may access your results by clicking ‘Open Report’ or ‘Open Output Folder’.</span>
+<span id="cb1-100"><a href="#cb1-100" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-101"><a href="#cb1-101" aria-hidden="true" tabindex="-1"></a><span class="al">![](images/QuES-H/QuesH-7.png)</span></span>
+<span id="cb1-102"><a href="#cb1-102" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-103"><a href="#cb1-103" aria-hidden="true" tabindex="-1"></a><span class="fu">### Tips</span></span>
+<span id="cb1-104"><a href="#cb1-104" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-105"><a href="#cb1-105" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>While detailed long-term data is preferred when available, this module focuses on methods using publicly available spatial data.</span>
+<span id="cb1-106"><a href="#cb1-106" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-107"><a href="#cb1-107" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>Users should ensure that all raster inputs are properly aligned (i.e., with identical projection systems, extents, and resolutions) and have consistent no-data values.</span>
+<span id="cb1-108"><a href="#cb1-108" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-109"><a href="#cb1-109" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>The look-up table allows flexibility in assigning C and P factors based on local conditions or literature values.</span>
+<span id="cb1-110"><a href="#cb1-110" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-111"><a href="#cb1-111" aria-hidden="true" tabindex="-1"></a><span class="fu">## Data Requirements</span></span>
+<span id="cb1-112"><a href="#cb1-112" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-113"><a href="#cb1-113" aria-hidden="true" tabindex="-1"></a><span class="fu">### Input Data &amp; Parameters</span></span>
+<span id="cb1-114"><a href="#cb1-114" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-115"><a href="#cb1-115" aria-hidden="true" tabindex="-1"></a>|  |  |  |  |  |  |</span>
+<span id="cb1-116"><a href="#cb1-116" aria-hidden="true" tabindex="-1"></a>|------------|------------|------------|------------|------------|------------|</span>
+<span id="cb1-117"><a href="#cb1-117" aria-hidden="true" tabindex="-1"></a>| **No** | **Data Name** | **Type** | **Format** | **Projection Requirements** | **Description** |</span>
+<span id="cb1-118"><a href="#cb1-118" aria-hidden="true" tabindex="-1"></a>| 1<span class="sc">\.</span> | Land Cover Map (Time 1) | Categorical raster | GeoTIFF | UTM | A map classifying land use types for the start year. |</span>
+<span id="cb1-119"><a href="#cb1-119" aria-hidden="true" tabindex="-1"></a>| 2<span class="sc">\.</span> | Land Cover Map (Time 2) | Categorical raster | GeoTIFF | UTM | A map classifying land use types for the end year |</span>
+<span id="cb1-120"><a href="#cb1-120" aria-hidden="true" tabindex="-1"></a>| 3<span class="sc">\.</span> | Total annual precipitation | Categorical raster | GeoTIFF |  | A map of total rainfall over a year (mm/year) |</span>
+<span id="cb1-121"><a href="#cb1-121" aria-hidden="true" tabindex="-1"></a>| 4<span class="sc">\.</span> | Digital Elevation Model (DEM) | Categorical raster | GeoTIFF |  | A map of the terrain elevation (meters above sea level) |</span>
+<span id="cb1-122"><a href="#cb1-122" aria-hidden="true" tabindex="-1"></a>| 5<span class="sc">\.</span> | Soil properties maps | Categorical raster | GeoTIFF |  | Maps of clay, silt, sand, and soil organic content. |</span>
+<span id="cb1-123"><a href="#cb1-123" aria-hidden="true" tabindex="-1"></a>| 6<span class="sc">\.</span> | Land cover look up table | Table | CSV |  | A table containing raster values with corresponding land cover class. |</span>
+<span id="cb1-124"><a href="#cb1-124" aria-hidden="true" tabindex="-1"></a>| 7<span class="sc">\.</span> | Planning unit | Vector | Shapefile |  | A polygon shapefile of administrative or management zones. |</span>
+<span id="cb1-125"><a href="#cb1-125" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-126"><a href="#cb1-126" aria-hidden="true" tabindex="-1"></a><span class="fu">### Example Datasets</span></span>
+<span id="cb1-127"><a href="#cb1-127" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-128"><a href="#cb1-128" aria-hidden="true" tabindex="-1"></a>Practice data sets used in this module can be accessed at **agroforestri.id/lumens-ques-h**</span>
+<span id="cb1-129"><a href="#cb1-129" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-130"><a href="#cb1-130" aria-hidden="true" tabindex="-1"></a><span class="fu">### Data Acquisition</span></span>
+<span id="cb1-131"><a href="#cb1-131" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-132"><a href="#cb1-132" aria-hidden="true" tabindex="-1"></a>Land cover maps can often be obtained from global or official national data.</span>
+<span id="cb1-133"><a href="#cb1-133" aria-hidden="true" tabindex="-1"></a>For creating your own land cover maps from satellite imagery, consider using software such as Google Earth Engine, ArcGIS and R.</span>
+<span id="cb1-134"><a href="#cb1-134" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-135"><a href="#cb1-135" aria-hidden="true" tabindex="-1"></a><span class="fu">## Outputs</span></span>
+<span id="cb1-136"><a href="#cb1-136" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-137"><a href="#cb1-137" aria-hidden="true" tabindex="-1"></a><span class="fu">### Output Files</span></span>
+<span id="cb1-138"><a href="#cb1-138" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-139"><a href="#cb1-139" aria-hidden="true" tabindex="-1"></a>|  |  |  |</span>
+<span id="cb1-140"><a href="#cb1-140" aria-hidden="true" tabindex="-1"></a>|---------------|---------------|------------------------------------------|</span>
+<span id="cb1-141"><a href="#cb1-141" aria-hidden="true" tabindex="-1"></a>| **File Name** | **Type** | **Description** |</span>
+<span id="cb1-142"><a href="#cb1-142" aria-hidden="true" tabindex="-1"></a>| c_factor | TIF File | A map of crop management values |</span>
+<span id="cb1-143"><a href="#cb1-143" aria-hidden="true" tabindex="-1"></a>| soil_erosion | TIF File | A map of soil erosion susceptibility. |</span>
+<span id="cb1-144"><a href="#cb1-144" aria-hidden="true" tabindex="-1"></a>| soil_erosion_reclass | TIF File | A map of soil erosion susceptibility reclassed. |</span>
+<span id="cb1-145"><a href="#cb1-145" aria-hidden="true" tabindex="-1"></a>| soil_erosion_per_planningunit<span class="sc">\[</span>SUFFIX<span class="sc">\]</span> | Xlsx | Table of extent of soil erosion per planning unit |</span>
+<span id="cb1-146"><a href="#cb1-146" aria-hidden="true" tabindex="-1"></a>| soil_erosion<span class="sc">\[</span>SUFFIX<span class="sc">\]</span> | Xlsx | Table of extent of soil erosion per category. |</span>
+<span id="cb1-147"><a href="#cb1-147" aria-hidden="true" tabindex="-1"></a>| p_factor | TIF File | A map of support practices on soil erosion. |</span>
+<span id="cb1-148"><a href="#cb1-148" aria-hidden="true" tabindex="-1"></a>| ls_factor | TIF File | A map of combined slope length and steepness. |</span>
+<span id="cb1-149"><a href="#cb1-149" aria-hidden="true" tabindex="-1"></a>| k_factor | TIF File | A map of soil erosion susceptibility |</span>
+<span id="cb1-150"><a href="#cb1-150" aria-hidden="true" tabindex="-1"></a>| QUES-H_report | Html | A report summarizing the analysis results with visualizations and tables |</span>
+<span id="cb1-151"><a href="#cb1-151" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-152"><a href="#cb1-152" aria-hidden="true" tabindex="-1"></a><span class="fu">### Report Interpretation</span></span>
+<span id="cb1-153"><a href="#cb1-153" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-154"><a href="#cb1-154" aria-hidden="true" tabindex="-1"></a>The QuES-H module report consists of 4 main sections: Summary, Brief Description, Input Data, and Results.</span>
+<span id="cb1-155"><a href="#cb1-155" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-156"><a href="#cb1-156" aria-hidden="true" tabindex="-1"></a>**Section 1: Summary**</span>
+<span id="cb1-157"><a href="#cb1-157" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-158"><a href="#cb1-158" aria-hidden="true" tabindex="-1"></a>In this section, you will find basic details of the data you have input, including total area of interest, periods of analysis, estimated soil erosion rates specific to each class, and overall patterns within the study period.</span>
+<span id="cb1-159"><a href="#cb1-159" aria-hidden="true" tabindex="-1"></a>For policymakers, the summary highlights a general understanding of soil erosion dynamics, which may be used as initial context for strategic planning on soil conservation efforts.</span>
+<span id="cb1-160"><a href="#cb1-160" aria-hidden="true" tabindex="-1"></a>&nbsp;</span>
+<span id="cb1-161"><a href="#cb1-161" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-162"><a href="#cb1-162" aria-hidden="true" tabindex="-1"></a>**Section 2: Module Description**</span>
+<span id="cb1-163"><a href="#cb1-163" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-164"><a href="#cb1-164" aria-hidden="true" tabindex="-1"></a>This section states the focus of the module, namely on soil erosion risk assessment using the Revised Universal Soil Loss Equation (RUSLE) and mentions plans for future hydrological analysis features.</span>
+<span id="cb1-165"><a href="#cb1-165" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-166"><a href="#cb1-166" aria-hidden="true" tabindex="-1"></a>**Section 3: Input Data**</span>
+<span id="cb1-167"><a href="#cb1-167" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-168"><a href="#cb1-168" aria-hidden="true" tabindex="-1"></a>This section will present all input data to users in map format.</span>
+<span id="cb1-169"><a href="#cb1-169" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-170"><a href="#cb1-170" aria-hidden="true" tabindex="-1"></a><span class="ss">1.  </span>**Total annual precipitation map displays the distribution of rainfall across the region over the span of one year.** Each pixel in the map represents the total rainfall in millimeters (mm) per year.</span>
+<span id="cb1-171"><a href="#cb1-171" aria-hidden="true" tabindex="-1"></a>    Areas with the highest total annual precipitation are displayed in yellow-green shades, while blue-purple shades indicate regions with lower annual precipitation.</span>
+<span id="cb1-172"><a href="#cb1-172" aria-hidden="true" tabindex="-1"></a>    Identifying areas with higher or lower levels of precipitation allows users to understand conditions of water availability, agricultural potential and flood risks.</span>
+<span id="cb1-173"><a href="#cb1-173" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-174"><a href="#cb1-174" aria-hidden="true" tabindex="-1"></a>    <span class="al">![](images/QuES-H/QuesH-13.png)</span></span>
+<span id="cb1-175"><a href="#cb1-175" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-176"><a href="#cb1-176" aria-hidden="true" tabindex="-1"></a><span class="ss">2.  </span>**The Digital Elevation Model (DEM) map illustrates the terrain elevation meters above sea level.** Areas with higher elevations are displayed in yellow-green, while areas with lower elevations are displayed in blue-purple.</span>
+<span id="cb1-177"><a href="#cb1-177" aria-hidden="true" tabindex="-1"></a>    This map is helpful for understanding the topography of the area, providing insight towards drainage patterns and erosion potential.</span>
+<span id="cb1-178"><a href="#cb1-178" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-179"><a href="#cb1-179" aria-hidden="true" tabindex="-1"></a>    <span class="al">![](images/QuES-H/QuesH-9.png)</span>{width="343" height="226"}</span>
+<span id="cb1-180"><a href="#cb1-180" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-181"><a href="#cb1-181" aria-hidden="true" tabindex="-1"></a><span class="ss">3.  </span>**Soil properties maps showcase soil characteristics, defined by clay, silt, sand, and organic soil content, at a depth of 0 to 5cm in the study area.** Each map has a color scale bar indicating the range of values, with the highest values in the yellow-green spectrum and the lowest in the blue-purple spectrum.</span>
+<span id="cb1-182"><a href="#cb1-182" aria-hidden="true" tabindex="-1"></a>    Use this to identify variations across the region.</span>
+<span id="cb1-183"><a href="#cb1-183" aria-hidden="true" tabindex="-1"></a>    By analyzing all four maps together, you can better understand the relationships between soil components (e.g., areas with high clay content may have different organic carbon levels compared to sandy regions).</span>
+<span id="cb1-184"><a href="#cb1-184" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-185"><a href="#cb1-185" aria-hidden="true" tabindex="-1"></a>    <span class="al">![](images/QuES-H/QuesH-10.png)</span></span>
+<span id="cb1-186"><a href="#cb1-186" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-187"><a href="#cb1-187" aria-hidden="true" tabindex="-1"></a><span class="ss">    -   </span>**Sand content map** shows the content of sand in soil at a depth of 0 to 5cm.</span>
+<span id="cb1-188"><a href="#cb1-188" aria-hidden="true" tabindex="-1"></a>        Areas with high sand content tend to have more porous soils with better drainage but lower nutrient retention, while areas with lower sand content may have more compact soils.</span>
+<span id="cb1-189"><a href="#cb1-189" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-190"><a href="#cb1-190" aria-hidden="true" tabindex="-1"></a><span class="ss">    -   </span>**Silt content map** shows the content of silt in soil at the same depth.</span>
+<span id="cb1-191"><a href="#cb1-191" aria-hidden="true" tabindex="-1"></a>        Areas with higher silt content are likely to retain moisture better than those with less silt, influencing water retention capacity and soil fertility.</span>
+<span id="cb1-192"><a href="#cb1-192" aria-hidden="true" tabindex="-1"></a>        However, the same areas may also be prone to erosion.</span>
+<span id="cb1-193"><a href="#cb1-193" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-194"><a href="#cb1-194" aria-hidden="true" tabindex="-1"></a><span class="ss">    -   </span>**Clay content map** illustrates the percentage of clay in soil.</span>
+<span id="cb1-195"><a href="#cb1-195" aria-hidden="true" tabindex="-1"></a>        Areas with rich clay content may hold more water and nutrients than areas with less clay but may have poor drainage potentially leading to waterlogging in certain areas.</span>
+<span id="cb1-196"><a href="#cb1-196" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-197"><a href="#cb1-197" aria-hidden="true" tabindex="-1"></a><span class="ss">    -   </span>**Soil organic carbon (SOC) content map** illustrates soil organic carbon in grams per kilogram.</span>
+<span id="cb1-198"><a href="#cb1-198" aria-hidden="true" tabindex="-1"></a>        High SOC areas are generally more fertile and better for plant growth, while lower SOC regions might indicate depleted or less fertile soils.</span>
+<span id="cb1-199"><a href="#cb1-199" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-200"><a href="#cb1-200" aria-hidden="true" tabindex="-1"></a><span class="ss">4.  </span>**Land cover map** displays spatial information on land cover classes of the study area within the set time frame.</span>
+<span id="cb1-201"><a href="#cb1-201" aria-hidden="true" tabindex="-1"></a>    Using a categorical raster format, each pixel displays different land cover classes.</span>
+<span id="cb1-202"><a href="#cb1-202" aria-hidden="true" tabindex="-1"></a>    The map is aided with a legend on the right-hand side that lists the land cover classes and their corresponding colours.</span>
+<span id="cb1-203"><a href="#cb1-203" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-204"><a href="#cb1-204" aria-hidden="true" tabindex="-1"></a>    <span class="al">![](images/QuES-H/QuesH-11.png)</span></span>
+<span id="cb1-205"><a href="#cb1-205" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-206"><a href="#cb1-206" aria-hidden="true" tabindex="-1"></a>    <span class="al">![](images/QuES-H/QuesH-12.png)</span></span>
+<span id="cb1-207"><a href="#cb1-207" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-208"><a href="#cb1-208" aria-hidden="true" tabindex="-1"></a><span class="ss">    -   </span>**Identify the dominant land cover classes and their spatial distribution.** The dominant color on the map shows the dominant land cover classes in the study area.</span>
+<span id="cb1-209"><a href="#cb1-209" aria-hidden="true" tabindex="-1"></a>        In the picture above, for instance, dark blue areas are found in the bottom left-hand corner of the map while blue-green areas are found in most of the study area.</span>
+<span id="cb1-210"><a href="#cb1-210" aria-hidden="true" tabindex="-1"></a>        This may indicate that forest areas, shown in dark blue, are found in concentration, while the majority of the study area shown in blue-green are of agriculture-based land uses, such as rubber, oil palm, and agroforestry.</span>
+<span id="cb1-211"><a href="#cb1-211" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-212"><a href="#cb1-212" aria-hidden="true" tabindex="-1"></a><span class="ss">    -   </span>**Compare changes in land use over time.** You may identify shifts in the spatial distribution of land use classes over T1 dan T2.</span>
+<span id="cb1-213"><a href="#cb1-213" aria-hidden="true" tabindex="-1"></a>        For example, the increase of green pixels in 2010 from previously dark blue pixels in 2005 may indicate agricultural expansion on once forest-based land uses.</span>
+<span id="cb1-214"><a href="#cb1-214" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-215"><a href="#cb1-215" aria-hidden="true" tabindex="-1"></a><span class="ss">5.  </span>**Planning unit map** displays the management zones of the study area.</span>
+<span id="cb1-216"><a href="#cb1-216" aria-hidden="true" tabindex="-1"></a>    The map shown corresponds to the legend on the right-hand side of the map, indicating the color of each zone.</span>
+<span id="cb1-217"><a href="#cb1-217" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-218"><a href="#cb1-218" aria-hidden="true" tabindex="-1"></a>**Section 4: Results**</span>
+<span id="cb1-219"><a href="#cb1-219" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-220"><a href="#cb1-220" aria-hidden="true" tabindex="-1"></a>The report presents two analysis results, namely RUSLE factor maps and estimated soil erosion.</span>
+<span id="cb1-221"><a href="#cb1-221" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-222"><a href="#cb1-222" aria-hidden="true" tabindex="-1"></a>**RUSLE Factor Maps**</span>
+<span id="cb1-223"><a href="#cb1-223" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-224"><a href="#cb1-224" aria-hidden="true" tabindex="-1"></a>This section visualizes each RUSLE factor through a spatial distribution map.</span>
+<span id="cb1-225"><a href="#cb1-225" aria-hidden="true" tabindex="-1"></a>Users will find distribution maps for R factor (rainfall erosivity), K factor (soil erodibility), LS factor (length and steepness), C factor (cover management), and P factor (practice management).</span>
+<span id="cb1-226"><a href="#cb1-226" aria-hidden="true" tabindex="-1"></a>For all maps, areas with higher factor values displayed to towards the shade of yellow, while areas with lower factor values are displayed to towards the shade of dark blue.</span>
+<span id="cb1-227"><a href="#cb1-227" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-228"><a href="#cb1-228" aria-hidden="true" tabindex="-1"></a><span class="ss">1.  </span>**R factor** map shows the spatial distribution of the effect of rainfall on soil erosion.</span>
+<span id="cb1-229"><a href="#cb1-229" aria-hidden="true" tabindex="-1"></a>    The erosivity of rainfall is interpreted as the average amount of rainfall erosivity energy per area, calculated based on hourly rainfall intensities and averaged over a year.</span>
+<span id="cb1-230"><a href="#cb1-230" aria-hidden="true" tabindex="-1"></a>    Rainfall erosivity is mostly affected by short-term, high-intensity precipitation events.</span>
+<span id="cb1-231"><a href="#cb1-231" aria-hidden="true" tabindex="-1"></a>    This factor was generated using the method of Moore (1979).</span>
+<span id="cb1-232"><a href="#cb1-232" aria-hidden="true" tabindex="-1"></a>    Higher R factor areas suggest more intense rainfall events that are more likely to cause erosion.</span>
+<span id="cb1-233"><a href="#cb1-233" aria-hidden="true" tabindex="-1"></a>    Lower R factor areas have less erosive rainfall.</span>
+<span id="cb1-234"><a href="#cb1-234" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-235"><a href="#cb1-235" aria-hidden="true" tabindex="-1"></a>    <span class="al">![](images/QuES-H/QuesH-13.png)</span></span>
+<span id="cb1-236"><a href="#cb1-236" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-237"><a href="#cb1-237" aria-hidden="true" tabindex="-1"></a><span class="ss">2.  </span>**K factor** map illustrates the spatial distribution of soil erodibility based on its soil properties measured in tons of soil loss per hectare per unit of rainfall erosivity.</span>
+<span id="cb1-238"><a href="#cb1-238" aria-hidden="true" tabindex="-1"></a>    This factor was generated using the method of Williams (1995) by combining physical soil parameters such as sand, silt, and clay fractions, along with the organic carbon (or organic matter) fraction in the topsoil layer.</span>
+<span id="cb1-239"><a href="#cb1-239" aria-hidden="true" tabindex="-1"></a>    Areas with higher K factor values are more prone to erosion than areas with lower K factor values.</span>
+<span id="cb1-240"><a href="#cb1-240" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-241"><a href="#cb1-241" aria-hidden="true" tabindex="-1"></a>    <span class="al">![](images/QuES-H/QuesH-14.png)</span></span>
+<span id="cb1-242"><a href="#cb1-242" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-243"><a href="#cb1-243" aria-hidden="true" tabindex="-1"></a><span class="ss">3.  </span>**LS factor** map (unitless) displays the combined effects of length and slope on erosion potential.</span>
+<span id="cb1-244"><a href="#cb1-244" aria-hidden="true" tabindex="-1"></a>    This factor was generated from digital elevation model data using the method of Moore &amp; Burch (1986).</span>
+<span id="cb1-245"><a href="#cb1-245" aria-hidden="true" tabindex="-1"></a>    Areas with higher LS factor values suggest steeper or longer slopes, contributing to higher potential of soil erosion.</span>
+<span id="cb1-246"><a href="#cb1-246" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-247"><a href="#cb1-247" aria-hidden="true" tabindex="-1"></a>    <span class="al">![](images/QuES-H/QuesH-15.png)</span></span>
+<span id="cb1-248"><a href="#cb1-248" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-249"><a href="#cb1-249" aria-hidden="true" tabindex="-1"></a><span class="ss">4.  </span>**C factor** maps (unitless) illustrate the effects of vegetation cover on the overall impact of soil erosion.</span>
+<span id="cb1-250"><a href="#cb1-250" aria-hidden="true" tabindex="-1"></a>    This factor was generated using land use classifications from land cover products and agronomic statistics, with&nbsp;C factor values are either available from government data, global data products, or derived from research references.</span>
+<span id="cb1-251"><a href="#cb1-251" aria-hidden="true" tabindex="-1"></a>    The&nbsp;C factor relates the soil loss from land with specific vegetation cover to the soil loss that would occur from clean-tilled, continuously fallow land.</span>
+<span id="cb1-252"><a href="#cb1-252" aria-hidden="true" tabindex="-1"></a>    Areas with more vegetation are more protected from higher impacts of raindrop on the soil.</span>
+<span id="cb1-253"><a href="#cb1-253" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-254"><a href="#cb1-254" aria-hidden="true" tabindex="-1"></a>    In two step time series analysis, the module will generate the C factor map for T1 dan T2.</span>
+<span id="cb1-255"><a href="#cb1-255" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-256"><a href="#cb1-256" aria-hidden="true" tabindex="-1"></a>    <span class="al">![](images/QuES-H/QuesH-16.png)</span></span>
+<span id="cb1-257"><a href="#cb1-257" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-258"><a href="#cb1-258" aria-hidden="true" tabindex="-1"></a><span class="ss">5.  </span>**P factor** map (unitless) illustrates the spatial distribution of support practice impact on soil erosion.</span>
+<span id="cb1-259"><a href="#cb1-259" aria-hidden="true" tabindex="-1"></a>    The control practices can reduce the potential of erosion by reducing the amount and velocity of run-off, modifying the flow pattern and direction of surface run-off.</span>
+<span id="cb1-260"><a href="#cb1-260" aria-hidden="true" tabindex="-1"></a>    The value ranges of P factor are between 0 and 1.</span>
+<span id="cb1-261"><a href="#cb1-261" aria-hidden="true" tabindex="-1"></a>    In this model, as the P factor is assumed to be equal to 1, the module generates a single-color map.</span>
+<span id="cb1-262"><a href="#cb1-262" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-263"><a href="#cb1-263" aria-hidden="true" tabindex="-1"></a>    <span class="al">![](images/QuES-H/QuesH-17.png)</span></span>
+<span id="cb1-264"><a href="#cb1-264" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-265"><a href="#cb1-265" aria-hidden="true" tabindex="-1"></a>**Estimation of Soil Erosion**</span>
+<span id="cb1-266"><a href="#cb1-266" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-267"><a href="#cb1-267" aria-hidden="true" tabindex="-1"></a>Users will find estimation of soil erosion at landscape level and at the planning unit level.</span>
+<span id="cb1-268"><a href="#cb1-268" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-269"><a href="#cb1-269" aria-hidden="true" tabindex="-1"></a><span class="ss">1.  </span>**Soil Erosion at Landscape Level**</span>
+<span id="cb1-270"><a href="#cb1-270" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-271"><a href="#cb1-271" aria-hidden="true" tabindex="-1"></a>    Soil erosion results are categorized into six categories, namely Slight erosion (<span class="sc">\&lt;</span>5 ton/ha/year), Mild (5-25 ton/ha/year), Moderate (25-50 ton/ha/year), Strong (50-80 ton/ha/year), Very Strong (80-150 ton/ha/year) and Severe (<span class="sc">\&gt;</span>150 ton/ha/year).</span>
+<span id="cb1-272"><a href="#cb1-272" aria-hidden="true" tabindex="-1"></a>    The darker the color on the map indicates a lighter estimation of soil erosion.</span>
+<span id="cb1-273"><a href="#cb1-273" aria-hidden="true" tabindex="-1"></a>    Conversely, a lighter color suggests stronger soil erosion.</span>
+<span id="cb1-274"><a href="#cb1-274" aria-hidden="true" tabindex="-1"></a>    For two step analysis, the module will generate maps for T1 and T2.</span>
+<span id="cb1-275"><a href="#cb1-275" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-276"><a href="#cb1-276" aria-hidden="true" tabindex="-1"></a>    <span class="al">![](images/clipboard-1339903909.png)</span></span>
+<span id="cb1-277"><a href="#cb1-277" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-278"><a href="#cb1-278" aria-hidden="true" tabindex="-1"></a>    For a more detailed account of soil erosion per category, the soil erosion map distribution correlates with the subsequent table.</span>
+<span id="cb1-279"><a href="#cb1-279" aria-hidden="true" tabindex="-1"></a>    Users will find and be able sort soil erosion rates by area and percentage.</span>
+<span id="cb1-280"><a href="#cb1-280" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-281"><a href="#cb1-281" aria-hidden="true" tabindex="-1"></a>    As policymakers, the information on soil erosion at the landscape level suggests important insights on the severity of soil erosion, where it occurs, and trend.</span>
+<span id="cb1-282"><a href="#cb1-282" aria-hidden="true" tabindex="-1"></a>    In particular, the information may be useful in identifying high risk areas, understand landscape variability, assert baseline data and foster collaboration in implementing soil conservation strategies.</span>
+<span id="cb1-283"><a href="#cb1-283" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-284"><a href="#cb1-284" aria-hidden="true" tabindex="-1"></a>    <span class="al">![](images/QuES-H/QuesH-20.png)</span></span>
+<span id="cb1-285"><a href="#cb1-285" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-286"><a href="#cb1-286" aria-hidden="true" tabindex="-1"></a><span class="ss">2.  </span>**Soil Erosion at Planning Unit Level**</span>
+<span id="cb1-287"><a href="#cb1-287" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-288"><a href="#cb1-288" aria-hidden="true" tabindex="-1"></a>    The following three tables present the crosstabulation of soil erosion categories for each planning unit in the study year(s).</span>
+<span id="cb1-289"><a href="#cb1-289" aria-hidden="true" tabindex="-1"></a>    For instance, users will be able to identify and compare the total area of all soil erosion categories planning unit *Hutan Lindung* (ha), noting that planning unit *Perkebunan* and *Pertanian Lahan Basah* has a larger area with severe soil erosion risk, at 1.442 and 1.522 ha respectively in 2010.</span>
+<span id="cb1-290"><a href="#cb1-290" aria-hidden="true" tabindex="-1"></a>    For two step analysis, users are supplemented with a trajectory table of soil erosion changes from T1 to T2.</span>
+<span id="cb1-291"><a href="#cb1-291" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-292"><a href="#cb1-292" aria-hidden="true" tabindex="-1"></a>Insights from these tables could provide valuable information for policymakers, for instance:</span>
+<span id="cb1-293"><a href="#cb1-293" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-294"><a href="#cb1-294" aria-hidden="true" tabindex="-1"></a><span class="ss">1.  </span>**Identify priority areas for intervention.** With spatially explicit insights, policymakers will be able to identify high-risk areas for soil erosion mitigation and landscape restoration.</span>
+<span id="cb1-295"><a href="#cb1-295" aria-hidden="true" tabindex="-1"></a>    Using the planning unit, land management policies may be able to focus on land uses that are more vulnerable to soil erosion.</span>
+<span id="cb1-296"><a href="#cb1-296" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-297"><a href="#cb1-297" aria-hidden="true" tabindex="-1"></a><span class="ss">2.  </span>**Identify spatial distribution of soil erosion risk factors.** The module generates maps for each RUSLE factor, suggesting spatially explicit information on areas with lower or higher risk.</span>
+<span id="cb1-298"><a href="#cb1-298" aria-hidden="true" tabindex="-1"></a>    This allows for more specific strategies on increasing soil erosion resiliency.</span>
+<span id="cb1-299"><a href="#cb1-299" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-300"><a href="#cb1-300" aria-hidden="true" tabindex="-1"></a><span class="ss">3.  </span>**Identify trends over multiple periods of time.** Trajectory of soil erosion between T1 and T2 provides insight into the areas with no changes, decreasing and increasing risk of soil erosion.</span>
+<span id="cb1-301"><a href="#cb1-301" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-302"><a href="#cb1-302" aria-hidden="true" tabindex="-1"></a><span class="fu">## Theoretical Background</span></span>
+<span id="cb1-303"><a href="#cb1-303" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-304"><a href="#cb1-304" aria-hidden="true" tabindex="-1"></a><span class="fu">### **Model Description**</span></span>
+<span id="cb1-305"><a href="#cb1-305" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-306"><a href="#cb1-306" aria-hidden="true" tabindex="-1"></a>This module calculates soil erosion based on the Revised Universal Soil Loss Equation (RUSLE) equation: **A = R \* K \* LS \* C \* P.**</span>
+<span id="cb1-307"><a href="#cb1-307" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-308"><a href="#cb1-308" aria-hidden="true" tabindex="-1"></a><span class="al">![](images/QuES-H/QuesH-21.png)</span></span>
+<span id="cb1-309"><a href="#cb1-309" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-310"><a href="#cb1-310" aria-hidden="true" tabindex="-1"></a><span class="fu">### **Key Assumptions**</span></span>
+<span id="cb1-311"><a href="#cb1-311" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-312"><a href="#cb1-312" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>P factor in this module uses RUSLE factors preparation methods found here: <span class="ot">&lt;https://penerbit.brin.go.id/press/catalog/download/538/511/11585?inline=1&gt;</span> In this model, P factor is assumed 1.</span>
+<span id="cb1-313"><a href="#cb1-313" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-314"><a href="#cb1-314" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>C factor is assumed to directly influenced by the vegetation type, stage of vegetation growth and percentage of vegetation cover.</span>
+<span id="cb1-315"><a href="#cb1-315" aria-hidden="true" tabindex="-1"></a>    In currect script, we use this from Erencin et al. 2000; Panagos et al. 2015 <span class="co">[</span><span class="ot">(PDF) Spatial Estimation of Soil Erosion Using RUSLE Modeling: A case study of Dolakha District, Nepal (researchgate.net)</span><span class="co">](https://www.researchgate.net/publication/340816115_Spatial_Estimation_of_Soil_Erosion_Using_RUSLE_Modeling_A_case_study_of_Dolakha_District_Nepal)</span></span>
+<span id="cb1-316"><a href="#cb1-316" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-317"><a href="#cb1-317" aria-hidden="true" tabindex="-1"></a><span class="fu">### **Limitations**</span></span>
+<span id="cb1-318"><a href="#cb1-318" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-319"><a href="#cb1-319" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>Accuracy is limited by the quality and resolution of the input maps.</span>
+<span id="cb1-320"><a href="#cb1-320" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-321"><a href="#cb1-321" aria-hidden="true" tabindex="-1"></a><span class="fu">### **References**</span></span>
+<span id="cb1-322"><a href="#cb1-322" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-323"><a href="#cb1-323" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">@tian2021</span><span class="co">]</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div></div></div></div></div>
+</div> <!-- /content -->
+<footer class="footer">
+  <div class="nav-footer">
+    <div class="nav-footer-left">
+<p>Powered by <a href="https://quarto.org">Quarto</a>.</p>
+</div>   
+    <div class="nav-footer-center">
+<p>© 2024 CIFOR-ICRAF.<br>
+License: <a href="https://creativecommons.org/licenses/by-nc-sa/4.0">CC BY NC SA 4.0</a>.</p>
+</div>
+    <div class="nav-footer-right">
+<p><a href="https://lumens.or.id/"><img src="./media/lumens-integrated-solutions.png" alt="R Consortium Logo" style="height:1.5em;"></a>.</p>
+</div>
+  </div>
+</footer>
+
+
+
+
+</body></html>

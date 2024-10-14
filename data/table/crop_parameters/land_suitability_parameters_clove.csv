@@ -1,0 +1,92 @@
+name_common,name_sp,class,name_parameter,value,unit
+clove,Eugenia aromatica L.,S1,clim_dry_months,1-2,bulan
+clove,Eugenia aromatica L.,S2,clim_dry_months,2-3,bulan
+clove,Eugenia aromatica L.,S3,clim_dry_months,3-4,bulan
+clove,Eugenia aromatica L.,N,clim_dry_months,>4,bulan
+clove,Eugenia aromatica L.,N,clim_dry_months,1<,bulan
+clove,Eugenia aromatica L.,S1,clim_humidity,70<,%
+clove,Eugenia aromatica L.,S2,clim_humidity,>70,%
+clove,Eugenia aromatica L.,S1,clim_precipitation_tot,1500-2500,mm
+clove,Eugenia aromatica L.,S2,clim_precipitation_tot,2500-3000,mm
+clove,Eugenia aromatica L.,S3,clim_precipitation_tot,1250-1500,mm
+clove,Eugenia aromatica L.,S3,clim_precipitation_tot,3000-4000,mm
+clove,Eugenia aromatica L.,N,clim_precipitation_tot,1250<,mm
+clove,Eugenia aromatica L.,N,clim_precipitation_tot,>4000,mm
+clove,Eugenia aromatica L.,S1,clim_temperature_avg,25-28,°C
+clove,Eugenia aromatica L.,S2,clim_temperature_avg,28-32,°C
+clove,Eugenia aromatica L.,S2,clim_temperature_avg,20-25,°C
+clove,Eugenia aromatica L.,S3,clim_temperature_avg,32-35,°C
+clove,Eugenia aromatica L.,N,clim_temperature_avg,>35,°C
+clove,Eugenia aromatica L.,N,clim_temperature_avg,20<,°C
+clove,Eugenia aromatica L.,S1,soil_base_saturation,>50,%
+clove,Eugenia aromatica L.,S2,soil_base_saturation,35-50,%
+clove,Eugenia aromatica L.,S3,soil_base_saturation,35<,%
+clove,Eugenia aromatica L.,S1,soil_cec,>16,cmol
+clove,Eugenia aromatica L.,S2,soil_cec,5-16,cmol
+clove,Eugenia aromatica L.,S3,soil_cec,5<,cmol
+clove,Eugenia aromatica L.,S1,soil_coarse_fragments,15<,%
+clove,Eugenia aromatica L.,S2,soil_coarse_fragments,15-35,%
+clove,Eugenia aromatica L.,S3,soil_coarse_fragments,35-55,%
+clove,Eugenia aromatica L.,N,soil_coarse_fragments,>55,%
+clove,Eugenia aromatica L.,S1,soil_depth,>100,cm
+clove,Eugenia aromatica L.,S2,soil_depth,75-100,cm
+clove,Eugenia aromatica L.,S3,soil_depth,50-75,cm
+clove,Eugenia aromatica L.,N,soil_depth,50<,cm
+clove,Eugenia aromatica L.,S1,soil_drainage,baik;sedang,unitless
+clove,Eugenia aromatica L.,S2,soil_drainage,agakterhambat,unitless
+clove,Eugenia aromatica L.,S3,soil_drainage,terhambat;agakcepat,unitless
+clove,Eugenia aromatica L.,N,soil_drainage,sangatterhambat;cepat,unitless
+clove,Eugenia aromatica L.,S1,soil_erosion_risk,0.15<,unitless
+clove,Eugenia aromatica L.,S2,soil_erosion_risk,0.15-0.9,unitless
+clove,Eugenia aromatica L.,S2,soil_erosion_risk,0.9-1.8,unitless
+clove,Eugenia aromatica L.,S3,soil_erosion_risk,1.8-4.8,unitless
+clove,Eugenia aromatica L.,N,soil_erosion_risk,>4.8,unitless
+clove,Eugenia aromatica L.,S1,soil_esp,10<,%
+clove,Eugenia aromatica L.,S2,soil_esp,10-15,%
+clove,Eugenia aromatica L.,S3,soil_esp,15-20,%
+clove,Eugenia aromatica L.,N,soil_esp,>20,%
+clove,Eugenia aromatica L.,S3,soil_flood_height,25,cm
+clove,Eugenia aromatica L.,N,soil_flood_height,>25,cm
+clove,Eugenia aromatica L.,S3,soil_flood_length,7<,hari
+clove,Eugenia aromatica L.,N,soil_flood_length,>7,hari
+clove,Eugenia aromatica L.,S1,soil_k2o,>20,mg/100 g
+clove,Eugenia aromatica L.,S2,soil_k2o,10-20,mg/100 g
+clove,Eugenia aromatica L.,S3,soil_k2o,10<,mg/100 g
+clove,Eugenia aromatica L.,S1,soil_nitrogen,>0.2,%
+clove,Eugenia aromatica L.,S2,soil_nitrogen,0.10-0.20,%
+clove,Eugenia aromatica L.,S3,soil_nitrogen,0.10<,%
+clove,Eugenia aromatica L.,S1,soil_organic_c,>0.8,%
+clove,Eugenia aromatica L.,S2,soil_organic_c,0.8<,%
+clove,Eugenia aromatica L.,S1,soil_outcrop,5<,%
+clove,Eugenia aromatica L.,S2,soil_outcrop,5-15,%
+clove,Eugenia aromatica L.,S3,soil_outcrop,15-25,%
+clove,Eugenia aromatica L.,N,soil_outcrop,>25,%
+clove,Eugenia aromatica L.,S1,soil_p2o5,>40,mg/100 g
+clove,Eugenia aromatica L.,S2,soil_p2o5,21-40,mg/100 g
+clove,Eugenia aromatica L.,S3,soil_p2o5,15-20,mg/100 g
+clove,Eugenia aromatica L.,S3,soil_p2o5,15<,mg/100 g
+clove,Eugenia aromatica L.,S1,soil_ph,5.0-7.0,unitless
+clove,Eugenia aromatica L.,S2,soil_ph,4.0-5.0,unitless
+clove,Eugenia aromatica L.,S2,soil_ph,7.0-8.0,unitless
+clove,Eugenia aromatica L.,S3,soil_ph,4.0<,unitless
+clove,Eugenia aromatica L.,S3,soil_ph,>8.0,unitless
+clove,Eugenia aromatica L.,S1,soil_salinity,5<,dS/m
+clove,Eugenia aromatica L.,S2,soil_salinity,5-8,dS/m
+clove,Eugenia aromatica L.,S3,soil_salinity,8-10,dS/m
+clove,Eugenia aromatica L.,N,soil_salinity,>10,dS/m
+clove,Eugenia aromatica L.,S1,soil_slope,8<,%
+clove,Eugenia aromatica L.,S2,soil_slope,8-15,%
+clove,Eugenia aromatica L.,S3,soil_slope,15-40,%
+clove,Eugenia aromatica L.,N,soil_slope,>40,%
+clove,Eugenia aromatica L.,S1,soil_sulfidic_depth,>125,cm
+clove,Eugenia aromatica L.,S2,soil_sulfidic_depth,100-125,cm
+clove,Eugenia aromatica L.,S3,soil_sulfidic_depth,60-100,cm
+clove,Eugenia aromatica L.,N,soil_sulfidic_depth,60<,cm
+clove,Eugenia aromatica L.,S1,soil_surface_rocks,5<,%
+clove,Eugenia aromatica L.,S2,soil_surface_rocks,5-15,%
+clove,Eugenia aromatica L.,S3,soil_surface_rocks,15-40,%
+clove,Eugenia aromatica L.,N,soil_surface_rocks,>40,%
+clove,Eugenia aromatica L.,S1,soil_texture,h_ah,unitless
+clove,Eugenia aromatica L.,S2,soil_texture,s,unitless
+clove,Eugenia aromatica L.,S3,soil_texture,ak,unitless
+clove,Eugenia aromatica L.,N,soil_texture,k,unitless

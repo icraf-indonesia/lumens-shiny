@@ -3,3 +3,8 @@
 .RData
 .Ruserdata
 *.Rproj
+/pandoc
+/dev_docs
+/data/lasem
+/output
+/tests

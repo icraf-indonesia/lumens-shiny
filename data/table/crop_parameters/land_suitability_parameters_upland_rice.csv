@@ -1,0 +1,83 @@
+name_common,name_sp,class,name_parameter,value,unit
+upland rice,Oryza sativa,S1,clim_humidity,33-90,%
+upland rice,Oryza sativa,S2,clim_humidity,30-33,%
+upland rice,Oryza sativa,S3,clim_humidity,30<,%
+upland rice,Oryza sativa,S3,clim_humidity,>90,%
+upland rice,Oryza sativa,S1,clim_temperature_avg,24-29,°C
+upland rice,Oryza sativa,S2,clim_temperature_avg,22-24,°C
+upland rice,Oryza sativa,S2,clim_temperature_avg,29-32,°C
+upland rice,Oryza sativa,S3,clim_temperature_avg,18-22,°C
+upland rice,Oryza sativa,S3,clim_temperature_avg,32-35,°C
+upland rice,Oryza sativa,N,clim_temperature_avg,18<,°C
+upland rice,Oryza sativa,N,clim_temperature_avg,>35,°C
+upland rice,Oryza sativa,S1,soil_base_saturation,>35,%
+upland rice,Oryza sativa,S2,soil_base_saturation,20-35,%
+upland rice,Oryza sativa,S3,soil_base_saturation,20<,%
+upland rice,Oryza sativa,S1,soil_cec,>16,cmol
+upland rice,Oryza sativa,S2,soil_cec,5-16,cmol
+upland rice,Oryza sativa,S3,soil_cec,5<,cmol
+upland rice,Oryza sativa,S1,soil_coarse_fragments,15<,%
+upland rice,Oryza sativa,S2,soil_coarse_fragments,15-35,%
+upland rice,Oryza sativa,S3,soil_coarse_fragments,35-55,%
+upland rice,Oryza sativa,N,soil_coarse_fragments,>55,%
+upland rice,Oryza sativa,S1,soil_depth,>50,cm
+upland rice,Oryza sativa,S2,soil_depth,40-50,cm
+upland rice,Oryza sativa,S3,soil_depth,25-40,cm
+upland rice,Oryza sativa,N,soil_depth,25<,cm
+upland rice,Oryza sativa,S1,soil_drainage,baik;sedang,unitless
+upland rice,Oryza sativa,S2,soil_drainage,agakcepat;agakterhambat,unitless
+upland rice,Oryza sativa,S3,soil_drainage,terhambat;sangatterhambat,unitless
+upland rice,Oryza sativa,N,soil_drainage,cepat,unitless
+upland rice,Oryza sativa,S2,soil_erosion_risk,0.15<,unitless
+upland rice,Oryza sativa,S3,soil_erosion_risk,0.15-0.9,unitless
+upland rice,Oryza sativa,S3,soil_erosion_risk,0.9-1.8,unitless
+upland rice,Oryza sativa,N,soil_erosion_risk,1.8-4.8,unitless
+upland rice,Oryza sativa,N,soil_erosion_risk,>4.8,unitless
+upland rice,Oryza sativa,S1,soil_esp,20<,%
+upland rice,Oryza sativa,S2,soil_esp,20-30,%
+upland rice,Oryza sativa,S3,soil_esp,30-40,%
+upland rice,Oryza sativa,N,soil_esp,>40,%
+upland rice,Oryza sativa,S1,soil_k2o,>20,mg/100 g
+upland rice,Oryza sativa,S2,soil_k2o,10-20,mg/100 g
+upland rice,Oryza sativa,S3,soil_k2o,10<,mg/100 g
+upland rice,Oryza sativa,S1,soil_nitrogen,>0.2,%
+upland rice,Oryza sativa,S2,soil_nitrogen,0.10-0.20,%
+upland rice,Oryza sativa,S3,soil_nitrogen,0.10<,%
+upland rice,Oryza sativa,S1,soil_organic_c,>1.2,%
+upland rice,Oryza sativa,S2,soil_organic_c,0.8-1.2,%
+upland rice,Oryza sativa,S3,soil_organic_c,0.8<,%
+upland rice,Oryza sativa,S1,soil_outcrop,5<,%
+upland rice,Oryza sativa,S2,soil_outcrop,5-15,%
+upland rice,Oryza sativa,S3,soil_outcrop,15-25,%
+upland rice,Oryza sativa,N,soil_outcrop,>25,%
+upland rice,Oryza sativa,S1,soil_p2o5,>40,mg/100 g
+upland rice,Oryza sativa,S2,soil_p2o5,21-40,mg/100 g
+upland rice,Oryza sativa,S3,soil_p2o5,15-20,mg/100 g
+upland rice,Oryza sativa,S1,soil_peat_depth,50<,cm
+upland rice,Oryza sativa,S2,soil_peat_depth,50-100,cm
+upland rice,Oryza sativa,S3,soil_peat_depth,100-150,cm
+upland rice,Oryza sativa,N,soil_peat_depth,>150,cm
+upland rice,Oryza sativa,S1,soil_peat_maturity,saprik,unitless
+upland rice,Oryza sativa,S2,soil_peat_maturity,saprik;hemik,unitless
+upland rice,Oryza sativa,S3,soil_peat_maturity,hemik,unitless
+upland rice,Oryza sativa,N,soil_peat_maturity,fibrik,unitless
+upland rice,Oryza sativa,S1,soil_ph,5.5-7.5,unitless
+upland rice,Oryza sativa,S2,soil_ph,5.0-5.5,unitless
+upland rice,Oryza sativa,S2,soil_ph,7.5-7.9,unitless
+upland rice,Oryza sativa,S3,soil_ph,5.0<,unitless
+upland rice,Oryza sativa,S3,soil_ph,>7.9,unitless
+upland rice,Oryza sativa,S1,soil_salinity,2<,dS/m
+upland rice,Oryza sativa,S2,soil_salinity,2-4,dS/m
+upland rice,Oryza sativa,S3,soil_salinity,4-6,dS/m
+upland rice,Oryza sativa,N,soil_salinity,>6,dS/m
+upland rice,Oryza sativa,S1,soil_slope,3<,%
+upland rice,Oryza sativa,S2,soil_slope,3-8,%
+upland rice,Oryza sativa,S3,soil_slope,8-15,%
+upland rice,Oryza sativa,N,soil_slope,>15,%
+upland rice,Oryza sativa,S1,soil_surface_rocks,5<,%
+upland rice,Oryza sativa,S2,soil_surface_rocks,5-15,%
+upland rice,Oryza sativa,S3,soil_surface_rocks,15-40,%
+upland rice,Oryza sativa,N,soil_surface_rocks,>40,%
+upland rice,Oryza sativa,S1,soil_texture,h_ah_s,unitless
+upland rice,Oryza sativa,S3,soil_texture,ak,unitless
+upland rice,Oryza sativa,N,soil_texture,k,unitless

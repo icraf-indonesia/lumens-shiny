@@ -1,0 +1,179 @@
+---
+title: "Regional Economic Descriptive Analysis Report"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+    df_print: kable
+params:
+  start_time: NA
+  end_time: NA
+  BPD_graph: NA
+  FPD_graph: NA
+  LRC_graph: NA
+  Linkages_table: NA
+  land.requirement_table: NA
+  PRS_graph : NA 
+  GDP : NA 
+  GDP_graph : NA 
+  multiplier : NA
+  OMPL_graph : NA 
+  IMPL_graph : NA 
+  LMPL_graph : NA 
+  P.sector.selected : NA
+  session_log: NA
+  int_con_path : NA  
+  add_val_path : NA  
+  fin_dem_path : NA
+  fin_dem_struc_path : NA
+  add_val_struc_path : NA
+  sector_path : NA
+  labour_path : NA
+  land_distribution_path : NA
+  land_use_path : NA
+  landuse_table_path : NA
+  unit: NA
+  location: NA
+  I_O_period : NA
+  output_dir: NA
+---
+
+```{r setup, include = FALSE, warning = FALSE, message = FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(knitr)
+library(kableExtra)
+library(ggplot2)
+```
+
+<details><summary>Click here for Analysis Log</summary>
+
+```{r analysis-log, echo=FALSE}
+
+analysis_log <- tribble(
+  ~Category,                   ~Details,
+  "Analysis Start",        params$start_time,
+  "Analysis End",          params$end_time,
+  "Input Data and Parameters", "",
+  "Sector table",      params$sector_path,
+  "Intermediate Demand table",   params$int_con_path,
+  "Final Demand Component table",   params$fin_dem_struc_path,
+  "Final Demand table",   params$fin_dem_path,
+  "Added Value Component table",      params$add_val_struc_path,
+  "Added Value table",   params$add_val_path,
+  "Labour table",   params$labour_path,
+  "Land Distribution table",   params$land_distribution_path,
+  "Land Use map",   params$land_use_path,
+  "Land Use Lookup table",   params$landuse_table_path,
+  "Unit", as.character(params$unit),
+  "Location", as.character(params$location),
+  "IO Period", as.character(params$I_O_period),
+  "Output Files", "",
+  "Output Workspace",      paste0(getwd(), " | ", params$output_dir),
+  "Session Summary", "",
+) %>% rbind(format_session_info_table())
+
+analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
+  kable_paper("hover", full_width = F )
+```
+</details>
+
+# Introduction
+
+This report presents the results of an analysis based on the provided maps and lookup table
+
+# Analysis Results
+
+The maps provided was carbon, emission and sequestration map.
+
+* Calculation or analysis details based on the results can be presented here.
+
+## Analysis of Sectoral Linkages 
+### Table 1. Sectoral linkages
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+dt_linkage <- params$Linkages_table %>%
+  mutate(across(where(is.numeric), ~ scales::number(.x, accuracy = 0.001, big.mark = ",")))
+
+DT::datatable(dt_linkage)
+```
+
+### Direct Backward Linkages graph
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+plot(params$BPD_graph)
+```
+
+### Direct Forward Linkages graph 
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+plot(params$FPD_graph)
+```
+
+### Sectoral typology based on linkages analysis
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+plot(params$PRS_graph)
+```
+
+### Primary sectors based on potential linkage
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+dt_p.sector <- params$P.sector.selected %>%
+  mutate(across(where(is.numeric), ~ scales::number(.x, accuracy = 0.001, big.mark = ",")))
+
+DT::datatable(dt_p.sector)
+```
+
+## Analysis of GDP 
+### Sectoral GDP Table
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+dt_GDP <- params$GDP %>%
+  mutate(across(where(is.numeric), ~ scales::number(.x, accuracy = 0.001, big.mark = ",")))
+
+DT::datatable(dt_GDP) %>%
+  DT::formatRound(columns = c('OUTPUT', 'P_OUTPUT'), digits = 3)
+```
+
+### GDP graph 
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+plot(params$GDP_graph)
+```
+
+## Analysis of multiplier 
+### Sectoral Multiplier
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+dt_multiplier <- params$multiplier %>%
+  mutate(across(where(is.numeric), ~ scales::number(.x, accuracy = 0.001, big.mark = ",")))
+
+DT::datatable(dt_multiplier)
+```
+
+### Output Multiplier
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+plot(params$OMPL_graph)
+```
+
+### Input Multiplier
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+plot(params$IMPL_graph)
+```
+
+### Labour Multiplier
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+plot(params$LMPL_graph)
+```
+
+### Land Requirement Table
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+dt_land.requirement_table <- params$land.requirement_table %>%
+  mutate(across(where(is.numeric), ~ scales::number(.x, accuracy = 0.01, big.mark = ",")))
+
+DT::datatable(dt_land.requirement_table)
+```
+
+### Land Requirement Coefficient Graph 
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+plot(params$LRC_graph)
+```
+
+
+------------------------------------------------------------------------
+
+<font size="1"> LUMENS is free software and comes with ABSOLUTELY NO WARRANTY. Users are responsible for the results generated. Results depend on the quality of the input data ("garbage in, garbage out") and may vary or be sensitive to the parameters used. Please report any problems encountered while using LUMENS as [a GitHub issue](https://github.com/icraf-indonesia/lumens-shiny/issues). Feedback and questions are welcome [Contact Us URL]. </font size>

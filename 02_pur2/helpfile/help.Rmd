@@ -1,50 +1,51 @@
-## Help Page for PUR Reconcile Module
+---
+title: "Planning Unit Reconciliation (Reconcile) Quick Guide"
+output: 
+  html_document: 
+    toc: true
+    toc_float: true
+    number_sections: true
+    df_print: kable
+---
 
-## 1. Description
+# Overview
 
-Planning unit reconciliation is a process to resolve overlapping permits by referring to function reference maps. Reconciliation is done by analyzing how well the permit data matches the reference data. Permit data can include things like forest management concessions, plantation permits, mining permits, and others. Reference data can be spatial planning data or area designation data.
+Planning unit reconciliation is a process to resolve overlapping permits by referring to function reference maps. Reconciliation is done by analyzing how well the permit data matches the reference data.
 
-## 2. Required Data
+# Data and Input Variables
 
-![](image/input.png)
+1.  Unresolved Case Map (Shapefile format)
 
+    -   Shapefile of overlayed planning units with some layer that conflict, defined as unresolved case.
 
-## 3. Running Model
+2.  Unresolved Case Attribute (Excel format)
 
-### 3.1 Input data
+    -   Before running PUR Reconcile module, it is necessary to select the reconcile action on drop-down option for every unresolved case in 'PUR_unresolved_case.xlsx' file generated from PUR Build module. You can use Microsoft Excel or any free spreadsheet software (e.g., Google Sheet) to do it.
 
-#### Shapefile data (select all related shapefile):
+        ![](images/Pre_PUR-Reconcile.gif){style="max-width:80%; height:auto;"}
 
-![](image/shapefile.png)
+# Using The Module
 
-#### Tabular data:
+Follow these steps to use the module:
 
-Before running PUR 2 module, the reconcile action on 'PUR_unresolved_case.xlsx' need to be defined. You can use Microsoft Excel or any free spreadsheet software (e.g. Google Sheet) to do it:
+![](images/PUR-Reconcile.gif){style="max-width:80%; height:auto;"}
 
-![](image/reconcile.png)
+# Accessing Outputs
 
-Save file and input the tabular data
+After the analysis completes, you'll find the following output data in your selected output directory:
 
-![](image/tabular.png)
+-   Planning Unit Reconcile (Shapefile)
 
-#### Map resolution
+-   Reconciled Class Attribute Result (CSV)
 
-Default value: 100
+-   **PUR Reconcile Report**: An HTML file providing an overview of the analysis results, including:
 
-### 3.2 Set working directory
+    -   Data visualisation on input data
+    -   Data visualisation on planning unit reconciliation result
+    -   Descriptive statistics resolved case of planning units
 
-![](image/set wd.png)
+------------------------------------------------------------------------
 
-### 3.3 Run the module
+For more detailed information or troubleshooting, refer to the full QuES-H documentation or contact the tool developers.
 
-![](image/run.png)
-
-## 4. Output
-
-### 4.1 Exported data
-
-![](image/exported data.png)
-
-### 4.2 Report file
-
-![](image/report.png)
+<font size="1">LUMENS is free software and comes with ABSOLUTELY NO WARRANTY. Users are responsible for the results generated. Results depend on the quality of the input data ("garbage in, garbage out") and may vary or be sensitive to the parameters used. Please report any problems encountered while using LUMENS as [a GitHub issue](https://github.com/icraf-indonesia/lumens-shiny/issues). Feedback and questions are welcome [Contact Us URL].</font>

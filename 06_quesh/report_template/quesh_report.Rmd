@@ -1,0 +1,505 @@
+---
+title: "QUES-H RUSLE - Module Report"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+    df_print: kable
+    self_contained: true
+params:
+  session_log: NA
+  start_time: NA
+  end_time: NA
+  output_dir: NA
+  dem: NA
+  pu: NA
+  rainfall: NA
+  soil: NA
+  landcover: NA
+  t1: NA
+  t2: NA
+  r: NA
+  k: NA
+  ls: NA
+  c: NA
+  p: NA
+  a: NA
+  e_table: NA
+  e_diff_table: NA
+  e_pu_df: NA
+  e_diff: NA
+  e_pu_diff_table: NA
+  e_stat: NA
+  multiseries: NA
+  summary_data: NA
+  map_resolution: NA
+  rainfall_path: NA
+  dem_path: NA
+  sand_path: NA
+  silt_path: NA
+  clay_path: NA
+  orgc_path: NA
+  pu_path: NA
+  c_factor_path: NA
+  input_lc: NA
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+# knitr::opts_knit$set(root.dir = normalizePath(rprojroot::find_rstudio_root_file()))
+```
+
+```{r load-libraries, include=FALSE}
+install_load(
+  "tibble",
+    "knitr",
+    "kableExtra",
+    "dplyr",
+    "ggplot2",
+    "terra",
+    "DT"
+)
+```
+
+<details><summary>Click here for Analysis Log</summary>
+
+```{r analysis-log, echo=FALSE}
+if (params$multiseries == "two_step") {
+  analysis_log <- tribble(
+  ~Category, ~Details,
+  "Analysis Start", params$start_time,
+  "Analysis End", params$end_time,
+  "Input Data and Parameters", "",
+  "1. Annual Rainfall Map", params$rainfall_path,
+  "2. Digital Elevation Model Map", params$dem_path,
+  "3. Sand Percentage Map", params$sand_path,
+  "4. Silt Percentage Map", params$silt_path,
+  "5. Clay Percentage Map", params$clay_path,
+  "6. Soil Organic Carbon Content Map", params$orgc_path,
+  "7. Planning Unit Map", params$pu_path,
+  "8. C Factor Attribute Table", params$c_factor_path,
+  "9. Map Resolution", params$map_resolution,
+  "10. Initial Land Cover/Use Map", as.character(params$input_lc$lc1_path),
+  "11. Final Land Cover/Use Map", as.character(params$input_lc$lc2_path),
+  "12. Initial Year (T1)", as.character(params$t1),
+  "13. Final Year (T2)", as.character(params$t2),
+  "Output Files", "",
+  "Output workspace", file.path(paste0(getwd(), params$output_dir)),
+  "1. R Factor Map", file.path(file.path(params$output_dir, "r_factor.tif")),
+  "2. K Factor Map", file.path(file.path(params$output_dir, "k_factor.tif")),
+  "3. LS Factor Map", file.path(file.path(params$output_dir, "ls_factor.tif")),
+  "4. P Factor Map", file.path(file.path(params$output_dir, "p_factor.tif")),
+  "5. C Factor Map T1", as.character(file.path(params$output_dir, "c_factor", paste0(params$t1), ".tif")),
+  "6. C Factor Map T2", as.character(file.path(params$output_dir, "c_factor", paste0(params$t2), ".tif")),
+  "7. Soil Erosion Map T1", as.character(file.path(params$output_dir, "soil_erosion", paste0(params$t1), ".tif")),
+  "8. Soil Erosion Map T2", as.character(file.path(params$output_dir, "soil_erosion", paste0(params$t2), ".tif")),
+  "9. Soil Erosion Table", as.character(file.path(params$output_dir, "soil_erosion", paste0(params$t1), "-", paste0(params$t2), ".csv")),
+  "10. Soil Erosion Per Planning Unit Table", as.character(file.path(params$output_dir, "soil_erosion_per_planning_unit", paste0(params$t1), "-", paste0(params$t2), ".csv")),
+  "11. Soil Erosion Changes Table", as.character(file.path(params$output_dir, "soil_erosion_changes_per_planning_unit", paste0(params$t1), "-", paste0(params$t2), ".csv")),
+  "Session Summary", "",
+) %>% rbind(format_session_info_table())
+
+analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
+  kable_paper("hover", full_width = F )
+} else {
+  analysis_log <- tribble(
+  ~Category, ~Details,
+  "Analysis Start", params$start_time,
+  "Analysis End", params$end_time,
+  "Input Data and Parameters", "",
+  "1. Annual Rainfall Map", params$rainfall_path,
+  "2. Digital Elevation Model Map", params$dem_path,
+  "3. Sand Percentage Map", params$sand_path,
+  "4. Silt Percentage Map", params$silt_path,
+  "5. Clay Percentage Map", params$clay_path,
+  "6. Soil Organic Carbon Content Map", params$orgc_path,
+  "7. Planning Unit Map", params$pu_path,
+  "8. C Factor Attribute Table", params$c_factor_path,
+  "9. Map Resolution", params$map_resolution,
+  "10. Initial Land Cover/Use Map", as.character(params$input_lc),
+  "11. Year", as.character(params$t1),
+  "Output Files", "",
+  "Output workspace", file.path(paste0(getwd(), params$output_dir)),
+  "1. R Factor Map", file.path(file.path(params$output_dir, "r_factor.tif")),
+  "2. K Factor Map", file.path(file.path(params$output_dir, "k_factor.tif")),
+  "3. LS Factor Map", file.path(file.path(params$output_dir, "ls_factor.tif")),
+  "4. P Factor Map", file.path(file.path(params$output_dir, "p_factor.tif")),
+  "5. C Factor Map", as.character(file.path(params$output_dir, "c_factor", paste0(params$t1), ".tif")),
+  "6. Soil Erosion Map", as.character(file.path(params$output_dir, "soil_erosion", paste0(params$t1), ".tif")),
+  "7. Soil Erosion Table", as.character(file.path(params$output_dir, "soil_erosion", paste0(params$t1), ".csv")),
+  "8. Soil Erosion Per Planning Unit Table", as.character(file.path(params$output_dir, "soil_erosion_per_planning_unit", paste0(params$t1), ".csv")),
+  "Session Summary", "",
+) %>% rbind(format_session_info_table())
+
+analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
+  kable_paper("hover", full_width = F )
+}
+```
+</details>
+
+# Summary
+
+`r if (params$multiseries == "two_step") {
+  paste0("The QuES-H analysis was conducted over an area of interest spanning ", 
+         format(round(params$summary_data$total_area, 2), big.mark = ","), 
+         " hectares for the period between ", params$t1, " and ", params$t2, 
+         ". During this interval, the analysis revealed that soil erosion risk increased in ", 
+         format(round(params$summary_data$erosion_increase, 2), big.mark = ","), 
+         " hectares, while it decreased in ", 
+         format(round(params$summary_data$erosion_decrease, 2), big.mark = ","), 
+         " hectares. The remaining ", 
+         format(round(params$summary_data$erosion_stable, 2), big.mark = ","), 
+         " hectares maintained a stable erosion risk. Estimated soil erosion rates in ", 
+         params$t1, " ranged from ", format(round(params$summary_data$min_erosion_t1, 2), big.mark = ","), 
+         " - ", format(round(params$summary_data$max_erosion_t1, 2), big.mark = ","), 
+         " tons/hectare/year, while in ", params$t2, " they ranged from ", 
+         format(round(params$summary_data$min_erosion_t2, 2), big.mark = ","), 
+         " - ", format(round(params$summary_data$max_erosion_t2, 2), big.mark = ","), 
+         " tons/hectare/year.
+
+In ", params$t1, ", the predominant soil erosion class was ", 
+         params$summary_data$highest_erosion_class_name_t1, 
+         ", covering ", format(round(params$summary_data$highest_erosion_class_area_t1, 2), big.mark = ","), 
+         " hectares (", format(round(params$summary_data$highest_erosion_class_percentage_t1, 2), big.mark = ","), 
+         "%). A period later, in ", params$t2, ", the most common class is ", 
+         params$summary_data$highest_erosion_class_name_t2, 
+         ", encompassing ", format(round(params$summary_data$highest_erosion_class_area_t2, 2), big.mark = ","), 
+         " hectares (", format(round(params$summary_data$highest_erosion_class_percentage_t2, 2), big.mark = ","), 
+         "%). Areas classified as having severe soil erosion in ", params$t1, " occupied ", 
+         format(round(params$summary_data$severe_area_t1, 2), big.mark = ","), 
+         " hectares (", format(round(params$summary_data$severe_percentage_t1, 2), big.mark = ","), 
+         "%), while in ", params$t2, " this increased to ", format(round(params$summary_data$severe_area_t2, 2), big.mark = ","), 
+         " hectares (", format(round(params$summary_data$severe_percentage_t2, 2), big.mark = ","), 
+         "%). These findings highlight changes in soil erosion patterns and intensities over the study period.")
+} else {
+  paste0("The QuES-H analysis was conducted over an area of interest spanning ", 
+         format(round(params$summary_data$total_area, 2), big.mark = ","), 
+         " hectares for the annual period of ", params$t1, 
+         ". The analysis revealed that estimated soil erosion rates ranged from ", 
+         format(round(params$summary_data$min_erosion, 2), big.mark = ","), 
+         " - ", format(round(params$summary_data$max_erosion, 2), big.mark = ","), 
+         " tons/hectare/year. The predominant soil erosion class was identified as ", 
+         params$summary_data$highest_erosion_class_name, 
+         ", covering ", format(round(params$summary_data$highest_erosion_class_area, 2), big.mark = ","), 
+         " hectares, which represents ", format(round(params$summary_data$highest_erosion_class_percentage, 2), big.mark = ","), 
+         "% of the total area. Notably, areas classified as having severe soil erosion occupied ", 
+         format(round(params$summary_data$severe_area, 2), big.mark = ","), 
+         " hectares, accounting for ", format(round(params$summary_data$severe_percentage, 2), big.mark = ","), 
+         "% of the study area.")
+}`
+
+# Module brief description
+
+QuES-H (Quantification of Ecosystem Services) is a hydrological assessment module that analyzes hydrological environmental services. The current version features a soil erosion risk module based on the Revised Universal Soil Loss Equation (RUSLE), with plans to expand its capabilities to include additional hydrological analyses in the future.
+
+# Input data {.tabset}
+
+## Total Annual Precipitation Map
+
+This map represents the total rainfall for each pixel over a year ($mm \cdot yr^{-1}$)
+
+```{r Rainfall, echo=FALSE, fig.width=12, fig.align='left'}
+plot(params$rainfall)
+```
+
+## Digital Elevation Model (DEM) Map
+
+This map represents the terrain elevation ($meters$ above sea level)
+
+```{r Digital Elevation Model, echo=FALSE, fig.width=12, fig.align='left'}
+plot(params$dem)
+```
+
+## Soil Properties Maps
+
+This map represents the soil characteristic, defined by Clay content (%), Silt content (%), Sand content (%), and Soil organic content ($g \cdot kg^{-1}$)
+
+```{r Soil Properties, echo=FALSE}
+plot(params$soil)
+```
+
+## Land Cover Map {.tabset}
+
+```{r Land Cover, echo=FALSE, fig.align='left', fig.keep='all', results='asis', message=FALSE, warning=FALSE}
+if (params$multiseries == "two_step"){
+  lc <- params$landcover
+  t <- list(params$t1, params$t2)
+  type <- "landcover"
+  
+  render_child <- function(results_list, i){
+  res = knitr::knit_child(
+    text = c(
+      "### Land Cover/Use `r t[i]` {.tabset}",
+      # "These maps represent categorical raster with each pixel value corresponds to a land cover class in `r params$t1` and `r params$t2`",
+      "```{r, message=FALSE, warning=FALSE, echo=FALSE}",
+      "plot_categorical_raster(lc[[i]], type = type)",
+      "```"
+    ),
+  envir = rlang::env(results_list = results_list, i = i),
+  quiet = TRUE
+  )
+  cat(res, sep = '\n')
+  cat("\n")}
+  
+  for (i in 1:nlyr(lc)) {
+  render_child(results_list = lc, i = i)
+  }
+} else {
+  # cat("This map represents categorical raster with each pixel value corresponds to a land cover class \n")
+  cat("\n")
+  plot_categorical_raster(params$landcover, type = "landcover")
+}
+```
+
+## Planning Unit Map
+
+<!-- This map represents administrative or management zones. -->
+
+```{r Planning Unit, echo=FALSE, fig.align='left', message=FALSE, warning=FALSE}
+plot_categorical_raster(params$pu, type = "planning unit")
+```
+
+# Results
+
+## Factor of RUSLE {.tabset}
+
+### R Factor: Rainfall Erosivity
+
+```{r R Factor, echo=FALSE, fig.width=12, fig.align='left'}
+plot(params$r)
+```
+
+The erosivity of rainfall, $R$, has units of $MJ \cdot mm \cdot ha^{-1} \cdot h^{-1} \cdot yr^{-1}$, which can be interpreted as the average amount of rainfall erosivity energy per area, calculated based on hourly rainfall intensities and averaged over a year. Rainfall erosivity is mostly affected by short-term, high-intensity precipitation events. This factor was generated using the method of Moore (1979).
+
+### K Factor: Soil Erodibility
+
+```{r K Factor, echo=FALSE, fig.width=12, fig.align='left'}
+plot(params$k)
+```
+
+The erodibility of soil, $K$, has units of $t \cdot ha \cdot h \cdot ha^{-1} \cdot MJ^{-1} \cdot mm^{-1}$, which can be interpreted as the tonnes of soil loss per hectare per unit of rainfall erosivity. This factor was generated using the method of Williams (1995) by combining physical soil parameters such as sand, silt, and clay fractions, along with the organic carbon (or organic matter) fraction in the topsoil layer.
+
+### LS Factor: Length and Steepness
+
+```{r LS Factor, echo=FALSE, fig.width=12, fig.align='left'}
+plot(params$ls)
+```
+
+The topography expressed by the slope length and steepness $LS$ as unitless factor. This factor was generated from digital elevation model data using the method of Moore & Burch (1986).
+
+### C Factor: Cover Management {.tabset}
+
+```{r C Factor, echo=FALSE, fig.width=12, fig.align='left', fig.keep='all', results='asis', message=FALSE, warning=FALSE}
+if (params$multiseries == "two_step"){
+  c <- params$c
+  t <- list(params$t1, params$t2)
+  
+  render_child <- function(results_list, i){
+  res = knitr::knit_child(
+    text = c(
+      "#### C Factor `r t[i]` {.tabset}",
+      "```{r, fig.width=12}",
+      "#| echo=FALSE",
+      "plot(c[[i]], colNA = NULL)",
+      "```",
+      "The coverage of the soil by plants, $C$, is a unitless factor. This factor was generated using land use classifications from land cover products and agronomic statistics, with $C$-factor values are either available from governemntal data, global data products, or derived from research references. The $C$-factor relates the soil loss from land with specific vegetation cover to the soil loss that would occur from clean-tilled, continuously fallow land."
+    ),
+  envir = rlang::env(results_list = results_list, i = i),
+  quiet = TRUE
+  )
+  cat(res, sep = '\n')
+  cat("\n")}
+  
+  for (i in 1:nlyr(c)) {
+  render_child(results_list = c, i = i)
+  }
+} else {
+  plot(params$c)
+  cat("The coverage of the soil by plants, $C$, is a unitless factor. This factor was generated using land use classifications from land cover products and agronomic statistics, with $C$-factor values are either available from governemntal data, global data products, or derived from research references. The $C$-factor relates the soil loss from land with specific vegetation cover to the soil loss that would occur from clean-tilled, continuously fallow land. \n")
+}
+```
+
+### P Factor: Practice Management
+
+```{r P Factor, echo=FALSE, fig.width=12, fig.align='left'}
+plot(params$p)
+```
+
+The support control practices, $P$, is a unitless factor. The control practices can reduce the potential of erosion by reducing the amount and velocity of run-off, modifying the flow pattern and direction of surface run-off. The value ranges of P factor are between 0 and 1.
+
+## Estimation of Soil Erosion
+
+These results were generated using the $RUSLE$ equation, which estimates the average annual soil loss from sheet and rill erosion on portions of the landscape where erosion, but not deposition, is occurring. The $RUSLE$ results were generated by multiplying all the related factors: $A = R \cdot K \cdot LS \cdot C \cdot P$, and are defined as the average annual soil loss in $t \cdot ha^{-1} \cdot yr^{-1}$.
+
+### Soil Erosion at Landscape Level {.tabset}
+
+```{r Soil Erosion Estimation Map, echo=FALSE, fig.align='left', fig.keep='all', results='asis', message=FALSE, warning=FALSE}
+type <- "erosion"
+
+if (params$multiseries == "two_step"){
+  a <- params$a
+  t <- list(params$t1, params$t2)
+  render_child <- function(results_list, i){
+  res = knitr::knit_child(
+    text = c(
+      "#### Map of Soil Erosion `r t[i]`",
+      "Soil Erosion generated from RUSLE calculation",
+      "```{r, echo=FALSE, message=FALSE, warning=FALSE}",
+      "plot_categorical_raster(a[[i]], type = type)",
+      "```"
+    ),
+  envir = rlang::env(results_list = results_list, i = i),
+  quiet = TRUE
+  )
+  cat(res, sep = '\n')
+  cat("\n")}
+
+  for (i in 1:nlyr(a)) {
+  render_child(results_list = a, i = i)
+  }
+} else {
+  plot_categorical_raster(params$a, type = type)
+}
+```
+
+#### Table of Soil Erosion Rates
+
+```{r Soil Erosion Estimation Table, echo=FALSE}
+e_table <- params$e_table %>%
+  mutate(across(where(is.numeric), scales::comma))
+
+if (params$multiseries == "two_step") {
+  datatable(
+    e_table,
+    colnames = c("", "Soil Erosion Rates",
+                 paste0("Area (Ha) ", params$t1),
+                 paste0("Percentage (%) ", params$t1),
+                 paste0("Area (Ha) ", params$t2),
+                 paste0("Percentage (%) ", params$t2)),
+    options = list(pageLength = 10, autoWidth = TRUE),
+    caption = htmltools::tags$caption(
+      style = 'caption-side: top; text-align: left; color:black;  font-size:150% ;', 'Soil Erosion Rates in ', paste0(params$t1), 'and', paste0(params$t2))
+  ) %>%
+    formatRound(
+      columns = c("Percentage (%) T1", "Percentage (%) T2"),
+      digits = 2
+    )
+} else {
+  datatable(
+    e_table,
+    colnames = c("", "Soil Erosion Rates", "Area (Ha)", "Percentage (%)"),
+    options = list(pageLength = 10, autoWidth = TRUE),
+    caption = htmltools::tags$caption(
+      style = 'caption-side: top; text-align: left; color:black;  font-size:150% ;', 'Soil Erosion Rates')
+  ) %>%
+    formatRound(
+      columns = "Percentage (%)",
+      digits = 2
+    )
+}
+```
+
+### Soil Erosion at Planning Unit Level {.tabset}
+
+```{r soil_erosion_pu_level, echo=FALSE, results='asis'}
+render_child <- function(e_pu_df, time_point) {
+  res = knitr::knit_child(
+    text = c(
+      "#### Table of Soil Erosion in `r time_point`",
+      "```{r}",
+      "#| echo: false",
+      "datatable(e_pu_df %>% mutate(across(where(is.numeric), scales::comma)),",
+      "  caption = htmltools::tags$caption(",
+      "    style = 'caption-side: top; text-align: left; color:black; font-size:150%;',",
+      "    paste('Soil Erosion (Ha) in', time_point)))",
+      "```"
+    ),
+    envir = rlang::env(e_pu_df = e_pu_df, time_point = time_point),
+    quiet = TRUE
+  )
+  cat(res, sep = '\n')
+  cat("\n")
+}
+
+if (params$multiseries == "two_step") {
+  render_child(params$e_pu_df[[1]], params$t1)
+  render_child(params$e_pu_df[[2]], params$t2)
+} else {
+  render_child(params$e_pu_df, "Analysis Period")
+}
+```
+
+```{r soil_erosion_changes, echo=FALSE, results='asis', fig.width=12, fig.align='left', warning=FALSE, message=FALSE}
+render_child <- function(content_type) {
+  res = knitr::knit_child(
+    text = c(
+      paste("####", content_type),
+      "```{r}",
+      "#| echo: false",
+      "#| warning: false",
+      "#| message: false",
+      if (content_type == "Map of Soil Erosion Changes") {
+        "plot_categorical_raster(params$e_diff, type = 'erosion difference')"
+      } else if (content_type == "Table of Soil Erosion Changes at Landscape Level") {
+        c(
+          "e_diff_table <- params$e_diff_table %>%",
+          "  mutate(across(where(is.numeric), scales::comma))",
+          "datatable(",
+          "  e_diff_table,",
+          "  colnames = c('Soil Erosion Changes', 'Area (Ha)', 'Percentage (%)'),",
+          "  caption = tags$caption(",
+          "    style = 'caption-side: top; text-align: left; color:black; font-size:150%;',",
+          "    paste('Soil Erosion Changes (Ha) at Landscape Level in', params$t1, '-', params$t2)",
+          "  )",
+          ") %>%",
+          "  formatRound(",
+          "    columns = 'Percentage (%)',",
+          "    digits = 2",
+          "  )"
+        )
+      } else if (content_type == "Table of Soil Erosion Area Changes at Planning Unit Level") {
+        c(
+          "e_pu_diff_table <- params$e_pu_diff_table %>%",
+          "  mutate(across(where(is.numeric), scales::comma))",
+          "datatable(",
+          "  e_pu_diff_table,",
+          "  caption = tags$caption(",
+          "    style = 'caption-side: top; text-align: left; color:black; font-size:150%;',",
+          "    paste('Soil Erosion Changes (Ha) at Planning Unit Level in', params$t1, '-', params$t2)",
+          "  )",
+          ")"
+        )
+      } else if (content_type == "Table of Soil Erosion Changes at Planning Unit Level") {
+        c(
+          "e_stats <- params$e_stat %>% ",
+          "mutate(across(where(is.numeric), scales::comma))",
+          "datatable(",
+          "  e_stats, caption = tags$caption(",
+          "    style = 'caption-side: top; text-align: left; color:black; font-size:150%;',",
+          "    paste('Soil Erosion Changes (Ha) Statistic at Planning Unit Level in', params$t1, '-', params$t2)",
+          "    )",
+          ")"
+        )
+      },
+      "```"
+    ),
+    envir = parent.frame(),
+    quiet = TRUE
+  )
+  cat(res, sep = '\n')
+  cat("\n")
+}
+
+if (params$multiseries == "two_step") {
+  cat("### Soil Erosion Changes {.tabset}\n\n")
+  render_child("Map of Soil Erosion Changes")
+  render_child("Table of Soil Erosion Changes at Landscape Level")
+  render_child("Table of Soil Erosion Area Changes at Planning Unit Level")
+  render_child("Table of Soil Erosion Changes at Planning Unit Level")
+}
+```
+
+------------------------------------------------------------------------
+
+<font size="1"> LUMENS is free software and comes with ABSOLUTELY NO WARRANTY. Users are responsible for the results generated. Results depend on the quality of the input data ("garbage in, garbage out") and may vary or be sensitive to the parameters used. Please report any problems encountered while using LUMENS as [a GitHub issue](https://github.com/icraf-indonesia/lumens-shiny/issues). Feedback and questions are welcome [Contact Us URL]. </font size>

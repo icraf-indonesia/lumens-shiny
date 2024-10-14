@@ -1,3 +1,5 @@
+source('../../helper.R')
+
 ### Required Library ###
 install_load <- function (package1, ...)  {
   # convert arguments to vector
@@ -27,13 +29,16 @@ install_load(
   "sf", 
   "readxl",
   "shinyvalidate",
-  "remote",
+  "remotes",
   "shinyjs",
   "rmarkdown",
   "tools",
   "ggplot2",
   "knitr",
-  "kableExtra"
+  "kableExtra",
+  "DT",
+  "tidyterra",
+  "tmap"
 )
 
 #' Rasterize an sf MULTIPOLYGON object
@@ -169,7 +174,7 @@ format_session_info_table <- function() {
   )
   
   # Extract platform and OS info
-  platform_os <- paste(si$platform, "|", si[[6]])
+  platform_os <- paste(si$platform, "|", si$running)
   
   # Extract locale info
   locale_info <- strsplit(si[[3]], ";")[[1]]
@@ -234,4 +239,71 @@ plot_categorical_raster <- function(raster_object) {
           legend.justification = c(0,0.8))
   
   return(plot_lc)
+}
+
+#' Read Shapefile
+#'
+#' This function reads a shapefile from uploaded files, handling file renaming and validation.
+#'
+#' @param shp_input List. Input data for the shapefile, including file paths and names.
+#'
+#' @return sf object. The read shapefile.
+#'
+#' @importFrom sf st_read
+#' @importFrom tools file_ext
+#'
+#' @export
+read_shapefile <- function(shp_input) {
+  if (is.null(shp_input)) return(NULL)
+  
+  prev_wd <- getwd()
+  on.exit(setwd(prev_wd), add = TRUE)  # This ensures we always return to the previous working directory
+  
+  tryCatch({
+    uploaded_dir <- dirname(shp_input$datapath[1])
+    setwd(uploaded_dir)
+    
+    for (i in 1:nrow(shp_input)) {
+      old_path <- shp_input$datapath[i]
+      new_path <- file.path(uploaded_dir, shp_input$name[i])
+      cat("Attempting to rename:", old_path, "to", new_path, "\n")
+      rename_result <- file.rename(old_path, new_path)
+      cat("Rename result:", rename_result, "\n")
+      if (!rename_result) {
+        cat("File exists (old):", file.exists(old_path), "\n")
+        cat("File exists (new):", file.exists(new_path), "\n")
+      }
+    }
+    
+    shp_file <- shp_input$name[grep(pattern = "*.shp$", shp_input$name)]
+    if (length(shp_file) == 0) {
+      stop("No .shp file found in the uploaded files.")
+    }
+    
+    required_extensions <- c("shp", "dbf", "prj", "shx")
+    missing_files <- required_extensions[!required_extensions %in% tools::file_ext(list.files(uploaded_dir))]
+    if (length(missing_files) > 0) {
+      stop(paste("Missing required shapefile components:", paste(missing_files, collapse = ", ")))
+    }
+    
+    cat("About to read shapefile:", shp_file, "\n")
+    cat("Files in directory after renaming:\n")
+    print(list.files(uploaded_dir))
+    
+    # Read and return the shapefile
+    sf_object <- sf::st_read(shp_file)
+    return(sf_object)
+  }, error = function(e) {
+    cat("Error occurred:", e$message, "\n")
+    stop(paste("Error reading shapefile:", e$message))
+  })
+}
+
+rename_uploaded_file <- function(input_file) {
+  if (is.null(input_file)) return(NULL)
+  
+  old_path <- input_file$datapath
+  new_path <- file.path(dirname(old_path), input_file$name)
+  file.rename(old_path, new_path)
+  return(new_path)
 }
