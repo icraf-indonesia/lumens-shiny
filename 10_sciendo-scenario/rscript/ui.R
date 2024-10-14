@@ -344,6 +344,12 @@ ui <-
           # style = "height:38px; width:100%; padding:5px;",
           style = "font-size: 18px; padding: 10px 15px; background-color: #4CAF50; color: white;",
           icon = icon("gear")
+        ),
+        hidden(
+          actionButton(
+            "open_report",
+            "Open Report",
+            style = "font-size: 18px; padding: 10px 15px; background-color: #008CBA; color: white;")
         )
       )
     ),

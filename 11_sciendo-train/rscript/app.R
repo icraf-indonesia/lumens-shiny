@@ -43,9 +43,9 @@ ui <- fluidPage(
       div(style = "display: flex; flex-direction: column; gap: 10px;",
           shinyDirButton("factors_path", "Factor(s) Folder Path", "Choose a folder contains factor files"),
           verbatimTextOutput("print_factor_dir", placeholder = TRUE),
-          shinyDirButton("dinamica_path", "DINAMICA EGO Path (Optional)", "(Optional)"),
           shinyDirButton("wd", "Select output directory", "Please select a directory"),
           verbatimTextOutput("print_output_dir", placeholder = TRUE),
+          shinyDirButton("dinamica_path", "DINAMICA EGO Path (Optional)", "(Optional)"),
           actionButton("processTrain", "Run Analysis", 
                        style = "font-size: 18px; padding: 10px 15px; background-color: #4CAF50; color: white;"),
           hidden(

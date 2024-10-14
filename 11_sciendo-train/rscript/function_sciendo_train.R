@@ -410,8 +410,11 @@ generate_egoml_woe_model <- function(aliasFactor, lusim_lc,
                                      lc1_path, lc2_path, 
                                      zone_path, ers_path,
                                      output_dir, egoml) {
-  dcf_path <- paste0(output_dir, "/woe.dcf")
-  weight_report_path <- paste0(output_dir, "/weight_report.csv")
+  woe_dir <- paste0(output_dir, "/woe")
+  dir.create(woe_dir, recursive = TRUE, showWarnings = FALSE)
+  
+  dcf_path <- paste0(woe_dir, "/woe.dcf")
+  weight_report_path <- paste0(woe_dir, "/weight_report.csv")
   
   static_var <- aliasFactor %>% 
     data.frame(aliasFactor = .) %>% 

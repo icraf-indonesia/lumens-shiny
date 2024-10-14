@@ -4,11 +4,7 @@
 ##n_rep = number 4
 ##statusoutput=output table
 
-library(spatial.tools)
 library(splitstackshape)
-library(DBI)
-library(RPostgreSQL)
-library(rpostgis)
 library(XML)
 library(dplyr)
 

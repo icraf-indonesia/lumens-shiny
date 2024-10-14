@@ -328,3 +328,23 @@ generate_car_file <- function(df) {
   write("\n#SCENARIO", temp_car, append=TRUE, sep="\t")
   return(temp_car)
 }
+
+generate_sciendo_scen_report <- function(output, dir) {
+  report_params <- list(
+    start_time = output$start_time,
+    end_time = output$end_time,
+    inputs = output$inputs
+  )
+  
+  time <- format(Sys.time(), "%Y-%m-%d_%H-%M-%S")
+  output_file <- paste0("scen_builder_report_", time, ".html")
+  
+  rmarkdown::render(
+    "../report_template/scen_builder_report_template.Rmd",
+    output_file = output_file,
+    output_dir = dir,
+    params = report_params
+  )
+  
+  return(output_file)
+}
