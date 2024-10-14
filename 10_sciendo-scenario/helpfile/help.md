@@ -25,4 +25,4 @@ Follow these steps to use the tool:
 
 After the analysis completes, you'll find the following in your selected output directory:
 
-1.  
+1. 
