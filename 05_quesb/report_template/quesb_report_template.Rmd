@@ -366,9 +366,13 @@ ggplot() +
 `r if (is_two_periods) { "### TECI Difference Map" }`
 
 ```{r teci_difference_map, echo=FALSE, message=FALSE, warning=FALSE, eval=is_two_periods}
-
-# Assuming teci_diff_map is already loaded as a SpatRaster object
 Sys.setenv(tidyterra.quiet = TRUE) 
+
+teci_diff_map <- file.path(
+  params$output_dir,
+  params$dir_teci_diff_category) %>%
+  rast()
+
 # Create a data frame for the color palette
 color_palette <- data.frame(
   value = 1:4,
