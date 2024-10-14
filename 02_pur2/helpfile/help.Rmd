@@ -12,49 +12,38 @@ output:
 
 Planning unit reconciliation is a process to resolve overlapping permits by referring to function reference maps. Reconciliation is done by analyzing how well the permit data matches the reference data.
 
-# Data Preparation
+# Data and Input Variables
 
-1. Unresolved Case Map (Shapefile format)
-   
-   - Shapefile of overlayed planning units with some layer that conflict, defined as unresolved case.
-   
-2. Unresolved Case Attribute (Excel format)
-   
-   - Detailed unresolved case table .Before running PUR Reconcile module, the reconcile action (drop-down selection) on 'PUR_unresolved_case.xlsx' need to be defined. You can use Microsoft Excel or any free spreadsheet software (e.g. Google Sheet) to do it
+1.  Unresolved Case Map (Shapefile format)
+
+    -   Shapefile of overlayed planning units with some layer that conflict, defined as unresolved case.
+
+2.  Unresolved Case Attribute (Excel format)
+
+    -   Before running PUR Reconcile module, it is necessary to select the reconcile action on drop-down option for every unresolved case in 'PUR_unresolved_case.xlsx' file generated from PUR Build module. You can use Microsoft Excel or any free spreadsheet software (e.g., Google Sheet) to do it.
+
+        ![](images/Pre_PUR-Reconcile.gif){style="max-width:80%; height:auto;"}
 
 # Using The Module
 
 Follow these steps to use the module:
 
-1. **Unresolved Case Map**
-   - Click "Browse" and select your Unresolved Case Map shapefile.
-
-2. **Unresolved Case Attribute**
-   - Click "Browse" and select your excel file containing the table of reconcile action
-
-5. **Output Directory**
-    -   Click "Select Output Directory" to choose where results will be saved.
-    
-6.  **Run Analysis**
-    -   Click "Run PUR Reconcile" to start the process.
-    
-7.  **View Results**
-    -   View the analysis report and output files.
+![](images/PUR-Reconcile.gif){style="max-width:80%; height:auto;"}
 
 # Accessing Outputs
 
 After the analysis completes, you'll find the following output data in your selected output directory:
 
-- Planning Unit Reconcile (Shapefile)
+-   Planning Unit Reconcile (Shapefile)
 
-- Reconciled Class Attribute Result (CSV) 
+-   Reconciled Class Attribute Result (CSV)
 
-- **PUR Reconcile Report**: An HTML file providing an overview of the analysis results, including:
+-   **PUR Reconcile Report**: An HTML file providing an overview of the analysis results, including:
 
     -   Data visualisation on input data
     -   Data visualisation on planning unit reconciliation result
     -   Descriptive statistics resolved case of planning units
-    
+
 ------------------------------------------------------------------------
 
 For more detailed information or troubleshooting, refer to the full QuES-H documentation or contact the tool developers.

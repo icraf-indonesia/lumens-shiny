@@ -10,63 +10,41 @@ output:
 
 # Overview
 
-Planning unit reconciliation is a process to resolve overlapping permits by referring to function reference maps. Reconciliation is done by analyzing how well the permit data matches the reference data. Permit data can include things like forest management concessions, plantation permits, mining permits, and others. Reference data can be spatial planning data or area designation data.
+Planning unit reconciliation is a process to resolve overlapping permits by referring to function reference maps. Permit data can include things like forest management concessions, plantation permits, mining permits, and others. Reference data can be spatial planning data or area designation data. PUR Build module construct the overlay of planning units map to identified the overlaped zones. 
 
-# Data Preparation
+# Data and Input Variables
 
-1. Reference Map (Shapefile format)
-   - Represents zonation that will become the reference for PUR analysis
+1.  Reference Map (Shapefile format)
+    -   Represents zonation that will become the reference for PUR analysis
+2.  Reference Class (CSV format)
+    -   Lookup table containing class function that will become the reference for all the planning units. Consist of ID column and Class Definition.
+3.  Reference Class of Reference Map (CSV format)
+    -   Lookup table containing reference map values (ID) with their corresponding classification of reference class (ID of reference class)
+4.  Planning Unit List (CSV format)
+    -   Lookup table containing list of planning units (name, identity, and shapefile path) with their corresponding of reference class classification.
 
-2. Reference Class (CSV format)
-   - Lookup table containing class function that will become the reference for all the planning units. Consist of ID column and Class Definition.
-
-3. Reference Class of Reference Map (CSV format)
-   - Lookup table containing reference map values (ID) with their corresponding classification of reference class (ID of reference class)
-   
-4. Planning Unit List (CSV format)
-   - Lookup table containing list of planning units (name, identity, and shapefile path) with their corresponding of reference class classification.
-   
 # Using The Module
 
 Follow these steps to use the module:
 
-1. **Reference Map**
-   - Click "Browse" and select your planning unit shapefile.
-
-2. **Reference Class**
-   - Click "Browse" and select your CSV file containing the lookup table of reference class
-
-3. **Reference Class of Reference Map**
-   - Click "Browse" and select your CSV file containing the lookup table of reference class of reference map
-   
-4. **Planning Unit List**
-   - Click "Browse" and select your CSV file containing the lookup table of planning unit list
-
-5.  **Output Directory**
-    -   Click "Select Output Directory" to choose where results will be saved.
-    
-6.  **Run Analysis**
-    -   Click "Run PUR Build" to start the process.
-    
-7.  **View Results**
-    -   View the analysis report and output files.
+![](images/PURbuild-01.gif){style="max-width:80%; height:auto;"}
 
 # Accessing Outputs
 
 After the analysis completes, you'll find the following output data in your selected output directory:
 
-- Planning Unit Building (GeoTiff)
+-   Planning Unit Building (GeoTiff)
 
-- Planning Unit Building (Shapefile)
+-   Planning Unit Building (Shapefile)
 
-- Unresolved Case Attribute Result (CSV) 
+-   Unresolved Case Attribute Result (CSV)
 
-- **PUR Build Report**: An HTML file providing an overview of the analysis results, including:
+-   **PUR Build Report**: An HTML file providing an overview of the analysis results, including:
 
     -   Data visualisation on input data
     -   Data visualisation on planning unit building
     -   Descriptive statistics of planning unit and unresolved cases
-    
+
 ------------------------------------------------------------------------
 
 For more detailed information or troubleshooting, refer to the full QuES-H documentation or contact the tool developers.

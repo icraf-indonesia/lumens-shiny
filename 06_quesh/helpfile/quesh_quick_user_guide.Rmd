@@ -15,15 +15,11 @@ runtime: shiny
 
 QuES-H (Quantification of Ecosystem Services) is a hydrological assessment module that analyzes hydrological environmental services. The current version features a soil erosion risk module based on the Revised Universal Soil Loss Equation (RUSLE), with plans to expand its capabilities to include additional hydrological analyses in the future.
 
-**About RUSLE**
+# Key Concepts
 
 The Revised Universal Soil Loss Equation (RUSLE) is an empirical model widely used in soil conservation and watershed management. It provides a method for estimating annual soil loss due to water erosion. Key features of RUSLE is predicting long-term average annual soil loss.
 
-RUSLE can support for land use planning and soil conservation strategies in several ways: 1. Quantifying soil erosion risk across landscapes
-
-2\. Identifying areas prone to high erosion rates
-
-3\. Comparing soil loss rates under various land management scenarios
+RUSLE can support for land use planning and soil conservation strategies in several ways, including quantifying soil erosion risk across landscapes, identifying areas prone to high erosion rates, and comparing soil loss rates under various land management scenarios
 
 **The RUSLE Equation**
 
@@ -55,7 +51,7 @@ RUSLE is a multiplicative model where each factor influences the overall soil lo
 
     Accounts for conservation practices like terracing, contouring, and strip cropping.
 
-# Data Preparation
+# Data and Input Variables
 
 1.  Total Annual Precipitation Map (GeoTIFF format)
 
@@ -101,31 +97,7 @@ RUSLE is a multiplicative model where each factor influences the overall soil lo
 
 Follow these steps to use the module:
 
-1.  **Total Annual Precipitation Map**
-    -   Click "Browse" and select your GeoTIFF file containing the total annual precipitation data (mm/year).
-2.  **Digital Elevation Model (DEM)**
-    -   Click "Browse" and select your GeoTIFF file containing the digital elevation model data (meters above sea level).
-3.  **Soil Properties**
-    -   Click "Browse" for each of the following soil property GeoTIFF files:
-        a.  Clay content (%)
-        b.  Silt content (%)
-        c.  Sand content (%)
-        d.  Soil organic content (%)
-4.  **Land Cover Map**
-    -   Click "Browse" and select your GeoTIFF file containing the land cover classification data.
-5.  **Planning Units**
-    -   Click "Browse" and select your planning unit shapefile.
-6.  **Lookup Table for Land Use/Cover, C-factor, and P-factor**
-    -   Click "Browse" and select your CSV file containing the lookup table with columns for:
-        -   Land cover class
-        -   C-factor value
-        -   P-factor value
-7.  **Output Directory**
-    -   Click "Select Output Directory" to choose where results will be saved.
-8.  **Run Analysis**
-    -   Click "Run RUSLE Analysis" to start the process.
-9.  **View Results**
-    -   View the analysis report and output files.
+![](images/QUES-H_GUI_10pfs.gif){style="max-width:80%; height:auto;"}
 
 # Accessing Outputs
 

@@ -16,7 +16,7 @@ ui <- fluidPage(
                 multiple = TRUE,
                 placeholder = "input shapefiles (.shp, .dbf, .prj, .shx)"),
       fileInput("c_ref_file", "C Factor Attribute", accept = c(".csv"), placeholder = "input table (.csv)"),
-      numericInput("map_resolution", "Map Resolution", value = 100),
+      numericInput("map_resolution", "Map Resolution", value = NULL),
       
       # Select P Factor Option
       radioButtons("practice", "P Factor Map Available?", 
@@ -37,14 +37,14 @@ ui <- fluidPage(
       conditionalPanel(
         condition = "input.multiseries == 'two_step'",
         fileInput("lc_t1_file", "Initial Land Cover/Use Map", accept = c(".tif", ".tiff"), placeholder = "input raster (.tif)"),
-        numericInput("t1", "Initial Year", value = 2005),
+        numericInput("t1", "Initial Year", value = NULL, min = 1000, max = 9999, step = 1),
         fileInput("lc_t2_file", "Final Land Cover/Use Map", accept = c(".tif", ".tiff"), placeholder = "input raster (.tif)"),
-        numericInput("t2", "Final Year", value = 2010),
+        numericInput("t2", "Final Year", value = NULL, min = 1000, max = 9999, step = 1),
       ),
       conditionalPanel(
         condition = "input.multiseries == 'single_step'",
         fileInput("lc_t1_file", "Land Cover/Use Map", accept = c(".tif", ".tiff"), placeholder = "input raster (.tif)"),
-        numericInput("t1", "Year", value = 2005)
+        numericInput("t1", "Year", value = NULL, min = 1000, max = 9999, step = 1)
       ),
       
       div(style = "display: flex; flex-direction: column; gap: 10px;",
