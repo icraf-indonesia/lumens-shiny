@@ -10,7 +10,7 @@ output:
 
 # Overview
 
-Pre-QuES (Preliminary Quantification of Ecosystem Services) is a land use change assessment module that provides key information to identify potential drivers of land use change. This analysis quantifies land cover types and their changes over time, identifies specific land use change trajectories, breaks down changes by administrative or planning units, and visualizes land use dynamics through maps and Sankey-charts.
+Pre-QuES (Preliminary Quantification of Ecosystem Services), a land use change assessment module, quantifies land cover types and their changes over time, identifies specific land use change trajectories, breaks down changes by administrative or planning units, and visualises land use dynamics through maps and Sankey-charts, providing key information to identify potential drivers of land use change.
 
 # Key Concepts:
 
@@ -27,47 +27,15 @@ Pre-QuES (Preliminary Quantification of Ecosystem Services) is a land use change
 Before using the Pre-QuES Analysis tool, prepare the following:
 
 1. **Land Cover Maps**: Two raster files (GeoTIFF format) representing land use/cover for two different time points.
-2. **Planning Unit Map**: A raster file (GeoTIFF format) or shapefile of administrative or management zones.
+2. **Planning Unit Map**: A complete shapefile dataset representing administrative or management zones. The dataset includes all necessary file components (.shp, .dbf, .shx, and .prj).
 3. **Land Use/Cover Lookup Table**: A CSV file describing raster values with their corresponding land cover classes.
-4. **Planning Unit Table**: A CSV file describes raster values with their corresponding planning unit classes. This file is required only if the planning unit map is in raster (GeoTIFF) format.
-5. **Trajectory Rules**: A CSV file defining rules for classifying land use change trajectories.
+4. **Trajectory Rules**: A CSV file defining rules for classifying land use change trajectories.
 
-## Using the Pre-QuES Analysis Tool
+## Using the Pre-QuES Module
 
-Follow these steps to use the tool:
+Follow these steps to use the module:
 
-1. **Land Use/Cover T1**
-   - Click "Browse" and select your land cover raster file for the first time point (T1).
-
-2. **T1 Year**
-   - Enter the year corresponding to the T1 land cover data.
-
-3. **Land Use/Cover T2**
-   - Click "Browse" and select your land cover raster file for the second time point (T2).
-
-4. **T2 Year**
-   - Enter the year corresponding to the T2 land cover data.
-
-5. **Land Use/Cover Lookup Table**
-   - Click "Browse" and select your prepared CSV file containing the land cover classification scheme.
-
-6. **Planning Units Input Type**
-   - Select either "Raster" or "Shapefile" for your planning unit data.
-
-7. **Planning Units**
-   - Click "Browse" and select your planning unit raster or shapefile.
-
-8. **Planning Units Lookup**
-   - If using a raster, click "Browse" to select a CSV file with planning unit classifications.
-
-9. **Trajectory Rules**
-   - Click "Browse" and select your CSV file defining trajectory rules.
-
-10. **Output Directory**
-    - Click "Select Output Directory" to choose where results will be saved.
-
-11. **Run Analysis**
-    - Click "Run Pre-QuES Analysis" to start the process.
+![](pre_ques_gui_entry.gif){style="max-width:80%;height=auto;"}
 
 # Accessing Outputs
 
