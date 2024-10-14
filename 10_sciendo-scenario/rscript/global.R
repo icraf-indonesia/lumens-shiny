@@ -1,3 +1,4 @@
+source('../../helper.R')
 ### REQUIRED LIBRARY ######################
 
 install_load <- function (package1, ...)  {

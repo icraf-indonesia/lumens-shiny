@@ -61,6 +61,7 @@ format_session_info_table <- function() {
 scenario_modif_list <- params$inputs$scenario_modif_list
 scen_list <- ""
 for(i in 1:length(scenario_modif_list)) {
+  scenario_modif <- scenario_modif_list[[i]]$abacus_scenario$scenario$tpm
   iter <- scenario_modif %>% distinct(iteration) %>% unlist() %>% as.vector()
   for(j in 1:length(iter)){
     # tm_desc <- paste0("Transition Matrix Scenario ", i, " Iteration-", iter[j])
@@ -131,7 +132,7 @@ for(i in 1:length(scenario_modif_list)) {
         text = c(
           "```{r}",
           "#| echo: false",
-          "scenario_modif %>% select(period, zone, lc1, lc2, area) %>% datatable()",
+          "scenario_modif %>% dplyr::select(period, zone, lc1, lc2, area) %>% datatable()",
           "```"
         ), quiet = TRUE
       ), sep = "\n"

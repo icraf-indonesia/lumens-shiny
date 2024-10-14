@@ -396,7 +396,6 @@ run_dinamica_raster_cube <- function(dinamica_path = NULL, output_dir, egoml) {
   params$output_dir <- output_dir
   params$egoml <- egoml
   
-  
   executeDINAMICA(params)
   
   # check .ers file 
@@ -687,8 +686,6 @@ run_dinamica_woe_model <- function(dinamica_path = NULL, output_dir, egoml){
   
   executeDINAMICA(params)
   
-  # check .ers file 
-  ers_file <- paste0(output_dir, "/sciendo_factor.ers")
   n_woe_report <- output_dir %>% 
     list.files(full.names=TRUE, pattern="weight_report*") %>%
     length()
