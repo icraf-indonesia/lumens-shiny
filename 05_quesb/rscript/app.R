@@ -1,5 +1,5 @@
-source('ques_biodiv_functions.r')
 source('../../helper.R')
+source('ques_biodiv_functions.r')
 
 required_packages <- c(
   "terra",
@@ -71,7 +71,7 @@ ui <- fluidPage(
       selectInput(
         "window_shape",
         "Window Shape",
-        choices = c("Square" = 1, "Circle" = 2),
+        choices = c("Square" = 0, "Circle" = 1),
         selected = 1
       ),
       fileInput(
@@ -88,9 +88,14 @@ ui <- fluidPage(
           "Select Output Directory",
           "Please select a directory"
         ),
+        verbatimTextOutput("print_output_dir", placeholder = TRUE),
         actionButton("run_analysis", "Run QuES-B Analysis", style = "font-size: 18px; padding: 10px 15px; background-color: #4CAF50; color: white;"),
         hidden(
           actionButton("open_report", "Open Report", style = "font-size: 18px; padding: 10px 15px; background-color: #008CBA; color: white;")
+        ),
+        hidden(
+          actionButton("open_output_folder", "Open Output Folder",
+                       style = "font-size: 18px; padding: 10px 15px; background-color: #008CBA; color: white;")
         ),
         actionButton("returnButton", "Return to Main Menu", style = "font-size: 18px; padding: 10px 15px; background-color: #FA8072; color: white;")
       )
@@ -115,6 +120,24 @@ server <- function(input, output, session) {
                "R Installation" = R.home(),
                getVolumes()())
   shinyDirChoose(input, "output_dir", roots = volumes, session = session)
+  
+  # Reactive value to store selected output directory
+  selected_output_dir <- reactiveVal(value = NULL)
+  
+  # Update reactive value when output directory is selected
+  observe({
+    if (!is.null(input$output_dir)) {
+      selected_output_dir(parseDirPath(volumes, input$output_dir))
+    }
+  })
+  
+  output$print_output_dir <- renderPrint({
+    if (!is.null(selected_output_dir())) {
+      cat(paste(selected_output_dir()))
+    } else {
+      cat("No output directory selected")
+    }
+  })
   
   # Display selected output directory
   output$selected_dir <- renderText({
@@ -168,7 +191,7 @@ server <- function(input, output, session) {
     req(input$output_dir)
     output_dir <- parseDirPath(volumes, input$output_dir)
     
-    showNotification("Analysis is running. Please wait...", type = "message", duration = NULL)
+    showNotification("Analysis is running. Please wait...", type = "message", duration = NULL, id = "running_notification")
     
     withProgress(message = 'Running QuES-B Analysis', value = 0, {
       tryCatch({
@@ -194,11 +217,6 @@ server <- function(input, output, session) {
             report_template_path = "../report_template/quesb_report_template.Rmd"
           )
           
-          # Render TECI map
-          # teci_raster <- rast(result$path_teci_map)
-          # output$result_plot <- renderPlot({
-          #   plot_categorical_raster(teci_raster)
-          # })
           
         } else if (input$multiseries == "two_step") {
           # Rename second land cover file
@@ -219,19 +237,18 @@ server <- function(input, output, session) {
             output_dir = output_dir,
             report_template_path = "../report_template/quesb_report_template.Rmd"
           )
-          
-          # Render TECI difference map
-          # teci_diff_raster <- rast(result$path_teci_difference)
-          # output$result_plot <- renderPlot({
-          #   plot_teci_difference_map(teci_diff_raster)
-          # })
         }
         
+        
+        
+        shinyjs::show("open_report")
+        shinyjs::show("open_output_folder")
+        removeNotification("running_notification")
         output$status_messages <- renderText("Analysis completed successfully!")
         showNotification("Analysis completed successfully!", type = "message")
-        shinyjs::show("open_report")
         
       }, error = function(e) {
+        removeNotification("running_notification")
         output$error_messages <- renderText(paste("Error in analysis:", e$message))
         showNotification(paste("Error in analysis:", e$message), type = "error")
       })
@@ -239,7 +256,7 @@ server <- function(input, output, session) {
   })
   
   observeEvent(input$open_report, {
-    report_path <- paste0(parseDirPath(volumes, input$output_dir), "/QuES_B_report.html")
+    report_path <- paste0(selected_output_dir(), "/QuES_B_report.html")
     if (file.exists(report_path)) {
       showNotification("Opening report...", type = "message")
       utils::browseURL(report_path)
@@ -247,6 +264,29 @@ server <- function(input, output, session) {
       showNotification("Report file not found.", type = "error")
     }
   })
+
+  
+  # Open output folder
+  observeEvent(input$open_output_folder, {
+    if (!is.null(selected_output_dir())) {
+      if (.Platform$OS.type == "windows") {
+        shell.exec(selected_output_dir())
+      } else {
+        system2("open", selected_output_dir())
+      }
+    }
+  })
+  
+  session$onSessionEnded(function() {
+    stopApp()
+  })
+  
+  observeEvent(input$returnButton, {
+    js$closeWindow()
+    message("Return to main menu!")
+    # shinyjs::delay(1000, stopApp())
+  })
+  
 }
 
 shinyApp(ui, server)

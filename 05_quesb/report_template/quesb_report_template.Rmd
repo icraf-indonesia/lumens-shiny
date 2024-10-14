@@ -42,7 +42,20 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r load_functions, include=FALSE, error=TRUE, warning=TRUE, message=TRUE}
-source("../rscript/ques_biodiv_functions.r")
+helper_funct_a <- "05_quesb/rscript/ques_biodiv_functions.r"
+helper_funct_b <- "../rscript/ques_biodiv_functions.r"
+
+if(file.exists(helper_funct_a)){
+  source(helper_funct_a)
+} else {
+  source(helper_funct_b)
+}
+```
+
+
+```{r eval=FALSE, include=FALSE}
+load("output/ques_b_1990_2000/output_parameters.rds")
+params<-report_params
 ```
 
 ```{r load_libraries, include=FALSE}
@@ -77,41 +90,58 @@ cat("Is two periods:", is_two_periods, "\n")
 ```{r analysis-log, echo=FALSE}
 analysis_log <- tribble(
   ~Category,                   ~Details,
-  "Analysis Start",        params$start_time,
-  "Analysis End",          params$end_time,
+  "Analysis Start",            params$start_time,
+  "Analysis End",              params$end_time,
   "Input Data and Parameters", "",
-  "1. Landcover map",      params$inputs$lc_t1_path,
-  "2. Year", as.character(params$inputs$t1),
-  if (is_two_periods) c("3. Second Landcover map", params$inputs$lc_t2_path, "4. Year", as.character(params$inputs$t2)) else NULL,
-  "5. Landcover lookup",   params$inputs$lulc_lut_path,
-  "6. Contrast table",     params$inputs$contab_path,
-  "7. NoData land-cover class", as.character(params$inputs$raster.nodata),
-  "8. Number of sampling points (n)", as.character(params$inputs$sampling_points),
-  "9. Moving window radius (metres)", as.character(params$inputs$window_size),
-  "10. Moving window shape", as.character(params$inputs$window.shape),
-  "11. Fragstats config file", params$inputs$fca_path,
-  "12. Fragstats directory", params$inputs$fragstats_path,
-  "Output Files", "",
-  "Output Workspace",      paste0(getwd(), params$output_dir),
-  if (is_two_periods) {
-    c("1. Focal Area Map (t1)", file.path(params$output_dir, params$dir_focal_area_t1),
-      "2. Focal Area Map (t2)", file.path(params$output_dir, params$dir_focal_area_t2),
-      "3. TECI Map (t1)", file.path(params$output_dir, params$dir_teci_map_t1),
-      "4. TECI Map (t2)", file.path(params$output_dir, params$dir_teci_map_t2),
-      "5. TECI Difference Map", file.path(params$output_dir, params$dir_teci_difference),
-      "6. DIFA Table (t1)", file.path(params$output_dir, params$dir_difa_table_t1),
-      "7. DIFA Table (t2)", file.path(params$output_dir, params$dir_difa_table_t2),
-      "8. Sampling Grid", file.path(params$output_dir, params$dir_sampling_grid)
-    )
-  } else {
-    c("1. Focal Area Map", file.path(params$output_dir, params$dir_focal_area_),
-      "2. TECI Map", file.path(params$output_dir, params$dir_teci_map),
-      "3. DIFA Table", file.path(params$output_dir, params$dir_difa_table),
-      "4. Sampling Grid", file.path(params$output_dir, params$dir_sampling_grid)
-    )
-  },
-  "Session Summary", ""
-) %>% rbind(format_session_info_table())
+  "Landcover map T1",          params$inputs$lc_t1_path,
+  "Year T1",                   as.character(params$inputs$t1)
+)
+
+# Add conditional rows for two periods
+if (is_two_periods) {
+  analysis_log <- analysis_log %>%
+    add_row(Category = "Landcover map T2", Details = params$inputs$lc_t2_path) %>%
+    add_row(Category = "Year T2", Details = as.character(params$inputs$t2))
+}
+
+# Continue with the rest of the input parameters
+analysis_log <- analysis_log %>%
+  add_row(Category = "Landcover lookup",       Details = params$inputs$lulc_lut_path) %>%
+  add_row(Category = "Contrast table",         Details = params$inputs$contab_path) %>%
+  add_row(Category = "NoData land-cover class", Details = as.character(params$inputs$raster.nodata)) %>%
+  add_row(Category = "Number of sampling points (n)", Details = as.character(params$inputs$sampling_points)) %>%
+  add_row(Category = "Moving window radius (metres)", Details = as.character(params$inputs$window_size)) %>%
+  add_row(Category = "Moving window shape",   Details = as.character(params$inputs$window.shape)) %>%
+  add_row(Category = "Fragstats config file", Details = params$inputs$fca_path) %>%
+  add_row(Category = "Fragstats directory",   Details = params$inputs$fragstats_path) %>%
+  add_row(Category = "Output Files",              Details = "") %>%
+  add_row(Category = "Output Workspace",          Details = paste0(getwd(), params$output_dir))
+
+# Add output files based on whether it's two periods or not
+if (is_two_periods) {
+  analysis_log <- analysis_log %>%
+    add_row(Category = "Focal Area Map (t1)", Details = file.path(params$output_dir, params$dir_focal_area_t1)) %>%
+    add_row(Category = "Focal Area Map (t2)", Details = file.path(params$output_dir, params$dir_focal_area_t2)) %>%
+    add_row(Category = "TECI Map (t1)", Details = file.path(params$output_dir, params$dir_teci_map_t1)) %>%
+    add_row(Category = "TECI Map (t2)", Details = file.path(params$output_dir, params$dir_teci_map_t2)) %>%
+    add_row(Category = "TECI Difference Map", Details = file.path(params$output_dir, params$dir_teci_difference)) %>%
+    add_row(Category = "DIFA Table (t1)", Details = file.path(params$output_dir, params$dir_difa_table_t1)) %>%
+    add_row(Category = "DIFA Table (t2)", Details = file.path(params$output_dir, params$dir_difa_table_t2)) %>%
+    add_row(Category = "Sampling Grid", Details = file.path(params$output_dir, params$dir_sampling_grid))
+} else {
+  analysis_log <- analysis_log %>%
+    add_row(Category = "Focal Area Map", Details = file.path(params$output_dir, params$dir_focal_area_t1)) %>%
+    add_row(Category = "TECI Map", Details = file.path(params$output_dir, params$dir_teci_map_t1)) %>%
+    add_row(Category = "DIFA Table", Details = file.path(params$output_dir, params$dir_difa_table_t1)) %>%
+    add_row(Category = "Sampling Grid", Details = file.path(params$output_dir, params$dir_sampling_grid))
+}
+
+# Add Session Summary
+analysis_log <- analysis_log %>%
+  add_row(Category = "Session Summary", Details = "")
+
+# Append formatted session info
+analysis_log <- rbind(analysis_log, format_session_info_table())
 
 analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
   kable_paper("hover", full_width = F)
@@ -212,23 +242,29 @@ within the overall landscape, which spans `r scales::label_comma()(total_area)` 
 
 # Input Data {.tabset}
 
-## Land-Use/Cover Map in `r params$inputs$t1`
-
-### Land Use/Cover Map
+## Land-Use/Cover Map in `r params$inputs$t1` 
 
 ```{r input-data-t1, echo=FALSE, message=FALSE, warning=FALSE}
 plot_categorical_raster(lc_t1_map)
 ```
 
-### Land Use/Cover Lookup Table
+`r if (is_two_periods) { paste("## Land-Use/Cover Map in", params$inputs$t2) }`
+
+
+```{r input-data-t2, echo=FALSE, message=FALSE, warning=FALSE, eval=is_two_periods}
+plot_categorical_raster(lc_t2_map)
+```
+
+## Land Use/Cover Lookup Table
 
 ```{r land-use-lookup-table, echo=FALSE}
 lut %>% 
   kbl(caption = "Land Use/Cover Lookup Table", escape = FALSE) %>%
-  kable_paper("hover", full_width = F)
+   kable_paper() %>%
+  scroll_box(width = "100%", height = "300px")
 ```
 
-### Edge Contrast Matrix
+## Edge Contrast Matrix
 
 A table defining contrast weights between different land use/cover types. Values range from 0 (identical) to 1 (maximum contrast).
 
@@ -239,19 +275,13 @@ rownames(contrast_table)<- read.csv(params$inputs$lulc_lut_path) %>% rename(Valu
 
 contrast_table %>% round(digits = 3) %>% 
   kbl(caption = "Edge Contrast Matrix", escape = FALSE) %>%
-  kable_paper("hover", full_width = F )
-```
-`r if (is_two_periods) { paste("## Land-Use/Cover Map in", params$inputs$t2) }`
-
-### Land Use/Cover Map
-
-```{r input-data-t2, echo=FALSE, message=FALSE, warning=FALSE, eval=is_two_periods}
-plot_categorical_raster(lc_t2_map)
+  kable_paper() %>% 
+  scroll_box(width = "100%", height = "400px")
 ```
 
 # Results
 
-## Focal Area Map
+## Focal Area Map {.tabset}
 
 Focal area map illustrates the distribution of selected habitats of high biodiversity importance, that is `r focal_area_name` (shown in dark green) within the landscape. The map is overlaid with a sampling grid where each cell represents an area of `r report_params$inputs$window_size^2/10000` hectares.
 
@@ -293,7 +323,7 @@ ggplot() +
     guides(fill = guide_legend(reverse=T))
 ```
 
-## TECI Map
+## TECI Map {.tabset}
 
 TECI map illustrates the spatial distribution of Total Edge Contrast Index (TECI) values across the study area, representing `r focal_area_name` fragmentation and integration within the landscape.
 
@@ -314,6 +344,7 @@ ggplot() +
   theme(legend.position = "bottom")
 ```
 
+
 `r if (is_two_periods) { paste("### TECI Map in", params$inputs$t2) }`
 
 ```{r teci_map_t2, echo=FALSE, message=FALSE, warning=FALSE, eval=is_two_periods}
@@ -331,47 +362,56 @@ ggplot() +
   theme(legend.position = "bottom")
 ```
 
-Lower TECI values, shown in darker blue colours, indicate well-integrated areas with minimal contrast between adjacent land cover types. Conversely, higher TECI values, depicted gradually in green, yellow, and ultimately red, represent more segregated areas with greater contrast between neighbouring land uses. The grey areas represent areas that are outside the dispersal radius of `r params$inputs$window_size` meters from the focal area.
 
 `r if (is_two_periods) { "### TECI Difference Map" }`
 
 ```{r teci_difference_map, echo=FALSE, message=FALSE, warning=FALSE, eval=is_two_periods}
-teci_diff_map <- file.path(params$output_dir, params$dir_teci_diff_category) %>% rast()
 
-plot(teci_diff_map)
+# Assuming teci_diff_map is already loaded as a SpatRaster object
+Sys.setenv(tidyterra.quiet = TRUE) 
+# Create a data frame for the color palette
+color_palette <- data.frame(
+  value = 1:4,
+  Description = c(
+    "Fully integrated focal area",
+    "Decrease in total edge contrast (integration)",
+    "Increase in total edge contrast (segregation)",
+    "Focal & edge area loss"
+  ),
+  colPal = c("darkolivegreen", "aquamarine3", "orange", "darkred")
+)
 
-# ggplot() +
-#   geom_spatraster(data = teci_diff_map) +
-#   scale_fill_gradient2(
-#     low = "green",
-#     mid = "white",
-#     high = "red",
-#     midpoint = 0,
-#     name = "TECI Difference"
-#   ) +
-#   theme_bw() +
-#   labs(title = "TECI Difference Map") +
-#   theme(
-#     axis.title.x = element_blank(),
-#     axis.title.y = element_blank(),
-#     panel.grid.major = element_blank(),
-#     panel.grid.minor = element_blank(),
-#     legend.title = element_text(size = 12),
-#     legend.text = element_text(size = 10),
-#     legend.key.height = unit(0.5, "cm"),
-#     legend.key.width = unit(0.5, "cm"),
-#     legend.position = "right"
-#   )
+# Create the main plot
+ggplot() +
+  geom_spatraster(data = teci_diff_map) +
+  scale_fill_manual(
+    values = color_palette$colPal,
+    labels = color_palette$Description,
+    name = "Focal and Edge Area \nChange Categories"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.title =  element_text(size = 10),
+    legend.text = element_text(size = 8),
+    axis.title = element_text(size = 10)
+  ) +
+  labs(
+    x = "Latitude",
+    y = "Longitude")
 ```
 
-## DIFA Plot
+## {-}
+
+Lower TECI values, shown in darker blue colours, indicate well-integrated areas with minimal contrast between adjacent land cover types. Conversely, higher TECI values, depicted gradually in green, yellow, and ultimately red, represent more segregated areas with greater contrast between neighbouring land uses. The grey areas represent areas that are outside the dispersal radius of `r params$inputs$window_size` meters from the focal area.
+
+## DIFA Plot {.tabset}
 
 ### DIFA Plot in `r params$inputs$t1`
 
 ```{r difa_plot_t1, echo=FALSE}
 difa_table_t1 <- read.csv(file.path(params$output_dir, params$dir_difa_table_t1))
 
-ggplot(difa_table_t1, aes(x = TECI, y = FocalArea)) +
+ggplot(difa_table_t1, aes(x = TECI, y = FocalArea, xend = 100, yend = 100)) +
   geom_area(alpha = 0.8) +
   labs(x = "TECI", y = "Cumulative Focal Area (%)", caption = paste("DIFA Score =", params$difa_score_t1, "%")) +
   theme_bw()
@@ -382,14 +422,12 @@ ggplot(difa_table_t1, aes(x = TECI, y = FocalArea)) +
 ```{r difa_plot_t2, echo=FALSE, eval=is_two_periods}
 difa_table_t2 <- read.csv(file.path(params$output_dir, params$dir_difa_table_t2))
 
-ggplot(difa_table_t2, aes(x = TECI, y = FocalArea)) +
+ggplot(difa_table_t2, aes(x = TECI, y = FocalArea,  xend = 100, yend = 100)) +
   geom_area(alpha = 0.8) +
   labs(x = "TECI", y = "Cumulative Focal Area (%)", caption = paste("DIFA Score =", params$difa_score_t2, "%")) +
   theme_bw()
 ```
 
-
-The x-axis represents the Total Edge Contrast Index (TECI), while the y-axis shows the cumulative proportion of focal area. The curve depicts the relationship between habitat fragmentation (TECI) and habitat amount. The area under this curve determines the DIFA score, ranging from 0 to 100%. Higher scores indicate better habitat integration.
 
 
 `r if (is_two_periods) { "### DIFA Comparison Plot" }`
@@ -398,14 +436,17 @@ The x-axis represents the Total Edge Contrast Index (TECI), while the y-axis sho
 difa_table_t1$Time <- params$inputs$t1
 difa_table_t2$Time <- params$inputs$t2
 
-difa_combined <- bind_rows(difa_table_t1, difa_table_t2)
+difa_combined <- bind_rows(difa_table_t1, difa_table_t2) %>% mutate(Time= as.factor(Time))
 
-ggplot(difa_combined, aes(x = TECI, y = FocalArea, color = as.factor(Time))) +
-  geom_line(size = 1) +
+ggplot(difa_combined, aes(x = TECI, y = FocalArea, fill = Time, xend = 100, yend = 100)) +
+  geom_area(alpha=0.6,  position = 'identity') +
   labs(x = "TECI", y = "Cumulative Focal Area (%)", color = "Time") +
-  theme_bw()
+  theme_bw()+ theme(legend.position = "bottom")
 ```
 
+## {-}
+
+The x-axis represents the Total Edge Contrast Index (TECI), while the y-axis shows the cumulative proportion of focal area. The curve depicts the relationship between habitat fragmentation (TECI) and habitat amount. The area under this curve determines the DIFA score, ranging from 0 to 100%. Higher scores indicate better habitat integration.
 
 ------------------------------------------------------------------------
 <font size="1"> LUMENS is free software and comes with ABSOLUTELY NO WARRANTY. Users are responsible for the results generated. Results depend on the quality of the input data ("garbage in, garbage out") and may vary or be sensitive to the parameters used. Please report any problems encountered while using LUMENS as [a GitHub issue](https://github.com/icraf-indonesia/lumens-shiny/issues). Feedback and questions are welcome [Contact Us URL]. </font size>

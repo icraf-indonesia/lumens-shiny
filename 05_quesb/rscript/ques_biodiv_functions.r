@@ -1237,18 +1237,17 @@ quesb_single_period <- function(lulc_lut_path,
 
   # Return results
   return(
-    list(teci_map = teci_t1$teci,
-         focal_area = teci_t1$focal_area,
+    list(teci_map_t1 = teci_t1$teci,
+         focal_area_t1 = teci_t1$focal_area,
          total_area = teci_t1$total_area %>% units::as_units("ha"),
-         difa_table = teci_t1$difa_table,
-         difa_score = teci_t1$difa_score,
+         difa_table_t1 = teci_t1$difa_table,
+         difa_score_t1 = teci_t1$difa_score,
          path_teci_map_t1 = teci_t1$path_teci_map,
          path_focal_area_t1 = teci_t1$path_focal_area,
          path_sampling_grid = sampling_grid_path,
-         path_difa_table = difa_teci_t1$difa_path)
+         path_difa_table_t1 = difa_teci_t1$difa_path)
   )
 }
-
 
 
 quesb_two_periods <- function(lulc_lut_path,
@@ -1701,12 +1700,12 @@ run_ques_b <- function(lc_t1_path, t1, lc_t2_path = NULL, t2 = NULL, nodata_clas
     total_area = quesb_result$total_area,  # Ensure total_area is included
     session_log = session_log,
     inputs = list(
-      lc_t1_path = lc_t1_path,
+      lc_t1_path = fs::path_abs(lc_t1_path),
       t1 = t1,
       raster.nodata = nodata_class,
-      lulc_lut_path = lulc_lut_path,
-      contab_path = contab_path,
-      output_dir = output_dir,
+      lulc_lut_path = fs::path_abs(lulc_lut_path),
+      contab_path = fs::path_abs(contab_path),
+      output_dir = fs::path_abs(output_dir),
       sampling_points = sampling_points,
       window_size = window_size,
       window.shape = window.shape
@@ -1731,16 +1730,20 @@ run_ques_b <- function(lc_t1_path, t1, lc_t2_path = NULL, t2 = NULL, nodata_clas
   } else {
     report_params$dir_teci_map_t1 <- basename(quesb_result$path_teci_map_t1)
     report_params$dir_focal_area_t1 <- basename(quesb_result$path_focal_area_t1)
-    report_params$dir_difa_table_t1 <- basename(quesb_result$path_difa_table_t1s)
+    report_params$dir_difa_table_t1 <- basename(quesb_result$path_difa_table_t1)
     report_params$difa_score_t1 <- quesb_result$difa_score_t1
   }
 
+  report_params_path <- file.path(output_dir, "output_parameters.rds") %>% fs::path_abs()
+  save(report_params, file= report_params_path)
+  
   # Render the R Markdown report
   rmarkdown::render(
     input = report_template_path,
     output_file = "QuES_B_report.html",
     output_dir = output_dir,
-    params = report_params
+    params = report_params,
+    knit_root_dir = getwd()
   )
   
   return(report_params)
