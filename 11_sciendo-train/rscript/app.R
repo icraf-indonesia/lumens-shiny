@@ -1,4 +1,5 @@
 source('function_sciendo_train.R')
+source('../../helper.R')
 
 install_load(
   "shinyFiles", "shinyvalidate", "shinyjs", "bslib", "sf", "raster",
@@ -10,8 +11,6 @@ if (!("LUMENSR" %in% rownames(installed.packages()))) {
   do.call("library", list("LUMENSR"))
 }
 library(LUMENSR)
-
-jscode <- "shinyjs.closeWindow = function() { window.close(); }"
 
 ui <- fluidPage(
   useShinyjs(),

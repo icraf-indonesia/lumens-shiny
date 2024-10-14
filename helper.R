@@ -9,3 +9,7 @@ if(rmarkdown::pandoc_available() == FALSE) {
 }
 
 jscode <- "shinyjs.closeWindow = function() { window.close(); }"
+
+substrRight <- function(x, n){
+  substr(x, nchar(x)-n+1, nchar(x))
+}

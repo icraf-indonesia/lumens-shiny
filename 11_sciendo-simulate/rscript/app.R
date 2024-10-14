@@ -1,5 +1,6 @@
 source('function_sciendo_simulate.R')
 source('../../helper.R')
+options(shiny.maxRequestSize=30*1024^2)
 
 install_load(
   "shinyFiles", "shinyvalidate", "shinyjs", "bslib", "sf", "raster",
@@ -22,7 +23,7 @@ ui <- fluidPage(
       fileInput("map1_file", "Land cover map initial", accept = c("image/tiff")),
       fileInput("mapz_file", "Planning Unit", accept = c("image/tiff")),
       fileInput("lc_file", "Land Use/Cover Lookup Table (CSV)", accept = c(".csv")),
-      fileInput("rc_file", "Raster Cube"),
+      fileInput("rc_file", "Raster Cube", multiple=T),
       numericInput("repetition", "Repetition", value = 2),
       div(style = "display: flex; flex-direction: column; gap: 10px;",
           shinyDirButton("tm_path", "Transition Matrix Folder Path", "Choose a folder contains CSV files"),
@@ -83,6 +84,14 @@ server <- function(input, output, session) {
   }
   
   #### Read file inputs ####
+  observeEvent(input$map1_file, {
+    map1 <- input$map1_file
+    if(is.null(map1))
+      return()
+    
+    rv$map1_file <- rename_uploaded_file(map1)
+  })
+  
   observeEvent(input$mapz_file, {
     mapz <- input$mapz_file
     if(is.null(mapz))
@@ -97,7 +106,16 @@ server <- function(input, output, session) {
     if(is.null(rc))
       return()
     
-    rv$rc <- rename_uploaded_file(rc)
+    prev_wd <- getwd()
+    uploaded_dir <- dirname(rc$datapath[1])
+    setwd(uploaded_dir)
+    for(i in 1:nrow(rc)){
+      print(rc$name[i])
+      file.rename(rc$datapath[i], rc$name[i])
+    }
+    setwd(prev_wd)
+    
+    rv$rc <- paste(uploaded_dir, rc$name[grep(pattern="*.ers$", rc$name)], sep = "/")
   })
   
   #### Read lc lookup table ####
@@ -248,15 +266,17 @@ server <- function(input, output, session) {
     
     showNotification("Analysis is running. Please wait...", type = "message", duration = NULL, id = "running_notification")
     
-    withProgress(message = "Running SCIENDO Train", value = 0, {
+    withProgress(message = "Running SCIENDO Simulate", value = 0, {
       tryCatch({
-        result <- run_dinamica_simulate_process(
+        result <- run_sciendo_simulate_process(
           lc_t1_path = rv$map1_file,
-          lc_t2_path = rv$map2_file,
-          zone_path = zone_path,
           lc_lookup_table_path = rv$lc_file,
           lc_lookup_table = rv$lc_df,
-          factor_path = rv$factors_path,
+          zone_path = rv$mapz_file,
+          ers_path = rv$rc, 
+          n_rep = input$repetition,
+          tm_path = rv$tm_path,
+          dcf_path = rv$dcf_path,
           dinamica_path = rv$dinamica_path,
           output_dir = rv$wd,
           progress_callback = function(value, detail) {
