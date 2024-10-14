@@ -133,9 +133,9 @@ rename_uploaded_file <- function(input_file) {
 
 # Function to calculate totals and create a data frame for a given variable
 create_totals_df <- function(GDP, GDP_values, multiplier, period_name) {
-  
+
   output_tot_list <- list()
-  
+
   for (i in 1:ncol(GDP_values)) {
     GDP_value <- GDP_values[[i]]
     output_sector <- GDP_value * as.numeric(GDP$P_OUTPUT)
@@ -143,17 +143,20 @@ create_totals_df <- function(GDP, GDP_values, multiplier, period_name) {
     total <- sum(as.numeric(sector_total), na.rm = TRUE)
     output_tot_list[[i]] <- total
   }
-  
+
   df <- data.frame(
     Period = c(period_name, paste("Period", seq_len(length(output_tot_list) - 1))),
-    Total = unlist(output_tot_list)
+    GDP_totals = unlist(output_tot_list)
   )
+  
+  df[1, ] <- c("BAU", output_tot_list[[1]])
+  
   return(df)
 }
 
 # Function to create bar plot based on totals
 create_bar_plot <- function(df, title) {
-  ggplot(data = df, aes(x = Period, y = Total)) +
+  ggplot(data = df, aes(x = Period, y = GDP_totals)) +
     geom_bar(stat = "identity", position = "dodge", colour = "black") +
     labs(x = "Period", y = "Total Value") +
     ggtitle(title) +

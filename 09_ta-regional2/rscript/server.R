@@ -74,19 +74,28 @@ server <- function(input, output, session) {
   
   observeEvent(input$processTAReg2, {
     
+    # Initialize an empty list to track missing inputs
+    missing_inputs <- c()
+    
+    # Validate input files to ensure all required data is uploaded before proceeding
     if (is.null(rv$land_req)) {
-      showNotification("Land Requirement database file is missing.", type = "error")
-      return()
+      missing_inputs <- c(missing_inputs, "Land Requirement Database")
     }
     if (is.null(rv$sciendo_db)) {
-      showNotification("SCIENDO Database data file is missing.", type = "error")
-      return()
+      missing_inputs <- c(missing_inputs, "SCIENDO Database")
     }
     if (is.null(rv$wd) || length(rv$wd) == 0 || is.na(rv$wd) || rv$wd == "") {
-      showNotification("Output Directory  is missing", type = "error")
-      return()
+      missing_inputs <- c(missing_inputs, "Output Directory")
     }
     
+    # If there are missing inputs, show a notification and stop
+    if (length(missing_inputs) > 0) {
+      showNotification(
+        paste("Please upload the following inputs:", paste(missing_inputs, collapse = ", ")),
+        type = "error"
+      )
+      return(NULL)
+    }
     
     withProgress(message = 'Running TA Regional 2 Analysis', value = 0, {
       tryCatch({
