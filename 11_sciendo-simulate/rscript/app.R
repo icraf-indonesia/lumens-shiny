@@ -1,5 +1,5 @@
-source('../../helper.R')
 source('function_sciendo_simulate.R')
+source('../../helper.R')
 
 install_load(
   "shinyFiles", "shinyvalidate", "shinyjs", "bslib", "sf", "raster",
@@ -20,24 +20,26 @@ ui <- fluidPage(
   sidebarLayout(
     sidebarPanel(
       fileInput("map1_file", "Land cover map initial", accept = c("image/tiff")),
-      fileInput("mapz_file", 
-                "Planning Unit", 
-                accept = c(".shp", ".dbf", ".sbn", ".sbx", ".shx", ".prj"), 
-                multiple = T, 
-                placeholder = "All related shapefiles (.shp, .dbf, .prj, .shx)"),
+      fileInput("mapz_file", "Planning Unit", accept = c("image/tiff")),
       fileInput("lc_file", "Land Use/Cover Lookup Table (CSV)", accept = c(".csv")),
-      fileInput("rc_file", "Raster Cube (ERS)", accept = c(".ers")),
+      fileInput("rc_file", "Raster Cube"),
+      numericInput("repetition", "Repetition", value = 2),
       div(style = "display: flex; flex-direction: column; gap: 10px;",
           shinyDirButton("tm_path", "Transition Matrix Folder Path", "Choose a folder contains CSV files"),
+          verbatimTextOutput("print_tm_dir", placeholder = TRUE),
           shinyDirButton("dcf_path", "Weights of Evidence Folder Path", "Choose a folder contains DCF files"),
-          shinyDirButton("dinamica_path", "DINAMICA EGO Path (Optional)", "(Optional)"),
+          verbatimTextOutput("print_dcf_dir", placeholder = TRUE),
           shinyDirButton("wd", "Select output directory", "Please select a directory"),
-          actionButton("processTrain", "Run Analysis", 
+          verbatimTextOutput("print_output_dir", placeholder = TRUE),
+          shinyDirButton("dinamica_path", "DINAMICA EGO Path (Optional)", "(Optional)"),
+          actionButton("processSimulate", "Run Analysis", 
                        style = "font-size: 18px; padding: 10px 15px; background-color: #4CAF50; color: white;"),
           hidden(
             actionButton("openReport", "Open Report",
                          style = "font-size: 18px; padding: 10px 15px; background-color: #008CBA; color: white;")
-          )
+          ),
+          actionButton("returnButton", "Return to Main Menu", 
+                       style = "font-size: 18px; padding: 10px 15px; background-color: #FA8072; color: white;")
       )
     ),
     mainPanel(
@@ -64,19 +66,13 @@ server <- function(input, output, session) {
     factors_path = NULL,
     dinamica_path = NULL,
     report_file = NULL,
-    map1_year = NULL,
-    map2_year = NULL,
     map1_file = NULL,
     map2_file = NULL,
     mapz_file = NULL,
     mapz_df = NULL,
     lc_path = NULL,
-    lc_df = NULL,
-    period_year = NULL
+    lc_df = NULL
   )
-  
-  lc_list <- c("map1", "map2")
-  map_list <- c("mapz", "map1", "map2")
   
   volumes <- c(
     getVolumes()()
@@ -87,55 +83,27 @@ server <- function(input, output, session) {
   }
   
   #### Read file inputs ####
-  lapply(lc_list, function(id) {
-    inputs <- paste0(id, "_file")
-    files <- paste0(id, "_file")
-    rasters <- paste0(id, "_rast")
-    df <- paste0(id, "_df")
-    
-    observeEvent(input[[inputs]], {
-      rv[[files]] <- rename_uploaded_file(input[[inputs]])
-      # rv[[rasters]] <- rv[[files]] %>% raster() 
-    })
-  })
-  
   observeEvent(input$mapz_file, {
-    shp <- input$mapz_file
-    if(is.null(shp))
+    mapz <- input$mapz_file
+    if(is.null(mapz))
       return()
     
-    prev_wd <- getwd()
-    uploaded_dir <- dirname(shp$datapath[1])
-    setwd(uploaded_dir)
-    for(i in 1:nrow(shp)){
-      file.rename(shp$datapath[i], shp$name[i])
-    }
-    setwd(prev_wd)
-    
-    rv$mapz_file <- paste(uploaded_dir, shp$name[grep(pattern="*.shp$", shp$name)], sep = "/")
-    
-    zone_sf <- rv$mapz_file %>% st_read()
-    zone <- zone_sf %>% 
-      rasterise_multipolygon(
-        raster_res = c(100, 100), 
-        field = "IDS" 
-      )
-    rv$mapz_df <- data.frame(ID_PU = zone_sf[[1]], PU = zone_sf[[2]])
-    rv$mapz_rast <- zone %>% raster()
+    rv$mapz_file <- rename_uploaded_file(mapz)
   })
   
-  #### Read year input ####
-  lapply(lc_list, function(x) {
-    id <- paste0(x, "_year")
-    observeEvent(input[[id]], {
-      rv[[id]] <- input[[id]]
-    })
+  #### Read file inputs ####
+  observeEvent(input$rc_file, {
+    rc <- input$rc_file
+    if(is.null(rc))
+      return()
+    
+    rv$rc <- rename_uploaded_file(rc)
   })
   
   #### Read lc lookup table ####
   observeEvent(input$lc_file, {
     f <- input$lc_file
-    rv$lc_path <- f$datapath
+    rv$lc_path <- rename_uploaded_file(f)
     df_c <- read.csv(rv$lc_path)
     
     if(nrow(df_c) == 0)
@@ -172,25 +140,55 @@ server <- function(input, output, session) {
     }
   })
   
-  #### Set factors directory ####
+  output$print_output_dir <- renderPrint({
+    if(!is.null(rv$wd)) {
+      cat(paste(rv$wd))
+    } else {
+      cat("No output directory selected")
+    }
+  })
+  
+  #### Set transition matrix directory ####
   shinyDirChoose(
     input, 
-    'factors_path',
+    'tm_path',
     roots = volumes,
     session = session
   )
   
   observe({
-    if (!is.null(input$factors_path)) {
-      rv$factors_path <- parseDirPath(volumes, input$factors_path)
+    if (!is.null(input$tm_path)) {
+      rv$tm_path <- parseDirPath(volumes, input$tm_path)
     }
   })
   
-  output$factor_directory <- renderText({
-    if(!is.null(rv$factors_path)) {
-      paste0("Selected factors directory: ",  rv$factors_path)
+  output$print_tm_dir <- renderPrint({
+    if(!is.null(rv$tm_path)) {
+      cat(paste(rv$tm_path))
     } else {
-      "No factors directory selected"
+      cat("No transition matrix directory selected")
+    }
+  })
+  
+  #### Set dcf directory ####
+  shinyDirChoose(
+    input, 
+    'dcf_path',
+    roots = volumes,
+    session = session
+  )
+  
+  observe({
+    if (!is.null(input$dcf_path)) {
+      rv$dcf_path <- parseDirPath(volumes, input$dcf_path)
+    }
+  })
+  
+  output$print_dcf_dir <- renderPrint({
+    if(!is.null(rv$dcf_path)) {
+      cat(paste(rv$dcf_path))
+    } else {
+      cat("No woe dcf directory selected")
     }
   })
   
@@ -231,16 +229,15 @@ server <- function(input, output, session) {
   # Input validation
   iv <- InputValidator$new()
   iv$add_rule("map1_file", sv_required(message = "Please upload land cover map at T1"))
-  iv$add_rule("map2_file", sv_required(message = "Please upload land cover map at T2"))
   iv$add_rule("mapz_file", sv_required(message = "Please upload planning unit"))
-  iv$add_rule("map1_year", sv_required(message = "Please define the year of T1"))
-  iv$add_rule("map2_year", sv_required(message = "Please define the year of T2"))
+  iv$add_rule("rc_file", sv_required(message = "Please upload raster cube"))
   iv$add_rule("lc_file", sv_required(message = "Please upload land cover lookup table"))
-  iv$add_rule("factors_path", sv_required(message = "Please select a directory of factors"))
+  iv$add_rule("tm_path", sv_required(message = "Please select a directory of transition matrix"))
+  iv$add_rule("dcf_path", sv_required(message = "Please select a directory of woe dcf"))
   iv$add_rule("wd", sv_required(message = "Please select an output directory"))
   
   #### Do the calculation and store it to the markdown content ####
-  observeEvent(input$processTrain, {
+  observeEvent(input$processSimulate, {
     if(!iv$is_valid()) {
       iv$enable()
       showNotification(
@@ -251,19 +248,15 @@ server <- function(input, output, session) {
     
     showNotification("Analysis is running. Please wait...", type = "message", duration = NULL, id = "running_notification")
     
-    zone_path <- paste0(rv$wd, "/zone.tif")
-    writeRaster(rv$mapz_rast, zone_path, datatype = "INT1U", overwrite = T)
-    
     withProgress(message = "Running SCIENDO Train", value = 0, {
       tryCatch({
-        result <- run_sciendo_simulate_process(
+        result <- run_dinamica_simulate_process(
           lc_t1_path = rv$map1_file,
           lc_t2_path = rv$map2_file,
           zone_path = zone_path,
           lc_lookup_table_path = rv$lc_file,
           lc_lookup_table = rv$lc_df,
           factor_path = rv$factors_path,
-          time_points = list(t1 = rv$map1_year, t2 = rv$map2_year),
           dinamica_path = rv$dinamica_path,
           output_dir = rv$wd,
           progress_callback = function(value, detail) {
@@ -296,6 +289,16 @@ server <- function(input, output, session) {
     } else {
       showNotification("Report file not found.", type = "error")
     }
+  })
+  
+  session$onSessionEnded(function() {
+    stopApp()
+  })
+  
+  observeEvent(input$returnButton, {
+    js$closeWindow()
+    message("Return to main menu!")
+    # shinyjs::delay(1000, stopApp())
   })
 }
 

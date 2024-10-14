@@ -9,20 +9,27 @@ output:
     highlight: tango
     df_print: kable
 params:
-  final_plot: NA
-  emission_plot: NA
+  start_time: NA
+  end_time: NA
+  inputs: NA
 ---
 
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-library(plotly)
+```
+
+
+```{r load library and function, include=FALSE}
 library(dplyr)
+library(DT)
+library(rmarkdown)
 library(kableExtra)
+library(htmltools)
 
 format_session_info_table <- function() {
   si <- sessionInfo()
-
+  
   # Extract R version info
   r_version <- si$R.version[c("major", "minor", "year", "month", "day", "nickname")]
   r_version <- paste0(
@@ -30,24 +37,36 @@ format_session_info_table <- function() {
     " (", r_version$year, "-", r_version$month, "-", r_version$day, ")",
     " '", r_version$nickname, "'"
   )
-
+  
   # Extract platform and OS info
   platform_os <- paste(si$platform, "|", si$running)
-
+  
   # Extract locale info
   locale_info <- strsplit(si[[3]], ";")[[1]]
   locale_info <- paste(locale_info, collapse = "<br>")
-
+  
   # Extract .libpaths, accomodate multiple library paths
-  lib_paths <- .libPaths() %>% paste( collapse = "<br>")
-
+  lib_paths <- .libPaths() |> paste( collapse = "<br>")
+  
   # Combine all info into a single tibble
   session_summary <- tibble(
     Category = c("R Version", "Platform | OS", ".libPaths", "Locale"),
     Details = c(r_version, platform_os, lib_paths, locale_info)
   )
-
   return(session_summary)
+}
+```
+
+```{r echo=FALSE}
+scenario_modif_list <- params$inputs$scenario_modif_list
+scen_list <- ""
+for(i in 1:length(scenario_modif_list)) {
+  iter <- scenario_modif %>% distinct(iteration) %>% unlist() %>% as.vector()
+  for(j in 1:length(iter)){
+    # tm_desc <- paste0("Transition Matrix Scenario ", i, " Iteration-", iter[j])
+    tm_path <- scenario_modif_list[[i]][[paste0('updated_tpm_', iter[j], '_path')]]
+    scen_list <- paste0(scen_list, tm_path, "<br>")
+  }
 }
 ```
 
@@ -58,13 +77,10 @@ format_session_info_table <- function() {
 ```{r analysis-log, echo=FALSE}
 
 analysis_log <- tribble(
-  ~Category,                   ~Details,
-  "Input Data and Parameters", "",
-  "1. Landcover map", "",
-  "Output Files", "",
-  "Output Workspace", "",
-  "1. Focal Area Map", "",
-  "Session Summary", "",
+  ~Category, ~Details,
+  "Output Workspace", params$inputs$output_dir,
+  "Transition Matrix Folder", scen_list,
+  "Session Summary", ""
 ) %>% rbind(format_session_info_table())
 
 analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
@@ -75,22 +91,59 @@ analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
 
 # Summary
 
-This report presents the results of an analysis based on the provided maps and lookup table
+This report presents the results of an analysis based on the QUES-C database and scenario builder modified by SCIENDO.
 
 # Module brief description
 
-# Input data
+# Results 
 
-# Results
+## List of scenario {.tabset}
 
-## Final plot
-
-```{r}
-params$final_plot
+```{r echo=FALSE}
+# $ label       
+# $ desc
+# $ abacus_scenario:List of 3
+#  ..$ scenario  :List of 5
+#  .. ..$ tpm
+#  .. ..$ baseline_tpm
+#  .. ..$ baseline_area
+#  .. ..$ landcover
+#  .. ..$ new_lc_id    : 
+#  ..$ projection:List of 2
+#  .. ..$ lc_area
+#  .. ..$ lc_sum_area
+#  ..$ emission  :List of 3
+#  .. ..$ lc_emission 
+#  .. ..$ zone_emission 
+#  .. ..$ iteration_emission
+# $ updated_tpm_1
+# $ updated_tpm_1_path
 ```
 
-## Emission plot
-
-```{r}
-params$emission_plot
+```{r print tpm scenario, echo=FALSE, fig.keep='all', results='asis'}
+for(i in 1:length(scenario_modif_list)) {
+  label <- scenario_modif_list[[i]]$label
+  scenario_modif <- scenario_modif_list[[i]]$abacus_scenario$scenario$tpm
+  
+  cat("### ", label, "\n\n")
+  cat(
+      knitr::knit_child(
+        text = c(
+          "```{r}",
+          "#| echo: false",
+          "scenario_modif %>% select(period, zone, lc1, lc2, area) %>% datatable()",
+          "```"
+        ), quiet = TRUE
+      ), sep = "\n"
+    )
+  cat('\n')
+  
+}
 ```
+
+
+------------------------------------------------------------------------
+
+<!-- Mandatory closing statement for all module -->
+
+<font size="1"> LUMENS is free software and comes with ABSOLUTELY NO WARRANTY. Users are responsible for the results generated. Results depend on the quality of the input data ("garbage in, garbage out") and may vary or be sensitive to the parameters used. Please report any problems encountered while using LUMENS as [a GitHub issue](https://github.com/icraf-indonesia/lumens-shiny/issues). Feedback and questions are welcome [Contact Us URL]. </font size>

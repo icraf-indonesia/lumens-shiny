@@ -1,4 +1,3 @@
-
 server <- function(input, output, session) {
   vars <-
     c("primary",
@@ -113,6 +112,7 @@ server <- function(input, output, session) {
     scenario_list = list(),
     
     output_dir = NULL,
+    output_file = NULL,
     f_plot = NULL,
     em_plot = NULL,
     report_file = NULL
@@ -695,7 +695,77 @@ server <- function(input, output, session) {
       return()
     }
     
+    start_time <- Sys.time()
     
+    scenario_modif_list <- list()
+    for (i in c(1:length(v$scenario_list))) {
+      scenario_modif_list[[i]] <- v$scenario_list[[i]]
+      sc <- v$scenario_list[[i]]$abacus_scenario$scenario
+      f <- paste0(v$output_dir, "/baseline_tpm_scenario_", i, ".csv")
+      write.csv(sc$baseline_tpm, f, row.names = F, na = "")
+      
+      scenario_tpm <- sc$baseline_tpm
+      scenario_modif <- sc$tpm
+      
+      iter <- scenario_modif %>% distinct(iteration) %>% unlist() %>% as.vector()
+      period <- scenario_modif %>% distinct(period) %>% unlist() %>% as.vector()
+      for(j in 1:length(iter)){
+        selected_ratio <- scenario_modif %>% 
+          dplyr::filter(iteration == iter[j]) %>%
+          dplyr::select(zone_id, lc1_id, lc2_id, r)
+        
+        updated_tpm <- scenario_tpm %>% 
+          left_join(selected_ratio, by = c('zone_id', 'lc1_id', 'lc2_id')) %>%
+          mutate(r = ifelse(!is.na(r.y), r.y, r.x)) %>%
+          dplyr::select(-r.x, -r.y)
+        
+        tm_path <- paste0(v$output_dir, '/transition_matrix_iter', j, "_", period[j])
+        dir.create(tm_path, recursive = TRUE, showWarnings = FALSE)
+        
+        scenario_modif_list[[i]][[paste0('updated_tpm_', j)]] <- updated_tpm
+        scenario_modif_list[[i]][[paste0('updated_tpm_', j, '_path')]] <- tm_path
+        
+        zone <- updated_tpm %>% distinct(zone_id) %>% unlist() %>% as.vector()
+        for(k in 1:length(zone)) {
+          df_fin <- updated_tpm %>% 
+            dplyr::filter(zone_id == zone[k]) %>%
+            dplyr::select(-zone_id) %>%
+            dplyr::filter(lc1_id != lc2_id) %>%
+            dplyr::rename(
+              'From*' = 1,
+              'To*' = 2,
+              Rate = 3
+            )
+          
+          tm_file <- paste0(tm_path, '/single_step', sprintf("%06d", zone[k]), '.csv')
+          write.csv(df_fin, tm_file, row.names = F, na = "")
+        }
+      }
+    }
+    
+    end_time <- Sys.time()
+
+    out <- list(
+      start_time = as.character(format(start_time, "%Y-%m-%d %H:%M:%S")),
+      end_time = as.character(format(end_time, "%Y-%m-%d %H:%M:%S")),
+      inputs = list(
+        scenario_modif_list = scenario_modif_list,
+        output_dir = v$output_dir
+      )
+    )
+    
+    v$output_file <- generate_sciendo_scen_report(out, v$output_dir)
+    shinyjs::show("open_report")
+  })
+  
+  observeEvent(input$open_report, {
+    report_path <- paste0(v$output_dir, "/", v$output_file)
+    if (file.exists(report_path)) {
+      showNotification("Opening report...", type = "message")
+      utils::browseURL(report_path)
+    } else {
+      showNotification("Report file not found.", type = "error")
+    }
   })
   
   

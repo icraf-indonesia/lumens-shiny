@@ -168,7 +168,7 @@ for(i in 1:out$n_zone){
     for(k in unique_variable) {
       report_per_transition_per_variable <- report_per_transition %>% filter(Variable. == k) %>% 
         select(
-          Range, Possible_Transitions, Executed_Transitions, Weight_Coefficient, Contrast
+          Range, Possible_Transitions, Executed_Transitions, Weight_Coefficient #, Contrast
         ) %>%
         mutate_if(is.double, as.character) %>%
         bind_rows(summarise(., across(where(is.integer), sum),

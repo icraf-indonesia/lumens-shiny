@@ -1,4 +1,3 @@
-source('../../helper.R')
 ### REQUIRED LIBRARY ######################
 
 install_load <- function (package1, ...)  {
@@ -47,6 +46,8 @@ if (!("abacuslib" %in% rownames(installed.packages()))) {
   do.call("library", list("abacuslib"))
 }
 library(abacuslib)
+
+jscode <- "shinyjs.closeWindow = function() { window.close(); }"
 
 ### TABLE DEFINITION #################################
 table_file_df <- data.frame(
@@ -194,9 +195,9 @@ co2_unit <- function(prefix = "", suffix = "") {
 per_ha_unit <- function(prefix = "", suffix = "") {
   span(
     paste0(prefix, "ha"),
-    tags$sup(-1, .noWS = c("after", "before")),
-    suffix,
-    .noWS = c("after", "before"))
+            tags$sup(-1, .noWS = c("after", "before")),
+            suffix,
+            .noWS = c("after", "before"))
 }
 
 quesc_transform <- function(quescdb) {
@@ -276,7 +277,7 @@ generate_car_file <- function(df) {
   general <- paste("file_version=1.2.0")
   write("#GENERAL", temp_car, append = TRUE, sep = "\t")
   write.table(general, temp_car, append = TRUE, quote = FALSE, col.names = FALSE, row.names = FALSE, sep = "\t")
-  
+
   project <- c(
     "title=SCIENDO Abacus",
     "description=LUMENS project",
@@ -326,4 +327,24 @@ generate_car_file <- function(df) {
   
   write("\n#SCENARIO", temp_car, append=TRUE, sep="\t")
   return(temp_car)
+}
+
+generate_sciendo_scen_report <- function(output, dir) {
+  report_params <- list(
+    start_time = output$start_time,
+    end_time = output$end_time,
+    inputs = output$inputs
+  )
+  
+  time <- format(Sys.time(), "%Y-%m-%d_%H-%M-%S")
+  output_file <- paste0("scen_builder_report_", time, ".html")
+  
+  rmarkdown::render(
+    "../report_template/scen_builder_report_template.Rmd",
+    output_file = output_file,
+    output_dir = dir,
+    params = report_params
+  )
+  
+  return(output_file)
 }

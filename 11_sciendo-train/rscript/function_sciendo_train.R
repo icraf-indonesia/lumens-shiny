@@ -410,8 +410,11 @@ generate_egoml_woe_model <- function(aliasFactor, lusim_lc,
                                      lc1_path, lc2_path, 
                                      zone_path, ers_path,
                                      output_dir, egoml) {
-  dcf_path <- paste0(output_dir, "/woe.dcf")
-  weight_report_path <- paste0(output_dir, "/weight_report.csv")
+  woe_dir <- paste0(output_dir, "/woe")
+  dir.create(woe_dir, recursive = TRUE, showWarnings = FALSE)
+  
+  dcf_path <- paste0(woe_dir, "/woe.dcf")
+  weight_report_path <- paste0(woe_dir, "/weight_report.csv")
   
   static_var <- aliasFactor %>% 
     data.frame(aliasFactor = .) %>% 
@@ -695,8 +698,8 @@ run_dinamica_woe_model <- function(dinamica_path = NULL, output_dir, egoml){
 }
 
 run_sciendo_train_process <- function(lc_t1_path, lc_t2_path, zone_path, lc_lookup_table_path,
-                                      lc_lookup_table, z_lookup_table_path, factor_path, time_points,
-                                      dinamica_path = NULL, output_dir, progress_callback = NULL) {
+                               lc_lookup_table, z_lookup_table_path, factor_path, time_points,
+                               dinamica_path = NULL, output_dir, progress_callback = NULL) {
   start_time <- Sys.time()
   cat("Started at:", format(start_time, "%Y-%m-%d %H:%M:%S"), "\n")
   
