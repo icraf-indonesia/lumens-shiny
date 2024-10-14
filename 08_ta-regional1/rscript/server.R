@@ -206,6 +206,7 @@ server <- function(input, output, session) {
         rv$landuse_area0_table <- landuse_area0_table
         
         # Calculate Inverse Leontief
+        incProgress(0.1, detail = "Calculating Leontief matrix")
         dim <- ncol(int_con.m)
         int_con.ctot <- colSums(int_con.m)
         add_val.ctot <- colSums(add_val.m)
@@ -219,6 +220,7 @@ server <- function(input, output, session) {
         
         #### Direct Linkages Calculation ####
         #' Calculate Direct Backward and Forward Linkages (DBL, DFL).
+        incProgress(0.2, detail = "Calculating Linkages table")
         DBL <- colSums(Leontief) / mean(colSums(Leontief))
         DFL <- rowSums(Leontief) / mean(rowSums(Leontief))
         
@@ -239,6 +241,7 @@ server <- function(input, output, session) {
         
         #### Sector Selection ####
         #' Identify the primary sectors based on DBL and DFL values greater than or equal to 1.
+        incProgress(0.3, detail = "Calculating Primary Sector")
         P.sector<-cbind(sector,DBL,DFL)
         colnames (P.sector) [1]<-"Sectors"
         P.sector.selected <- P.sector[ which(P.sector$DBL >= 1),]
@@ -250,6 +253,7 @@ server <- function(input, output, session) {
         
         #### Land Requirements Calculation ####
         #' Calculate land requirements based on the input data and save the results in the reactive values.
+        incProgress(0.4, detail = "Calculating Land Requirements Calculation")
         land_use <- rast(land_use_path)
         land.requirement_table <- calculate_land_requirements(land_distribution, land_use, fin_dem, int_con.m, sector)
         land.requirement_table <- land.requirement_table[is.finite(land.requirement_table$LRC), ]
@@ -279,6 +283,7 @@ server <- function(input, output, session) {
         
         # Generate GDP
         #' Calculate GDP based on added value matrices, and prepare data for plotting GDP and sector output
+        incProgress(0.5, detail = "Calculating GDP")
         GDP.val<-as.data.frame(add_val.m[2,]+add_val.m[3,])
         GDP.val.m<-as.matrix(GDP.val)
         GDP.val.m<-as.numeric(GDP.val.m)
@@ -316,6 +321,7 @@ server <- function(input, output, session) {
         
         # OUTPUT MULTIPLIER 
         #' Calculate the output multiplier for each sector using the Leontief matrix 
+        incProgress(0.6, detail = "Calculating Multiplier")
         Out.multiplier<-colSums(Leontief)
         Out.multiplier<-cbind(sector,Out.multiplier)
         order_Out.multiplier <- as.data.frame(Out.multiplier[order(-Out.multiplier$Out.multiplier),])
@@ -408,6 +414,7 @@ server <- function(input, output, session) {
         
         # Save results and create return list
         #' Save the calculated tables and graphs, then display a completion message
+        incProgress(0.8, detail = "Saving data to Rdata")
         save(int_con,add_val,
              fin_dem,
              fin_dem_struc,
