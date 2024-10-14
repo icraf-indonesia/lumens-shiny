@@ -66,8 +66,8 @@ ui <- fluidPage(
         accept = c(".csv")
       ),
       fileInput("contab", "Edge Contrast Table (FSQ)", accept = c(".fsq")),
-      numericInput("sampling_points", "Sampling Points", value = 1000),
-      numericInput("window_size", "Window Size", value = 1000),
+      numericInput("sampling_points", "Sampling Points (n)", value = 1000),
+      numericInput("window_size", "Window Size (metres)", value = 1000),
       selectInput(
         "window_shape",
         "Window Shape",
