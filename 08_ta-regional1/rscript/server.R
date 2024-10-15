@@ -65,15 +65,19 @@ server <- function(input, output, session) {
   })
   
   output$user_guide <- renderUI({
-    #' Render the user guide if available, or display a message if not found.
-    guide_path <- "../helpfile/help.md"
-    if (file.exists(guide_path)) {
-      html_content <- rmarkdown::render(guide_path, output_format = "html_fragment", quiet = TRUE,
-                                        output_options = list(metadata = list(title = "Trade-Off Analysis (Regional 1)")))
-      HTML(readLines(html_content))
-    } else {
-      HTML("<p>User guide file not found.</p>")
+    guide_paths <- c(
+      "08_ta-regional1/helpfile/ta-reg1_quick_user_guide.Rmd",
+      "../helpfile/ta-reg1_quick_user_guide.Rmd"
+    )
+    
+    for (path in guide_paths) {
+      if (file.exists(path)) {
+        html_content <- rmarkdown::render(path, output_format = "html_fragment", quiet = TRUE)
+        return(HTML(readLines(html_content)))
+      }
     }
+    
+    HTML("<p>User guide file not found.</p>")
   })
   
   #### File Input Observers ####

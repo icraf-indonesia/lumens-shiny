@@ -1,0 +1,74 @@
+---
+title: "Regional Economic Descriptive Analysis"
+output: 
+  html_document: 
+    toc: true
+    toc_float: true
+    number_sections: true
+    df_print: kable
+    math_method:
+      engine: mathjax
+runtime: shiny
+---
+
+# Overview
+
+The Regional Economic Descriptive Analysis module in LUMENS assesses the economic dynamics of a region by examining key indicators like GDP, sectoral contributions, employment, and income distribution. This analysis provides valuable insights into the economic drivers behind land use and resource allocation. By understanding these trends, stakeholders can make informed decisions to balance economic growth with sustainable land use, improve livelihoods, and optimize land-use policies, addressing real-world challenges in regional development.
+
+# Key Concepts:
+
+1. **Economic Sectors**: Distinct areas of economic activity such as agriculture, industry, and services. Each sector plays a vital role in regional economic performance, contributing to overall growth and employment.
+
+2. **Intermediate Demand**: Represents the demand for goods and services used as inputs in the production processes of domestic industries, excluding final consumption or capital investments. It provides insights into the interconnectedness of sectors.
+
+3. **Final Demand**: The total demand for goods and services within the region, including consumption by households, government, exports, and investments. It is a critical measure of the economic output required to meet regional needs.
+
+4. **Added Value**: The economic value added by each sector, calculated as revenue minus intermediate consumption. This metric highlights the profitability and productivity of individual sectors, providing a clear picture of their contribution to regional economic growth.
+
+5. **Labour Distribution**: Refers to the allocation of employment across various economic sectors, illustrating how labor is utilized in different industries and contributing to regional job creation and economic stability.
+
+6. **Land Use Distribution**: The allocation of land resources among different economic sectors, reflecting how land is utilized for agricultural, industrial, and other purposes within the region. This provides insight into the balance between economic activities and land management.
+
+# Data and Input Variables
+
+Before using the Regional Economic Descriptive Analysis tool, prepare the following:
+
+1. **Sector**: A CSV file categorizing economic sectors such as agriculture, industry, or services. This defines the primary areas of economic activity within the region.
+
+2. **Intermediate Demand**: A CSV file containing numerical data on the purchase of commodities by domestic industries as inputs to production, excluding capital investments.
+
+3. **Final Demand Component**: A CSV file with numerical data representing the total demand for economic output across all sectors within the region.
+
+4. **Final Demand**: A CSV file that provides a comprehensive view of the total economic output demanded by all sectors within the region.
+
+5. **Added Value Component**: A CSV file with numerical data reflecting the sum of unit profits, calculated as revenue minus intermediate consumption, for each economic sector.
+
+6. **Added Value**: A CSV file showing the total added value in each sector, calculated by subtracting intermediate consumption from revenue.
+
+7. **Labour**: A CSV file detailing the number of workers employed in each sector, providing insight into employment distribution across the region.
+
+8. **Land Distribution**: A CSV file showing the allocation of land among different sectors, representing how land is utilized for various economic purposes.
+
+9. **Land Use Map**: A GeoTIFF raster file detailing the spatial classification of land by economic sector. This map shows how land is utilized across the region, using the UTM projection system.
+
+10. **Land Use Lookup**: A CSV lookup table that links land use codes from spatial data sets to specific economic sectors or land use types, serving as a reference for analysis and reporting purposes.
+
+## Using the Regional Economic Descriptive Analysis Module
+
+Follow these steps to use the module:
+
+
+
+# Accessing Outputs
+
+After the analysis completes, you'll find the following in your selected output directory:
+
+1. **Regional Economy Database**: An RData file containing key variables from the Regional Economic Descriptive Analysis. These variables will be used in the subsequent Regional Economic Projection module for further analysis.
+
+2. **Regional Economic Descriptive Analysis Report**: An HTML report that provides a summary of the analysis, including key interpretations and visualizations. The report highlights important economic indicators and trends, offering insights into the economic structure and performance of the region.
+
+---
+
+For more detailed information or troubleshooting, refer to the full Regional Economic Descriptive Analysis documentation here https://help.lumens.or.id/08-regional1.html or contact the tool developers.
+
+<font size="1">LUMENS is free software and comes with ABSOLUTELY NO WARRANTY. Users are responsible for the results generated. Results depend on the quality of the input data ("garbage in, garbage out") and may vary or be sensitive to the parameters used. Please report any problems encountered while using LUMENS as [a GitHub issue](https://github.com/icraf-indonesia/lumens-shiny/issues). Feedback and questions are welcome [Contact Us URL].</font>
