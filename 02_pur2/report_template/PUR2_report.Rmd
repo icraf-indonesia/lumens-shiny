@@ -38,7 +38,9 @@ check_and_install_packages(
     "dplyr",
     "DT",
     "units",
-    "tmap"
+    "ggspatial",
+    "RColorBrewer",
+    "cowplot"
   )
 )
 ```
@@ -71,7 +73,7 @@ analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
 
 ## Summary
 
-The total area analyzed was `r format(round(params$total_area, 2), big.mark = ",")` hectares.
+The total area analyzed was `r format(round(params$total_area, 2), big.mark = ",")` hectares. This report displays the resolved reconciled area of the overlapping zone identified from the PUR Build Module.
 
 ## Module brief description
 
@@ -81,17 +83,39 @@ Planning unit reconciliation is a process to resolve overlapping permits by refe
 
 ### Reconciliation Results Map
 ```{r Reconciliation Result Map, echo=FALSE}
-library(tmap)
-tm_shape(params$sa) +
-  tm_polygons("Rec_phase2", palette = "Set3") +
-  tm_layout(
-    legend.outside = TRUE,
-    legend.outside.position = "right",
-    legend.stack = "horizontal",
-    legend.width = 2,
-    legend.outside.size = 0.3,
-    frame = TRUE
-  )
+n_colors <- length(unique(params$sa$Rec_phase2))
+colors <- brewer.pal(n = min(n_colors, 12), name = "Set3")
+if (n_colors > 12) {
+  colors <- colorRampPalette(colors)(n_colors)
+}
+
+# Create the main plot
+main_plot <- ggplot() +
+  geom_sf(data = params$sa, aes(fill = Rec_phase2), color = "white", size = 0.1) +
+  scale_fill_manual(values = colors, name = NULL) + 
+  theme_minimal() +
+  theme(
+    axis.text = element_text(size = 8),
+    panel.grid = element_line(color = "grey90", size = 0.2),
+    panel.background = element_rect(fill = "white"),
+    legend.position = "right",
+    legend.key.size = unit(0.5, "cm"),
+    legend.text = element_text(size = 8),
+    plot.margin = margin(10, 10, 10, 10)
+  ) +
+  coord_sf(expand = FALSE) +
+  guides(fill = guide_legend(ncol = 1, byrow = TRUE))
+
+legend <- get_legend(main_plot)
+main_plot <- main_plot + theme(legend.position = "none")
+
+combined_plot <- plot_grid(
+  main_plot, legend,
+  rel_widths = c(0.7, 0.3),
+  nrow = 1
+)
+
+knitr::knit_print(combined_plot)
 ```
 
 ### Reconciliation Data Summary
@@ -108,13 +132,25 @@ total_area <- sum(table_recon$Area, na.rm = TRUE)
 table_recon <- table_recon %>%
   mutate(Percentage = round(Area / total_area * 100, 2))
 
-# Create a pie chart
-pie_chart <- ggplot(table_recon, aes(x = "", y = Area, fill = Rec_phase2)) +
+# Define the pastel color palette
+n_colors <- length(unique(table_recon$Rec_phase2))
+colors <- brewer.pal(n = min(n_colors, 12), name = "Set3")
+if (n_colors > 12) {
+  colors <- colorRampPalette(colors)(n_colors)
+}
+
+# Create a doughnut chart with pastel color palette
+pie_chart <- ggplot(table_recon, aes(x = 2, y = Percentage, fill = Rec_phase2)) +
   geom_bar(stat = "identity", width = 1) +
   coord_polar("y", start = 0) +
   theme_void() +
+  xlim(0.5, 2.5) +  
+  geom_text(aes(label = paste0(round(Percentage, 2),"%")), 
+            position = position_stack(vjust = 0.5)) +  
+  scale_fill_manual(values = colors) + 
   labs(fill = "Reconciliation Class") +
-  ggtitle("Distribution of Reconciled Areas")
+  ggtitle("Distribution of Reconciled Areas") +
+  theme(legend.position = "right")
 
 print(pie_chart)
 

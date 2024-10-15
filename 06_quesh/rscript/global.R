@@ -47,6 +47,7 @@ install_load(
   "scales",
   "tidyr",
   "tidyterra",
+  "ggspatial",
   "DT"
 )
 

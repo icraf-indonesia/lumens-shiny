@@ -408,7 +408,7 @@ server <- function(input, output, session) {
         
         #=Save PUR final database and unresolved case(s)
         database_unresolved <- subset(PUR_dbfinal, Rec_phase1b == "unresolved_case") |> dplyr::select(-ID_rec)
-        
+
         # save final database for viz
         #database_final <- as.data.frame(levels(PUR))
         #database_final$COUNT_ha <- database_final$COUNT * Spat_res
@@ -446,10 +446,17 @@ server <- function(input, output, session) {
           numbery <- numberx - n_pu_list
           rv$database_unresolved_out <- database_unresolved[, c(numbery:numberx)]
           dat1 <- data.frame(ID = database_unresolved$NEW_ID)
-          dat2 <- data.frame(COUNT = database_unresolved$Freq)
-          dat3 <- data.frame(REFERENCE = database_unresolved$REFERENCE)
+          dat2 <- data.frame(Pixel_Count = database_unresolved$Freq)
+          dat3 <- data.frame(Reference = database_unresolved$REFERENCE)
           rv$database_unresolved_out <- cbind(dat1, rv$database_unresolved_out, dat3, dat2)
-          database_unresolved_out1 <- rv$database_unresolved_out
+          database_unresolved_out_report <- rv$database_unresolved_out %>% rename(Status = Rec_phase1b) %>%
+            mutate(
+              Area_ha = Pixel_Count * (res(ref)[1] * res(ref)[2] / 10000),
+              Area_ha = comma(Area_ha, accuracy = 1)
+            )
+          
+          # Create new parameter for export
+          database_unresolved_out1 <- database_unresolved_out_report #rv$database_unresolved_out
           database_unresolved_out1$'Reconcile Action' <- "unresolved_case"
           
           # Create the workbook
@@ -504,7 +511,7 @@ server <- function(input, output, session) {
           output_dir = rv$output_dir,
           PUR_stack = PUR_stack,
           db_final2 = db_final2,
-          database_unresolved_out = rv$database_unresolved_out,
+          database_unresolved_out = database_unresolved_out_report,
           pur_unresolved_vector = rv$pur_unresolved_vector,
           inputs = list(
             ref = ref,

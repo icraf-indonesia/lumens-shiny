@@ -13,7 +13,7 @@ ui <- fluidPage(
       fileInput("ref_class", "Reference Class", accept = c(".csv"), placeholder = "input table (.csv)"),
       fileInput("ref_mapping", "Reference Class of Reference Map", accept = c(".csv"), placeholder = "input table (.csv)"),
       fileInput("pu_units", "List of Planning Units", accept = c(".csv"), placeholder = "input table (.csv)"),
-      textInput("map_resolution", "Map Resolution", placeholder = "e.g., 100 m, 30 m, etc."),
+      textInput("map_resolution", "Map Resolution (m)", placeholder = "e.g., 100, 30, etc."),
       div(style = "display: flex; flex-direction: column; gap: 10px;",
           shinyDirButton("output_dir", "Select Output Directory", "Please select a directory"),
           verbatimTextOutput("selected_directory", placeholder = TRUE),

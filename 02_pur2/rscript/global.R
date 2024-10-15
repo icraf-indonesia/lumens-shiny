@@ -38,7 +38,9 @@ install_load(
   "kableExtra",
   "DT",
   "tidyterra",
-  "tmap"
+  "ggspatial",
+  "RColorBrewer",
+  "cowplot"
 )
 
 #' Rasterize an sf MULTIPOLYGON object

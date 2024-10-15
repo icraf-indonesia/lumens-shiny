@@ -42,7 +42,8 @@ check_and_install_packages(
     "terra",
     "DT",
     "RColorBrewer",
-    "scales"
+    "scales",
+    "ggspatial"
   )
 )
 ```
@@ -140,30 +141,26 @@ for (i in 1:nlyr(PUR_stack_new)) {
 
 ## Unresolved Cases Zone Map
 
-```{r Unresolved-Cases-Zone-Map, echo=FALSE, fig.width=10, fig.height=8}
-unresolved_map <- unique(params$pur_unresolved_vector$Rec_phase2)
-set.seed(50)
-colors <- brewer.pal(n = min(length(unresolved_map), 8), name = "Set2")
-if (length(unresolved_map) > 8) {
-  colors <- colorRampPalette(colors)(length(unresolved_map))
+```{r Unresolved-Cases-Zone-Map, echo=FALSE, warning=FALSE, message=FALSE, fig.width=10, fig.height=8}
+n_colors <- length(unique(params$pur_unresolved_vector$Rec_phase2))
+colors <- brewer.pal(n = min(n_colors, 8), name = "Set2")
+if (n_colors > 8) {
+  colors <- colorRampPalette(colors)(n_colors)
 }
 
-layout(matrix(c(1, 2), ncol = 1), heights = c(4, 1))
-
-par(mar = c(0, 2, 2, 2), oma = c(0, 0, 0, 0))
-plot(params$pur_unresolved_vector, 
-     col = colors[as.numeric(factor(params$pur_unresolved_vector$Rec_phase2))],
-     border = NA,
-     asp = 1)  
-
-par(mar = c(0, 0, 0, 0))
-plot.new()
-legend("center", 
-       legend = unresolved_map, 
-       fill = colors, 
-       ncol = 1, 
-       cex = 1.2,
-       bty = "n",)
+ggplot() +
+  geom_sf(data = params$pur_unresolved_vector, aes(fill = Rec_phase2), color = "white", size = 0.1) +
+  scale_fill_manual(values = colors, na.value = "grey50", name = NULL) +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    legend.box = "horizontal",
+    axis.text = element_text(size = 8),
+    panel.grid = element_line(color = "grey90", size = 0.2),
+    panel.background = element_rect(fill = "white")
+  ) +
+  guides(fill = guide_legend(nrow = 2, byrow = TRUE)) +
+  coord_sf(expand = FALSE)
 ```
 
 ```{r key-results-table, echo=FALSE}
@@ -183,19 +180,12 @@ DT::datatable(summary_table, colnames=c("Class", "Area (Ha)", "Percentage (%)"))
 ## Summary of Unresolved Cases
 
 ```{r key-unresolved-table, echo=FALSE}
-summary_unresolved <- params$database_unresolved_out %>%
-  mutate(
-    Area_ha = COUNT * (res(params$inputs$ref)[1] * res(params$inputs$ref)[2] / 10000),
-    Area_ha = comma(Area_ha, accuracy = 1)
-  )
-
-summary_unresolved_display1 <- summary_unresolved %>% select(-COUNT)
-summary_unresolved_display <- summary_unresolved_display1 %>%
+summary_unresolved_display1 <- params$database_unresolved_out 
+summary_unresolved_display <- summary_unresolved_display1 %>% 
   rename(
-    Status = Rec_phase1b,
-    Reference = REFERENCE,
-    'Area (Ha)' = Area_ha
-  )
+    'Area (Ha)' = Area_ha,
+    'Pixel Count' = Pixel_Count
+    )
 
 DT::datatable(
   summary_unresolved_display,
