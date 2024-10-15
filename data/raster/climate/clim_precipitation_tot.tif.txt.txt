@@ -1,7 +1,7 @@
 ID: 7
-Data: rainfall_annual_bungo_wc2.1.tif
-Name: Bungo Annual Rainfall 1970-200
-URL: data/raster/rainfall_annual_bungo_wc2.1.tif
+Data: clim_precipitation_tot.tif
+Name: Bungo Annual Rainfall 1970-2000
+URL: data/raster/climate/clim_precipitation_tot.tif
 Label: raster
 Definition: This raster data represents the annual rainfall from WorldClim version 2.1 in mm for Bungo Regency in Jambi Province, Indonesia. The value represents the mean annual rainfall for the period 1970-2000. The value range is 2,179.641 - 2,956.357 mm. The original map resolution is 30 arc-seconds (~1 km²), then resampled to 100 m in UTM Zone 48S projection.
 Comment: NA
