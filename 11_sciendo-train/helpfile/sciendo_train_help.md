@@ -16,6 +16,8 @@ Before using the SCIENDO Train tool, prepare the following:
 
 ## Using the SCIENDO Train Analysis Tool
 
+![](sciendo_train_help.gif){style="max-width:80%;height=auto;"}
+
 Follow these steps to use the tool:
 
 1.  **Land Use/Cover T1**
