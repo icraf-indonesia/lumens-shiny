@@ -8,13 +8,13 @@
 
 # Data Preparation
 
-Before using the SCIENDO Train tool, prepare the following:
+Before using the SCIENDO Simulate tool, prepare the following:
 
 1.  **Land Cover Maps**: Two raster files (GeoTIFF format) representing land use/cover for two different time points.
 2.  **Planning Unit Map**: A raster file (GeoTIFF format) or shapefile of administrative or management zones.
 3.  **Factors Map**: A set of raster files describing driver factors or explanatory variables.
 
-## Using the SCIENDO Train Analysis Tool
+## Using the SCIENDO Simulate Analysis Tool
 
 Follow these steps to use the tool:
 

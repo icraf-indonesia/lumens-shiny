@@ -262,15 +262,7 @@ generate_egoml_simulate <- function(lc1_path, lusim_lc,
   prob_path <- paste0(output_dir, "/probabilities.tif")
   landscape_path <- paste0(output_dir, "/landscape.tif")
   
-  start <- as.numeric(lusim_lc[1, 1])
-  length <- as.numeric(nrow(lusim_lc))
-  end <- as.numeric(lusim_lc[length, 1])
-  
-  skeleton1 <- data.frame(nT1 = c(start:end), divider = length)
-  skeleton1 <- expandRows(skeleton1, 'divider')
-  skeleton2 <- data.frame(nT2 = rep(rep(c(start:end), length)))
-  
-  skeleton <- cbind(skeleton1, skeleton2)
+  skeleton <- expand.grid(nT1 = lusim_lc[, 1], nT2 = lusim_lc[, 1])
   skeleton <- skeleton[skeleton$nT1 != skeleton$nT2, ]
   skeleton <- na.omit(skeleton)
   
