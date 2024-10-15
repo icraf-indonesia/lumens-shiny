@@ -1,0 +1,8 @@
+ID: 12
+Data: bungo_soc_0-5cm_mean.tif
+Name: Bungo Soil Organic Carbon Content
+URL: data/raster/soil/bungo_soc_0-5cm_mean.tif
+Label: raster
+Definition: This raster data represents the mean soil organic carbon content (fine earth fraction) in dg/kg at 0-5 cm depth for Bungo Regency in Jambi Province, Indonesia. The original map resolution is 250 m, then resampled to 100 m in UTM Zone 48S projection. The value range is 37.59098 - 129.35446 dg/kg.
+Comment: This raster is modelling result with predictions were derived using a digital soil mapping approach based on Quantile Random Forest, drawing on a global compilation of soil profile data and environmental layers.
+Reference: SoilGrids 250m - Silt content: https://files.isric.org/soilgrids/latest/data/soc/soc_0-5cm_mean/

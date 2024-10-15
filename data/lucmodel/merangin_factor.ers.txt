@@ -1,0 +1,8 @@
+ID: 41
+Data: merangin_factor.ers
+Name: Bungo Factor
+URL: data/lucmodel/merangin_factor.ers
+Label: raster
+Definition: This raster type data represents the raster cube of factor raster used in Bungo landuse projection
+Comment: NA
+Reference: NA

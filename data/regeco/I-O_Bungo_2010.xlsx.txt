@@ -1,0 +1,8 @@
+ID: 38
+Data: I-O_Bungo_2010.xlsx
+Name: Bungo IO table 2010
+URL: data/regeco/I-O_Bungo_2010.xlsx
+Label: table
+Definition: This is the IO table of Bungo Regency in 2010
+Comment: NA
+Reference: NA

@@ -1,0 +1,8 @@
+ID: 34
+Data: 05_added value comp.csv
+Name: Bungo IO table of added value component list
+URL: data/regeco/05_added value comp.csv
+Label: table
+Definition: This table data contains the added value components from the IO table of Bungo Regency in Jambi Province, Indonesia. It includes 4 components: Impor (Import, 200), Faktor Produksi (Production Factors, 190), and Pajak Tidak Langsung Neto (Net Indirect Taxes, 201-203).
+Comment: NA
+Reference: NA

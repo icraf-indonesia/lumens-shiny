@@ -1,0 +1,8 @@
+ID: 26
+Data: landuse_table_bungo.csv
+Name: Land cover/use class attribute
+URL: data/table/landuse_table_bungo.csv
+Label: table
+Definition: This table data contains information on land cover/use class attributes, corresponding to the land cover/use raster by its ID. There are 43 classes defined with classification classes for land cover/use change trajectory analysis.
+Comment: NA
+Reference: NA

@@ -1,0 +1,8 @@
+ID: 32
+Data: 03_final demand comp.csv
+Name: Bungo IO table of final demand component list
+URL: data/regeco/03_final demand comp.csv
+Label: table
+Definition: This table data contains the final demand components from the IO table of Bungo Regency in Jambi Province, Indonesia. It includes 4 components: Rumah Tangga (Households, 301), Pemerintah (Government, 302), Investasi (Investment, 303), and Ekspor (Export, 305).
+Comment: NA
+Reference: NA

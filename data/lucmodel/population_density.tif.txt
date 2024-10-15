@@ -1,0 +1,8 @@
+ID: 45
+Data: population_density.tif
+Name: Bungo Population
+URL: data/lucmodel/population_density.tif
+Label: raster
+Definition: This raster data represents the population density of Bungo
+Comment: NA
+Reference: NA

@@ -1,0 +1,8 @@
+ID: 15
+Data: customary_forest_bungo.shp
+Name: Bungo Customary Forest Area
+URL: data/vector/customary_forest_bungo.shp
+Label: vector
+Definition: This vector data represents the Hutan Adat area of Bungo Regency, Jambi Province, Indonesia. It includes 5 data fields: Id, Nama (Name), Luas (Area), SK_Nomor (Decree Number), and HA (Hectares). The vector projection is in UTM Zone 48S.
+Comment: NA
+Reference: NA

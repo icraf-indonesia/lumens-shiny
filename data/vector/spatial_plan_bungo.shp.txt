@@ -1,0 +1,8 @@
+ID: 17
+Data: spatial_plan_bungo.shp
+Name: Bungo Spatial Plan
+URL: data/vector/spatial_plan_bungo.shp
+Label: vector
+Definition: This vector data represents the spatial plan zone of Bungo Regency, Jambi Province, Indonesia. It includes 2 data fields. The vector projection is in UTM Zone 48S.
+Comment: NA
+Reference: NA

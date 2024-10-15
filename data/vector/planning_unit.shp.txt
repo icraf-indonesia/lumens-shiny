@@ -1,0 +1,8 @@
+ID: 6
+Data: planning_unit.shp
+Name: Bungo Planning Unit
+URL: data/vector/planning_unit.shp
+Label: vector
+Definition: This vector data represents the RPL (Rencana Pola Ruang) or spatial plan of Bungo Regency in Jambi Province, Indonesia. It includes classifications for 8 classes. The vector projection is in UTM zone 48S
+Comment: NA
+Reference: NA

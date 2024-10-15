@@ -1,0 +1,8 @@
+ID: 29
+Data: zone_table_bungo.csv
+Name: Zone class attribute
+URL: data/table/zone_table_bungo.csv
+Label: table
+Definition: This table data contains information on zone class attributes, corresponding to the zone raster by its ID. There are 8 zone classes defined.
+Comment: NA
+Reference: NA

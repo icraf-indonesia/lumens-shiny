@@ -1,0 +1,8 @@
+ID: 13
+Data: mine_bungo.shp
+Name: Bungo Mining Area
+URL: data/vector/mine_bungo.shp
+Label: vector
+Definition: This vector data represents the mining area of Bungo Regency, Jambi Province, Indonesia. It includes only one class: tambang (mining). The vector projection is in UTM Zone 48S.
+Comment: NA
+Reference: NA

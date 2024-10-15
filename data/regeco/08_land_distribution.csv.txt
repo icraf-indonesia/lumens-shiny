@@ -1,0 +1,8 @@
+ID: 37
+Data: 08_land_distribution.csv
+Name: Bungo land distribution of each sectors
+URL: data/regeco/08_land_distribution.csv
+Label: table
+Definition: This table contains the land requirement matrix for each sector, distributed across land covers/uses related to those sectors. The values range between 0 and 1, with higher values indicating greater sectoral activities on the corresponding land covers/uses.
+Comment: NA
+Reference: NA

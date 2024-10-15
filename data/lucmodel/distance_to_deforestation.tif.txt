@@ -1,0 +1,8 @@
+ID: 43
+Data: distance_to_deforestation.tif
+Name: Bungo Euclidean Distant to Deforestation
+URL: data/lucmodel/distance_to_deforestation.tif
+Label: raster
+Definition: This raster data represents the relative distance to deforestation
+Comment: NA
+Reference: NA

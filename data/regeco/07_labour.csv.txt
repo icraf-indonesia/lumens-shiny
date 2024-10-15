@@ -1,0 +1,8 @@
+ID: 36
+Data: 07_labour.csv
+Name: Bungo IO table of labour list
+URL: data/regeco/07_labour.csv
+Label: table
+Definition: This table data contains a list of sectors from the IO table of Bungo Regency in Jambi Province, Indonesia. It lists 46 corresponding values for the sectors.
+Comment: NA
+Reference: NA

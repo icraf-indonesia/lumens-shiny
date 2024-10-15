@@ -1,0 +1,8 @@
+ID: 30
+Data: 01_sector.csv
+Name: Bungo IO table of sector list
+URL: data/regeco/01_sector.csv
+Label: table
+Definition: This table data contains a list of sectors from the IO table of Bungo Regency in Jambi Province, Indonesia. It lists 46 sectors with no header column structure.
+Comment: NA
+Reference: NA

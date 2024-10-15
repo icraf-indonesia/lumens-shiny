@@ -1,0 +1,8 @@
+ID: 31
+Data: 02_intermediate demand.csv
+Name: Bungo IO table of intermediate demand list
+URL: data/regeco/02_intermediate demand.csv
+Label: table
+Definition: This table data contains the intermediate demand of each sector in a matrix (46 x 46) from the IO table of Bungo Regency in Jambi Province, Indonesia.
+Comment: NA
+Reference: NA

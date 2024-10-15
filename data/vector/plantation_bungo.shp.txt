@@ -1,0 +1,8 @@
+ID: 14
+Data: plantation_bungo.shp
+Name: Bungo Plantation Area
+URL: data/vector/plantation_bungo.shp
+Label: vector
+Definition: This vector data represents the plantation area of Bungo Regency, Jambi Province, Indonesia. It includes two data fields: ID and Kebun (plantation). The vector projection is in UTM Zone 48S.
+Comment: NA
+Reference: NA

@@ -1,0 +1,8 @@
+ID: 1
+Data: bungo_landcover_1990r.tif
+Name: Bungo landcover 1990
+URL: data/raster/bungo_landcover_1990r.tif
+Label: raster
+Definition: This raster data represents the land cover classification of Bungo Regency in Jambi Province, Indonesia, for the year 1990. It includes 15 classification classes. The map resolution is 100 m in UTM Zone 48S projection.
+Comment: NA
+Reference: NA

@@ -1,0 +1,8 @@
+ID: 39
+Data: I-O_Bungo_2010_for_LUMENS.xlsx
+Name: IO Tabel Bungo 2010 modified for LUMENS
+URL: data/regeco/I-O_Bungo_2010_for_LUMENS.xlsx
+Label: table
+Definition: This is the IO table of Bungo Regency in 2011
+Comment: NA
+Reference: NA

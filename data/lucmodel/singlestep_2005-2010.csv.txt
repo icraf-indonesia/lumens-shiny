@@ -1,0 +1,8 @@
+ID: 50
+Data: singlestep_2005-2010.csv
+Name: Transition matrix of singlestep
+URL: data/lucmodel/singlestep_2005-2010.csv
+Label: table
+Definition: This table contains the transition matrix of landuse/cover changes
+Comment: NA
+Reference: NA

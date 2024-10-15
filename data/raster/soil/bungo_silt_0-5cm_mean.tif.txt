@@ -1,0 +1,8 @@
+ID: 10
+Data: bungo_silt_0-5cm_mean.tif
+Name: Bungo Silt Percentage
+URL: data/raster/soil/bungo_silt_0-5cm_mean.tif
+Label: raster
+Definition: This raster data represents the mean silt content (2-50/63 micrometers) mass fraction in ‰ at 0-5 cm depth for Bungo Regency in Jambi Province, Indonesia. The original map resolution is 250 m, then resampled to 100 m in UTM Zone 48S projection. The value range is 9.687069 - 36.776035%.
+Comment: This raster is modelling result with predictions were derived using a digital soil mapping approach based on Quantile Random Forest, drawing on a global compilation of soil profile data and environmental layers.
+Reference: SoilGrids 250m - Silt content: https://files.isric.org/soilgrids/latest/data/silt/silt_0-5cm_mean/

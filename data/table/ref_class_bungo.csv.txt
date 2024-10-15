@@ -1,0 +1,8 @@
+ID: 21
+Data: ref_class_bungo.csv
+Name: Zone function reference classification in Bungo
+URL: data/table/ref_class_bungo.csv
+Label: table
+Definition: This table data contains information on the reference classes used in the analysis. This table includes two column fields: ID and Reference, which by default consist of Conservation, Production, and Other. However, users can change and define the references based on their analysis needs.
+Comment: NA
+Reference: NA

@@ -1,0 +1,8 @@
+ID: 16
+Data: industrial_forest_bungo.shp
+Name: Bungo Industrial Forest Area
+URL: data/vector/industrial_forest_bungo.shp
+Label: vector
+Definition: This vector data represents the HTI area of Bungo Regency, Jambi Province, Indonesia. It includes 2 data fields: ID and HT. The vector projection is in UTM Zone 48S.
+Comment: NA
+Reference: NA

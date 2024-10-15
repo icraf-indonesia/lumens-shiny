@@ -1,0 +1,8 @@
+ID: 28
+Data: trajectory_loss_recovery.csv
+Name: Trajectory rules for land cover/use changes
+URL: data/table/trajectory_loss_recovery.csv
+Label: table
+Definition: This table data contains rules for land cover/use change trajectories, corresponding to the land cover/use classification attribute table.
+Comment: NA
+Reference: NA

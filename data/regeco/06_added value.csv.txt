@@ -1,0 +1,8 @@
+ID: 35
+Data: 06_added value.csv
+Name: Bungo IO table of added value list
+URL: data/regeco/06_added value.csv
+Label: table
+Definition: This table data contains values of added value (190, 200, 201-203) for each sector from the IO table of Bungo Regency in Jambi Province, Indonesia.
+Comment: NA
+Reference: NA

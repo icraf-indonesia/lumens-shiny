@@ -1,0 +1,8 @@
+ID: 44
+Data: distance_to_road.tif
+Name: Bungo Euclidean Distant to Roads
+URL: data/lucmodel/distance_to_road.tif
+Label: raster
+Definition: This raster data represents the relative distance to road network
+Comment: NA
+Reference: NA

@@ -1,0 +1,8 @@
+ID: 33
+Data: 04_final demand.csv
+Name: Bungo IO table of final demand list
+URL: data/regeco/04_final demand.csv
+Label: table
+Definition: This table data contains values of final demand (301, 302, 303, & 305) for each sector from the IO table of Bungo Regency in Jambi Province, Indonesia.
+Comment: NA
+Reference: NA

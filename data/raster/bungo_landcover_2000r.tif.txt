@@ -1,0 +1,8 @@
+ID: 2
+Data: bungo_landcover_2000r.tif
+Name: Bungo landcover 2000
+URL: data/raster/bungo_landcover_2000r.tif
+Label: raster
+Definition: This raster data represents the land cover classification of Bungo Regency in Jambi Province, Indonesia, for the year 2000. It includes 15 classification classes. The map resolution is 100 m in UTM Zone 48S projection.
+Comment: NA
+Reference: NA

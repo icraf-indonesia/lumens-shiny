@@ -1,0 +1,8 @@
+ID: 46
+Data: merangin_woe_coeff.csv
+Name: Weight of evidence coefficient
+URL: data/lucmodel/merangin_woe_coeff.csv
+Label: table
+Definition: This table contains the weight of evidence coefficient
+Comment: NA
+Reference: NA

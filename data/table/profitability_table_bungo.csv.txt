@@ -1,0 +1,8 @@
+ID: 27
+Data: profitability_table_bungo.csv
+Name: NPV and carbon stock of each land cover/use class
+URL: data/table/profitability_table_bungo.csv
+Label: table
+Definition: This table data contains information on NPV and carbon stock values for every land cover/use class, corresponding to the land cover/use raster by its ID.
+Comment: NA
+Reference: NA

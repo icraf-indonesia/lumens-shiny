@@ -1,0 +1,8 @@
+ID: 42
+Data: distance_to_protected_area.tif
+Name: Bungo Euclidean Distant to Protected Area
+URL: data/lucmodel/distance_to_protected_area.tif
+Label: raster
+Definition: This raster data represents the relative distance to protected area in Bungo
+Comment: NA
+Reference: NA

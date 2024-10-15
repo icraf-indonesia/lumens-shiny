@@ -1,0 +1,8 @@
+ID: 8
+Data: SRTM_Bungo.tif
+Name: Bungo Digital Elevation
+URL: data/raster/SRTM_Bungo.tif
+Label: raster
+Definition: This raster data represents the digital elevation model in meters for Bungo Regency in Jambi Province, Indonesia. The value range is 42.35365 - 2,551.88501 meters. The map resolution is 100 m in UTM Zone 48S projection.
+Comment: NA
+Reference: NA

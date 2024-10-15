@@ -1,0 +1,8 @@
+ID: 40
+Data: elevation.tif
+Name: Bungo Elevation
+URL: data/lucmodel/elevation.tif
+Label: raster
+Definition: This raster data represents the elevation map in meters for Bungo Regency in Jambi Province, Indonesia. The map resolution is 100 m in UTM Zone 48S projection.
+Comment: NA
+Reference: NA

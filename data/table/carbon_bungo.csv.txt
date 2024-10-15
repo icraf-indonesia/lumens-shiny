@@ -1,0 +1,8 @@
+ID: 25
+Data: carbon_bungo.csv
+Name: Carbon stock value of each land cover/use class
+URL: data/table/carbon_bungo.csv
+Label: table
+Definition: This table data contains information on carbon stock values for every land cover/use class, corresponding to the land cover/use raster by its ID.
+Comment: NA
+Reference: NA

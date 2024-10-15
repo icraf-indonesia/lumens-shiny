@@ -1,0 +1,8 @@
+ID: 47
+Data: merangin_woe_correlation_report.csv
+Name: Weight of evidence correlation
+URL: data/lucmodel/merangin_woe_correlation_report.csv
+Label: table
+Definition: This table contatins the weight of evidence correlation
+Comment: NA
+Reference: NA
