@@ -1,8 +1,0 @@
-ID: 51
-Data: planning_unit.tif
-Name: Bungo Planning Unit
-URL: data/lucmodel/planning_unit.tif
-Label: raster
-Definition: This raster data represents the spatial plan of Bungo Regency in Jambi Province, Indonesia. It includes classifications for 8 classes. The vector projection is in UTM zone 48S
-Comment: NA
-Reference: NA

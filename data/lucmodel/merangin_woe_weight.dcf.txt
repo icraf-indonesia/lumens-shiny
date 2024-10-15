@@ -1,8 +1,0 @@
-ID: 48
-Data: merangin_woe_weight.dcf
-Name: Weight of evidence
-URL: data/lucmodel/merangin_woe_weight.dcf
-Label: table
-Definition: This table contains the weight of evidence coefficient
-Comment: NA
-Reference: NA
