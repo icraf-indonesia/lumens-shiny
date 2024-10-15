@@ -36,7 +36,8 @@ install_load(
   "DT",
   "tibble",
   "RColorBrewer",
-  "tidyterra"
+  "tidyterra",
+  "scales"
 )
 
 #' Rasterize an sf MULTIPOLYGON object
