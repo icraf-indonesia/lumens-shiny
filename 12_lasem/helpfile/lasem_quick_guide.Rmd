@@ -1,0 +1,114 @@
+---
+title: "LaSEM Quick Guide"
+output: 
+  html_document: 
+    toc: true
+    toc_float: true
+    number_sections: true
+    df_print: kable
+---
+
+# Overview
+
+The Land Suitability Evaluation Module (LaSEM) helps create maps showing how suitable land is for crops or plantations based on natural conditions, supporting better land use decisions.
+
+LaSEM adopts the Food and Agriculture Organization (FAO) framework for land evaluation established in 1976 (FAO, 1976), using divisions of suitability classes that indicate degrees of suitability.
+
+For a given location (pixel), the analysis can answer:
+
+- **What crops are suitable for growing in this location?**
+- **What are the limiting factors for crop growth in this location?**
+- **How can the limiting factors be addressed?**
+
+LaSEM works by analysing biophysical parameters that influence crop growth. The data used is in the form of raster maps with values that will be classified into suitability classes for relevant crop commodities based on locally appropriate guidelines. Parameter maps are used in overlap analysis in LaSEM to produce the actual land suitability class of an area.
+
+Once produced, land suitability maps categorize the study area into areas as follows:
+
+- **Biophysically suitable** for a crop or farming system.
+- **Not biophysically suitable, but the limiting factors can be addressed.**
+- **Not biophysically suitable, and the limiting factors cannot be addressed.**
+
+# Data and Input Variables
+
+Before using the LaSEM module, prepare the following:
+
+1. **Raster Input Lookup Table**: A CSV file containing the details of the input data. It should include five columns: `ID`, `parameter`, `name_parameter`, `availability`, and `raster_path`. Unavailable data can be labelled with `NA`.
+
+   Example structure:
+
+   | ID | Parameter              | Name_Parameter         | Availability | Raster_Path                                            |
+   |----|------------------------|------------------------|--------------|--------------------------------------------------------|
+   | 1  | Average temperature    | clim_temperature_avg   | Yes          | data/clim_temperature_avg.tif                          |
+   | 2  | Average precipitation  | clim_precipitation_tot | Yes          | data/clim_precipitation_tot.tif                        |
+   | 3  | Total wet months       | clim_wet_months_tot    | Yes          | data/clim_wet_months.tif                               |
+   | 4  | Humidity               | clim_humidity          | Yes          | data/clim_humidity.tif                                 |
+   | 5  | Drainage               | soil_drainage          | No           | data/soil_drainage.tif                                 |
+
+   **Note:** Adjust the `raster_path` to match your local directory structure. Use forward slashes (`/`) in file paths.
+
+2. **Crop Suitability Parameters Lookup Table**: A CSV file specifying the suitability parameters for the crop you wish to analyze. It should include columns: `name_common`, `name_sp`, `class`, `name_parameter`, `value`, `unit`.
+
+   Example structure:
+
+   | name_common    | name_sp          | class | name_parameter      | value | unit |
+   |----------------|------------------|-------|---------------------|-------|------|
+   | Robusta coffee | Coffea canephora | S1    | clim_dry_months     | 2-3   | month|
+   | Robusta coffee | Coffea canephora | S1    | clim_humidity       | 45-80 | %    |
+   | Robusta coffee | Coffea canephora | S2    | clim_dry_months     | 3-5   | month|
+   | Robusta coffee | Coffea canephora | S2    | clim_dry_months     | >2    | month|
+
+3. **Intervention Lookup Table**: A CSV file detailing possible interventions for each parameter. It should include columns: `no`, `land_characteristics`, `name_parameter`, `intervention`, `low`, `med`, `high`.
+
+   Example structure:
+
+   | no | land_characteristics        | name_parameter        | intervention | low | med | high |
+   |----|-----------------------------|-----------------------|--------------|-----|-----|------|
+   | 1  | Annual average temperature  | clim_temperature_avg  | FALSE        | NA  | NA  | NA   |
+   | 2  | Dry months                  | clim_dry_months       | TRUE         | NA  | +   | ++   |
+   | 3  | Annual rainfall             | clim_precipitation_tot| TRUE         | NA  | +   | ++   |
+   | 5  | Drainage                    | soil_drainage         | TRUE         | NA  | +   | ++   |
+
+4. **Raster Data Files**: All raster files referenced in the `raster_path` column of the Raster Input Lookup Table.
+
+# Using the LaSEM Module
+
+Follow these steps to use the module:
+
+**Step 1: Data Preparation**
+
+- Ensure all required raster data files are prepared and correctly referenced in the Raster Input Lookup Table.
+- Prepare the Crop Suitability Parameters and Intervention Lookup Tables as per the structures outlined above.
+
+**Step 2: Uploading Data**
+
+1. **Start the LaSEM Application**: Launch the LaSEM Shiny application to begin.
+2. **Upload Raster Input Lookup Table**: Click "Browse" to upload your Raster Input Lookup Table CSV file.
+3. **Upload Crop Suitability Parameters**: Click "Browse" to upload the Crop Suitability Parameters CSV file.
+4. **Upload Intervention Lookup Table**: Click "Browse" to upload the Intervention Lookup Table CSV file.
+5. **Select Output Directory**: Choose the directory where you want to save the output files.
+
+**Step 3: Running the Analysis**
+
+- Navigate to the "Analysis" tab and click "Run Analysis" to start the computation.
+- A progress bar will indicate the status of the analysis.
+
+# Accessing Outputs
+
+After the analysis completes, you'll find the following outputs in your selected output directory:
+
+1. **Suitability Maps**: Raster maps showing the land suitability for your chosen crop under different intervention levels (actual, low, medium, high). Suitability classes are indicated by:
+
+   - **N** (Red): Not suitable
+   - **S3** (Orange): Marginally suitable
+   - **S2** (Light Green): Moderately suitable
+   - **S1** (Dark Green): Highly suitable
+
+2. **Suitability Maps by Factors**: Raster maps of input parameters used in the analysis, useful for examining individual factors affecting suitability.
+
+3. **Attribute Table**: A table summarizing the suitability results, including limiting factors and potential suitability under different intervention levels.
+
+---
+
+For more detailed information or troubleshooting, refer to the full LaSEM documentation or contact the tool developers.
+
+<font size="1">LUMENS is free software and comes with ABSOLUTELY NO WARRANTY. Users are responsible for the results generated. Results depend on the quality of the input data and may vary or be sensitive to the parameters used. Please report any problems encountered while using LUMENS as [a GitHub issue](https://github.com/icraf-indonesia/lumens-shiny/issues). Feedback and questions are welcome [Contact Us URL].</font>
