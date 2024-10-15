@@ -288,8 +288,11 @@ server <- function(input, output, session) {
           # Reclassify erosion rate
           erosion_classified_t1 <- classify(erosion_t1, rcl = rcl_matrix)
           erosion_classified_t2 <- classify(erosion_t2, rcl = rcl_matrix)
+          
           levels(erosion_classified_t1) <- data.frame(id=1:6, category=labels)
           levels(erosion_classified_t2) <- data.frame(id=1:6, category=labels)
+          names(erosion_classified_t1) <- tools::file_path_sans_ext("Soil Erosion Potential")
+          names(erosion_classified_t2) <- tools::file_path_sans_ext("Soil Erosion Potential")
           erosion_stack <- c(erosion_classified_t1, erosion_classified_t2)
           
           # Create dataset of erosion estimation
@@ -318,6 +321,7 @@ server <- function(input, output, session) {
           e_diff_classified <- classify(e_diff, rcl = e_rcl_matrix)
           e_labels <- c("Soil erosion potential decrease", "No soil erosion potential changes", "Soil erosion potential increase")
           levels(e_diff_classified) <- data.frame(id=1:3, category=e_labels)
+          names(e_diff_classified) <- tools::file_path_sans_ext("Soil Erosion Changes")
           
           # Create erosion difference data table
           erosion_diff_db <- erosion_dataset(erosion_classified = e_diff_classified, map_resolution = rv$map_resolution)
@@ -424,6 +428,7 @@ server <- function(input, output, session) {
           # Reclassify erosion rate
           erosion_classified_t1 <- classify(erosion_t1, rcl = rcl_matrix)
           levels(erosion_classified_t1) <- data.frame(id=1:6, category=labels)
+          names(erosion_classified_t1) <- tools::file_path_sans_ext("Soil Erosion Potential")
           
           # Create dataset of erosion estimation
           erosion_db_t1 <- erosion_dataset(erosion_classified = erosion_classified_t1, map_resolution = rv$map_resolution)

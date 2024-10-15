@@ -16,7 +16,7 @@ ui <- fluidPage(
                 multiple = TRUE,
                 placeholder = "input shapefiles (.shp, .dbf, .prj, .shx)"),
       fileInput("c_ref_file", "C Factor Attribute", accept = c(".csv"), placeholder = "input table (.csv)"),
-      numericInput("map_resolution", "Map Resolution", value = NULL),
+      numericInput("map_resolution", "Map Resolution (m)", value = NULL),
       
       # Select P Factor Option
       radioButtons("practice", "P Factor Map Available?", 
