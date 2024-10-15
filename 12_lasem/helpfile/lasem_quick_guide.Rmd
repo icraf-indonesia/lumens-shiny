@@ -12,7 +12,7 @@ output:
 
 The Land Suitability Evaluation Module (LaSEM) helps create maps showing how suitable land is for crops or plantations based on natural conditions, supporting better land use decisions.
 
-LaSEM adopts the Food and Agriculture Organization (FAO) framework for land evaluation established in 1976 (FAO, 1976), using divisions of suitability classes that indicate degrees of suitability.
+LaSEM adopts the Food and Agriculture Organization framework for land evaluation (FAO, 1976), using divisions of suitability classes that indicate degrees of suitability.
 
 For a given location (pixel), the analysis can answer:
 
