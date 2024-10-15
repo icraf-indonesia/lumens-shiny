@@ -323,7 +323,7 @@ ui <-
                            style = "font-size: 18px; padding: 10px 15px; background-color: #FA8072; color: white;")
           )
         ),
-        includeMarkdown("../helpfile/help.md")
+        includeMarkdown("../helpfile/sciendo_scen_quick_user_guide.md")
       ),
     ),
     
@@ -365,7 +365,7 @@ ui <-
     nav_panel(
       title = "Help",
       icon = icon("circle-question"),
-      includeMarkdown("../helpfile/help.md")
+      includeMarkdown("../helpfile/sciendo_scen_quick_user_guide.md")
     ),
 
     ### MENU #############################

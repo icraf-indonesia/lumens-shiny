@@ -45,7 +45,7 @@ ui <- fluidPage(
     ),
     mainPanel(
       tabsetPanel(
-        tabPanel("User Guide", includeMarkdown("../helpfile/sciendo_simulate_help.md")),
+        tabPanel("User Guide", includeMarkdown("../helpfile/sciendo_simulate_quick_user_guide.md")),
         tabPanel("Log",
                  textOutput("selected_directory"),
                  textOutput("dinamica_path"),
