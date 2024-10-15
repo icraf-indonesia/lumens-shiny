@@ -1,0 +1,46 @@
+Paddy,Agriculture
+Tuber Crops,Agriculture
+Vegetables and Fruits,Agriculture
+Other Food Crops,Agriculture
+Rubber,Plantation
+Coconut,Plantation
+Oil Palm,Plantation
+Coffee,Plantation
+Cinnamon,Plantation
+Other Plantation Crops,Plantation
+Livestock and Products,Livestock
+Roundwood,Forestry
+Industrial Plantation Forest Timber,Forestry
+Other Forest Products,Forestry
+Fisheries,Livestock
+Oil and Gas Mining,Mining
+Coal Mining,Mining
+Other Non-Oil and Gas Mining,Mining
+Oil Refining,Industry
+Seafood Processing Industry,Industry
+Palm Oil Industry,Land-based Industry
+Rice and Grain Milling Industry,Land-based Industry
+Other Food and Beverage Industry,Land-based Industry
+"Textile, Leather Goods, and Footwear Industry",Land-based Industry
+Wood Products and Other Forest Products Industry,Land-based Industry
+Paper and Paper Products Industry,Land-based Industry
+"Fertilizer, Chemical, and Rubber Products Industry",Industry
+Cement and Non-Metal Mineral Products Industry,Industry
+Transportation Equipment and Machinery Industry,Industry
+Other Goods Industry,Industry
+Electricity and Drinking Water,Others
+Construction,Others
+Trade,Others
+Restaurants and Hotels,Others
+Road Transport,Others
+Sea Transport,Others
+River and Lake Transport,Others
+Air Transport,Others
+Transportation Support Services,Others
+Communication,Others
+Banks and Financial Institutions,Others
+Construction and Business Services,Others
+General Government and Defense,Others
+Social Community Services,Others
+Other Services,Others
+Undefined Activities,Others

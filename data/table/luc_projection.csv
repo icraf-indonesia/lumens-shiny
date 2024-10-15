@@ -1,16 +1,16 @@
-"ID_LC","LC","T2015","T2020","T2025"
-"1","Hutan Primer","187871","118826","76226"
-"10","Agroforestri karet","76907","59726","45146"
-"12","Agroforestri kayu manis","3848","5173","1709"
-"14","Kebun campuran","211","540","3420"
-"16","Karet monokultur","81311","123057","132557"
-"17","Kelapa sawit","41857","79479","107307"
-"19","Semak","2096","3703","11992"
-"2","Hutan bekas tebangan kerapatan tinggi","22343","12946","25004"
-"20","Lahan pertanian","674","7022","4305"
-"21","Sawah","9966","16653","16414"
-"23","Rumput","30","143","141"
-"24","Lahan terbuka","2751","3226","3682"
-"25","Pemukiman","2734","15684","18880"
-"3","Hutan bekas tebangan kerapatan rendah","19142","5563","4958"
-"42","Air","7721","7721","7721"
+ID,LC,T1,T2,T3
+1,Hutan Primer,76710,61461,56296
+2,Hutan bekas tebangan kerapatan tinggi,25161,25558,23506
+3,Hutan bekas tebangan kerapatan rendah,5065,5001,4566
+10,Agroforestri karet,44760,38145,36304
+12,Agroforestri kayu manis,1839,1279,1147
+14,Kebun campuran,3387,5114,6298
+16,Karet monokultur,132501,133712,132756
+17,Kelapa sawit,106911,120972,125169
+19,Semak,11961,13809,15722
+20,Lahan pertanian,4410,4757,5163
+21,Sawah,16383,16119,15926
+23,Rumput,147,164,175
+24,Lahan terbuka,3635,3689,3679
+25,Pemukiman,18797,21887,24960
+42,Air,7717,7717,7717
