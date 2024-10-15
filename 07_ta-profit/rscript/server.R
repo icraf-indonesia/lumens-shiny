@@ -59,18 +59,6 @@ server <- function(input, output, session) {
     }
   })
   
-  #' Render the user guide to help users understand how to use the application
-  # output$user_guide <- renderUI({
-  #   guide_path <- "../helpfile/help.md"
-  #   if (file.exists(guide_path)) {
-  #     html_content <- rmarkdown::render(guide_path, output_format = "html_fragment", quiet = TRUE,
-  #                                       output_options = list(metadata = list(title = "Trade-Off Analysis (Profit)")))
-  #     HTML(paste(readLines(html_content), collapse = "\n"))  # Added collapse to ensure proper HTML rendering
-  #   } else {
-  #     HTML("<p>User guide file not found.</p>")
-  #   }
-  # })
-  
   output$user_guide <- renderUI({
     guide_paths <- c(
       "07_ta-profit/helpfile/ta-profit_quick_user_guide.Rmd",
