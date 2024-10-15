@@ -1920,7 +1920,6 @@ server <- function(input, output, session) {
     input, 
     'output_dir',
     roots = volumes,
-    allowDirCreate = F,
     session = session
   )
   
@@ -1930,24 +1929,7 @@ server <- function(input, output, session) {
     }
   })
   
-  # generate report
-  report_content <- reactive({
-    params <- list(
-      final_plot = v$f_plot,
-      emission_plot = v$em_plot 
-    )
-    output_file <- paste0("scen_builder_report_", Sys.Date(), ".html")
-    output_dir <- paste0(Sys.getenv("USERPROFILE"), "\\Download")
-    v$report_file <- paste(output_dir, output_file, sep = "\\")
-    
-    render(
-      "../report_template/scen_builder_report_template.Rmd",
-      output_file = output_file,
-      output_dir = output_dir,
-      params = params
-    )
-  })
-  
+  # open report
   observeEvent(input$openReport, {
     report_path <- paste0(v$report_file, "/scen_builder_report_", Sys.Date(), ".html")
     if (file.exists(report_path)) {
