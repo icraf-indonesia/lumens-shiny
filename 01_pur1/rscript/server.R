@@ -109,7 +109,7 @@ server <- function(input, output, session) {
         
         # Data preparation
         incProgress(0.1, detail = "Preparing data")
-        
+
         shinyjs::disable("run_analysis")
         rv$map_resolution <- as.numeric(rv$map_resolution)
         ref_data <- read_shapefile(shp_input = rv$ref_map)
@@ -144,13 +144,13 @@ server <- function(input, output, session) {
         
         ref_mapping <- rename_uploaded_file(input_file = rv$ref_mapping)
         tabel_mapping <- read.table(ref_mapping, header = FALSE, sep = ",", skip = 1) %>%
-          setNames(c("REFERENCE", "IDS")) %>% left_join(lookup_ref, by = "REFERENCE")
+          setNames(c("REFERENCE", "IDSS")) %>% left_join(lookup_ref, by = "REFERENCE")
         
         if ("COUNT" %in% colnames(tabel_mapping)) {
           tabel_mapping <- tabel_mapping %>% select(-COUNT)
         }
         
-        tabel_mapping <- tabel_mapping %>%rename(IDO = ID)
+        tabel_mapping <- tabel_mapping %>% rename(IDO = paste0(colnames(st_drop_geometry(ref_data[1]))))
         
         # Planning unit data preparation
         pu_units <- rename_uploaded_file(input_file = rv$pu_units)
@@ -165,7 +165,8 @@ server <- function(input, output, session) {
         for (i in 1:n_pu_list) {
           data_name <- as.character(pu_list[i, 1])
           lut_table <- pu_list[i, 5]
-          pu_vector <- st_read(file.path(dirname(lut_table), paste0(data_name, ".shp")))
+          # pu_vector <- st_read(file.path(dirname(lut_table), paste0(data_name, ".shp")))
+          pu_vector <- st_read(file.path(paste0(lut_table)))
           pu_raster <- rasterise_multipolygon(sf_object = pu_vector, raster_res = c(rv$map_resolution, rv$map_resolution), paste0(colnames(st_drop_geometry(pu_vector[1]))))
           print(pu_raster)
           pu_lut_list[[i]] <- lut_table

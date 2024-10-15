@@ -1,5 +1,5 @@
 PU_name,PU_identity,Ref_ID,Type,Path
-HTI_Bungo_F,pu1,2,0,D:/OneDrive - CIFOR-ICRAF/Documents/GitHub/lumens-shiny/data/vector/HTI_Bungo_F.shp
-Hutan_Adat_Bungo_F,pu2,1,0,D:/OneDrive - CIFOR-ICRAF/Documents/GitHub/lumens-shiny/data/vector/Hutan_Adat_Bungo_F.shp
-Perkebunan_Bungo_F,pu3,1,0,D:/OneDrive - CIFOR-ICRAF/Documents/GitHub/lumens-shiny/data/vector/Perkebunan_Bungo_F.shp
-Tambang_Bungo_F,pu4,2,0,D:/OneDrive - CIFOR-ICRAF/Documents/GitHub/lumens-shiny/data/vector/Tambang_Bungo_F.shp
+Industrial Forest,pu1,2,0,D:/OneDrive - CIFOR-ICRAF/Documents/GitHub/lumens-shiny/data/vector/industrial forest_bungo.shp
+Customary Forest,pu2,1,0,D:/OneDrive - CIFOR-ICRAF/Documents/GitHub/lumens-shiny/data/vector/customary forest_bungo.shp
+Plantation,pu3,1,0,D:/OneDrive - CIFOR-ICRAF/Documents/GitHub/lumens-shiny/data/vector/plantation_bungo.shp
+Mine,pu4,2,0,D:/OneDrive - CIFOR-ICRAF/Documents/GitHub/lumens-shiny/data/vector/mine_bungo.shp
