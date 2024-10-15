@@ -13,6 +13,7 @@ params:
   end_time: NA
   inputs: NA
   rc_path: NA
+  woe_report_path: NA
   rc_egoml_path: NA
   woe_egoml_path: NA
   session_log: NA  
@@ -41,7 +42,9 @@ library(tidyterra)
 library(LUMENSR)
 ```
 
-<details><summary>Click here for Analysis Log</summary>
+<details>
+
+<summary>Click here for Analysis Log</summary>
 
 ```{r analysis-log, echo=FALSE}
 analysis_log <- tribble(
@@ -57,8 +60,9 @@ analysis_log <- tribble(
   "6. Land cover lookup table",   params$inputs$lc_lookup_table_path,
   "Output Workspace",             params$inputs$output_dir,
   "1. Raster Cube",               params$rc_path,
-  "2. EGOML Raster Cube",         params$rc_egoml_path,
-  "3. EGOML Weight of Evidence",  params$woe_egoml_path,
+  "2. Directory of Weight of Evidence Report",               params$woe_report_path,
+  "3. EGOML Raster Cube",         params$rc_egoml_path,
+  "4. EGOML Weight of Evidence",  params$woe_egoml_path,
   "Session Summary",              ""
 ) %>% rbind(params$session_log)
 
@@ -139,7 +143,8 @@ plot_categorical_raster(zone)
 ## Weight of Evidence Report  {.tabset}
 
 ```{r List of Csv of Woe, echo=FALSE}
-listWoeReport <- params$inputs$output_dir %>% list.files(full.names=TRUE, pattern="weight_report*")
+listWoeReport <- params$woe_report_path %>% 
+  list.files(full.names=TRUE, pattern="weight_report*")
 ```
 
 ```{r print significant weight greater than 5, echo=FALSE, fig.keep='all', results='asis'}
@@ -167,7 +172,7 @@ for(i in 1:out$n_zone){
     
     for(k in unique_variable) {
       report_per_transition_per_variable <- report_per_transition %>% filter(Variable. == k) %>% 
-        select(
+        dplyr::select(
           Range, Possible_Transitions, Executed_Transitions, Weight_Coefficient #, Contrast
         ) %>%
         mutate_if(is.double, as.character) %>%

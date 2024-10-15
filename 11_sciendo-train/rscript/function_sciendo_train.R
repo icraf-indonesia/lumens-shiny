@@ -189,13 +189,13 @@ create_list_of_weight_report <- function(list_woe_report, df_zone) {
     woe[[paste0("pu", sprintf("%03d", i))]][['name']] <- df_zone[i, 2]
     woe[[paste0("pu", sprintf("%03d", i))]][['report']] <- listWoeReport[i] %>%
       read.csv() %>%
-      select(-X) %>%
+      dplyr::select(-X) %>%
       mutate(
         Transition = paste(Transition_From., "->", Transition_To.),
         Range = paste(Range_Lower_Limit., "<= v <", Range_Upper_Limit.),
         Significant = if_else(Significant == 1, "yes", "no")
       ) %>%
-      select(Transition, Variable., Range, Possible_Transitions, Executed_Transitions, Weight_Coefficient, Contrast, Significant)
+      dplyr::select(Transition, Variable., Range, Possible_Transitions, Executed_Transitions, Weight_Coefficient, Contrast, Significant)
     woe[[paste0("pu", sprintf("%03d", i))]][['unique_transition']] <- woe[[paste0("pu", sprintf("%03d", i))]][['report']] %>% 
       distinct(Transition) %>% unlist() %>% as.vector()
   }
@@ -659,8 +659,7 @@ generate_egoml_woe_model <- function(aliasFactor, lusim_lc,
   
   out <- list(
     egoml_woe_file = egoml_woe_file,
-    dcf = dcf_path,
-    weight = weight_report_path,
+    weight = woe_dir,
     lc1 = lc1_path,
     lc2 = lc2_path,
     zone = zone_path,
@@ -727,6 +726,7 @@ run_sciendo_train_process <- function(lc_t1_path, lc_t2_path, zone_path, lc_look
       output_dir = output_dir
     ),
     rc_path = out_rc$ers,
+    woe_report_path = out_woe$weight,
     rc_egoml_path = out_rc$egoml_rc_path,
     woe_egoml_path = out_woe$egoml_woe_path,
     session_log = session_log

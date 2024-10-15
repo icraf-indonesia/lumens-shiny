@@ -237,7 +237,7 @@ zonal_statistic_database <- function(quescdb, period) {
   }
   
   data_zone_ori <- data_zone %>% 
-    select(-Z_CODE) %>%
+    dplyr::select(-Z_CODE) %>%
     mutate(
       Avg_C_t1 = round(Avg_C_t1, 2),
       Avg_C_t2 = round(Avg_C_t2, 2),
