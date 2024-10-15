@@ -1,42 +1,16 @@
 "ID_LC","LC","T2015","T2020","T2025"
-1,"Hutan Primer",187871,118826,76226
-2,"Hutan bekas tebangan kerapatan tinggi",22343,12946,25004
-3,"Hutan bekas tebangan kerapatan rendah",19142,5563,4958
-4,"Hutan Rawa Primer",0,0,0
-5,"Hutan Rawa Sekunder",0,0,0
-6,"Hutan Rawa Primer Gambut",0,0,0
-7,"Hutan Rawa Sekunder Gambut",0,0,0
-8,"Hutan Mangrove Primer",0,0,0
-9,"Hutan Mangrove Sekunder",0,0,0
-10,"Agroforestri karet",76907,59726,45146
-11,"Agoroforestri kelapa/pinang",0,0,0
-12,"Agroforestri kayu manis",3848,5173,1709
-13,"Agroforestri kopi",0,0,0
-14,"Kebun campuran",211,540,3420
-15,"HTI Akasia",0,0,0
-16,"Karet monokultur",81311,123057,132557
-17,"Kelapa sawit",41857,79479,107307
-18,"Kelapa",0,0,0
-19,"Semak",2096,3703,11992
-20,"Lahan pertanian",674,7022,4305
-21,"Sawah",9966,16653,16414
-22,"Perkebunan teh",0,0,0
-23,"Rumput",30,143,141
-24,"Lahan terbuka",2751,3226,3682
-25,"Pemukiman",2734,15684,18880
-26,"Agroforestri karet gambut",0,0,0
-27,"Agoroforestri kelapa/pinang gambut",0,0,0
-29,"Agroforestri kopi gambut",0,0,0
-30,"Kebun campuran gambut",0,0,0
-31,"HTI Akasia gambut",0,0,0
-32,"Karet monokultur gambut",0,0,0
-33,"Kelapa sawit gambut",0,0,0
-34,"Kelapa gambut",0,0,0
-35,"Semak gambut",0,0,0
-36,"Lahan pertanian gambut",0,0,0
-37,"Sawah gambut",0,0,0
-39,"Rumput gambut",0,0,0
-40,"Lahan terbuka gambut",0,0,0
-41,"Pemukiman gambut",0,0,0
-42,"Air",7721,7721,7721
-43,"Kayu manis monokultur",0,0,0
+"1","Hutan Primer","187871","118826","76226"
+"10","Agroforestri karet","76907","59726","45146"
+"12","Agroforestri kayu manis","3848","5173","1709"
+"14","Kebun campuran","211","540","3420"
+"16","Karet monokultur","81311","123057","132557"
+"17","Kelapa sawit","41857","79479","107307"
+"19","Semak","2096","3703","11992"
+"2","Hutan bekas tebangan kerapatan tinggi","22343","12946","25004"
+"20","Lahan pertanian","674","7022","4305"
+"21","Sawah","9966","16653","16414"
+"23","Rumput","30","143","141"
+"24","Lahan terbuka","2751","3226","3682"
+"25","Pemukiman","2734","15684","18880"
+"3","Hutan bekas tebangan kerapatan rendah","19142","5563","4958"
+"42","Air","7721","7721","7721"

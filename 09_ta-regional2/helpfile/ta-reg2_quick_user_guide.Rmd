@@ -33,7 +33,7 @@ Before using the Regional Economic Projection tool, prepare the following:
 
 Follow these steps to use the module:
 
-
+![](ta-reg2_quick_user_guide.gif){style="max-width:80%;height=auto;"}
 
 # Accessing Outputs
 
