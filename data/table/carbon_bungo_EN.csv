@@ -1,0 +1,42 @@
+ID,LC,CARBON
+1,Primary Forest,261.52
+2,Logged-over Forest (High Density),192.81
+3,Logged-over Forest (Low Density),129.97
+4,Primary Swamp Forest,261.52
+5,Secondary Swamp Forest,141.3
+6,Primary Peat Swamp Forest,261.52
+7,Secondary Peat Swamp Forest,141.3
+8,Primary Mangrove Forest,261.52
+9,Secondary Mangrove Forest,129.97
+10,Rubber Agroforestry,69
+11,Coconut/Areca Nut Agroforestry,31.8
+12,Cinnamon Agroforestry,61.6
+13,Coffee Agroforestry,47.6
+14,Mixed Gardens,73.21
+15,Akasia Industrial Plantation Forest,57.9
+16,Rubber Monoculture,40.5
+17,Oil Palm,40
+18,Coconut,54.96
+19,Shrubland,43
+20,Agricultural Land,9.5
+21,Rice Fields,0.99
+22,Tea Plantation,43
+23,Grassland,3.35
+24,Open Land,3.35
+25,Settlement,4.14
+26,Peat Rubber Agroforestry,69
+27,Peat Coconut/Areca Nut Agroforestry,31.8
+29,Peat Coffee Agroforestry,47.6
+30,Peat Mixed Gardens,73.21
+31,Peat Akasia Industrial Plantation Forest,57.9
+32,Peat Rubber Monoculture,40.5
+33,Peat Oil Palm,40
+34,Peat Coconut,54.96
+35,Peat Shrubland,43
+36,Peat Agricultural Land,9.5
+37,Peat Rice Fields,0.99
+39,Peat Grassland,3.35
+40,Peat Open Land,3.35
+41,Peat Settlement,4.14
+42,Water,0
+43,Cinnamon Monoculture,61.6
