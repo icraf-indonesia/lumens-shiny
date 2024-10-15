@@ -72,7 +72,7 @@ ques_pre <- function(lc_t1, lc_t2, admin_, cutoff_landscape = 5000, cutoff_pu = 
   
   # Calculate and tabulate land cover composition in Hectares
   lc_freq_table <- calc_lc_freq(raster_list = list(lc_t1, lc_t2)) %>%
-    abbreviate_by_column( "Jenis tutupan lahan", remove_vowels = FALSE)
+    abbreviate_by_column( "Land-use/cover types", remove_vowels = FALSE)
   
   
   if (grepl("\\+units=m", st_crs(lc_t1)$proj4string)) {
@@ -90,7 +90,7 @@ ques_pre <- function(lc_t1, lc_t2, admin_, cutoff_landscape = 5000, cutoff_pu = 
 
   # Plot land cover composition
   lc_composition_barplot <- lc_freq_table %>% 
-    plot_lc_freq(column_lc_type = "Jenis tutupan lahan",
+    plot_lc_freq(column_lc_type = "Land-use/cover types",
                  column_T1 = names(lc_freq_table)[2],
                  column_T2 = names(lc_freq_table)[3])
   
@@ -925,7 +925,7 @@ calc_lc_freq <- function(raster_list) {
   
   # Sort by the count of the last raster layer in descending order
   freq_df <- dplyr::arrange(freq_df, dplyr::desc(freq_df[[ncol(freq_df)]]))
-  freq_df <- dplyr::rename(freq_df, `Jenis tutupan lahan` = value)
+  freq_df <- dplyr::rename(freq_df, `Land-use/cover types` = value)
   
   # Check if all SpatRaster objects have a time attribute
   all_times_present <- all(sapply(raster_list, function(x) !is.null(time(x))))
@@ -1054,7 +1054,7 @@ abbreviate_by_column <- function(df, col_names = NULL, remove_vowels= FALSE) {
 #' @examples
 #'  \dontrun{
 #' plot_lc_freq(lc_table = lc_tbl,
-#'              column_lc_type = "Jenis tutupan lahan",
+#'              column_lc_type = "Land-use/cover types",
 #'              column_T1 = "NTT_LC90_count",
 #'              column_T2 = "NTT_LC20_count")
 #' }
