@@ -133,7 +133,7 @@ server <- function(input, output, session) {
         } else {
           message("The planning unit IDs and attribute table IDs are matched.")
         }
-        
+
         # 2. Resolve any unresolved cases --------------------------------
         incProgress(0.2, detail = "Resolve Any Unresolved Cases")
         
@@ -141,7 +141,7 @@ server <- function(input, output, session) {
           dplyr::select(-ID_rec) %>% 
           left_join(reconcile_scenario, by = "ID") %>%
           mutate(Rec_phase2 = ifelse(!is.na(`Reconcile Action`), `Reconcile Action`, Rec_phase2)) %>%
-          select(-`Reconcile Action`)
+          dplyr::select(-`Reconcile Action`)
         
         # 3. Calculate area --------------------------------
         incProgress(0.3, detail = "Calculating Area")
