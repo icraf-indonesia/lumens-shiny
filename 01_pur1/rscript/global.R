@@ -4,6 +4,7 @@ source('../../helper.R')
 install_load <- function (package1, ...)  {
   # convert arguments to vector
   packages <- c(package1, ...)
+  options(repos = c(CRAN = "https://cloud.r-project.org"))
   # start loop to determine if each package is installed
   for (package in packages) {
     # if package is installed locally, load
