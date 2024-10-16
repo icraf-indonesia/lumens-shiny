@@ -1,0 +1,28 @@
+ID,parameter,name_parameter,availability,raster_path
+1,Average Annual Temperature,clim_temperature_avg,Yes,C:/Users/Theme-1/Desktop/LUMENSv2.0.1/lumens/data/raster/climate/clim_temperature_avg.tif
+2,Annual Precipitation,clim_precipitation_tot,Yes,C:/Users/Theme-1/Desktop/LUMENSv2.0.1/lumens/data/raster/climate/clim_precipitation_tot.tif
+3,Number of Wet Months,clim_wet_months_tot,Yes,C:/Users/Theme-1/Desktop/LUMENSv2.0.1/lumens/data/raster/climate/clim_wet_months_tot.tif
+4,Humidity,clim_humidity,Yes,C:/Users/Theme-1/Desktop/LUMENSv2.0.1/lumens/data/raster/climate/clim_humidity.tif
+5,Soil Drainage,soil_drainage,No,
+6,Soil Texture,soil_texture,Yes,C:/Users/Theme-1/Desktop/LUMENSv2.0.1/lumens/data/raster/soil/bungo_texture_class_usda_250m_10cm.tif
+7,Soil Coarse Fragments,soil_coarse_fragments,Yes,C:/Users/Theme-1/Desktop/LUMENSv2.0.1/lumens/data/raster/soil/bungo_cfvo_0-5cm_mean.tif
+8,Soil Depth,soil_depth,Yes,C:/Users/Theme-1/Desktop/LUMENSv2.0.1/lumens/data/raster/soil/bungo_soil_depth.tif
+9,Soil Peat Depth,soil_peat_depth,No,NA
+10,Soil Peat Maturity,soil_peat_maturity,No,NA
+11,Soil Cation Exchange Capacity (CEC),soil_cec,Yes,C:/Users/Theme-1/Desktop/LUMENSv2.0.1/lumens/data/raster/soil/bungo_cec_0-5cm_mean.tif
+12,Soil Base Saturation,soil_base_saturation,Yes,C:/Users/Theme-1/Desktop/LUMENSv2.0.1/lumens/data/raster/soil/bungo_BSAT.tif
+13,Soil pH,soil_ph,Yes,C:/Users/Theme-1/Desktop/LUMENSv2.0.1/lumens/data/raster/soil/bungo_phh2o_0-5cm_mean.tif
+14,Soil Organic Carbon Content,soil_organic_c,Yes,C:/Users/Theme-1/Desktop/LUMENSv2.0.1/lumens/data/raster/soil/bungo_soc_0-5cm_mean.tif
+15,Soil Nitrogen ,soil_nitrogen,Yes,C:/Users/Theme-1/Desktop/LUMENSv2.0.1/lumens/data/raster/soil/bungo_nitrogen_0-5cm_mean.tif
+16,Phosphorus Pentoxide (P2O5),soil_p2o5,No,NA
+17,Potassium Oxide (K2O),soil_k2o,No,NA
+18,Soil Salinity,soil_salinity,No,
+19,Alkalinity/Exchangeable Sodium Percentage (ESP),soil_esp,Yes,C:/Users/Theme-1/Desktop/LUMENSv2.0.1/lumens/data/raster/soil/bungo_ESP.tif
+20,Sulfidic Depth,soil_sulfidic_depth,No,NA
+21,Slope,soil_slope,Yes,C:/Users/Theme-1/Desktop/LUMENSv2.0.1/lumens/data/raster/terrain/bungo_slope.tif
+22,Erosion Risk,soil_erosion_risk,No,NA
+23,Soil Flood Height,soil_flood_height,No,NA
+24,Soil Flood Duration,soil_flood_length,No,NA
+25,Surface Rocks,soil_surface_rocks,No,NA
+26,Rock Outcrop,soil_outcrop,No,NA
+27,Number of Dry Months,clim_dry_months,Yes,C:/Users/Theme-1/Desktop/LUMENSv2.0.1/lumens/data/raster/climate/clim_dry_months.tif
