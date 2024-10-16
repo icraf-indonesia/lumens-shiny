@@ -123,13 +123,12 @@ server <- function(input, output, session) {
         # Prepare data for land use change analysis
         next_data_luc <- read.csv(sciendo_db_path)
         landuse_area_table <- as.data.frame(na.omit(next_data_luc))
-        landuse_area_table$ID_LC <- NULL
         landuse_area_table$LC <- NULL
         landuse_area <- landuse_area_table
         
         # Merge land use data for all periods
-        landuse_table <- merge(lc.list, landuse_area0_table, by = "ID")
-        landuse_table <- cbind(landuse_table, landuse_area)
+        landuse_bau_table <- merge(lc.list, landuse_area0_table, by = "ID")
+        landuse_table <- left_join(landuse_bau_table, landuse_area, by = "ID")
         landuse_table$LC <- NULL
         colnames(landuse_table)[1] <- "LAND_USE"
         
