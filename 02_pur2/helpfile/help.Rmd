@@ -20,7 +20,7 @@ Planning unit reconciliation is a process to resolve overlapping permits by refe
 
 2.  Unresolved Case Attribute (Excel format)
 
-    -   Before running PUR Reconcile module, it is necessary to select the reconcile action on drop-down option for every unresolved case in 'PUR_unresolved_case.xlsx' file generated from PUR Build module. You can use Microsoft Excel or any free spreadsheet software (e.g., Google Sheet) to do it.
+    -   Before running PUR Reconcile module, it is necessary to select the reconcile action on drop-down option for every unresolved case in 'PUR_reconciliation_table.xlsx' file generated from PUR Build module. You can use Microsoft Excel or any free spreadsheet software (e.g., Google Sheet) to do it.
 
         ![](images/Pre_PUR-Reconcile.gif){style="max-width:80%; height:auto;"}
 
@@ -34,7 +34,7 @@ Follow these steps to use the module:
 
 After the analysis completes, you'll find the following output data in your selected output directory:
 
--   Planning Unit Reconcile (Shapefile)
+-   Planning Unit Reconcile (shapefile and raster)
 
 -   Reconciled Class Attribute Result (CSV)
 

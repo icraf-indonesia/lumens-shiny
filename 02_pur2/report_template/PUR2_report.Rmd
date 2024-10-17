@@ -18,6 +18,7 @@ params:
   recon_result_shp_path: NA
   recon_result_table_path: NA
   recon_result_shp_dis_path: NA
+  recon_result_raster_path: NA
   final_lookup_table_path: NA
 ---
 
@@ -58,10 +59,11 @@ analysis_log <- tribble(
   "2. Unresolved Attribute Table", params$unresolved_table_path,
   "Output Files", "",
   "Output workspace", paste0(getwd(), params$output_dir),
-  "1. Reconciliation Result Map", file.path(params$output_dir, params$recon_result_shp_path),   
+  "1. Reconciliation Result Map (Shapefile)", file.path(params$output_dir, params$recon_result_shp_path),   
   "2. Reconciliation Result Table", file.path(params$output_dir, params$recon_result_table_path),
   "3. Reconciliation Result Map (Dissolved)", file.path(params$output_dir, params$recon_result_shp_dis_path),
-  "4. Final Result Table", file.path(params$output_dir, params$final_lookup_table_path),
+  "4. Reconciliation Result Map (Raster)", file.path(params$output_dir, params$recon_result_raster_path),
+  "5. Final Result Table", file.path(params$output_dir, params$final_lookup_table_path),
   "Session Summary", "",
 ) %>% rbind(format_session_info_table())
 

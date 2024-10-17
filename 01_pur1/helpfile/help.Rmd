@@ -33,11 +33,9 @@ Follow these steps to use the module:
 
 After the analysis completes, you'll find the following output data in your selected output directory:
 
--   Planning Unit Building (GeoTiff)
+-   Built Planning Unit Map (Shapefile & GeoTiff)
 
--   Planning Unit Building (Shapefile)
-
--   Unresolved Case Attribute Result (CSV)
+-   Reconciliation Table (CSV)
 
 -   **PUR Build Report**: An HTML file providing an overview of the analysis results, including:
 

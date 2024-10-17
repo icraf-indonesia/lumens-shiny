@@ -6,7 +6,7 @@ ui <- fluidPage(
   sidebarLayout(
     sidebarPanel(
       fileInput("rainfall_file", "Total Annual Precipitation Map", accept = c(".tif", ".tiff"), placeholder = "input raster (.tif)"),
-      fileInput("dem_file", "Digital Elevation Model (DEM)", accept = c(".tif", ".tiff"), placeholder = "input raster (.tif)"),
+      fileInput("dem_file", "Elevation Map", accept = c(".tif", ".tiff"), placeholder = "input raster (.tif)"),
       fileInput("sand_file", "Sand Content Map", accept = c(".tif", ".tiff"), placeholder = "input raster (.tif)"),
       fileInput("silt_file", "Silt Content Map", accept = c(".tif", ".tiff"), placeholder = "input raster (.tif)"),
       fileInput("clay_file", "Clay Content Map", accept = c(".tif", ".tiff"), placeholder = "input raster (.tif)"),

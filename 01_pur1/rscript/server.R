@@ -405,7 +405,7 @@ server <- function(input, output, session) {
         # write PUR reconciliation phase 1 raster
         write.dbf(PUR_dbfinal, paste0(rv$output_dir, "/PUR-build_database.dbf"))
         crs(PUR) <- crs(ref_data)
-        writeRaster(PUR, filename = paste0(rv$output_dir, "/PUR_first_phase_result"), format = "GTiff", overwrite = TRUE)
+        writeRaster(PUR, filename = paste0(rv$output_dir, "/PUR_built_planning_unit"), format = "GTiff", overwrite = TRUE)
         
         #=Save PUR final database and unresolved case(s)
         database_unresolved <- subset(PUR_dbfinal, Rec_phase1b == "unresolved_case") |> dplyr::select(-ID_rec)
@@ -425,7 +425,7 @@ server <- function(input, output, session) {
         
         # Export 
         crs(rv$pur_unresolved_vector) <- crs(ref_data)
-        writeVector(rv$pur_unresolved_vector, filename = file.path(rv$output_dir, "/PUR_first_phase_result.shp"), overwrite = TRUE)
+        writeVector(rv$pur_unresolved_vector, filename = file.path(rv$output_dir, "/PUR_built_planning_unit.shp"), overwrite = TRUE)
         write.table(data_attribute, paste0(rv$output_dir, "/PUR_attribute.csv"), quote = FALSE, row.names = FALSE, sep = ",")
         #PUR_dbfinal <- PUR_dbfinal |> select(-ID_rec)
         write.table(PUR_dbfinal, paste0(rv$output_dir, "/PUR_dbfinal.csv"), quote = FALSE, row.names = FALSE, sep = ",")
@@ -457,23 +457,21 @@ server <- function(input, output, session) {
             )
           
           # Create new parameter for export
-          database_unresolved_out1 <- database_unresolved_out_report #rv$database_unresolved_out
-          database_unresolved_out1$'Reconcile Action' <- "unresolved_case"
+          database_unresolved_out1 <- database_unresolved_out_report
+          database_unresolved_out1$'Reconcile Action' <- "unresolved"
           
           # Create the workbook
           database_unresolved_out_wb = createWorkbook()
-          
+
           # Add worksheets
           addWorksheet(database_unresolved_out_wb, "PUR_unresolved_case")
           writeData(database_unresolved_out_wb, sheet = "PUR_unresolved_case", x = as_tibble(database_unresolved_out1), startCol = 1)
           addWorksheet(database_unresolved_out_wb, "drop-down_attribute", visible = FALSE)
           pur_attribute_df <- data_attribute[data_attribute$Rec_phase1b != "unresolved_case", -1]
           names(pur_attribute_df)[1] <- "Reconcile Action"
-          new_row <- as.data.frame(matrix("unresolved_case",nrow = 1,ncol = ncol(pur_attribute_df)))
+          new_row <- as.data.frame(matrix("unresolved",nrow = 1,ncol = ncol(pur_attribute_df)))
           colnames(new_row) <- colnames(pur_attribute_df)
           pur_attribute_df <- rbind(pur_attribute_df, new_row) %>% mutate(`Reconcile Action` = as.factor(`Reconcile Action`))
-          
-          #pur_attribute_df$`Reconcile Action`[1] <- "unresolved_case"
           writeData(database_unresolved_out_wb,sheet = "drop-down_attribute", x = as_tibble(pur_attribute_df), startCol = 1)
           
           # Add dropdown to Excel workbook
@@ -489,7 +487,7 @@ server <- function(input, output, session) {
             allowBlank = TRUE
           )
           # Save the workbook
-          saveWorkbook(database_unresolved_out_wb, paste0(rv$output_dir, "/PUR_unresolved_case.xlsx"), overwrite = TRUE)
+          saveWorkbook(database_unresolved_out_wb, paste0(rv$output_dir, "/PUR_reconciliation_table.xlsx"), overwrite = TRUE)
         } else {
           database_unresolved_out1 <- tibble("Reconciliation result" = "There are no unresolved areas in this analysis session")
         }
@@ -525,8 +523,8 @@ server <- function(input, output, session) {
           ref_mapping_path =  ref_mapping,
           pu_list_path = pu_units,
           dir_PURdbfinal = "PUR-build_database.dbf",
-          dir_UnresolvedCase = "PUR_unresolved_case.xlsx",
-          dir_PUR1shp = "PUR_first_phase_result.shp"
+          dir_UnresolvedCase = "PUR_reconciliation_table.xlsx",
+          dir_PUR1shp = "PUR_built_planning_unit.shp"
         )
         
         # Prepare summary data for the report

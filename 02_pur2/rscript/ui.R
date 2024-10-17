@@ -6,11 +6,11 @@ ui <- fluidPage(
   sidebarLayout(
     sidebarPanel(
       fileInput("recon_file",
-                "Unresolved Planning Unit Map",
+                "Built Planning Unit Map",
                 accept = c(".shp", ".dbf", ".shx", ".prj"),
                 multiple = T,
                 placeholder = "input shapefiles (.shp, .dbf, .shx, .prj)"),
-      fileInput("unresolved_table", "Unresolved Attribute Table", accept = c(".xlsx"), placeholder = "input table (.xlsx)"),
+      fileInput("unresolved_table", "Reconciliation Table", accept = c(".xlsx"), placeholder = "input table (.xlsx)"),
       textInput("map_resolution", "Map Resolution (m)", placeholder = "e.g., 100, 30, etc."),
       div(style = "display: flex; flex-direction: column; gap: 10px;",
           shinyDirButton("output_dir", "Select Output Directory", "Please select a directory"),

@@ -157,7 +157,7 @@ server <- function(input, output, session) {
         } else {
           cat("The CRS units are not in meters. Cannot calculate area in hectares.\n")
         }
-        
+
         # 4. Export results --------------------------------
         incProgress(0.4, detail = "Exporting Results")
         
@@ -175,6 +175,15 @@ server <- function(input, output, session) {
           summarise() %>%
           tibble::rowid_to_column("ID") %>% 
           mutate(Area = units::set_units(st_area(.), "ha"), .after=2)
+        
+        # Write raster output
+        template_raster <- rast(ext(reconciled_map_dissolved), resolution = rv$map_resolution, 
+                                crs = crs(reconciled_map_dissolved))
+        reconciled_map_raster <- rasterize(reconciled_map_dissolved, template_raster, 
+                                           field = "ID")
+        writeRaster(reconciled_map_raster, 
+                    filename = paste0(rv$output_dir, "/PUR_reconciliation_result.tif"),  
+                    overwrite = TRUE) 
         
         # 6. Export results --------------------------------
         st_write(reconciled_map_dissolved, paste0(rv$output_dir, "/PUR_reconciliation_result_dissolved.shp"),
@@ -207,6 +216,7 @@ server <- function(input, output, session) {
           recon_result_shp_path = "PUR_reconciliation_result.shp",
           recon_result_table_path = "PUR_reconciliation_lookup_table.csv",
           recon_result_shp_dis_path = "PUR_reconciliation_result_dissolved.shp",
+          recon_result_raster_path = "PUR_reconciliation_result.tif",
           final_lookup_table_path = "PUR_final_lookup_table.csv"
         )
         
