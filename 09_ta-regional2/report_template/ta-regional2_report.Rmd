@@ -51,9 +51,8 @@ analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
 ```
 </details>
 
-
 # Introduction
-This report presents the results of an analysis based on the provided maps and lookup table
+This report presents the results of an analysis based on the provided maps and lookup table.
 
 # Analysis Results
 

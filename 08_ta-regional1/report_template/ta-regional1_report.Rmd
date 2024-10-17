@@ -80,12 +80,14 @@ analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
 
 # Introduction
 
-This report presents the results of an analysis based on the provided maps and lookup table
+This report presents the results of an analysis based on the provided maps and lookup table.
 
 # Analysis Results
 
 ## Analysis of Sectoral Linkages 
+
 ### Table 1. Sectoral linkages
+Sectoral linkage consists of Direct Backward Linkage (DBL) and Direct Forward Linkage (DFL) represents connection between sector in a regional economy.
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 dt_linkage <- params$Linkages_table %>%
@@ -95,16 +97,22 @@ DT::datatable(dt_linkage)
 ```
 
 ### Direct Backward Linkages graph
+This indicates how much demand a sector creates for inputs from other sectors. If a sector shows a strong backward linkage, it suggests that it relies heavily on other industries for resources and services.
+
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 plot(params$BPD_graph)
 ```
 
 ### Direct Forward Linkages graph 
+This measures how much output from a sector is used as an input by other sectors. A high forward linkage implies that many industries depend on this sector’s output.
+
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 plot(params$FPD_graph)
 ```
 
 ### Sectoral typology based on linkages analysis
+This categorizes sectors based on their linkages and growth potential. Sectors can be classified as key sectors, dependent sectors, or independent sectors.
+
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 plot(params$PRS_graph)
 ```
@@ -118,6 +126,8 @@ DT::datatable(dt_p.sector)
 ```
 
 ## Analysis of GDP 
+The GDP table presents data for each sector’s contribution to the region’s GDP, showing trends over time. This can reveal whether certain sectors are growing or shrinking in economic significance.
+
 ### Sectoral GDP Table
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 dt_GDP <- params$GDP %>%
@@ -142,21 +152,29 @@ DT::datatable(dt_multiplier)
 ```
 
 ### Output Multiplier
+This shows how much additional output is generated for each unit of output in a sector. A high output multiplier indicates that a sector has strong spillover effects on the wider economy.
+
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 plot(params$OMPL_graph)
 ```
 
 ### Input Multiplier
+This reflects how much additional input a sector demands from others. Sectors with high input multipliers create substantial demand for upstream products.
+
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 plot(params$IMPL_graph)
 ```
 
 ### Labour Multiplier
+This represents the number of jobs generated for each unit of output in a sector. A high labor multiplier indicates that the sector is labor-intensive and can create employment opportunities.
+
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 plot(params$LMPL_graph)
 ```
 
 ### Land Requirement Table
+This table outlines the amount of land required by each sector based on production levels and sectoral needs. It quantifies how much land is used or will be needed to sustain economic activities.
+
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 dt_land.requirement_table <- params$land.requirement_table %>%
   mutate(across(where(is.numeric), ~ scales::number(.x, accuracy = 0.01, big.mark = ",")))
@@ -165,6 +183,8 @@ DT::datatable(dt_land.requirement_table)
 ```
 
 ### Land Requirement Coefficient Graph 
+This coefficient represents the efficiency of land use by each sector. A higher coefficient means that a sector uses land more efficiently relative to its output.
+
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 plot(params$LRC_graph)
 ```
