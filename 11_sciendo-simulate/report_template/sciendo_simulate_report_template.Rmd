@@ -121,6 +121,8 @@ for(i in list_luc){
       text = c(
         "```{r}",
         "#| echo: false",
+        "#| message: false",
+        "#| warning: false",
         "r %>% plot_categorical_raster()",
         "```"
       ), quiet = TRUE
@@ -137,13 +139,12 @@ for(i in list_luc){
 ```{r lut change, echo=FALSE, message=FALSE, warning=FALSE}
 all_freq <- calc_lc_freq(raster_list = rst_list) %>%
     abbreviate_by_column("Jenis tutupan lahan", remove_vowels = FALSE) 
-colnames(all_freq) <- c("ID", paste0("T", 1:(ncol(all_freq)-1)))
+colnames(all_freq) <- c("LC", paste0("T", 1:(ncol(all_freq)-1)))
 df_merge <- df_lc[, 1:2]
 all_freq <- all_freq %>% 
-  mutate_if(is.character, as.numeric) %>% 
-  left_join(df_merge, by = "ID") %>%
+  dplyr::left_join(df_merge, by = "LC") %>%
   dplyr::arrange(ID) %>%
-  dplyr::relocate(LC, .before = T1)
+  dplyr::relocate(ID, .before = LC)
 all_freq %>% kable() %>%
   kable_styling(bootstrap_options = c("striped", "hover"))
 ```
