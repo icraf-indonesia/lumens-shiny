@@ -30,6 +30,8 @@ library(DT)
 library(kableExtra)
 library(htmltools)
 library(terra)
+library(tidyterra)
+library(ggplot2)
 library(LUMENSR)
 ```
 
