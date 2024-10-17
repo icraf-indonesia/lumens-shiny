@@ -28,7 +28,7 @@ Planning unit reconciliation is a process to resolve overlapping permits by refe
 
 Follow these steps to use the module:
 
-![](images/PUR-Reconcile.gif){style="max-width:80%; height:auto;"}
+![](images/PUR2_GUI_10pfs_new.gif){style="max-width:80%; height:auto;"}
 
 # Accessing Outputs
 

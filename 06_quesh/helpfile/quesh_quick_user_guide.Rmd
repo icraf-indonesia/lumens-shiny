@@ -27,7 +27,7 @@ $$
 A = R \times K \times LS \times C \times P
 $$
 
-RUSLE is a multiplicative model where each factor influences the overall soil loss. Soil loss ($A$) is the average annual soil loss per unit area (tons per hectare per year). All factors except R and K are dimensionless. The model can be applied at field, watershed, or regional scales, depending on data availability.
+RUSLE is a multiplicative model where each factor influences the overall soil loss. Soil loss ( $A$ ) is the average annual soil loss per unit area (tons per hectare per year). All factors except R and K are dimensionless. The model can be applied at field, watershed, or regional scales, depending on data availability.
 
 **Components**
 
@@ -97,7 +97,7 @@ RUSLE is a multiplicative model where each factor influences the overall soil lo
 
 Follow these steps to use the module:
 
-![](images/QUES-H_GUI_10pfs.gif){style="max-width:80%; height:auto;"}
+![](images/QUES-H_GUI_10pfs_new.gif){style="max-width:80%; height:auto;"}
 
 # Accessing Outputs
 
