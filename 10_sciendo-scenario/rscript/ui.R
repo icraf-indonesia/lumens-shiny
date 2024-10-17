@@ -313,12 +313,6 @@ ui <-
           fileInput("quescdb", "Load QUES-C Database (.csv)", accept = ".csv"),
           div(style = "display: flex; flex-direction: column; gap: 10px;",
               shinyDirButton("output_dir", "Select output directory", "Please select a directory"),
-              # actionButton("processSCIENDO", "Run", 
-              #              style = "font-size: 18px; padding: 10px 15px; background-color: #4CAF50; color: white;"),
-              hidden(
-                actionButton("openReport", "Open Report",
-                             style = "font-size: 18px; padding: 10px 15px; background-color: #008CBA; color: white;")
-              ),
               actionButton("returnButton", "Return to Main Menu", 
                            style = "font-size: 18px; padding: 10px 15px; background-color: #FA8072; color: white;")
           )
@@ -350,6 +344,10 @@ ui <-
             "open_report",
             "Open Report",
             style = "font-size: 18px; padding: 10px 15px; background-color: #008CBA; color: white;")
+        ),
+        hidden(
+          actionButton("open_output_folder", "Open Output Folder",
+                       style = "font-size: 18px; padding: 10px 15px; background-color: #008CBA; color: white;")
         )
       )
     ),

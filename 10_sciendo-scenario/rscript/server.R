@@ -764,6 +764,7 @@ server <- function(input, output, session) {
       incProgress(0.9, detail = paste("Preparing report"))
       v$output_file <- generate_sciendo_scen_report(out, v$output_dir)
       shinyjs::show("open_report")
+      shinyjs::show("open_output_folder")
     })
     
   })
@@ -778,6 +779,16 @@ server <- function(input, output, session) {
     }
   })
   
+  # Open output folder
+  observeEvent(input$open_output_folder, {
+    if (!is.null(v$output_dir)) {
+      if (.Platform$OS.type == "windows") {
+        shell.exec(v$output_dir)
+      } else {
+        system2("open", v$output_dir)
+      }
+    }
+  })
   
   ### PROJECTION ######################
   
@@ -1913,6 +1924,7 @@ server <- function(input, output, session) {
   })
   
   volumes <- c(
+    Home = fs::path_home(), "R Installation" = R.home(), 
     getVolumes()()
   )
   
@@ -1945,9 +1957,21 @@ server <- function(input, output, session) {
   })
   
   observeEvent(input$returnButton, {
-    js$closeWindow()
-    message("Return to main menu!")
-    # shinyjs::delay(1000, stopApp())
+    shinyalert(
+      title = "Confirmation",
+      text =  "Do you want to return to main menu?",
+      showCancelButton = TRUE,
+      size = "xs",
+      type = "warning",
+      inputId = "alert"
+    )
   })
   
+  observeEvent(input$alert, {
+    if(input$alert) {
+      js$closeWindow()
+      message("Return to main menu!")  
+      shinyjs::delay(1000, stopApp())
+    }
+  })
 }

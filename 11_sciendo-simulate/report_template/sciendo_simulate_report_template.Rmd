@@ -79,7 +79,7 @@ Land use change simulation results are based on the `r params$inputs$rep` iterat
 ```{r Land-Use/Cover Map T1, echo=FALSE, message=FALSE, warning=FALSE}
 df_lc <- read.csv(params$input$lc_lookup_table_path)
 #=Load landuse for two time periods
-lc_t1 <- params$inputs$lc_t1_path %>% terra::rast() %>%
+lc_t1 <- params$inputs$lc_t1_path %>% rast() %>%
   add_legend_to_categorical_raster(., lookup_table = df_lc)
 plot_categorical_raster(lc_t1)
 ```
@@ -108,17 +108,18 @@ list_luc <- params$inputs$output_dir %>%
 rst_list <- list()
 counter <- 0
 for(i in list_luc){
-  r <- i %>% rast() 
+  r <- i %>% rast() %>%
+    add_legend_to_categorical_raster(., lookup_table = df_lc)
   rst_list[[i]] <- r
   counter <- counter + 1
   
-  cat("### Projected land cover at T", counter, "\n\n")
+  cat(paste0("### Projected land cover at T", counter, " \n\n"))
   cat(
     knitr::knit_child(
       text = c(
         "```{r}",
         "#| echo: false",
-        "r %>% plot()",
+        "r %>% plot_categorical_raster()",
         "```"
       ), quiet = TRUE
     ), sep = "\n"

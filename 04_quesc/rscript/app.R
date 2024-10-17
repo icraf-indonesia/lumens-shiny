@@ -19,7 +19,8 @@ install_load(
   "remotes",
   "shinyjs",
   "rmarkdown",
-  "bslib"
+  "bslib",
+  "shinyalert"
 )
 
 if (!("LUMENSR" %in% rownames(installed.packages()))) {
@@ -52,6 +53,10 @@ ui <- fluidPage(
                        style = "font-size: 18px; padding: 10px 15px; background-color: #4CAF50; color: white;"),
           hidden(
             actionButton("openReport", "Open Report",
+                         style = "font-size: 18px; padding: 10px 15px; background-color: #008CBA; color: white;")
+          ),
+          hidden(
+            actionButton("open_output_folder", "Open Output Folder",
                          style = "font-size: 18px; padding: 10px 15px; background-color: #008CBA; color: white;")
           ),
           actionButton("returnButton", "Return to Main Menu", 
@@ -101,6 +106,7 @@ server <- function(input, output, session) {
   map_list <- c("mapz", "map1", "map2")
   
   volumes <- c(
+    Home = fs::path_home(), "R Installation" = R.home(), 
     getVolumes()()
   )
   
@@ -268,6 +274,7 @@ server <- function(input, output, session) {
         removeNotification("running_notification")
         showNotification("Analysis completed successfully!", type = "message")
         shinyjs::show("openReport")
+        shinyjs::show("open_output_folder")
       }, error = function(e) {
         output$status_messages <- renderText(paste("Error in analysis:", e$message))
         output$error_messages <- renderText(paste("Error in analysis:", e$message))
@@ -290,14 +297,38 @@ server <- function(input, output, session) {
     }
   })
   
+  # Open output folder
+  observeEvent(input$open_output_folder, {
+    if (!is.null(rv$wd)) {
+      if (.Platform$OS.type == "windows") {
+        shell.exec(rv$wd)
+      } else {
+        system2("open", rv$wd)
+      }
+    }
+  })
+  
   session$onSessionEnded(function() {
     stopApp()
   })
   
   observeEvent(input$returnButton, {
-    js$closeWindow()
-    message("Return to main menu!")
-    # shinyjs::delay(1000, stopApp())
+    shinyalert(
+      title = "Confirmation",
+      text =  "Do you want to return to main menu?",
+      showCancelButton = TRUE,
+      size = "xs",
+      type = "warning",
+      inputId = "alert"
+    )
+  })
+  
+  observeEvent(input$alert, {
+    if(input$alert) {
+      js$closeWindow()
+      message("Return to main menu!")  
+      shinyjs::delay(1000, stopApp())
+    }
   })
 }
 

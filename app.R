@@ -1,5 +1,16 @@
 library(shiny)
-# library(callr)
+
+call_lumens_shiny_module <- function(r_script, module_name) {
+  msg <- paste0("Running ", module_name)
+  showNotification(msg, type = "message", duration = NULL, id = "running_message")
+  
+  command <- paste0("rscript.exe ", r_script)
+  system(command)
+  
+  removeNotification("running_message")
+  msg <- paste0(module_name, " has closed")
+  showNotification(msg, type = "message")
+}
 
 ui <- htmlTemplate("index.html",
                    button01 = actionButton("buildButton", "Build"),
@@ -19,81 +30,55 @@ ui <- htmlTemplate("index.html",
 
 server <- function(input, output) {
   observeEvent(input$buildButton, {
-    showNotification("Running PUR Build", type = "message")
-    system("rscript.exe call01.R")
+    call_lumens_shiny_module("call01.R", "PUR Build")
   })
   
   observeEvent(input$reconcileButton, {
-    showNotification("Running PUR Reconcile", type = "message")
-    system("rscript.exe call02.R")
+    call_lumens_shiny_module("call02.R", "PUR Reconcile")
   })
   
   observeEvent(input$prequesButton, {
-    showNotification("Running Pre-QUES", type = "message")
-    system("rscript.exe call03.R")
+    call_lumens_shiny_module("call03.R", "Pre-QUES")
   })
   
   observeEvent(input$quescButton, {
-    showNotification("Running QUES-C", type = "message")
-    # #1
-    # rstudioapi::jobRunScript(path = "call04.R")
-    #
-    # #2
-    # a <- r_session$new()
-    # a$call(
-    #   function(){
-    #     shiny::runApp('04_quesc/rscript/',  port = 875)
-    #   }
-    # )
-    # 
-    # utils::browseURL("http://localhost:875")
-    
-    system("rscript.exe call04.R")
+    call_lumens_shiny_module("call04.R", "QUES-C")
   })
   
   observeEvent(input$quesbButton, {
-    showNotification("Running QUES-B", type = "message")
-    system("rscript.exe call05.R")
+    call_lumens_shiny_module("call05.R", "QUES-B")
   })
   
   observeEvent(input$queshButton, {
-    showNotification("Running QUES-H", type = "message")
-    system("rscript.exe call06.R")
+    call_lumens_shiny_module("call06.R", "QUES-H")
   })
   
   observeEvent(input$taProfitButton, {
-    showNotification("Running LU Profitability", type = "message")
-    system("rscript.exe call07.R")
+    call_lumens_shiny_module("call07.R", "LU Profitability")
   })
   
   observeEvent(input$reDescButton, {
-    showNotification("Running RE Descriptive", type = "message")
-    system("rscript.exe call08.R")
+    call_lumens_shiny_module("call08.R", "RE Descriptive")
   })
   
   observeEvent(input$reProjButton, {
-    showNotification("Running RE Projection", type = "message")
-    system("rscript.exe call09.R")
+    call_lumens_shiny_module("call09.R", "RE Projection")
   })  
   
   observeEvent(input$scenarioBuilderButton, {
-    showNotification("Running SCIENDO Scenario Builder", type = "message")
-    system("rscript.exe call10.R")
+    call_lumens_shiny_module("call10.R", "Scenario Builder")
   })
   
   observeEvent(input$trainModelButton, {
-    showNotification("Running SCIENDO Train Model", type = "message")
-    system("rscript.exe call11.R")
+    call_lumens_shiny_module("call11.R", "SCIENDO Train Model")
   })
   
   observeEvent(input$simulateBuilderButton, {
-    showNotification("Running SCIENDO Simulate", type = "message")
-    system("rscript.exe call12.R")
+    call_lumens_shiny_module("call12.R", "SCIENDO Simulate")
   })
   
   observeEvent(input$lasemButton, {
-    showNotification("Running LASEM", type = "message")
-    system("rscript.exe call13.R")
+    call_lumens_shiny_module("call13.R", "LASEM")
   })
 }
 

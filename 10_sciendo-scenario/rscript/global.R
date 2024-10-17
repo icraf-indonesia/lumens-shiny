@@ -39,7 +39,8 @@ install_load(
   "rmarkdown",
   "shinyjs",
   "shinyvalidate",
-  "shinyFiles"
+  "shinyFiles",
+  "shinyalert"
 )
 
 if (!("abacuslib" %in% rownames(installed.packages()))) {
