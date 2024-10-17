@@ -74,6 +74,8 @@ analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
 
 # Summary
 
+This report presents the results of an analysis based on the provided maps and lookup table.
+
 ```{r input-data, echo=FALSE, message=FALSE, warning=FALSE}
 x <- params$inputs$zone_path
 period <- as.numeric(params$inputs$year2) - as.numeric(params$inputs$year1)
@@ -105,8 +107,6 @@ lc_t1 <- lc_t1 %>% terra::rast() %>%
 lc_t2 <- lc_t2 %>% terra::rast() %>%
   add_legend_to_categorical_raster(., lookup_table = df_lc, year = as.numeric(params$inputs$year2))
 ```
-
-This report presents the results of an analysis based on the provided maps and lookup table.
 
 
 # Module brief description

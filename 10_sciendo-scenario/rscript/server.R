@@ -628,6 +628,14 @@ server <- function(input, output, session) {
     updateSelectInput(session, "iteration_select_c", choices = pl)
   })
   
+  rename_uploaded_file <- function(input_file) {
+    if (is.null(input_file)) return(NULL)
+    
+    old_path <- input_file$datapath
+    new_path <- file.path(dirname(old_path), input_file$name)
+    file.rename(old_path, new_path)
+    return(new_path)
+  }
   
   ### QUES-C DATABASE IMPORT #########
   observeEvent(input$quescdb, {
@@ -752,12 +760,15 @@ server <- function(input, output, session) {
       
       end_time <- Sys.time()
       
+      quescdb_path <- rename_uploaded_file(input$quescdb)
       out <- list(
         start_time = as.character(format(start_time, "%Y-%m-%d %H:%M:%S")),
         end_time = as.character(format(end_time, "%Y-%m-%d %H:%M:%S")),
         inputs = list(
           scenario_modif_list = scenario_modif_list,
-          output_dir = v$output_dir
+          output_dir = v$output_dir,
+          quescdb_path = quescdb_path,
+          quescdb = v$quescdb
         )
       )
       

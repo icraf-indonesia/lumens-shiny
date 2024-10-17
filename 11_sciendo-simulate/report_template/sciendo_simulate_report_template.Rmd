@@ -70,7 +70,7 @@ Land use change simulation results are based on the `r params$inputs$rep` iterat
 
 - SCIENDO-Simulate predicts how land use will change in the future based on the training data that is done using SCIENDO-Train where land use/cover at T1 and T2, transition probability matrix and factor maps as explanatory variables like distance maps, climate variables, etc was taking into account.     
 
-- land use/cover change lookup table provides a comprehensive overview of how land use and land cover categories have transformed across all the projected years of a study
+- Land use/cover change lookup table provides a comprehensive overview of how land use and land cover categories have transformed across all the projected years of a study
 
 # Input data {.tabset}
 
