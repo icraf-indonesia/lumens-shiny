@@ -56,9 +56,6 @@ analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
 This report presents the results of an analysis based on the provided maps and lookup table
 
 # Analysis Results
-The maps provided was carbon, emission and sequestration map.
-
-* Calculation or analysis details based on the results can be presented here.
 
 ## GDP Each Sector
 This table provides a sector-by-sector breakdown of the GDP under both the BAU and alternative scenario.

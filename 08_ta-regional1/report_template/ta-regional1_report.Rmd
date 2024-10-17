@@ -84,10 +84,6 @@ This report presents the results of an analysis based on the provided maps and l
 
 # Analysis Results
 
-The maps provided was carbon, emission and sequestration map.
-
-* Calculation or analysis details based on the results can be presented here.
-
 ## Analysis of Sectoral Linkages 
 ### Table 1. Sectoral linkages
 
