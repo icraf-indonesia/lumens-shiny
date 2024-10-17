@@ -922,12 +922,13 @@ plot_suitability_factors <- function(raster_data) {
   
   ggplot(raster_df, aes(x = x, y = y, fill = suitability)) +
     geom_raster() +  
+    coord_equal() +
     scale_fill_manual(values = c("S1" = "darkgreen", 
                                  "S2" = "lightgreen", 
                                  "S3" = "darkorange", 
                                  "N" = "darkred"), 
                       name = "Suitability") +  
-    facet_wrap(~ variable, ncol = 4) +  
+    facet_wrap(~ variable, ncol = 5) +  
     theme_minimal() +  
     theme(legend.position = "right",
           strip.text = element_text(size = 10, face = "bold"),
