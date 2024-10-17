@@ -73,17 +73,17 @@ analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
 
 </details>
 
-## Summary
+# Summary
 
 The total area analyzed was `r format(round(params$total_area, 2), big.mark = ",")` hectares. This report displays the resolved reconciled area of the overlapping zone identified from the PUR Build Module.
 
-## Module brief description
+# Module brief description
 
 Planning unit reconciliation is a process to resolve overlapping permits by referring to function reference maps. Reconciliation is done by analyzing how well the permit data matches the reference data. Permit data can include things like forest management concessions, plantation permits, mining permits, and others. Reference data can be spatial planning data or area designation data.
 
-## Results
+# Results
 
-### Reconciliation Results Map
+## Reconciliation Results Map
 ```{r Reconciliation Result Map, echo=FALSE}
 n_colors <- length(unique(params$sa$Rec_phase2))
 colors <- brewer.pal(n = min(n_colors, 12), name = "Set3")
@@ -120,7 +120,7 @@ combined_plot <- plot_grid(
 knitr::knit_print(combined_plot)
 ```
 
-### Reconciliation Data Summary
+## Reconciliation Data Summary
 
 The table below summarizes the final reconciliation results:
 
