@@ -1,42 +1,42 @@
 ID,LC,ID_Traj,Trajectory,color_palette
-1,Hutan Primer,1,Undisturbed forest,#005500
-2,Hutan bekas tebangan kerapatan tinggi,2,Logged-over forest,#009933
-3,Hutan bekas tebangan kerapatan rendah,2,Logged-over forest,#999900
-4,Hutan Rawa Primer,1,Undisturbed forest,#663300
-5,Hutan Rawa Sekunder,2,Logged-over forest,#996600
-6,Hutan Rawa Primer Gambut,1,Undisturbed forest,#999900
-7,Hutan Rawa Sekunder Gambut,2,Logged-over forest,#e68a00
-8,Hutan Mangrove Primer,1,Undisturbed forest,#80ffbf
-9,Hutan Mangrove Sekunder,2,Logged-over forest,#ffcc99
-10,Agroforestri karet,6,Mixed tree-based plantation,#d86b00
-11,Agoroforestri kelapa/pinang,6,Mixed tree-based plantation,#ffaa7f
-12,Agroforestri kayu manis,6,Mixed tree-based plantation,#aaff7f
-13,Agroforestri kopi,6,Mixed tree-based plantation,#a9ba9d
-14,Kebun campuran,6,Mixed tree-based plantation,#ff9200
-15,HTI Akasia,3,Monoculture tree-based plantation,#00e5ff
-16,Karet monokultur,3,Monoculture tree-based plantation,#7f14b8
-17,Kelapa sawit,3,Monoculture tree-based plantation,#ff55ff
-18,Kelapa,3,Monoculture tree-based plantation,#ff0000
-19,Semak,4,"Shrub, grass, and cleared land",#ffcc99
-20,Lahan pertanian,5,Agriculture/annual crop,#ffdd00
-21,Sawah,5,Agriculture/annual crop,#ffff66
-22,Perkebunan teh,3,Monoculture tree-based plantation,#ff00ff
-23,Rumput,4,"Shrub, grass, and cleared land",#00557f
-24,Lahan terbuka,4,"Shrub, grass, and cleared land",#ff0000
-25,Pemukiman,8,Settlement and built-up area,#ffccff
-26,Agroforestri karet gambut,6,Mixed tree-based plantation,#663300
-27,Agoroforestri kelapa/pinang gambut,6,Mixed tree-based plantation,#996600
-29,Agroforestri kopi gambut,6,Mixed tree-based plantation,#666633
-30,Kebun campuran gambut,6,Mixed tree-based plantation,#999900
-31,HTI Akasia gambut,3,Monoculture tree-based plantation,#e68a01
-32,Karet monokultur gambut,3,Monoculture tree-based plantation,#80ffbf
-33,Kelapa sawit gambut,3,Monoculture tree-based plantation,#ffcc100
-34,Kelapa gambut,3,Monoculture tree-based plantation,#ffbf81
-35,Semak gambut,4,"Shrub, grass, and cleared land",#ccffe7
-36,Lahan pertanian gambut,5,Agriculture/annual crop,#ff9901
-37,Sawah gambut,5,Agriculture/annual crop,#cc00ff
-39,Rumput gambut,4,"Shrub, grass, and cleared land",#ffff67
-40,Lahan terbuka gambut,4,"Shrub, grass, and cleared land",#b3b3ff
-41,Pemukiman gambut,8,Settlement and built-up area,#ffccff
-42,Air,7,Others,#00007f
-43,Kayu manis monokultur,3,Monoculture tree-based plantation,#ffaa00
+1,Primary Forest,1,Undisturbed forest,#005500
+2,Logged-over Forest (High Density),2,Logged-over forest,#009933
+3,Logged-over Forest (Low Density),2,Logged-over forest,#999900
+4,Primary Swamp Forest,1,Undisturbed forest,#663300
+5,Secondary Swamp Forest,2,Logged-over forest,#996600
+6,Primary Peat Swamp Forest,1,Undisturbed forest,#999900
+7,Secondary Peat Swamp Forest,2,Logged-over forest,#e68a00
+8,Primary Mangrove Forest,1,Undisturbed forest,#80ffbf
+9,Secondary Mangrove Forest,2,Logged-over forest,#ffcc99
+10,Rubber Agroforestry,6,Mixed tree-based plantation,#d86b00
+11,Coconut/Areca Nut Agroforestry,6,Mixed tree-based plantation,#ffaa7f
+12,Cinnamon Agroforestry,6,Mixed tree-based plantation,#aaff7f
+13,Coffee Agroforestry,6,Mixed tree-based plantation,#a9ba9d
+14,Mixed Gardens,6,Mixed tree-based plantation,#ff9200
+15,Akasia Industrial Plantation Forest,3,Monoculture tree-based plantation,#00e5ff
+16,Rubber Monoculture,3,Monoculture tree-based plantation,#7f14b8
+17,Oil Palm,3,Monoculture tree-based plantation,#ff55ff
+18,Coconut,3,Monoculture tree-based plantation,#ff0000
+19,Shrubland,4,"Shrub, grass, and cleared land",#ffcc99
+20,Agricultural Land,5,Agriculture/annual crop,#ffdd00
+21,Rice Fields,5,Agriculture/annual crop,#ffff66
+22,Tea Plantation,3,Monoculture tree-based plantation,#ff00ff
+23,Grassland,4,"Shrub, grass, and cleared land",#00557f
+24,Open Land,4,"Shrub, grass, and cleared land",#ff0000
+25,Settlement,8,Settlement and built-up area,#ffccff
+26,Peat Rubber Agroforestry,6,Mixed tree-based plantation,#663300
+27,Peat Coconut/Areca Nut Agroforestry,6,Mixed tree-based plantation,#996600
+29,Peat Coffee Agroforestry,6,Mixed tree-based plantation,#666633
+30,Peat Mixed Gardens,6,Mixed tree-based plantation,#999900
+31,Peat Akasia Industrial Plantation Forest,3,Monoculture tree-based plantation,#e68a01
+32,Peat Rubber Monoculture,3,Monoculture tree-based plantation,#80ffbf
+33,Peat Oil Palm,3,Monoculture tree-based plantation,#ffcc100
+34,Peat Coconut,3,Monoculture tree-based plantation,#ffbf81
+35,Peat Shrubland,4,"Shrub, grass, and cleared land",#ccffe7
+36,Peat Agricultural Land,5,Agriculture/annual crop,#ff9901
+37,Peat Rice Fields,5,Agriculture/annual crop,#cc00ff
+39,Peat Grassland,4,"Shrub, grass, and cleared land",#ffff67
+40,Peat Open Land,4,"Shrub, grass, and cleared land",#b3b3ff
+41,Peat Settlement,8,Settlement and built-up area,#ffccff
+42,Water,7,Others,#00007f
+43,Cinnamon Monoculture,3,Monoculture tree-based plantation,#ffaa00

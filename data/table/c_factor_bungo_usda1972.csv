@@ -1,42 +1,42 @@
 ID,C_factor,LC
-1,0.004,Hutan Primer
-2,0.004,Hutan bekas tebangan kerapatan tinggi
-3,0.004,Hutan bekas tebangan kerapatan rendah
-4,0.004,Hutan Rawa Primer
-5,0.004,Hutan Rawa Sekunder
-6,0.004,Hutan Rawa Primer Gambut
-7,0.004,Hutan Rawa Sekunder Gambut
-8,0.004,Hutan Mangrove Primer
-9,0.004,Hutan Mangrove Sekunder
-10,0.03,Agroforestri karet
-11,0.03,Agoroforestri kelapa/pinang
-12,0.03,Agroforestri kayu manis
-13,0.03,Agroforestri kopi
-14,0.03,Kebun campuran
-15,0.03,HTI Akasia
-16,0.03,Karet monokultur
-17,0.03,Kelapa sawit
-18,0.4,Kelapa
-19,0.4,Semak
-20,0.4,Lahan pertanian
-21,0.4,Sawah
-22,0.4,Perkebunan teh
-23,0.4,Rumput
-24,1,Lahan terbuka
-25,0,Pemukiman
-26,0.03,Agroforestri karet gambut
-27,0.03,Agoroforestri kelapa/pinang gambut
-29,0.03,Agroforestri kopi gambut
-30,0.03,Kebun campuran gambut
-31,0.03,HTI Akasia gambut
-32,0.03,Karet monokultur gambut
-33,0.03,Kelapa sawit gambut
-34,0.4,Kelapa gambut
-35,0.4,Semak gambut
-36,0.4,Lahan pertanian gambut
-37,0.4,Sawah gambut
-39,1,Rumput gambut
-40,1,Lahan terbuka gambut
-41,0,Pemukiman gambut
-42,0,Air
-43,0.03,Kayu manis monokultur
+1,0.004,Primary Forest
+2,0.004,Logged-over Forest (High Density)
+3,0.004,Logged-over Forest (Low Density)
+4,0.004,Primary Swamp Forest
+5,0.004,Secondary Swamp Forest
+6,0.004,Primary Peat Swamp Forest
+7,0.004,Secondary Peat Swamp Forest
+8,0.004,Primary Mangrove Forest
+9,0.004,Secondary Mangrove Forest
+10,0.03,Rubber Agroforestry
+11,0.03,Coconut/Areca Nut Agroforestry
+12,0.03,Cinnamon Agroforestry
+13,0.03,Coffee Agroforestry
+14,0.03,Mixed Gardens
+15,0.03,Akasia Industrial Plantation Forest
+16,0.03,Rubber Monoculture
+17,0.03,Oil Palm
+18,0.4,Coconut
+19,0.4,Shrubland
+20,0.4,Agricultural Land
+21,0.4,Rice Fields
+22,0.4,Tea Plantation
+23,0.4,Grassland
+24,1,Open Land
+25,0,Settlement
+26,0.03,Peat Rubber Agroforestry
+27,0.03,Peat Coconut/Areca Nut Agroforestry
+29,0.03,Peat Coffee Agroforestry
+30,0.03,Peat Mixed Gardens
+31,0.03,Peat Akasia Industrial Plantation Forest
+32,0.03,Peat Rubber Monoculture
+33,0.03,Peat Oil Palm
+34,0.4,Peat Coconut
+35,0.4,Peat Shrubland
+36,0.4,Peat Agricultural Land
+37,0.4,Peat Rice Fields
+39,1,Peat Grassland
+40,1,Peat Open Land
+41,0,Peat Settlement
+42,0,Water
+43,0.03,Cinnamon Monoculture

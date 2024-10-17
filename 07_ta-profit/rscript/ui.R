@@ -10,7 +10,7 @@ fluidPage(
       fileInput("map2_file", "Land cover map at T2", accept = c("image/tiff")),
       textInput("year2", "Year of T2"),
       fileInput("npv_file", "NPV lookup table", accept = c(".csv")),
-      fileInput("carbon_file", "QUES-C table", accept = c(".csv")),
+      fileInput("carbon_file", "QUES-C database", accept = c(".csv")),
       textInput("raster_nodata", "No Data"),
       div(style = "display: flex; flex-direction: column; gap: 10px;",
           shinyDirButton("wd", "Select Output Directory", "Please select a directory"),
@@ -18,7 +18,7 @@ fluidPage(
           actionButton("process", "Run Analysis",
                        style = "font-size: 18px; padding: 10px 15px; background-color: #4CAF50; color: white;"),
           hidden(
-            actionButton("open_report", "View Report",
+            actionButton("open_report", "Open Report",
                          style = "font-size: 18px; padding: 10px 15px; background-color: #008CBA; color: white;")
           ),
           hidden(

@@ -1,9 +1,9 @@
 REFERENCE,ID
-Hutan Lindung,1
-Hutan Produksi,2
-Perkebunan,2
-Perkotaaan,3
-Pertanian Lahan Basah,2
-Pertanian Lahan Kering,2
-Sempadan Sungai,1
-Taman Nasional Kerinci Sebelat,1
+Protected Forest,1
+Production Forest,2
+Plantation,2
+Settlement,3
+Agricultural Wetlands,2
+Agricultural Drylands,2
+Riparian Zone,1
+Kerinci Seblat National Park,1
