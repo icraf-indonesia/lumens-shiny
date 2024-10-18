@@ -1,42 +1,42 @@
-ID,C_factor,LC
-1,0.004,Primary Forest
-2,0.004,Logged-over Forest (High Density)
-3,0.004,Logged-over Forest (Low Density)
-4,0.004,Primary Swamp Forest
-5,0.004,Secondary Swamp Forest
-6,0.004,Primary Peat Swamp Forest
-7,0.004,Secondary Peat Swamp Forest
-8,0.004,Primary Mangrove Forest
-9,0.004,Secondary Mangrove Forest
-10,0.03,Rubber Agroforestry
-11,0.03,Coconut/Areca Nut Agroforestry
-12,0.03,Cinnamon Agroforestry
-13,0.03,Coffee Agroforestry
-14,0.03,Mixed Gardens
-15,0.03,Akasia Industrial Plantation Forest
-16,0.03,Rubber Monoculture
-17,0.03,Oil Palm
-18,0.4,Coconut
-19,0.4,Shrubland
-20,0.4,Agricultural Land
-21,0.4,Rice Fields
-22,0.4,Tea Plantation
-23,0.4,Grassland
-24,1,Open Land
-25,0,Settlement
-26,0.03,Peat Rubber Agroforestry
-27,0.03,Peat Coconut/Areca Nut Agroforestry
-29,0.03,Peat Coffee Agroforestry
-30,0.03,Peat Mixed Gardens
-31,0.03,Peat Akasia Industrial Plantation Forest
-32,0.03,Peat Rubber Monoculture
-33,0.03,Peat Oil Palm
-34,0.4,Peat Coconut
-35,0.4,Peat Shrubland
-36,0.4,Peat Agricultural Land
-37,0.4,Peat Rice Fields
-39,1,Peat Grassland
-40,1,Peat Open Land
-41,0,Peat Settlement
-42,0,Water
-43,0.03,Cinnamon Monoculture
+ID,C_factor,LC,color_palette
+1,0.004,Primary Forest,#005500
+2,0.004,Logged-over Forest (High Density),#009933
+3,0.004,Logged-over Forest (Low Density),#999900
+4,0.004,Primary Swamp Forest,#663300
+5,0.004,Secondary Swamp Forest,#996600
+6,0.004,Primary Peat Swamp Forest,#999900
+7,0.004,Secondary Peat Swamp Forest,#e68a00
+8,0.004,Primary Mangrove Forest,#80ffbf
+9,0.004,Secondary Mangrove Forest,#ffcc99
+10,0.03,Rubber Agroforestry,#d86b00
+11,0.03,Coconut/Areca Nut Agroforestry,#ffaa7f
+12,0.03,Cinnamon Agroforestry,#aaff7f
+13,0.03,Coffee Agroforestry,#a9ba9d
+14,0.03,Mixed Gardens,#ff9200
+15,0.03,Akasia Industrial Plantation Forest,#00e5ff
+16,0.03,Rubber Monoculture,#7f14b8
+17,0.03,Oil Palm,#ff55ff
+18,0.4,Coconut,#ff0000
+19,0.4,Shrubland,#ffcc99
+20,0.4,Agricultural Land,#ffdd00
+21,0.4,Rice Fields,#ffff66
+22,0.4,Tea Plantation,#ff00ff
+23,0.4,Grassland,#00557f
+24,1,Open Land,#ff0000
+25,0,Settlement,#ffccff
+26,0.03,Peat Rubber Agroforestry,#663300
+27,0.03,Peat Coconut/Areca Nut Agroforestry,#996600
+29,0.03,Peat Coffee Agroforestry,#666633
+30,0.03,Peat Mixed Gardens,#999900
+31,0.03,Peat Akasia Industrial Plantation Forest,#e68a01
+32,0.03,Peat Rubber Monoculture,#80ffbf
+33,0.03,Peat Oil Palm,#ffcc100
+34,0.4,Peat Coconut,#ffbf81
+35,0.4,Peat Shrubland,#ccffe7
+36,0.4,Peat Agricultural Land,#ff9901
+37,0.4,Peat Rice Fields,#cc00ff
+39,1,Peat Grassland,#ffff67
+40,1,Peat Open Land,#b3b3ff
+41,0,Peat Settlement,#ffccff
+42,0,Water,#00007f
+43,0.03,Cinnamon Monoculture,#ffaa00
