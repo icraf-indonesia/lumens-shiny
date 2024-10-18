@@ -79,7 +79,7 @@ Land use change simulation results are based on the `r params$inputs$rep` iterat
 ## Land-Use/Cover Map Initial
 
 ```{r Land-Use/Cover Map T1, echo=FALSE, message=FALSE, warning=FALSE}
-df_lc <- read.csv(params$input$lc_lookup_table_path)
+df_lc <- read.csv(params$inputs$lc_lookup_table_path)
 #=Load landuse for two time periods
 lc_t1 <- params$inputs$lc_t1_path %>% rast() %>%
   add_legend_to_categorical_raster(., lookup_table = df_lc)
