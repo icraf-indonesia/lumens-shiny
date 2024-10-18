@@ -10,7 +10,7 @@ Before using the SCIENDO Simulate tool, prepare the following:
 6.  **Weight of Evidence**: A list of DCF file containing weight of evidence of factor maps produced by SCIENDO Train.
 7.  **DINAMICA EGO Path (Optional)**: A custom path to the DINAMICA EGO directory installed on your PC if DINAMICA EGO is installed in a custom installation directory. The default path will be used if not specified, assuming the default DINAMICA EGO installation directory.
 
-> <font size="2">Before running the SCIENDO Simulate  module, ensure that you have downloaded and installed the DINAMICA EGO software. Dinamica EGO is a free and non-commercial platform for environmental modeling with outstanding possibilities for the design. You can download the latest version 8 [**here**](https://csr.ufmg.br/dinamica/dinamica-8/) but it still compatible with older version. For further description, please visit the [DINAMICA EGO Documentation](https://dinamicaego.com/dokuwiki/doku.php?id=guidebook_start).</font>
+> <font size="2">Before running the SCIENDO Simulate  module, ensure that you have downloaded and installed the DINAMICA EGO software. Dinamica EGO is a free and non-commercial platform for environmental modeling with outstanding possibilities for the design. You can download the version 6 or lower [**here**](https://csr.ufmg.br/dinamica/dinamica-6/) but it still compatible with older version. For further description, please visit the [DINAMICA EGO Documentation](https://dinamicaego.com/dokuwiki/doku.php?id=guidebook_start).</font>
 
 ## Using the SCIENDO Simulate Analysis Tool
 
