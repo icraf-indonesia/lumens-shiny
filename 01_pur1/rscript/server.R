@@ -109,7 +109,6 @@ server <- function(input, output, session) {
         
         # Data preparation
         incProgress(0.1, detail = "Preparing data")
-
         shinyjs::disable("run_analysis")
         rv$map_resolution <- as.numeric(rv$map_resolution)
         ref_data <- read_shapefile(shp_input = rv$ref_map)
@@ -167,10 +166,11 @@ server <- function(input, output, session) {
           lut_table <- pu_list[i, 5]
           # pu_vector <- st_read(file.path(dirname(lut_table), paste0(data_name, ".shp")))
           pu_vector <- st_read(file.path(paste0(lut_table)))
-          pu_raster <- rasterise_multipolygon(sf_object = pu_vector, raster_res = c(rv$map_resolution, rv$map_resolution), paste0(colnames(st_drop_geometry(pu_vector[1]))))
-          print(pu_raster)
+          pu_raster_raw <- rasterise_multipolygon(sf_object = pu_vector, raster_res = c(rv$map_resolution, rv$map_resolution), paste0(colnames(st_drop_geometry(pu_vector[1]))))
+          print(pu_raster_raw)
           pu_lut_list[[i]] <- lut_table
           central_attr <- append(central_attr, data_name)
+          pu_raster <- terra::resample(pu_raster_raw, ref, method = "near")
           pu_raster[is.na(pu_raster)] <- 0
           # pu_raster <- reclassify(pu_raster, cbind(255, 0))  # Reclassify 255 values to 0
           names(pu_raster) <- data_name
@@ -427,6 +427,10 @@ server <- function(input, output, session) {
         crs(rv$pur_unresolved_vector) <- crs(ref_data)
         writeVector(rv$pur_unresolved_vector, filename = file.path(rv$output_dir, "/PUR_built_planning_unit.shp"), overwrite = TRUE)
         write.table(data_attribute, paste0(rv$output_dir, "/PUR_attribute.csv"), quote = FALSE, row.names = FALSE, sep = ",")
+        
+        # export_vector <- rv$pur_unresolved_vector[, c("ID", "Rec_phase2")]
+        # writeVector(export_vector, filename = file.path(rv$output_dir, "/PUR_built_planning_unit.shp"), overwrite = TRUE)
+        
         #PUR_dbfinal <- PUR_dbfinal |> select(-ID_rec)
         write.table(PUR_dbfinal, paste0(rv$output_dir, "/PUR_dbfinal.csv"), quote = FALSE, row.names = FALSE, sep = ",")
         
