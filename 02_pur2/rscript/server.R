@@ -104,7 +104,7 @@ server <- function(input, output, session) {
         ref <- rasterise_multipolygon(sf_object = sa, raster_res = c(rv$map_resolution, rv$map_resolution), field = paste0(colnames(st_drop_geometry(sa[1]))))
         
         unresolved_edit <- readxl::read_xlsx(u)
-        
+
         # select ID and Reconcile action column
         reconcile_scenario <- unresolved_edit %>% 
           dplyr::rename("ID"=1, 
@@ -138,7 +138,7 @@ server <- function(input, output, session) {
         incProgress(0.2, detail = "Resolve Any Unresolved Cases")
         
         reconciled_map <- sa %>%
-          dplyr::select(-ID_rec) %>% 
+          # dplyr::select(-ID_rec) %>% 
           left_join(reconcile_scenario, by = "ID") %>%
           mutate(Rec_phase2 = ifelse(!is.na(`Reconcile Action`), `Reconcile Action`, Rec_phase2)) %>%
           dplyr::select(-`Reconcile Action`)

@@ -425,11 +425,11 @@ server <- function(input, output, session) {
         
         # Export 
         crs(rv$pur_unresolved_vector) <- crs(ref_data)
-        writeVector(rv$pur_unresolved_vector, filename = file.path(rv$output_dir, "/PUR_built_planning_unit.shp"), overwrite = TRUE)
+        # writeVector(rv$pur_unresolved_vector, filename = file.path(rv$output_dir, "/PUR_built_planning_unit.shp"), overwrite = TRUE)
         write.table(data_attribute, paste0(rv$output_dir, "/PUR_attribute.csv"), quote = FALSE, row.names = FALSE, sep = ",")
         
-        # export_vector <- rv$pur_unresolved_vector[, c("ID", "Rec_phase2")]
-        # writeVector(export_vector, filename = file.path(rv$output_dir, "/PUR_built_planning_unit.shp"), overwrite = TRUE)
+        export_vector <- rv$pur_unresolved_vector[, c("ID", "Rec_phase2")]
+        writeVector(export_vector, filename = file.path(rv$output_dir, "/PUR_built_planning_unit.shp"), overwrite = TRUE)
         
         #PUR_dbfinal <- PUR_dbfinal |> select(-ID_rec)
         write.table(PUR_dbfinal, paste0(rv$output_dir, "/PUR_dbfinal.csv"), quote = FALSE, row.names = FALSE, sep = ",")
