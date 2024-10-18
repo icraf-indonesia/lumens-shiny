@@ -13,7 +13,8 @@ required_packages <- c(
   "DBI",
   "RSQLite",
   "rmarkdown",
-  "bslib"
+  "bslib",
+  "shinyalert"
 )
 
 # Check if required packages are installed, and install them if not
@@ -282,9 +283,22 @@ server <- function(input, output, session) {
   })
   
   observeEvent(input$returnButton, {
-    js$closeWindow()
-    message("Return to main menu!")
-    # shinyjs::delay(1000, stopApp())
+    shinyalert(
+      title = "Confirmation",
+      text =  "Do you want to return to main menu?",
+      showCancelButton = TRUE,
+      size = "xs",
+      type = "warning",
+      inputId = "alert"
+    )
+  })
+  
+  observeEvent(input$alert, {
+    if(input$alert) {
+      js$closeWindow()
+      message("Return to main menu!")  
+      # shinyjs::delay(1000, stopApp())
+    }
   })
   
 }

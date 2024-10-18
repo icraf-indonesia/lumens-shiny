@@ -7,7 +7,7 @@ required_packages <- c(
   "kableExtra", "htmlTable", "knitr", "magrittr", "tidyr",
   "rlang", "stats", "utils", "methods", "sf", "ggrepel",
   "viridis", "textclean", "shiny", "shinydashboard", "shinyjs",
-  "shinyFiles", "bslib"
+  "shinyFiles", "bslib", "shinyalert"
 )
 
 
@@ -250,9 +250,22 @@ server <- function(input, output, session) {
   })
   
   observeEvent(input$returnButton, {
-    js$closeWindow()
-    message("Return to main menu!")
-    # shinyjs::delay(1000, stopApp())
+    shinyalert(
+      title = "Confirmation",
+      text =  "Do you want to return to main menu?",
+      showCancelButton = TRUE,
+      size = "xs",
+      type = "warning",
+      inputId = "alert"
+    )
+  })
+  
+  observeEvent(input$alert, {
+    if(input$alert) {
+      js$closeWindow()
+      message("Return to main menu!")  
+      # shinyjs::delay(1000, stopApp())
+    }
   })
 }
 

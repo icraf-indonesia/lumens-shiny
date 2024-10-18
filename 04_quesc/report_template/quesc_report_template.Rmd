@@ -40,6 +40,7 @@ install_load(
   "rasterVis",
   "DT",
   "kableExtra",
+  "tidyterra",
   "htmltools"
 )
 if (!("LUMENSR" %in% rownames(installed.packages()))) {

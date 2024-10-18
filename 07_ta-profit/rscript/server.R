@@ -326,10 +326,23 @@ server <- function(input, output, session) {
   
   # Return to Main Menu button observer -------------------------------------
   observeEvent(input$returnButton, {
-    js$closeWindow()
-    message("Return to main menu!")
-    # Uncomment the following line if you want to stop the app after a delay
-    # shinyjs::delay(1000, stopApp())
+    shinyalert(
+      title = "Confirmation",
+      text =  "Do you want to return to main menu?",
+      showCancelButton = TRUE,
+      size = "xs",
+      type = "warning",
+      inputId = "alert"
+    )
+  })
+  
+  observeEvent(input$alert, {
+    if(input$alert) {
+      js$closeWindow()
+      message("Return to main menu!")  
+      # Uncomment the following line if you want to stop the app after a delay
+      # shinyjs::delay(1000, stopApp())
+    }
   })
   
 }  # Closing the server function

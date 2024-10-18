@@ -49,7 +49,8 @@ install_load(
   "tidyr",
   "tidyterra",
   "ggspatial",
-  "DT"
+  "DT",
+  "shinyalert"
 )
 
 # Sync geometric properties --------------------------------------------

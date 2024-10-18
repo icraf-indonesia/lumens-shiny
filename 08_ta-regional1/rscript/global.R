@@ -37,7 +37,8 @@ install_load(
   "splitstackshape",
   "terra",
   "shinyjs",
-  "DT"
+  "DT",
+  "shinyalert"
 )
 
 format_session_info_table <- function() {

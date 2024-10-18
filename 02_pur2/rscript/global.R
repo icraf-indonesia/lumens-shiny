@@ -41,7 +41,8 @@ install_load(
   "tidyterra",
   "ggspatial",
   "RColorBrewer",
-  "cowplot"
+  "cowplot",
+  "shinyalert"
 )
 
 #' Rasterize an sf MULTIPOLYGON object
