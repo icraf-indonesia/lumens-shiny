@@ -35,7 +35,8 @@ install_load(
   "shinyvalidate",
   "splitstackshape",
   "terra", 
-  "shinyjs"
+  "shinyjs",
+  "shinyalert"
 )
 
 if (!("LUMENSR" %in% rownames(installed.packages()))) {

@@ -23,7 +23,8 @@ required_packages <- c(
   "knitr",
   "ggplot2",
   "patchwork",
-  "tidyterra"
+  "tidyterra",
+  "shinyalert"
 )
 
 # Function to check and install required packages
@@ -380,9 +381,22 @@ server <- function(input, output, session) {
   
   # Return to main menu
   observeEvent(input$returnButton, {
-    js$closeWindow()
-    message("Return to main menu!")
-    # You can add additional code here to handle returning to the main menu if needed
+    shinyalert(
+      title = "Confirmation",
+      text =  "Do you want to return to main menu?",
+      showCancelButton = TRUE,
+      size = "xs",
+      type = "warning",
+      inputId = "alert"
+    )
+  })
+  
+  observeEvent(input$alert, {
+    if(input$alert) {
+      js$closeWindow()
+      message("Return to main menu!")  
+      # You can add additional code here to handle returning to the main menu if needed
+    }
   })
 }
 
