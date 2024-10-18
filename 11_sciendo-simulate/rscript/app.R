@@ -275,7 +275,7 @@ server <- function(input, output, session) {
       tryCatch({
         result <- run_sciendo_simulate_process(
           lc_t1_path = rv$map1_file,
-          lc_lookup_table_path = rv$lc_file,
+          lc_lookup_table_path = rv$lc_path,
           lc_lookup_table = rv$lc_df,
           zone_path = rv$mapz_file,
           ers_path = rv$rc, 
