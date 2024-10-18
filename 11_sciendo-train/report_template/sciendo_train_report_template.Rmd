@@ -187,16 +187,19 @@ for(i in 1:out$n_zone){
       
       cat('\n')
       cat('\n')
-      cat(
-        knitr::knit_child(
-          text = c(
-            "```{r}",
-            "#| echo: false",
-            "report_per_transition_per_variable %>% print.data.frame(row.names = F)",
-            "```"
-          ), quiet = TRUE
-        ), sep = "\n"
-      )
+      
+      if(nrow(report_per_transition_per_variable) > 0) {
+        cat(
+          knitr::knit_child(
+            text = c(
+              "```{r}",
+              "#| echo: false",
+              "report_per_transition_per_variable %>% print.data.frame(row.names = F)",
+              "```"
+            ), quiet = TRUE
+          ), sep = "\n"
+        )
+      }
       
       cat('\n')
     }
