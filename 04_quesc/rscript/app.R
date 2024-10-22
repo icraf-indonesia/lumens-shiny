@@ -154,8 +154,8 @@ server <- function(input, output, session) {
     
     zone_sf <- rv$mapz_file %>% st_read()
     zone <- zone_sf %>% 
-      rasterise_multipolygon(
-        raster_res = c(100, 100), 
+      rasterise_multipolygon_quesc(
+        raster_res = res(rv$map1_rast), 
         field = "IDS" 
       )
     rv$mapz_df <- data.frame(ID_PU = zone_sf[[1]], PU = zone_sf[[2]])
