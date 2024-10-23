@@ -297,6 +297,7 @@ calc_trajectory_map <-
            lookup_traj_reclass,
            lookup_trajectory_complete,
            trajectory_column_name = "trajectory") {
+    
     # Reclassify the rasters using the reclassification table
     lc_t1_reclass <-
       reclass_raster_to_categories(raster_map = lc_t1_, reclass_table = lookup_traj_reclass)
@@ -589,7 +590,7 @@ rasterise_multipolygon <- function(sf_object, raster_res = c(100,100), field = "
   # Error checking
   if (!inherits(sf_object, "sf")) stop("sf_object must be an sf object.")
   if (!all(sf::st_geometry_type(sf_object) == "MULTIPOLYGON")) stop("All features in sf_object must be MULTIPOLYGONs.")  # Check if sf_object has UTM projection
-  if (!grepl("\\+proj=utm", st_crs(sf_object)$proj4string)) stop("sf_object must have UTM projection system.")
+  if (!grepl("\\+units=m", st_crs(sf_object)$proj4string)) stop("sf_object must have UTM projection system.")
   if (is.null(sf::st_drop_geometry(sf_object)) || !(field %in% names(sf::st_drop_geometry(sf_object)))) stop("sf_object must contain an attribute table with at least one numeric/factor column.")
   if (!is.numeric(sf_object[[field]]) && !is.factor(sf_object[[field]])) stop("The field must be numeric or a factor.")
   
@@ -1723,7 +1724,7 @@ rasterise_multipolygon <- function(sf_object, raster_res = c(100,100), field = "
   # Error checking
   if (!inherits(sf_object, "sf")) stop("sf_object must be an sf object.")
   if (!all(sf::st_geometry_type(sf_object) == "MULTIPOLYGON")) stop("All features in sf_object must be MULTIPOLYGONs.")  # Check if sf_object has UTM projection
-  if (!grepl("\\+proj=utm", st_crs(sf_object)$proj4string)) stop("sf_object must have UTM projection system.")
+  if (!grepl("\\+units=m", st_crs(sf_object)$proj4string)) stop("sf_object must have UTM projection system.")
   if (is.null(sf::st_drop_geometry(sf_object)) || !(field %in% names(sf::st_drop_geometry(sf_object)))) stop("sf_object must contain an attribute table with at least one numeric/factor column.")
   if (!is.numeric(sf_object[[field]]) && !is.factor(sf_object[[field]])) stop("The field must be numeric or a factor.")
   
@@ -1902,7 +1903,7 @@ run_preques_analysis <- function(lc_t1_input, lc_t2_input, admin_z_input,
     t1 = prepare_lc_data(lc_t1_input, time_points[["t1"]]),
     t2 = prepare_lc_data(lc_t2_input, time_points[["t2"]])
   )
-  if (!grepl("\\+proj=utm", st_crs(lc_data$t1)$proj4string)) 
+  if (!grepl("\\+units=m", st_crs(lc_data$t1)$proj4string)) 
     stop("Land use/cover T1 must have UTM projection system.")
   if (!grepl("\\+units=m", st_crs(lc_data$t1)$proj4string)) {
     stop("Land use/covert T1 must have units in meters.")
