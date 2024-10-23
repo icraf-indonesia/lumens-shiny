@@ -779,7 +779,15 @@ server <- function(input, output, session) {
     })
     
   })
-  
+
+  output$print_output_dir <- renderPrint({
+    if(!is.null(v$output_dir)) {
+      cat(paste(v$output_dir))
+    } else {
+      cat("No output directory selected")
+    }
+  })
+    
   observeEvent(input$open_report, {
     report_path <- paste0(v$output_dir, "/", v$output_file)
     if (file.exists(report_path)) {

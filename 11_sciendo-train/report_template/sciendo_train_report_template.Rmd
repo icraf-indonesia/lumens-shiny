@@ -16,6 +16,7 @@ params:
   woe_report_path: NA
   rc_egoml_path: NA
   woe_egoml_path: NA
+  woe_list: NA
   session_log: NA  
 ---
 
@@ -34,9 +35,11 @@ substrRight <- function(x, n){
 library(raster)
 library(dplyr)
 library(DT)
+library(sf)
 library(rmarkdown)
 library(kableExtra)
 library(htmltools)
+library(ggplot2)
 library(terra)
 library(tidyterra)
 library(LUMENSR)
@@ -76,9 +79,13 @@ analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
 
 This report presents the results of an analysis based on the provided maps and lookup table.
 
-```{r input-data, echo=FALSE, message=FALSE, warning=FALSE}
+```{r read period, echo=FALSE, message=FALSE, warning=FALSE}
 x <- params$inputs$zone_path
 period <- as.numeric(params$inputs$year2) - as.numeric(params$inputs$year1)
+```
+
+
+```{r read zone, echo=FALSE, message=FALSE, warning=FALSE}
 if(substrRight(x, 3) == "tif"){
   df_pu <- read.csv(params$inputs$z_lookup_table_path) %>%
     dplyr::rename(ID_PU = 1, PU = 2)
@@ -95,7 +102,10 @@ if(substrRight(x, 3) == "tif"){
   zone <- zone_rst %>% terra::rast() %>%
     add_legend_to_categorical_raster(., lookup_table = df_pu)
 }
+```
 
+
+```{r read land cover, echo=FALSE, message=FALSE, warning=FALSE}
 lc_t1 <- params$inputs$lc_t1_path %>% raster() %>% spatial_sync_raster(zone_rst)
 lc_t2 <- params$inputs$lc_t2_path %>% raster() %>% spatial_sync_raster(zone_rst)
 
@@ -143,15 +153,14 @@ plot_categorical_raster(zone)
 ## Weight of Evidence Report  {.tabset}
 
 ```{r List of Csv of Woe, echo=FALSE}
-listWoeReport <- params$woe_report_path %>% 
-  list.files(full.names=TRUE, pattern="weight_report*")
+listWoeReport <- params$woe_report_path %>% list.files(full.names=TRUE, pattern="weight_report*")
+woe <- params$woe_list
+df_zone <- df_pu
+report_per_transition_per_variable <- data.frame(information = "No significant weight coeffients above five were detected")
 ```
 
 ```{r print significant weight greater than 5, echo=FALSE, fig.keep='all', results='asis'}
-out <- create_list_of_weight_report(listWoeReport, df_pu)
-woe <- out$woe
-df_zone <- out$df_zone
-for(i in 1:out$n_zone){
+for(i in 1:len){
   cat("### ", df_zone[i, 2], "\n\n")
   cat(paste("File location:", listWoeReport[i]))
   cat('\n\n')
@@ -160,35 +169,53 @@ for(i in 1:out$n_zone){
   # )
   # cat('\n')
   # cat('\n')
-  for(j in woe[[paste0("pu", sprintf("%03d", i))]][['unique_transition']]) {
+  unique_trans <- woe[[paste0("pu", sprintf("%03d", i))]][['unique_transition']]
+  for(j in 1:length(unique_trans)) {
     report_per_transition <- woe[[paste0("pu", sprintf("%03d", i))]][['report']] %>% 
-      filter(Transition == j) %>%
-      filter(Significant == "yes") %>%
-      filter(Weight_Coefficient > 5)
+      dplyr::filter(Transition == unique_trans[j] & Significant == "yes" & Weight_Coefficient > 5)
     unique_variable <- report_per_transition %>% 
-      distinct(Variable.) %>% 
+      dplyr::distinct(Variable.) %>% 
       unlist() %>% 
       as.vector()
     
-    for(k in unique_variable) {
-      report_per_transition_per_variable <- report_per_transition %>% filter(Variable. == k) %>% 
-        dplyr::select(
-          Range, Possible_Transitions, Executed_Transitions, Weight_Coefficient #, Contrast
-        ) %>%
-        mutate_if(is.double, as.character) %>%
-        bind_rows(summarise(., across(where(is.integer), sum),
-                            across(where(is.character), ~"") ))
+    
+    if(length(unique_variable) == 0) {
       cat(
-        paste(
-          "Transition:", j, 
-          "Variable:", k, 
-          sep = " ")
-      )
-      
+          paste(
+            "Transition:", unique_trans[j],
+            sep = " ")
+        )
       cat('\n')
       cat('\n')
-      
-      if(nrow(report_per_transition_per_variable) > 0) {
+      cat(
+          knitr::knit_child(
+            text = c(
+              "```{r}",
+              "#| echo: false",
+              "report_per_transition_per_variable %>% print.data.frame(row.names = F)",
+              "```"
+            ), quiet = TRUE
+          ), sep = "\n"
+        )
+    } else {
+      for(k in 1:length(unique_variable)) {
+        report_per_transition_per_variable <- report_per_transition %>% filter(Variable. == unique_variable[k]) %>% 
+          dplyr::select(
+            Range, Possible_Transitions, Executed_Transitions, Weight_Coefficient #, Contrast
+          ) %>%
+          mutate_if(is.double, as.character) %>%
+          bind_rows(summarise(., across(where(is.integer), sum),
+                              across(where(is.character), ~"") ))
+        cat(
+          paste(
+            "Transition:", unique_trans[j], 
+            "Variable:", unique_variable[k], 
+            sep = " ")
+        )
+        
+        cat('\n')
+        cat('\n')
+        
         cat(
           knitr::knit_child(
             text = c(
@@ -199,9 +226,10 @@ for(i in 1:out$n_zone){
             ), quiet = TRUE
           ), sep = "\n"
         )
+        
+        cat('\n')
       }
       
-      cat('\n')
     }
   }
 }

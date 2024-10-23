@@ -313,6 +313,7 @@ ui <-
           fileInput("quescdb", "Load QUES-C Database (.csv)", accept = ".csv"),
           div(style = "display: flex; flex-direction: column; gap: 10px;",
               shinyDirButton("output_dir", "Select output directory", "Please select a directory"),
+              verbatimTextOutput("print_output_dir", placeholder = TRUE),
               actionButton("returnButton", "Return to Main Menu", 
                            style = "font-size: 18px; padding: 10px 15px; background-color: #FA8072; color: white;")
           )

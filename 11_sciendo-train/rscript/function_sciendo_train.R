@@ -181,6 +181,53 @@ generate_dummy_crosstab <- function(landcover, zone){
   return(lucDummy)
 }
 
+#' Plot a categorical raster map
+#'
+#' This function takes a raster object as input and produces a ggplot. If the raster
+#' object includes a "color_pallete" column with hex color codes, these colors are
+#' used for the fill scale. Otherwise, the default `scale_fill_hypso_d()` fill scale
+#' from the tidyterra package is used.
+#'
+#' @param raster_object A raster object.
+#'
+#' @return A ggplot object.
+#' @importFrom tidyterra scale_fill_hypso_d
+#' @importFrom ggplot2 ggplot theme_bw labs theme scale_fill_manual element_text unit element_blank guides guide_legend
+#' @importFrom tidyterra geom_spatraster scale_fill_hypso_d
+#' @export
+plot_categorical_raster <- function(raster_object) {
+  # Check if raster_object has a color_pallete column and it contains hex color codes
+  if ("color_palette" %in% names(cats(raster_object)[[1]]) && all(grepl("^#[0-9A-Fa-f]{6}$", cats(raster_object)$color_pallete))) {
+    fill_scale <- scale_fill_manual(values = cats(raster_object)[[1]]$color_palette, na.value = "white")
+  } else {
+    fill_scale <- scale_fill_manual(values = c("#4E79A7", "#F28E2B", "#E15759", "#76B7B2", "#59A14F", "#EDC948", "#B07AA1", "#FF9DA7", "#9C755F","#BAB0AC"), na.value = "white")
+  }
+  if(!is.na(time(raster_object))) {
+    plot_title <- time(raster_object)
+  } else {
+    plot_title <- names(raster_object)
+  }
+  # Generate the plot
+  plot_lc <- ggplot() +
+    geom_spatraster(data = raster_object) +
+    fill_scale +
+    theme_bw() +
+    labs(title = plot_title, fill = NULL) +
+    guides(fill = guide_legend(title.position = "top", ncol=3))+
+    theme(axis.title.x = element_blank(),
+          axis.title.y = element_blank(),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          legend.title = element_text(size = 12),
+          legend.text = element_text(size = 10),
+          legend.key.height = unit(0.25, "cm"),
+          legend.key.width = unit(0.25, "cm"),
+          legend.position = "bottom",
+          legend.justification = c(0,0.8))
+  
+  return(plot_lc)
+}
+
 create_list_of_weight_report <- function(list_woe_report, df_zone) {
   listWoeReport <- list_woe_report
   woe <- list()
@@ -225,8 +272,10 @@ generate_sciendo_train_report <- function(output, dir) {
     end_time = output$end_time,
     inputs = output$inputs,
     rc_path = output$rc_path,
+    woe_report_path = output$woe_report_path,
     rc_egoml_path = output$rc_egoml_path,
     woe_egoml_path = output$woe_egoml_path,
+    woe_list = output$woe_list, 
     session_log = output$session_log
   )
   output_file <- paste0("sciendo_train_report_", Sys.Date(), ".html")
@@ -410,7 +459,7 @@ generate_egoml_woe_model <- function(aliasFactor, lusim_lc,
                                      zone_path, ers_path,
                                      output_dir, egoml) {
   woe_dir <- paste0(output_dir, "/woe")
-  dir.create(woe_dir, recursive = TRUE, showWarnings = FALSE)
+  dir.create(woe_dir, recursive = TRUE, showWarnings = FALSE, mode = "0777")
   
   dcf_path <- paste0(woe_dir, "/woe.dcf")
   weight_report_path <- paste0(woe_dir, "/weight_report.csv")
@@ -706,11 +755,15 @@ run_sciendo_train_process <- function(lc_t1_path, lc_t2_path, zone_path, lc_look
   if (!is.null(progress_callback)) progress_callback(0.9, "run dinamica determine weight of evidence")
   run_dinamica_woe_model(dinamica_path, output_dir, out_woe$egoml_woe_file)
   
+  listWoeReport <- out_woe$weight  %>% list.files(full.names=TRUE, pattern="weight_report*")
+  df_pu <- read.csv(z_lookup_table_path) %>% dplyr::rename(ID_PU = 1, PU = 2)
+  woe_list <- create_list_of_weight_report(listWoeReport, df_pu)
+  
   end_time <- Sys.time()
   cat("Ended at:", format(end_time, "%Y-%m-%d %H:%M:%S"), "\n")
   
+  if (!is.null(progress_callback)) progress_callback(0.9, "outputs generated and saved")
   session_log <- format_session_info_table()
-  
   out <- list(
     start_time = as.character(format(start_time, "%Y-%m-%d %H:%M:%S")),
     end_time = as.character(format(end_time, "%Y-%m-%d %H:%M:%S")),
@@ -727,12 +780,11 @@ run_sciendo_train_process <- function(lc_t1_path, lc_t2_path, zone_path, lc_look
     ),
     rc_path = out_rc$ers,
     woe_report_path = out_woe$weight,
-    rc_egoml_path = out_rc$egoml_rc_path,
-    woe_egoml_path = out_woe$egoml_woe_path,
+    rc_egoml_path = out_rc$egoml_rc_file,
+    woe_egoml_path = out_woe$egoml_woe_file,
+    woe_list = woe_list$woe,
     session_log = session_log
   )
-  
-  if (!is.null(progress_callback)) progress_callback(0.9, "outputs generated and saved")
   
   if (!is.null(progress_callback)) progress_callback(1, "generate report")
   generate_sciendo_train_report(output = out, dir = output_dir)
