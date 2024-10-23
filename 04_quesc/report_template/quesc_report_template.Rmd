@@ -233,12 +233,12 @@ plot_quesc_results(
 
 ## Emission map in `r params$p1`-`r params$p2`
 
-Emission map illustrating a decrease in carbon stock amount (in tonne-C/ha).
+Emission map illustrating a decrease in carbon stock amount (in tonne CO2-eq/ha).
 
 ```{r emission_map, echo=FALSE}
 plot_quesc_results(
   map = params$map_em, 
-  legend = "Emission (tonne-C/ha)", 
+  legend = "Emission (tonne CO2-eq/ha)", 
   low = "#FFCC66", 
   high = "#FF0000"
 )
@@ -246,18 +246,18 @@ plot_quesc_results(
 
 ## Sequestration map in `r params$p1`-`r params$p2`
 
-Sequestration map illustrating an increase in carbon stock amount (in tonne-C/ha).
+Sequestration map illustrating an increase in carbon stock amount (in tonne CO2-eq/ha).
 
 ```{r sequestration_map, echo=FALSE}
 plot_quesc_results(
   map = params$map_sq, 
-  legend = "Sequestration (tonne-C/ha)", 
+  legend = "Sequestration (tonne CO2-eq/ha)", 
   low = "#FFCC66", 
   high = "#000033"
 )
 ```
 
-## Average of Nett Emission Rate
+## Average of Net Emission Rate
 
 ```{r avg_net_em_rate, echo=FALSE}
 s$plot_zone_carbon

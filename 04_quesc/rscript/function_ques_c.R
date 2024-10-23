@@ -2,7 +2,7 @@ summary_text_en <- c("Period",
                      "Total area (ha)",
                      "Total emission (tonne CO2-eq)",
                      "Total sequestration (tonne CO2-eq)",
-                     "Nett emission (tonne CO2-eq)",
+                     "Net emission (tonne CO2-eq)",
                      "Emission rate (tonne CO2-eq/ha.year)",
                      "Emission rate per-unit area (tonne CO2-eq/ha.year)")
 
@@ -19,7 +19,7 @@ summary_zonal_text_en <- list(ID = 1,
                               "Area (Ha)" = 3, 
                               "Carbon Avg. (Periode 1)" = 4, 
                               "Carbon Avg. (Periode 2)" = 5, 
-                              "Nett Emission" = 6, 
+                              "Net Emission" = 6, 
                               "Emission Rate" = 7
 )
 summary_zonal_text_id <- list( ID = 1,
@@ -35,7 +35,7 @@ summary_zona_carbon_text_en <- list(ID = 1,
                                     "Area (Ha)" = 3, 
                                     "Total emission (tonne CO2-eq)" = 4, 
                                     "Total sequestration (tonne CO2-eq)" = 5, 
-                                    "Nett Emission (tonne CO2-eq)" = 6, 
+                                    "Net Emission (tonne CO2-eq)" = 6, 
                                     "Emission Rate (tonne CO2-eq/ha.year)" = 7
 )
 summary_zona_carbon_text_id <- list(ID = 1,
@@ -192,7 +192,7 @@ summary_of_emission_calculation <- function(quescdb, zone, map_em, map_sq, perio
   zc_plot <- zc %>% ggplot(aes(x = reorder(PU, -NET_EM_RATE), y = (NET_EM_RATE))) + 
     geom_bar(stat = "identity", fill = "red") +
     geom_text(data = zc, aes(label = round(NET_EM_RATE, 1)), size = 4) +
-    ggtitle(paste("Average of nett emission rate", period$p1,"-", period$p2)) +
+    ggtitle(paste("Average of net emission rate", period$p1,"-", period$p2)) +
     guides(fill = FALSE) + 
     ylab("tonne CO2-eq/ha.yr") +
     theme(plot.title = element_text(lineheight = 5, face = "bold")) +
