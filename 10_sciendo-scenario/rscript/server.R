@@ -831,6 +831,7 @@ server <- function(input, output, session) {
   observeEvent(input$edit_scenario_baseline, {
     v$abacus_baseline <- input$edit_scenario_baseline
     v$n_iteration <- v$abacus_baseline$iteration
+    v$abacus_data$project$n_iteration <- v$n_iteration
     final_area$bl_lc_df <-
       get_lc_area_total(v$abacus_baseline$projection$lc_sum_area)
     
