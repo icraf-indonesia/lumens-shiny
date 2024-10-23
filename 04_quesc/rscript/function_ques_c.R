@@ -3,7 +3,7 @@ summary_text_en <- c("Period",
                      "Total emission (tonne CO2-eq)",
                      "Total sequestration (tonne CO2-eq)",
                      "Nett emission (tonne CO2-eq)",
-                     "Emission rate (tonne CO2-eq/year)",
+                     "Emission rate (tonne CO2-eq/ha.year)",
                      "Emission rate per-unit area (tonne CO2-eq/ha.year)")
 
 summary_text_id <- c("Periode", 
@@ -36,7 +36,7 @@ summary_zona_carbon_text_en <- list(ID = 1,
                                     "Total emission (tonne CO2-eq)" = 4, 
                                     "Total sequestration (tonne CO2-eq)" = 5, 
                                     "Nett Emission (tonne CO2-eq)" = 6, 
-                                    "Emission Rate (tonne CO2-eq)" = 7
+                                    "Emission Rate (tonne CO2-eq/ha.year)" = 7
 )
 summary_zona_carbon_text_id <- list(ID = 1,
                                     "Unit perencanaan" = 2, 
@@ -194,7 +194,7 @@ summary_of_emission_calculation <- function(quescdb, zone, map_em, map_sq, perio
     geom_text(data = zc, aes(label = round(NET_EM_RATE, 1)), size = 4) +
     ggtitle(paste("Average of nett emission rate", period$p1,"-", period$p2)) +
     guides(fill = FALSE) + 
-    ylab("CO2-eq/ha.yr") +
+    ylab("tonne CO2-eq/ha.yr") +
     theme(plot.title = element_text(lineheight = 5, face = "bold")) +
     theme(axis.title.x = element_blank(), axis.text.x = element_text(angle = 20),
           panel.grid.major = element_blank(), panel.grid.minor = element_blank())
@@ -665,13 +665,12 @@ plot_categorical_raster <- function(raster_object) {
           axis.title.y = element_blank(),
           panel.grid.major = element_blank(),
           panel.grid.minor = element_blank(),
-          legend.title = element_text(size = 12),
-          legend.text = element_text(size = 10),
+          legend.title = element_text(size = 10),
+          legend.text = element_text(size = 8),
           legend.key.height = unit(0.25, "cm"),
           legend.key.width = unit(0.25, "cm"),
           legend.position = "bottom",
-          legend.justification = c(0,0.8))
-  
+          legend.justification = c(0,0.5))
   return(plot_lc)
 }
 

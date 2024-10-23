@@ -295,7 +295,7 @@ plot_quesc_results(
 
 ## Average Carbon Emission Rates by Planning Unit
 
-The map below shows the average carbon emission rates (tonnes CO2-eq/ha/yr) across planning units, representing the release of carbon from land cover changes. Darker areas indicate higher emission levels.
+The map below shows the average carbon emission rates (tonne CO2-eq/ha.yr) across planning units, representing the release of carbon from land cover changes. Darker areas indicate higher emission levels.
 
 ```{r avg emission rate, echo=FALSE}
 reclassify_matrix <- as.matrix(z$data_zone[, 1]) %>% 
@@ -312,7 +312,7 @@ plot_quesc_results(
 
 ## Average Carbon Sequestration Rates by Planning Unit
 
-The map below shows the average carbon sequestration rates (tonnes CO2-eq/ha.yr) across planning units, indicating increases in above-ground carbon stocks due to land cover changes. Darker greens represent higher sequestration levels.
+The map below shows the average carbon sequestration rates (tonne CO2-eq/ha.yr) across planning units, indicating increases in above-ground carbon stocks due to land cover changes. Darker greens represent higher sequestration levels.
 
 ```{r avg sequestration rate, echo=FALSE}
 reclassify_matrix <- as.matrix(z$data_zone[, 1]) %>% 
