@@ -17,6 +17,9 @@ ui <- fluidPage(
   useShinyjs(),
   theme = bs_theme(version = 5),
   extendShinyjs(text = jscode, functions = c("closeWindow")),
+  tags$head(
+    tags$link(rel = "shortcut icon", href = "favicon.ico")  
+  ),
   titlePanel("SCIENDO Simulate"),
   sidebarLayout(
     sidebarPanel(
