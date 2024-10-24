@@ -279,6 +279,16 @@ ui <-
             .header_item{padding:3px 10px; margin-left:5px; background-color: #9E2A2B;
               border-radius: 8px;border: 1px solid #E6E6E6; color:white}
             .accordion {--bs-accordion-border-width: 0px;}
+            .dropdown {
+              position: inherit;
+              display: inline-block;
+              top: 10px;
+              right: 270px;
+            }
+            .btn-toolbar .sF-breadcrumps {
+                float: right;
+                width: 250px;
+              }
           "
           )
         ),
