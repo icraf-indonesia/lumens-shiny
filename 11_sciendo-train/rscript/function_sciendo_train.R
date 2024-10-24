@@ -228,13 +228,21 @@ plot_categorical_raster <- function(raster_object) {
   return(plot_lc)
 }
 
-create_list_of_weight_report <- function(list_woe_report, df_zone) {
+create_list_of_weight_report <- function(woe_report_path, list_woe_report, df_zone) {
   listWoeReport <- list_woe_report
   woe <- list()
   len <- nrow(df_zone)
-  for(i in 1:len){
+  
+  vec <- c()
+  for(j in listWoeReport) {
+    number <- gsub(paste0(woe_report_path, "/weight_report"), "", j) %>% substr(1, 2) %>% as.numeric()
+    vec <- c(vec, number)
+  }
+  
+  for(counter in 1:length(vec)){
+    i <- vec[counter]
     woe[[paste0("pu", sprintf("%03d", i))]][['name']] <- df_zone[i, 2]
-    woe[[paste0("pu", sprintf("%03d", i))]][['report']] <- listWoeReport[i] %>%
+    woe[[paste0("pu", sprintf("%03d", i))]][['report']] <- listWoeReport[counter] %>%
       read.csv() %>%
       dplyr::select(-X) %>%
       mutate(
@@ -364,7 +372,7 @@ generate_egoml_raster_cube <- function(factor_path, output_dir, egoml) {
   con$addTag("property",
              attrs = c(key = "dff.functor.alias", value = "saveMap1680"))
   con$addTag("inputport", attrs = c(name = "map", peerid = paste("v", nFactors + 1, sep = "")))
-  ers_file <- paste0('"', output_dir, '/sciendo_factor.ers"') 
+  ers_file <- paste0('"', output_dir, '/sciendo_factors.tif"') 
   con$addTag(
     "inputport",
     attrs = c(name = "filename"),
@@ -447,8 +455,8 @@ run_dinamica_raster_cube <- function(dinamica_path = NULL, output_dir, egoml) {
   
   executeDINAMICA(params)
   
-  # check .ers file 
-  ers_file <- paste0(output_dir, "/sciendo_factor.ers")
+  # check raster cube file 
+  ers_file <- paste0(output_dir, "/sciendo_factors.tif")
   if (!file.exists(ers_file)) {
     stop("Raster cube creation failed! Check DINAMICA EGO log.")
   }
@@ -757,7 +765,7 @@ run_sciendo_train_process <- function(lc_t1_path, lc_t2_path, zone_path, lc_look
   
   listWoeReport <- out_woe$weight  %>% list.files(full.names=TRUE, pattern="weight_report*")
   df_pu <- read.csv(z_lookup_table_path) %>% dplyr::rename(ID_PU = 1, PU = 2)
-  woe_list <- create_list_of_weight_report(listWoeReport, df_pu)
+  woe_list <- create_list_of_weight_report(out_woe$weight, listWoeReport, df_pu)
   
   end_time <- Sys.time()
   cat("Ended at:", format(end_time, "%Y-%m-%d %H:%M:%S"), "\n")

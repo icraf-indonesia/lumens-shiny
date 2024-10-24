@@ -114,16 +114,25 @@ server <- function(input, output, session) {
     if(is.null(rc))
       return()
     
-    prev_wd <- getwd()
-    uploaded_dir <- dirname(rc$datapath[1])
-    setwd(uploaded_dir)
-    for(i in 1:nrow(rc)){
-      print(rc$name[i])
-      file.rename(rc$datapath[i], rc$name[i])
-    }
-    setwd(prev_wd)
+    if(nrow(rc) == 1){
+      if(substrRight(rc$name, 3) == "tif") {
+        rv$rc <- rename_uploaded_file(rc)
+      } else {
+        return()
+      }
+    } else {
+      prev_wd <- getwd()
+      uploaded_dir <- dirname(rc$datapath[1])
+      setwd(uploaded_dir)
+      for(i in 1:nrow(rc)){
+        print(rc$name[i])
+        file.rename(rc$datapath[i], rc$name[i])
+      }
+      setwd(prev_wd)
+      
+      rv$rc <- paste(uploaded_dir, rc$name[grep(pattern="*.ers$", rc$name)], sep = "/")
+    } 
     
-    rv$rc <- paste(uploaded_dir, rc$name[grep(pattern="*.ers$", rc$name)], sep = "/")
   })
   
   #### Read lc lookup table ####

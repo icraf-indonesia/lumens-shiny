@@ -157,12 +157,20 @@ listWoeReport <- params$woe_report_path %>% list.files(full.names=TRUE, pattern=
 woe <- params$woe_list
 df_zone <- df_pu
 report_per_transition_per_variable <- data.frame(information = "No significant weight coeffients above five were detected")
+vec <- c()
+for(l in listWoeReport) {
+  number <- gsub(paste0(params$woe_report_path, "/weight_report"), "", l) %>% 
+    substr(1, 2) %>% 
+    as.numeric() # error if PU > 99
+  vec <- c(vec, number)
+}
 ```
 
 ```{r print significant weight greater than 5, echo=FALSE, fig.keep='all', results='asis'}
-for(i in 1:len){
+for(counter in 1:length(vec)){
+  i <- vec[counter]
   cat("### ", df_zone[i, 2], "\n\n")
-  cat(paste("File location:", listWoeReport[i]))
+  cat(paste("File location:", listWoeReport[counter]))
   cat('\n\n')
   # cat(
   #   paste("Planning Unit:", df_zone[i, 2])
