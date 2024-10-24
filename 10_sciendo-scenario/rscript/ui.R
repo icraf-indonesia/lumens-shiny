@@ -116,14 +116,14 @@ projection_value_box <- layout_column_wrap(
   fill = FALSE,
   value_box(
     id = "box_scenario",
-    title = p("Number of modified conversion") ,
+    title = p("Number of interventions") ,
     value = textOutput("n_scenario"),
     showcase = icon("arrows-split-up-and-left"),
     theme = "success"
   ),
   value_box(
     id = "box_final_area",
-    title = p("The largest projected area") ,
+    title = p("The largest projected area of the last iteration") ,
     value = textOutput("final_area1"),
     uiOutput("box_final_area_info"),
     showcase = plotlyOutput("final_plot"),
@@ -137,7 +137,7 @@ projection_value_box <- layout_column_wrap(
   ),
   value_box(
     id = "box_emission",
-    title = "Net emission offset",
+    title = "Delta net emission",
     value = textOutput("emission_margin"),
     uiOutput("box_emission_info"),
     showcase = plotlyOutput("emission_plot"),
@@ -305,8 +305,7 @@ ui <-
     #   "<span style='color:#E42E34; background:#540b0e; padding:2px 20px 4px 20px; border-radius:15px'>
     #   <b>REDD<span style='color: white;'>Abacus</span>2</b></span>"
     # )
-    span(tags$img(height = 18, src = "images/abacus2_logo_white.svg", style = "margin-right:5px"),
-         "SCIENDO", span("ScenarioBuilder", style = "color: white;", .noWS = c('before', "after") ),
+    span("SCIENDO", span("ScenarioBuilder", style = "color: white;", .noWS = c('before', "after") ),
          style = "color:#E42E34; background:#540b0e; padding:2px 20px 4px 20px; border-radius:15px; font-weight:bold"),
 
     underline = TRUE,

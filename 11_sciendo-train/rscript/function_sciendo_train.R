@@ -228,7 +228,7 @@ plot_categorical_raster <- function(raster_object) {
   return(plot_lc)
 }
 
-create_list_of_weight_report <- function(woe_report_path, list_woe_report, df_zone) {
+create_list_of_weight_report <- function(woe_report_path, list_woe_report, df_zone, lc_lookup_table) {
   listWoeReport <- list_woe_report
   woe <- list()
   len <- nrow(df_zone)
@@ -245,8 +245,13 @@ create_list_of_weight_report <- function(woe_report_path, list_woe_report, df_zo
     woe[[paste0("pu", sprintf("%03d", i))]][['report']] <- listWoeReport[counter] %>%
       read.csv() %>%
       dplyr::select(-X) %>%
+      dplyr::select(-X) %>% 
+      dplyr::left_join(lc_lookup_table, by = join_by(Transition_From. == ID_LC)) %>%
+      dplyr::rename(LC_FROM = LC) %>%
+      dplyr::left_join(lc_lookup_table, by = join_by(Transition_To. == ID_LC)) %>%
+      dplyr::rename(LC_TO = LC) %>%
       mutate(
-        Transition = paste(Transition_From., "->", Transition_To.),
+        Transition = paste(LC_FROM, "->", LC_TO),
         Range = paste(Range_Lower_Limit., "<= v <", Range_Upper_Limit.),
         Significant = if_else(Significant == 1, "yes", "no")
       ) %>%
@@ -765,7 +770,7 @@ run_sciendo_train_process <- function(lc_t1_path, lc_t2_path, zone_path, lc_look
   
   listWoeReport <- out_woe$weight  %>% list.files(full.names=TRUE, pattern="weight_report*")
   df_pu <- read.csv(z_lookup_table_path) %>% dplyr::rename(ID_PU = 1, PU = 2)
-  woe_list <- create_list_of_weight_report(out_woe$weight, listWoeReport, df_pu)
+  woe_list <- create_list_of_weight_report(out_woe$weight, listWoeReport, df_pu, lc_lookup_table)
   
   end_time <- Sys.time()
   cat("Ended at:", format(end_time, "%Y-%m-%d %H:%M:%S"), "\n")

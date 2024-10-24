@@ -110,29 +110,24 @@ server <- function(input, output, session) {
   
   #### Read file inputs ####
   observeEvent(input$rc_file, {
+    pattern <- "*.tif$"
     rc <- input$rc_file
     if(is.null(rc))
       return()
     
-    if(nrow(rc) == 1){
-      if(substrRight(rc$name, 3) == "tif") {
-        rv$rc <- rename_uploaded_file(rc)
-      } else {
-        return()
+    prev_wd <- getwd()
+    uploaded_dir <- dirname(rc$datapath[1])
+    setwd(uploaded_dir)
+    for(i in 1:nrow(rc)){
+      print(rc$name[i])
+      if(substrRight(rc$name[i], 3) == "ers") {
+        pattern <- "*.ers$"
       }
-    } else {
-      prev_wd <- getwd()
-      uploaded_dir <- dirname(rc$datapath[1])
-      setwd(uploaded_dir)
-      for(i in 1:nrow(rc)){
-        print(rc$name[i])
-        file.rename(rc$datapath[i], rc$name[i])
-      }
-      setwd(prev_wd)
-      
-      rv$rc <- paste(uploaded_dir, rc$name[grep(pattern="*.ers$", rc$name)], sep = "/")
-    } 
+      file.rename(rc$datapath[i], rc$name[i])
+    }
+    setwd(prev_wd)
     
+    rv$rc <- paste(uploaded_dir, rc$name[grep(pattern = pattern, rc$name)], sep = "/")
   })
   
   #### Read lc lookup table ####

@@ -61,6 +61,7 @@ analysis_log <- tribble(
   "4. Year of T1",                as.character(params$inputs$year1),
   "5. Year of T2",                as.character(params$inputs$year2),
   "6. Land cover lookup table",   params$inputs$lc_lookup_table_path,
+  "7. Directory of factor maps ", params$inputs$factor_path,
   "Output Workspace",             params$inputs$output_dir,
   "1. Raster Cube",               params$rc_path,
   "2. Directory of Weight of Evidence Report",               params$woe_report_path,
@@ -130,23 +131,54 @@ lc_t2 <- lc_t2 %>% terra::rast() %>%
 
 # Input data {.tabset}
 
-## Land-Use/Cover Map in `r params$inputs$year1`
+## Land-Use/Cover Map and Planning Unit {.tabset}
+
+### Land-Use/Cover Map in `r params$inputs$year1`
 
 ```{r Land-Use/Cover Map T1, echo=FALSE, message=FALSE, warning=FALSE}
 plot_categorical_raster(lc_t1)
 ```
 
-## Land-Use/Cover Map in `r params$inputs$year2`
+### Land-Use/Cover Map in `r params$inputs$year2`
 
 ```{r Land-Use/Cover Map T2, echo=FALSE, message=FALSE, warning=FALSE}
 plot_categorical_raster(lc_t2)
 ```
 
-## Planning Unit
+### Planning Unit
 
 ```{r Planning Unit, echo=FALSE, message=FALSE, warning=FALSE}
 plot_categorical_raster(zone)
 ```
+
+## Factor maps {.tabset}
+
+```{r plot factor, echo=FALSE, fig.keep='all', results='asis'}
+factor_path <- params$inputs$factor_path 
+listFactors <- factor_path %>% list.files(full.names = TRUE, pattern = ".tif$") %>%
+  data.frame(file = ., select = 1)
+
+factors <- as.character(listFactors$file)
+nFactors <- length(factors)
+
+aliasFactor<-NULL
+for (a in 1:nFactors) {
+  temp <- substr(basename(factors[a]), 1, nchar(basename(factors[a])) - 4)
+  cat("### ", temp, "\n\n")
+  cat(
+    knitr::knit_child(
+      text = c(
+        "```{r}",
+        "#| echo: false",
+        "factors[a] %>% rast() %>% plot()",
+        "```"
+      ), quiet = TRUE
+    ), sep = "\n"
+  )
+  cat('\n')
+}
+```
+
 
 # Results
 
@@ -172,11 +204,7 @@ for(counter in 1:length(vec)){
   cat("### ", df_zone[i, 2], "\n\n")
   cat(paste("File location:", listWoeReport[counter]))
   cat('\n\n')
-  # cat(
-  #   paste("Planning Unit:", df_zone[i, 2])
-  # )
-  # cat('\n')
-  # cat('\n')
+  
   unique_trans <- woe[[paste0("pu", sprintf("%03d", i))]][['unique_transition']]
   for(j in 1:length(unique_trans)) {
     report_per_transition <- woe[[paste0("pu", sprintf("%03d", i))]][['report']] %>% 
