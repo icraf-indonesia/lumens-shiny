@@ -264,12 +264,12 @@ server <- function(input, output, session) {
         incProgress(0.5, detail = "Post processing analysis")
         # Reclassify erosion rates based on China National Standard (2008)
         breaks <- c(-Inf, 5, 25, 50, 80, 150, Inf)
-        labels <- c("Slight (< 5 ton/ha/yr)", 
-                    "Mild (5-25 ton/ha/yr)", 
-                    "Moderate (25-50 ton/ha/yr)", 
-                    "Strong (50-80 ton/ha/yr)", 
-                    "Very strong (80-150 ton/ha/yr)", 
-                    "Severe (> 150 ton/ha/yr)")
+        labels <- c("Slight (< 5 ton/ha.yr)", 
+                    "Mild (5-25 ton/ha.yr)", 
+                    "Moderate (25-50 ton/ha.yr)", 
+                    "Strong (50-80 ton/ha.yr)", 
+                    "Very strong (80-150 ton/ha.yr)", 
+                    "Severe (> 150 ton/ha.yr)")
         rcl_matrix <- cbind(breaks[-length(breaks)], breaks[-1], 1:(length(breaks)-1))
 
         # Post Analysis Work
@@ -407,10 +407,10 @@ server <- function(input, output, session) {
             highest_erosion_class_area_t2 = max(erosion_db_t2[[2]]),
             highest_erosion_class_percentage_t1 = max(erosion_db_t1[[3]]),
             highest_erosion_class_percentage_t2 = max(erosion_db_t1[[3]]),
-            severe_area_t1 = erosion_db_t1 %>% filter(Class == "Severe (> 150 ton/ha/yr)") %>% pull(2),
-            severe_percentage_t1 = erosion_db_t1 %>% filter(Class == "Severe (> 150 ton/ha/yr)") %>% pull(3),
-            severe_area_t2 = erosion_db_t2 %>% filter(Class == "Severe (> 150 ton/ha/yr)") %>% pull(2),
-            severe_percentage_t2 = erosion_db_t2 %>% filter(Class == "Severe (> 150 ton/ha/yr)") %>% pull(3),
+            severe_area_t1 = erosion_db_t1 %>% filter(Class == "Severe (> 150 ton/ha.yr)") %>% pull(2),
+            severe_percentage_t1 = erosion_db_t1 %>% filter(Class == "Severe (> 150 ton/ha.yr)") %>% pull(3),
+            severe_area_t2 = erosion_db_t2 %>% filter(Class == "Severe (> 150 ton/ha.yr)") %>% pull(2),
+            severe_percentage_t2 = erosion_db_t2 %>% filter(Class == "Severe (> 150 ton/ha.yr)") %>% pull(3),
             erosion_increase = erosion_diff_db %>% filter(Class == "Soil erosion potential increase") %>% pull(2),
             erosion_decrease = erosion_diff_db %>% filter(Class == "Soil erosion potential decrease") %>% pull(2),
             erosion_stable = erosion_diff_db %>% filter(Class == "No soil erosion potential changes") %>% pull(2)
@@ -492,8 +492,8 @@ server <- function(input, output, session) {
             highest_erosion_class_name = erosion_db_t1 %>% slice_max(erosion_db_t1[[3]]) %>% pull(Class) %>% as.character(),
             highest_erosion_class_area = max(erosion_db_t1[[2]]),
             highest_erosion_class_percentage = max(erosion_db_t1[[3]]),
-            severe_area = erosion_db_t1 %>% filter(Class == "Severe (> 150 ton/ha/yr)") %>% pull(2),
-            severe_percentage = erosion_db_t1 %>% filter(Class == "Severe (> 150 ton/ha/yr)") %>% pull(3)
+            severe_area = erosion_db_t1 %>% filter(Class == "Severe (> 150 ton/ha.yr)") %>% pull(2),
+            severe_percentage = erosion_db_t1 %>% filter(Class == "Severe (> 150 ton/ha.yr)") %>% pull(3)
           )
           report_params$summary_data <- summary_data
         }

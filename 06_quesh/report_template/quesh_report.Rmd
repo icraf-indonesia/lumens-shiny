@@ -479,7 +479,7 @@ render_child <- function(content_type) {
           "  colnames = c('Planning Unit', 'Total Increased Erosion', 'Total Decreased Erosion', 'Total Net Erosion Changes', 'Mean Erosion Increased', 'Mean Erosion Decreased', 'Mean Net Erosion Changes'),",
           "  caption = tags$caption(",
           "    style = 'caption-side: top; text-align: left; color:black; font-size:150%;',",
-          "    paste('Soil Erosion Changes (Ton/Ha/Year) Statistic at Planning Unit Level in', params$t1, '-', params$t2)",
+          "    paste('Soil Erosion Changes (Ton/Ha.Year) Statistic at Planning Unit Level in', params$t1, '-', params$t2)",
           "  )",
           ")"
         )
