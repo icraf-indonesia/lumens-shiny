@@ -100,7 +100,7 @@ erosion_dataset <- function(erosion_classified, map_resolution){
     summarise(count = n())
   colnames(erosion_db, do.NULL = FALSE)
   colnames(erosion_db) <- c("Class","Area (Ha)")
-  erosion_db$`Area (Ha)`*(10000/(map_resolution^2))
+  erosion_db$`Area (Ha)`* res(erosion_classified)[1] * res(erosion_classified)[2] / 10000 #(10000/(map_resolution^2))
   erosion_db$`Percentage (%)` <- (erosion_db$`Area (Ha)`/sum(erosion_db$`Area (Ha)`))*100
   return(erosion_db)
 }
