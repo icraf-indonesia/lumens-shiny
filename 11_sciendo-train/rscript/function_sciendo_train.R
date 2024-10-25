@@ -244,7 +244,6 @@ create_list_of_weight_report <- function(woe_report_path, list_woe_report, df_zo
     woe[[paste0("pu", sprintf("%03d", i))]][['name']] <- df_zone[i, 2]
     woe[[paste0("pu", sprintf("%03d", i))]][['report']] <- listWoeReport[counter] %>%
       read.csv() %>%
-      dplyr::select(-X) %>%
       dplyr::select(-X) %>% 
       dplyr::left_join(lc_lookup_table, by = join_by(Transition_From. == ID_LC)) %>%
       dplyr::rename(LC_FROM = LC) %>%
