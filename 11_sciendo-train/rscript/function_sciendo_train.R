@@ -345,6 +345,141 @@ executeDINAMICA <- function(params) {
   }
 }
 
+generate_egoml_transition_matrix <- function(lc1_path, lc2_path, 
+                                             zone_path, timestep, output_dir, egoml) {
+  mtx_dir <- paste0(output_dir, "/baseline_tpm")
+  dir.create(mtx_dir, recursive = TRUE, showWarnings = FALSE, mode = "0777")
+  
+  # begin writing tag
+  con <- xmlOutputDOM(tag="script")
+  # add property
+  con$addTag("property", attrs=c(key="dff.date", value="2016-Oct-17 12:02:15"))
+  con$addTag("property", attrs=c(key="dff.version", value="3.0.17.20160922"))
+  
+  # begin.
+  # add functor = LoadCategoricalMap-PU
+  con$addTag("functor", attrs=c(name="LoadCategoricalMap"), close=FALSE)
+  con$addTag("property", attrs=c(key="dff.functor.alias", value="Regions"))
+  con$addTag("property", attrs=c(key="dff.functor.comment", value="Municipalities"))
+  con$addTag("inputport", attrs=c(name="filename"), paste('"', lc1_path, '"', sep=''))
+  con$addTag("inputport", attrs=c(name="nullValue"), ".none")
+  con$addTag("inputport", attrs=c(name="loadAsSparse"), ".no")
+  con$addTag("inputport", attrs=c(name="suffixDigits"), 0)
+  con$addTag("inputport", attrs=c(name="step"), 0)
+  con$addTag("inputport", attrs=c(name="workdir"), ".none")
+  con$addTag("outputport", attrs=c(name="map", id=paste("v",1,sep="")))
+  con$closeTag("functor")
+  # end.
+  
+  # begin.
+  # add functor = LoadCategoricalMap-LANDUSE_1
+  con$addTag("functor", attrs=c(name="LoadCategoricalMap"), close=FALSE)
+  con$addTag("property", attrs=c(key="dff.functor.alias", value="Initial Landscape"))
+  con$addTag("property", attrs=c(key="dff.functor.comment", value="Initial landscape map"))
+  con$addTag("inputport", attrs=c(name="filename"), paste('"', lc2_path, '"', sep=''))
+  con$addTag("inputport", attrs=c(name="nullValue"), ".none")
+  con$addTag("inputport", attrs=c(name="loadAsSparse"), ".no")
+  con$addTag("inputport", attrs=c(name="suffixDigits"), 0)
+  con$addTag("inputport", attrs=c(name="step"), 0)
+  con$addTag("inputport", attrs=c(name="workdir"), ".none")
+  con$addTag("outputport", attrs=c(name="map", id=paste("v",2,sep="")))
+  con$closeTag("functor")
+  # end.
+  
+  # begin.
+  # add functor = LoadCategoricalMap-LANDUSE_2
+  con$addTag("functor", attrs=c(name="LoadCategoricalMap"), close=FALSE)
+  con$addTag("property", attrs=c(key="dff.functor.alias", value="Final Landscape"))
+  con$addTag("property", attrs=c(key="dff.functor.comment", value="Final landscape map"))
+  con$addTag("inputport", attrs=c(name="filename"), paste('"', zone_path, '"', sep=''))
+  con$addTag("inputport", attrs=c(name="nullValue"), ".none")
+  con$addTag("inputport", attrs=c(name="loadAsSparse"), ".no")
+  con$addTag("inputport", attrs=c(name="suffixDigits"), 0)
+  con$addTag("inputport", attrs=c(name="step"), 0)
+  con$addTag("inputport", attrs=c(name="workdir"), ".none")
+  con$addTag("outputport", attrs=c(name="map", id=paste("v",3,sep="")))
+  con$closeTag("functor")
+  # end.
+  
+  # begin.
+  # add containerfunctor = ForEachRegion
+  con$addTag("containerfunctor", attrs=c(name="ForEachRegion"), close=FALSE)
+  con$addTag("property", attrs=c(key="dff.functor.alias", value="forEachRegion"))
+  con$addTag("inputport", attrs=c(name="regions", peerid="v3"))
+  con$addTag("inputport", attrs=c(name="borderCells"), 0)
+  con$addTag("internaloutputport", attrs=c(name="regionManager", id="v4"))
+  con$addTag("internaloutputport", attrs=c(name="step", id="v5"))
+  
+  # add subtag functor for Landuse1
+  con$addTag("functor", attrs=c(name="RegionalizeCategoricalMap"), close=FALSE)
+  con$addTag("property", attrs=c(key="dff.functor.alias", value="Initial Landscape (Region)"))
+  con$addTag("inputport", attrs=c(name="globalMap", peerid="v1"))
+  con$addTag("inputport", attrs=c(name="regionId", peerid="v5"))
+  con$addTag("inputport", attrs=c(name="keepNonRegionCells"), ".no")
+  con$addTag("inputport", attrs=c(name="regionManager", peerid="v4"))
+  con$addTag("outputport", attrs=c(name="regionalMap", id="v6"))
+  con$closeTag("functor")
+  
+  # add subtag functor for Landuse2
+  con$addTag("functor", attrs=c(name="RegionalizeCategoricalMap"), close=FALSE)
+  con$addTag("property", attrs=c(key="dff.functor.alias", value="Final Landscape (Region)"))
+  con$addTag("inputport", attrs=c(name="globalMap", peerid="v2"))
+  con$addTag("inputport", attrs=c(name="regionId", peerid="v5"))
+  con$addTag("inputport", attrs=c(name="keepNonRegionCells"), ".no")
+  con$addTag("inputport", attrs=c(name="regionManager", peerid="v4"))
+  con$addTag("outputport", attrs=c(name="regionalMap", id="v7"))
+  con$closeTag("functor")
+  
+  # add subtag functor for DetermineTransitionMatrix
+  con$addTag("functor", attrs=c(name="DetermineTransitionMatrix"), close=FALSE)
+  con$addTag("property", attrs=c(key="dff.functor.alias", value="Transition Rates"))
+  con$addTag("property", attrs=c(key="dff.functor.comment", value="Calculate the transition rates"))
+  con$addTag("inputport", attrs=c(name="initialLandscape", peerid="v6"))
+  con$addTag("inputport", attrs=c(name="finalLandscape", peerid="v7"))
+  con$addTag("inputport", attrs=c(name="timeSteps"), timestep)
+  con$addTag("outputport", attrs=c(name="singleStepMatrix", id="v8"))
+  con$addTag("outputport", attrs=c(name="multiStepMatrix", id="v9"))
+  con$closeTag("functor")
+  
+  # add subtag functor for SaveTable
+  con$addTag("functor", attrs=c(name="SaveTable"), close=FALSE)
+  con$addTag("property", attrs=c(key="dff.functor.alias", value="saveTable567"))
+  con$addTag("property", attrs=c(key="dff.functor.comment", value="Single-step transition matrix."))
+  con$addTag("inputport", attrs=c(name="table", peerid="v8"))
+  con$addTag("inputport", attrs=c(name="filename"), paste('"', mtx_dir, '/single_step.csv"', sep=''))
+  con$addTag("inputport", attrs=c(name="suffixDigits"), 6)
+  con$addTag("inputport", attrs=c(name="step", peerid="v5"))
+  con$addTag("inputport", attrs=c(name="workdir"), ".none")
+  con$closeTag("functor")
+  
+  # add subtag functor for SaveTable
+  # con$addTag("functor", attrs=c(name="SaveTable"), close=FALSE)
+  # con$addTag("property", attrs=c(key="dff.functor.alias", value="saveTable566"))
+  # con$addTag("property", attrs=c(key="dff.functor.comment", value="Multi-step transition matrix."))
+  # con$addTag("inputport", attrs=c(name="table", peerid="v9"))
+  # con$addTag("inputport", attrs=c(name="filename"), paste('"', transition_dir, '/Multi_step.csv"', sep=''))
+  # con$addTag("inputport", attrs=c(name="suffixDigits"), 6)
+  # con$addTag("inputport", attrs=c(name="step", peerid="v5"))
+  # con$addTag("inputport", attrs=c(name="workdir"), ".none")
+  # con$closeTag("functor")
+  
+  con$closeTag("containerfunctor")  
+  
+  egoml_mtx_file <- paste0(output_dir, "/", egoml, ".egoml")
+  saveXML(con$value(), file = egoml_mtx_file)
+  
+  return(egoml_mtx_file)
+}
+
+run_dinamica_transition_matrix <- function(dinamica_path = NULL, output_dir, egoml) {
+  params <- list()
+  params$dinamica_path <- dinamica_path
+  params$output_dir <- output_dir
+  params$egoml <- egoml
+  
+  executeDINAMICA(params)
+}
+
 generate_egoml_raster_cube <- function(factor_path, output_dir, egoml) {
   # preparing factors
   listFactors <- factor_path %>% list.files(full.names = TRUE, pattern = ".tif$") %>%
@@ -751,6 +886,11 @@ run_sciendo_train_process <- function(lc_t1_path, lc_t2_path, zone_path, lc_look
                                       dinamica_path = NULL, output_dir, progress_callback = NULL) {
   start_time <- Sys.time()
   cat("Started at:", format(start_time, "%Y-%m-%d %H:%M:%S"), "\n")
+  
+  if (!is.null(progress_callback)) progress_callback(0.1, "generate egoml: baseline matrix generation")
+  period <- as.numeric(time_points$t2) - as.numeric(time_points$t1)
+  egoml_mtx_file <- generate_egoml_transition_matrix(lc_t1_path, lc_t2_path, zone_path, period, output_dir, egoml = "00_sciendo_baseline_tpm")
+  run_dinamica_transition_matrix(dinamica_path, output_dir, egoml_mtx_file)
   
   if (!is.null(progress_callback)) progress_callback(0.2, "generate egoml: raster cube generation")
   out_rc <- generate_egoml_raster_cube(factor_path, output_dir, egoml = "01_sciendo_train_raster_cube")
