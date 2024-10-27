@@ -217,11 +217,11 @@ server <- function(input, output, session) {
           Period = paste("Period", seq_len(length(GDP_scen_df))),
           GDP_totals = colSums(GDP_scen_df)
         )
-        GDP_totals_df <- rbind(data.frame(Period = "BAU", GDP_totals = GDP_tot), GDP_totals_df)
+        GDP_totals_df <- rbind(data.frame(Period = "Base Year", GDP_totals = GDP_tot), GDP_totals_df)
         GDP_totals_graph <- ggplot(data = GDP_totals_df, aes(x = Period, y = GDP_totals)) +
           geom_bar(stat = "identity", position = "dodge", colour = "black") +
           labs(x = "Period", y = "GDP Total") +
-          ggtitle(paste("BAU vs Scenario GDP Total")) +
+          ggtitle(paste("Base Year vs Scenario")) +
           theme(axis.text.x = element_text(angle = 45, hjust = 1))
         rv$GDP_totals_graph <- GDP_totals_graph
         
@@ -230,14 +230,14 @@ server <- function(input, output, session) {
         rownames(db_GDP) <- NULL
         
         #' Create bar charts to visualize total Output, Income, and Labour
-        db_output_total <- create_totals_df(GDP, db_GDP, 1, "Period BAU")
-        output_total_graph <- create_bar_plot(db_output_total, "BAU vs Scenario Output Total")
+        db_output_total <- create_totals_df(GDP, db_GDP, 1, "Base Year")
+        output_total_graph <- create_bar_plot(db_output_total, "Base Year vs Scenario")
         
-        db_income_total <- create_totals_df(GDP, db_GDP, Inc.multiplier$Inc.multiplier, "Period BAU")
-        income_total_graph <- create_bar_plot(db_income_total, "BAU vs Scenario Income Total")
+        db_income_total <- create_totals_df(GDP, db_GDP, Inc.multiplier$Inc.multiplier, "Base Year")
+        income_total_graph <- create_bar_plot(db_income_total, "Base Year vs Scenario")
         
-        db_labour_total <- create_totals_df(GDP, db_GDP, Lab.multiplier$Lab.multiplier, "Period BAU")
-        labour_total_graph <- create_bar_plot(db_labour_total, "BAU vs Scenario Labour Total")
+        db_labour_total <- create_totals_df(GDP, db_GDP, Lab.multiplier$Lab.multiplier, "Base Year")
+        labour_total_graph <- create_bar_plot(db_labour_total, "Base Year vs Scenario")
         
         #' Remove unwanted columns from GDP_scen_df
         db_GDP <- GDP_scen_df[, !(colnames(GDP_scen_df) %in% c("Sector", "Category"))]

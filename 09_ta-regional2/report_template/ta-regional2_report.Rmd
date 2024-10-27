@@ -73,7 +73,7 @@ DT::datatable(dt_gdp_sector) %>%
 ```
 
 ## GDP Total
-This graph compares overall GDP growth between the BAU and alternative scenarios over the analysis period.
+This graph compares overall GDP growth between the base year and alternative scenarios over the analysis period.
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 plot(params$GDP_totals_graph)

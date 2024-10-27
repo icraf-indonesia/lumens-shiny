@@ -154,7 +154,7 @@ create_totals_df <- function(GDP, GDP_values, multiplier, period_name) {
     GDP_totals = unlist(output_tot_list)
   )
   
-  df[1, ] <- c("BAU", output_tot_list[[1]])
+  df[1, ] <- c("Base Year", output_tot_list[[1]])
   
   return(df)
 }

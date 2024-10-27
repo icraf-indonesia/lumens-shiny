@@ -33,7 +33,7 @@ GDP_overall_list <- list()
 for (i in 2:ncol(landuse_area)) {
   # Create a diagonal matrix for the current period's land use area
   landuse_area_diag <- diag(as.numeric(as.matrix(landuse_area[i])))
-  landuse_area_diag <- diag(as.numeric(as.matrix(landuse_area[2])))
+  # landuse_area_diag <- diag(as.numeric(as.matrix(landuse_area[2])))
   
   # MODEL FINAL DEMAND
   land.distribution.scen <- land.distribution.prop %*% landuse_area_diag
