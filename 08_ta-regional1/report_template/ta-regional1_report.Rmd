@@ -86,12 +86,14 @@ This report presents the results of an analysis based on the provided maps and l
 
 ## Analysis of Sectoral Linkages 
 
-### Table 1. Sectoral linkages
+### Sectoral linkages table
 Sectoral linkage consists of Direct Backward Linkage (DBL) and Direct Forward Linkage (DFL) represents connection between sector in a regional economy.
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 dt_linkage <- params$Linkages_table %>%
   mutate(across(where(is.numeric), ~ scales::number(.x, accuracy = 0.001, big.mark = ",")))
+
+dt_linkage$ID <- NULL
 
 DT::datatable(dt_linkage)
 ```
@@ -114,7 +116,7 @@ plot(params$FPD_graph)
 This categorizes sectors based on their linkages and growth potential. Sectors can be classified as key sectors, dependent sectors, or independent sectors.
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
-plot(params$PRS_graph)
+params$PRS_graph
 ```
 
 ### Primary sectors based on potential linkage
@@ -139,14 +141,18 @@ DT::datatable(dt_GDP) %>%
 
 ### GDP graph 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
-plot(params$GDP_graph)
+params$GDP_graph
 ```
 
 ## Analysis of multiplier 
 ### Sectoral Multiplier
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 dt_multiplier <- params$multiplier %>%
-  mutate(across(where(is.numeric), ~ scales::number(.x, accuracy = 0.001, big.mark = ",")))
+  mutate(
+    Out.multiplier = round(Out.multiplier, 3),
+    Inc.multiplier = round(Inc.multiplier, 3),
+    Lab.multiplier = formatC(Lab.multiplier, format = "e", digits = 3)
+  )
 
 DT::datatable(dt_multiplier)
 ```
@@ -177,7 +183,8 @@ This table outlines the amount of land required by each sector based on producti
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 dt_land.requirement_table <- params$land.requirement_table %>%
-  mutate(across(where(is.numeric), ~ scales::number(.x, accuracy = 0.01, big.mark = ",")))
+  filter(CATEGORY %in% c("Agriculture", "Plantation", "Livestock", "Forestry")) %>%
+  mutate(across(where(is.numeric), ~ scales::number(.x, accuracy = 0.01, big.mark = ","))) 
 
 DT::datatable(dt_land.requirement_table)
 ```

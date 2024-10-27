@@ -9,7 +9,7 @@ server <- function(input, output, session) {
     land_req = NULL,
     projected_land_use = NULL,
     sciendo_db = NULL,
-    GDP_scen = NULL,
+    GDP_scen_df = NULL,
     GDP_totals_graph = NULL,
     output_total_graph = NULL,
     income_total_graph = NULL,
@@ -137,84 +137,120 @@ server <- function(input, output, session) {
         for (i in 1:n_periods) {
           colnames(landuse_table)[i + 1] <- paste0("T", i, "_HA")
         }
-        # Initialize storage for summary outputs per period if needed
-        GDP_summary_list <- list()
-        GDP_overall_list <- list()
+        for (i in 2:n_periods) {
+          change_col_name <- paste0("CHANGE_T", i - 1, "_T", i)
+          landuse_table[[change_col_name]] <- landuse_table[[paste0("T", i, "_HA")]] - landuse_table[[paste0("T", i - 1, "_HA")]]
+        }
+        rv$landuse_table <- landuse_table
         
-        for (i in 2:ncol(landuse_area)) {
-          # Create a diagonal matrix for the current period's land use area
-          landuse_area_diag <- diag(as.numeric(as.matrix(landuse_area[i])))
+        # Perform GDP calculations for each scenario period
+        # Initialize lists to store results for each time period
+        GDP_scen.list <- list()
+        GDP_totals_scen.list <- list()
+        
+        # Loop through each simulation period to calculate GDP
+        for (t in 1:(n_periods - 1)) {
           
-          # MODEL FINAL DEMAND
+          #' Create a diagonal matrix for the current period based on land use area
+          #' 
+          #' This matrix represents the land use distribution for the given simulation 
+          #' period, which is necessary to calculate the land requirement for each scenario.
+          landuse_area_diag <- diag(as.numeric(as.matrix(landuse_area[, t])))
+          
+          #' Model final demand based on land use changes
+          #' 
+          #' The land distribution proportion is multiplied by the diagonal matrix to 
+          #' determine the land requirement for each scenario.
           land.distribution.scen <- land.distribution.prop %*% landuse_area_diag
           land.requirement.scen <- rowSums(land.distribution.scen)
-          fin_dem.rtot <- rowSums(fin_dem)
-          int_con.rtot <- rowSums(int_con)
+          
+          #' Calculate the total demand for the current period
+
+          #' Final demand (fin_dem.rtot) and intermediate consumption (int_con.rtot) 
+          #' are summed to determine the total demand for the given simulation period.
+          fin_dem.rtot <- rowSums(fin_dem[, t, drop = FALSE])
+          int_con.rtot <- rowSums(int_con[, t, drop = FALSE])
           demand <- fin_dem.rtot + int_con.rtot
+          
+          #' Adjust land requirement by productivity coefficient
+
+          #' The land requirement is adjusted based on the land productivity coefficient 
+          #' from the database. Infinite and missing values are handled accordingly.
           land.requirement.coeff <- land.requirement.db$LRC
           land.productivity.coeff <- land.requirement.db$LPC
           fin_dem.scen <- land.requirement.scen / land.productivity.coeff
           fin_dem.scen[is.infinite(fin_dem.scen)] <- 0
           fin_dem.scen[is.na(fin_dem.scen)] <- 0
           
-          # CALCULATE FINAL DEMAND AND GDP FROM SCENARIO OF LAND USE CHANGE
+          #' Calculate the final output for the scenario
+
+          #' The Leontief matrix is used to calculate the final output for each scenario 
+          #' of land use change. This matrix is rounded and converted to a numeric format.
           fin.output.scen <- Leontief %*% fin_dem.scen
           fin.output.scen <- round(fin.output.scen, digits = 1)
+          fin.output.scen <- as.data.frame(fin.output.scen)
+          fin.output.scen <- sapply(fin.output.scen, as.numeric)
+          
+          #' Ensure the output is numeric
+          if (is.list(fin.output.scen)) {
+            stop("fin.output.scen is still a list. Ensure that it's numeric.")
+          }
           colnames(fin.output.scen)[1] <- "OUTPUT_Scen"
+          
+          #' Calculate GDP from the output
+
+          #' The GDP for the scenario is calculated by multiplying the output by the 
+          #' GDP proportion from the output. Missing and infinite values are set to zero.
           GDP.prop.from.output <- GDP.val / demand
           GDP.prop.from.output[is.na(GDP.prop.from.output)] <- 0
-          GDP.scen <- GDP.prop.from.output * fin.output.scen
-          GDP.scen <- round(GDP.scen, digits = 1)
+          GDP.scen <- GDP.prop.from.output * as.numeric(fin.output.scen)
+          GDP.scen[sapply(GDP.scen, is.infinite)] <- NA
           GDP.scen[is.na(GDP.scen)] <- 0
+          GDP.scen <- round(GDP.scen, digits = 1)
+          GDP.scen <- as.data.frame(GDP.scen)
           colnames(GDP.scen)[1] <- "GDP_scen"
-          GDP.diff <- GDP.scen - GDP$GDP
-          GDP.diff <- round(GDP.diff, digits = 1)
-          colnames(GDP.diff)[1] <- "GDP_diff"
-          GDP.rate <- GDP.diff / GDP.val
-          GDP.rate[is.na(GDP.rate)] <- 0
-          GDP.rate <- round(GDP.rate, digits = 2)
-          colnames(GDP.rate)[1] <- "GDP_rate"
-          GDP_summary <- cbind(GDP, GDP.scen, fin.output.scen, GDP.diff, GDP.rate)
+          
+          #' Combine base and scenario GDP
+
+          #' The base GDP (GDP) and scenario GDP (GDP_scen) are combined into a summary 
+          #' table for comparison.
+          GDP <- subset(GDP, SECTOR!="Total")
+          GDP_summary <- cbind(GDP, GDP.scen)
           GDP_summary$P_OUTPUT <- NULL
           GDP_summary$P_GDP <- NULL
           
-          # Calculate total GDP
-          GDP_tot_scen <- as.matrix(GDP_summary$GDP_scen)
-          GDP_tot_scen <- colSums(GDP_tot_scen)
-          GDP_tot_diff <- GDP_tot_scen - GDP_tot
-          GDP_tot_rate <- GDP_tot_diff / GDP_tot
-          text1 <- "Total GDP"
-          text2 <- "Scenario GDP"
-          text3 <- "GDP difference"
-          text4 <- "Rate of difference"
-          GDP_overall1 <- rbind(text1, text2, text3, text4)
-          GDP_overall2 <- rbind(GDP_tot, GDP_tot_scen, GDP_tot_diff, GDP_tot_rate)
-          GDP_overall <- cbind(GDP_overall1, GDP_overall2)
+          #' Calculate total GDP for the current period
+
+          #' The total GDP for the scenario is calculated by summing the values from 
+          #' the GDP summary table, ignoring missing values.
+          GDP_tot_scen <- sum(GDP_summary$GDP_scen, na.rm = TRUE)
           
-          # Store results for each period if needed
-          GDP_summary_list[[i]] <- GDP_summary
-          GDP_overall_list[[i]] <- GDP_overall
+          #' Store the GDP results
+ 
+          #' The GDP for each simulation period is stored in reactive lists for 
+          #' further analysis and plotting.
+          GDP_scen.list[[t]] <- GDP.scen
+          GDP_totals_scen.list[[t]] <- GDP_tot_scen
         }
-        
-        # Extract GDP.scen column from each GDP_summary in GDP_summary_list
-        GDP_scen_list <- lapply(GDP_summary_list, function(x) x$GDP_scen)
-        GDP_scen_df <- data.frame(do.call(cbind, GDP_scen_list))
-        colnames(GDP_scen_df) <- paste0("GDP_scen_Period_", seq_along(GDP_scen_df))
         
         #' Combine results into data frames for plotting and comparison
         GDP_scen <- data.frame(
           Sector = GDP$SECTOR, 
           Category = GDP$CATEGORY,
           GDP_bau = GDP$GDP,                 
-          GDP_scen_df
+          purrr::map_dfc(GDP_scen.list, ~.x)
         )
+        period_names <- paste0("Period_", seq_len(length(GDP_scen.list)))
+        colnames(GDP_scen)[4:(3+length(period_names))] <- period_names
         
-        rv$GDP_scen <- GDP_scen
+        GDP_scen_df <- as.data.frame(GDP_scen)
+        rownames(GDP_scen_df)<-NULL
+        rv$GDP_scen_df <- GDP_scen_df
         
         #' Create bar charts to visualize total GDP
         GDP_totals_df <- data.frame(
-          Period = paste("Period", seq_len(length(GDP_scen_df))),
-          GDP_totals = colSums(GDP_scen_df)
+          Period = paste("Period", seq_len(length(GDP_totals_scen.list))),
+          GDP_totals = unlist(GDP_totals_scen.list)
         )
         GDP_totals_df <- rbind(data.frame(Period = "BAU", GDP_totals = GDP_tot), GDP_totals_df)
         GDP_totals_graph <- ggplot(data = GDP_totals_df, aes(x = Period, y = GDP_totals)) +
@@ -225,7 +261,7 @@ server <- function(input, output, session) {
         rv$GDP_totals_graph <- GDP_totals_graph
         
         #' Remove unwanted columns from GDP_scen_df
-        db_GDP <- GDP_scen[, !(colnames(GDP_scen) %in% c("Sector", "Category"))]
+        db_GDP <- GDP_scen_df[, !(colnames(GDP_scen_df) %in% c("Sector", "Category"))]
         rownames(db_GDP) <- NULL
         
         #' Create bar charts to visualize total Output, Income, and Labour
@@ -237,10 +273,6 @@ server <- function(input, output, session) {
         
         db_labour_total <- create_totals_df(GDP, db_GDP, Lab.multiplier$Lab.multiplier, "Period BAU")
         labour_total_graph <- create_bar_plot(db_labour_total, "BAU vs Scenario Labour Total")
-        
-        #' Remove unwanted columns from GDP_scen_df
-        db_GDP <- GDP_scen_df[, !(colnames(GDP_scen_df) %in% c("Sector", "Category"))]
-        rownames(db_GDP) <- NULL
         
         #' Store file paths for reference in the final report
         rv$output_total_graph <- output_total_graph
@@ -257,7 +289,7 @@ server <- function(input, output, session) {
           end_time = as.character(format(end_time, "%Y-%m-%d %H:%M:%S")),
           landuse_table = landuse_table,
           GDP_totals_graph = GDP_totals_graph,
-          GDP_scen = GDP_scen,
+          GDP_scen_df = GDP_scen_df,
           output_total_graph = output_total_graph,
           income_total_graph = income_total_graph,
           labour_total_graph = labour_total_graph,

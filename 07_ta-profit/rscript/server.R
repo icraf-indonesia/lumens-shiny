@@ -34,7 +34,8 @@ server <- function(input, output, session) {
     raster_nodata = NULL,  # Value for raster cells with no data
     map_npv1 = NULL,  # Raster for NPV at year1
     map_npv2 = NULL,  # Raster for NPV at year2
-    opcost_curve = NULL  # Opportunity cost curve
+    opcost_curve = NULL,  # Opportunity cost curve
+    opcost_curve_table = NULL
   )
   
   #' Available volumes for file selection, used to set the working directory for saving outputs
@@ -233,7 +234,9 @@ server <- function(input, output, session) {
         
         #' Generate the opportunity cost curve for visualization
         incProgress(0.8, detail = "Generating opportunity cost curve")
-        rv$opcost_curve <- generate_opportunity_cost_curve(rv$opcost_table)
+        df_opcost_curve <- generate_opportunity_cost_curve(rv$opcost_table)
+        rv$opcost_curve <- df_opcost_curve$plot
+        rv$opcost_curve_table <- df_opcost_curve$data
         
         # Capture the end time at the end of the process
         end_time <- Sys.time()
@@ -249,6 +252,7 @@ server <- function(input, output, session) {
           opcost_map = rv$opcost_map,
           opcost_table = rv$opcost_table,
           opcost_curve = rv$opcost_curve,
+          opcost_curve_table = rv$opcost_curve_table,
           npv1_map = rv$map_npv1,
           npv2_map = rv$map_npv2,  # Fixed: Changed from map_npv1 to map_npv2
           delta_npv = rv$npv_chg_map,

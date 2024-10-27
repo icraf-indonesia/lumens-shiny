@@ -134,6 +134,10 @@ rename_uploaded_file <- function(input_file) {
 
 # Function to calculate totals and create a data frame for a given variable
 create_totals_df <- function(GDP, GDP_values, multiplier, period_name) {
+  
+  # GDP_values=db_GDP
+  # multiplier=1
+  # period="Period BAU"
 
   output_tot_list <- list()
 

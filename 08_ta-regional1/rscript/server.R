@@ -238,10 +238,14 @@ server <- function(input, output, session) {
         Linkages_table <- create_linkages_table(sector, DBL, DFL)
         rv$Linkages_table <- Linkages_table
         #' Generate a plot for the primary sectors based on linkages.
-        PRS_graph<-ggplot(Linkages_table, aes(x=DBL, y=DFL, color=CATEGORY)) + 
-          geom_point(shape=19, size=5) + 
-          geom_hline(aes(yintercept=1), colour="#BB0000", linetype="dashed") + 
-          geom_vline(aes(xintercept=1), colour="#BB0000", linetype="dashed")
+        PRS_graph <- ggplot(Linkages_table, aes(x = DBL, y = DFL, color = CATEGORY)) + 
+          geom_point(shape = 19, size = 4, aes(text = SECTOR)) +  # Add hover text for ID
+          geom_hline(aes(yintercept = 1), colour = "#BB0000", linetype = "dashed") + 
+          geom_vline(aes(xintercept = 1), colour = "#BB0000", linetype = "dashed") +
+          geom_text(aes(label = ID), vjust = -1, hjust = 1, size = 2, color = "black") 
+        
+        # Convert to an interactive plotly plot with hover information
+        interactive_PRS_graph <- ggplotly(PRS_graph, tooltip = "text")
         
         #### Sector Selection ####
         #' Identify the primary sectors based on DBL and DFL values greater than or equal to 1.
@@ -268,7 +272,7 @@ server <- function(input, output, session) {
         #' These graphs are used to visualize the relationships between sectors and various economic or environmental linkages
         BPD_graph <- create_graph(sector, DBL, "DBL", "Direct Backward Linkages")
         FPD_graph <- create_graph(sector, DFL, "DFL", "Direct Forward Linkages")
-        LRC_graph <- create_graph(sector, land.requirement_table$LRC, "LRC", "Land Requirement Coefficient")
+        LRC_graph <- create_graph(sector, land.requirement_table, "LRC", "Land Requirement Coefficient")
    
         # Generate Land Distribution Prop
         #' Calculate land distribution properties by computing the frequency of land use, adjusting the land distribution matrix, and generating the proportion of land use
@@ -284,6 +288,8 @@ server <- function(input, output, session) {
         land_distribution_ctot<-colSums(land_distribution_val)
         land.distribution.prop<-land_distribution_val %*% diag(1/land_distribution_ctot)
         land.distribution.prop[is.na(land.distribution.prop)]<-0
+        
+        browser()
         
         # Generate GDP
         #' Calculate GDP based on added value matrices, and prepare data for plotting GDP and sector output
@@ -308,20 +314,24 @@ server <- function(input, output, session) {
         GDP_tot<-colSums(GDP_tot)
         GDP$P_GDP<-round((GDP$GDP/GDP_tot), digits=2)
         rownames(GDP)<-NULL
-        GDP_tot <- sum(GDP$GDP)
-        GDP$P_GDP <- round((GDP$GDP / GDP_tot), digits = 2)
         
         #' Add a total row to the GDP data frame and reorder by GDP value for graphing
         total_row <- data.frame(SECTOR = "Total", CATEGORY = "", GDP = GDP_tot, OUTPUT = "", P_OUTPUT = "", P_GDP = "")
-        GDP <- rbind(GDP, total_row)
-        rownames(GDP) <- NULL
-        order_GDP <- as.data.frame(GDP[order(-GDP$GDP),])
-        order_GDP10<-head(order_GDP,n=20)
+        GDP_table <- rbind(GDP, total_row)
+        rownames(GDP_table) <- NULL
+        GDP_graph_table <- as.data.frame(GDP)
+        ID_sector <- seq_len(length(sector$SECTOR))
+        df_GDP_graph <- cbind(ID_sector, GDP_graph_table)
         
-        #' Plot the GDP by sector
-        GDP_graph<-ggplot(data=order_GDP10, aes(x=SECTOR, y=GDP, fill=CATEGORY)) +
-          geom_bar(colour="black", stat="identity")+ coord_flip() +
-          xlab("Sectors") + ylab("GDP")
+        #' Plot the GDP by category
+        GDP_graph <- ggplot(data = df_GDP_graph, aes(x = CATEGORY, y = GDP, fill = CATEGORY)) +
+          geom_bar(colour = "black", stat = "identity", aes(text = SECTOR)) +  # Add hover text for Sector
+          coord_flip() +
+          xlab("Category") + 
+          ylab("GDP")
+        
+        # Convert to interactive plotly object with hover information
+        interactive_GDP_graph <- ggplotly(GDP_graph, tooltip = "text")
         
         # OUTPUT MULTIPLIER 
         #' Calculate the output multiplier for each sector using the Leontief matrix 
@@ -372,13 +382,13 @@ server <- function(input, output, session) {
           xlab("Sectors") + ylab("Labour multiplier")
         colnames(multiplier)[4]<-"Inc.multiplier"
         
-        rv$GDP <- GDP
+        rv$GDP <- GDP_table
         rv$P.sector.selected <- P.sector.selected
         rv$BPD_graph <- BPD_graph
         rv$FPD_graph <- FPD_graph
         rv$LRC_graph <- LRC_graph
-        rv$PRS_graph <- PRS_graph
-        rv$GDP_graph <- GDP_graph
+        rv$PRS_graph <- interactive_PRS_graph
+        rv$GDP_graph <- interactive_GDP_graph
         rv$multiplier <- multiplier
         rv$OMPL_graph <- OMPL_graph
         rv$IMPL_graph <- IMPL_graph
@@ -391,8 +401,8 @@ server <- function(input, output, session) {
           BPD_graph = BPD_graph,
           FPD_graph = FPD_graph,
           LRC_graph = LRC_graph,
-          PRS_graph = PRS_graph,
-          GDP_graph = GDP_graph,
+          PRS_graph = interactive_PRS_graph,
+          GDP_graph = interactive_GDP_graph,
           OMPL_graph = OMPL_graph,
           IMPL_graph = IMPL_graph,
           LMPL_graph = LMPL_graph,
@@ -451,10 +461,10 @@ server <- function(input, output, session) {
           BPD_graph = BPD_graph,
           FPD_graph = FPD_graph,
           Linkages_table = Linkages_table,
-          PRS_graph = PRS_graph,
+          PRS_graph = interactive_PRS_graph,
           P.sector.selected = P.sector.selected,
           GDP = GDP,
-          GDP_graph = GDP_graph,
+          GDP_graph = interactive_GDP_graph,
           multiplier = multiplier,
           OMPL_graph = OMPL_graph,
           IMPL_graph = IMPL_graph,

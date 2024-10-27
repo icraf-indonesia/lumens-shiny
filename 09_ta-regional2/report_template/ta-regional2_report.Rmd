@@ -12,7 +12,7 @@ params:
   end_time: NA
   landuse_table: NA
   GDP_totals_graph: NA
-  GDP_scen_df: NA
+  GDP_scen: NA
   output_total_graph: NA
   income_total_graph: NA
   labour_total_graph: NA
@@ -60,7 +60,7 @@ This report presents the results of an analysis based on the provided maps and l
 This table provides a sector-by-sector breakdown of the GDP under both the BAU and alternative scenario.
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
-dt_gdp_sector <- params$GDP_scen_df %>%
+dt_gdp_sector <- params$GDP_scen %>%
   mutate(across(where(is.numeric), scales::comma))
 
 DT::datatable(dt_gdp_sector) %>%

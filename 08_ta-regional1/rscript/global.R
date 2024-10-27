@@ -147,8 +147,9 @@ create_linkages_table <- function(sector, DBL, DFL) {
   DFL <- as.data.frame(DFL)
   # BPD_temp <- DBL / mean(DBL)
   # FPD_temp <- DFL / mean(DFL)
-  Linkages_table <- cbind(sector, DBL, DFL)
-  colnames(Linkages_table) <- c("SECTOR", "CATEGORY", "DBL", "DFL")
+  ID <- seq_len(length(sector$SECTOR)) 
+  Linkages_table <- cbind(ID, sector, DBL, DFL)
+  colnames(Linkages_table) <- c("ID","SECTOR", "CATEGORY", "DBL", "DFL")
   return(Linkages_table)
 }
 
@@ -179,7 +180,7 @@ calculate_land_requirements <- function(land_distribution, land_use, fin_dem, in
     LR = round(land_requirement),
     LR_PROP = round(land_requirement / sum(land_requirement), 2),
     OUTPUT = round(demand),
-    DEMAND = round(demand),
+    DEMAND = round(fin_dem_rtot),
     LRC = round(land_requirement_coeff, 2),
     LPC = round(land_productivity_coeff, 2)
   )
@@ -189,16 +190,34 @@ calculate_land_requirements <- function(land_distribution, land_use, fin_dem, in
 }
 
 create_graph <- function(sector, data, y_label, graph_title) {
+  # sector = sector
+  # data = land.requirement_table
+  # y_label = "LRC"
+  # graph_title = "Land Requirement Coefficient"
+  
   # sector <- as.data.frame(sector$SECTOR)
   sector <- as.data.frame(sector)
   colnames(sector) <- c("SECTOR","CATEGORY")
+  
   # Function to create a graph
-  ggplot(data = data.frame(SECTOR = sector, VALUE = data), aes(x = SECTOR.SECTOR, y = VALUE, fill = SECTOR.CATEGORY)) +
-    geom_bar(colour = "black", stat = "identity") +
-    coord_flip() +
-    xlab("Sectors") +
-    ylab(y_label) +
-    ggtitle(graph_title)
+  if (y_label == "LRC"){
+    filtered_sector <- data %>%
+      filter(CATEGORY %in% c("Agriculture", "Plantation", "Livestock", "Forestry"))
+     
+    ggplot(data = filtered_sector, aes(x = SECTOR, y = LRC, fill = CATEGORY)) +
+      geom_bar(colour = "black", stat = "identity") +
+      coord_flip() +
+      xlab("Sectors") +
+      ylab(y_label) +
+      ggtitle(graph_title)
+  } else {
+    ggplot(data = data.frame(SECTOR = sector, VALUE = data), aes(x = SECTOR.SECTOR, y = VALUE, fill = SECTOR.CATEGORY)) +
+      geom_bar(colour = "black", stat = "identity") +
+      coord_flip() +
+      xlab("Sectors") +
+      ylab(y_label) +
+      ggtitle(graph_title)
+  }
 }
 
 generate_land_distribution_prop <- function(land_use, land_distribution) {

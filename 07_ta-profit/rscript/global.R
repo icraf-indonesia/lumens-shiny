@@ -168,14 +168,17 @@ prepare_npv_lookup <- function(tbl_npv, quesc_tbl) {
 }
 
 build_opcost_table <- function(dt_quesc_npv, period, tot_area) {
+  # dt_quesc_npv <- rv$dt_quesc_npv
+  # period <- rv$period
+  # tot_area <- rv$tot_area
   data_em_sel <- dt_quesc_npv[dt_quesc_npv$EM > 0, ]
   data_em_sel <- within(data_em_sel, {
     em_rate <- ((C_T1 - C_T2) * (Ha * 3.67)) / (tot_area * period)
     em_tot <- (C_T1 - C_T2) * 3.67
     sq_rate <- ((C_T1 - C_T2) * (Ha * 3.67)) / (tot_area * period)
     sq_tot <- (C_T1 - C_T2) * 3.67
-    opcost <- (NPV1 - NPV2) / em_tot
-    opcost_sq <- (NPV1 - NPV2) / sq_tot
+    opcost <- (NPV2 - NPV1) / em_tot
+    opcost_sq <- (NPV2 - NPV1) / sq_tot
     cumsum_em <- cumsum(em_rate)
     cumsum_sq <- cumsum(sq_rate)
   })
@@ -256,7 +259,7 @@ generate_output_maps <- function(map_carbon1, map_carbon2, emission_map, opcost_
 generate_opportunity_cost_curve <- function(opcost_table) {
   # Prepare data frame for the curve
   df_curve <- data.frame(
-    emission = opcost_table$emrate,
+    emission_rate = opcost_table$emrate,
     opportunity_cost = opcost_table$opcost,
     land_use_change = opcost_table$luchg
   )
@@ -264,7 +267,7 @@ generate_opportunity_cost_curve <- function(opcost_table) {
   # Group data by land use change
   df_grouped <- df_curve %>%
     group_by(land_use_change) %>%
-    summarise(emission = sum(emission),
+    summarise(emission_rate = sum(emission_rate),
               opportunity_cost = sum(opportunity_cost))
   
   # Filter and order data
@@ -273,7 +276,19 @@ generate_opportunity_cost_curve <- function(opcost_table) {
   df_order$order <- seq_len(nrow(df_order))
   
   # Create the Opportunity Cost Curve
-  opcost_curve <- ggplot(df_order, aes(x = order, y = opportunity_cost)) +
+  # opcost_curve <- ggplot(df_order, aes(x = order, y = opportunity_cost)) +
+  #   labs(x = NULL,
+  #        y = "Opportunity Cost ($/ton CO2-eq)") +
+  #   theme_classic() %+replace%
+  #   theme(axis.line.x = element_blank(), axis.text.x = element_blank(), axis.ticks.x = element_blank(),
+  #         axis.title.y = element_text(face = "bold", angle = 90)) +
+  #   coord_cartesian(ylim = c(-5000, 5000)) +
+  #   geom_bar(stat = "identity", width = 0.7, position = position_dodge(width = 0.4))
+  
+  opcost_curve <- ggplot(df_order, aes(x = order, y = opportunity_cost, 
+                                       text = paste("Land Use Change:", land_use_change,
+                                                    "<br>Opportunity Cost:", round(opportunity_cost, 3),
+                                                    "<br>Emission Rate:", round(emission_rate, 6)))) +
     labs(x = NULL,
          y = "Opportunity Cost ($/ton CO2-eq)") +
     theme_classic() %+replace%
@@ -282,5 +297,8 @@ generate_opportunity_cost_curve <- function(opcost_table) {
     coord_cartesian(ylim = c(-5000, 5000)) +
     geom_bar(stat = "identity", width = 0.7, position = position_dodge(width = 0.4))
   
-  return(opcost_curve)
+  # Convert to interactive plotly object
+  opcost_curve_interactive <- ggplotly(opcost_curve, tooltip = "text")
+  
+  return(list(plot = opcost_curve_interactive, data = df_order))
 }
