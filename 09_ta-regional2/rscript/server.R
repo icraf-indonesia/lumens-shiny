@@ -128,7 +128,15 @@ server <- function(input, output, session) {
         
         # Merge land use data for all periods
         landuse_bau_table <- merge(lc.list, landuse_area0_table, by = "ID")
-        landuse_table <- left_join(landuse_bau_table, landuse_area, by = "ID")
+        # landuse_table <- left_join(landuse_bau_table, landuse_area, by = "ID")
+        # landuse_table <- cbind(landuse_bau_table, landuse_area)
+        if ("ID" %in% colnames(landuse_bau_table) && "ID" %in% colnames(landuse_area)) {
+          # Run this if both tables have an "ID" column
+          landuse_table <- left_join(landuse_bau_table, landuse_area, by = "ID")
+        } else {
+          # Run this if one or both tables do not have an "ID" column
+          landuse_table <- cbind(landuse_bau_table, landuse_area)
+        }
         landuse_table$LC <- NULL
         colnames(landuse_table)[1] <- "LAND_USE"
         
