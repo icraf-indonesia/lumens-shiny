@@ -172,7 +172,8 @@ calculate_land_requirements <- function(land_distribution, land_use, fin_dem, in
   land_requirement_coeff <- land_requirement / demand
   land_requirement_coeff[is.infinite(land_requirement_coeff)] <- 0
   
-  land_productivity_coeff <- land_requirement / fin_dem_rtot
+  # land_productivity_coeff <- land_requirement / fin_dem_rtot
+  land_productivity_coeff <- fin_dem_rtot / land_requirement 
   land_productivity_coeff[is.infinite(land_productivity_coeff)] <- 0
   
   land_requirement_table <- cbind(

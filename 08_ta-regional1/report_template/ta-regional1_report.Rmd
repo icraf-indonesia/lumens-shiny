@@ -164,8 +164,8 @@ This shows how much additional output is generated for each unit of output in a 
 plot(params$OMPL_graph)
 ```
 
-### Input Multiplier
-This reflects how much additional input a sector demands from others. Sectors with high input multipliers create substantial demand for upstream products.
+### Income Multiplier
+This reflects how much additional input a sector demands from others. Sectors with high income multipliers create substantial demand for upstream products.
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 plot(params$IMPL_graph)
@@ -184,7 +184,15 @@ This table outlines the amount of land required by each sector based on producti
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 dt_land.requirement_table <- params$land.requirement_table %>%
   filter(CATEGORY %in% c("Agriculture", "Plantation", "Livestock", "Forestry")) %>%
-  mutate(across(where(is.numeric), ~ scales::number(.x, accuracy = 0.01, big.mark = ","))) 
+  mutate(
+    LR = round(LR, 2),
+    LR_PROP = round(LR_PROP, 2),
+    OUTPUT = round(OUTPUT, 2),
+    DEMAND = round(DEMAND, 2),
+    LRC = round(LRC, 3),
+    LPC = round(LPC, 3)
+  ) %>%
+  mutate(across(where(is.numeric), ~ scales::number(.x, big.mark = ","))) 
 
 DT::datatable(dt_land.requirement_table)
 ```

@@ -266,6 +266,11 @@ server <- function(input, output, session) {
         land.requirement_table <- calculate_land_requirements(land_distribution, land_use, fin_dem, int_con.m, sector)
         land.requirement_table <- land.requirement_table[is.finite(land.requirement_table$LRC), ]
         rv$land.requirement_table <- land.requirement_table
+        write.table(as.data.frame(rv$land.requirement_table),
+                    paste0(rv$wd, "/land_requirement_table.csv"), 
+                    quote=FALSE, 
+                    row.names=FALSE, 
+                    sep=",")
         
         # Generate Graphs
         #' Create and plot graphs for Direct Backward Linkages (BPD), Direct Forward Linkages (FPD), and Land Requirement Coefficient (LRC)
@@ -288,8 +293,6 @@ server <- function(input, output, session) {
         land_distribution_ctot<-colSums(land_distribution_val)
         land.distribution.prop<-land_distribution_val %*% diag(1/land_distribution_ctot)
         land.distribution.prop[is.na(land.distribution.prop)]<-0
-        
-        browser()
         
         # Generate GDP
         #' Calculate GDP based on added value matrices, and prepare data for plotting GDP and sector output
