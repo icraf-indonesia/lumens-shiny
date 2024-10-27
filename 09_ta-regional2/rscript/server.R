@@ -153,7 +153,8 @@ server <- function(input, output, session) {
           demand <- fin_dem.rtot + int_con.rtot
           land.requirement.coeff <- land.requirement.db$LRC
           land.productivity.coeff <- land.requirement.db$LPC
-          fin_dem.scen <- land.requirement.scen / land.productivity.coeff
+          # fin_dem.scen <- land.requirement.scen / land.productivity.coeff
+          fin_dem.scen <- land.requirement.scen * land.productivity.coeff
           fin_dem.scen[is.infinite(fin_dem.scen)] <- 0
           fin_dem.scen[is.na(fin_dem.scen)] <- 0
           
