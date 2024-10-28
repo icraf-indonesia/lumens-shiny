@@ -115,7 +115,7 @@ for(i in list_luc){
   rst_list[[i]] <- r
   counter <- counter + 1
   
-  cat(paste0("### Projected land cover at T", counter, " \n\n"))
+  cat(paste0("### Projected land cover at T+", counter, " \n\n"))
   cat(
     knitr::knit_child(
       text = c(
@@ -134,20 +134,22 @@ for(i in list_luc){
 }
 ```
 
-## Land Use/Change Change Lookup Table
+## Land Use/Cover Change Lookup Table
 
 ```{r lut change, echo=FALSE, message=FALSE, warning=FALSE}
 all_freq <- calc_lc_freq(raster_list = rst_list) %>%
     abbreviate_by_column("Jenis tutupan lahan", remove_vowels = FALSE) 
-colnames(all_freq) <- c("LC", paste0("T", 1:(ncol(all_freq)-1)))
+colnames(all_freq) <- c("LC", paste0("T+", 1:(ncol(all_freq)-1)))
 
 if (grepl("\\+units=m", st_crs(lc_t1)$proj4string)) {
   spatRes <- calc_res_conv_factor_to_ha(lc_t1)
   lc_freq_table <-
     mutate(all_freq, across(c(2:ncol(all_freq)), ~(spatRes*.x))) %>% 
     mutate(across(c(2:ncol(all_freq)), ~units::set_units(x = .x, value = "ha")))
+  
+  all_freq <- mutate(all_freq, across(c(2:ncol(all_freq)), ~(spatRes*.x)))
 } else {
-  cat("Frequency is shown in number of pixels isntead of hectares in the lc_freq_table")
+  cat("Frequency is shown in number of pixels instead of hectares in the lc_freq_table")
 }
 
 df_merge <- df_lc[, 1:2] %>% dplyr::rename(ID = 1, LC = 2)
@@ -160,6 +162,10 @@ lc_freq_table %>% kable() %>%
 ```
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
+all_freq <- all_freq %>% 
+  dplyr::left_join(df_merge, by = "LC") %>%
+  dplyr::arrange(ID) %>%
+  dplyr::relocate(ID, .before = LC)
 write.table(all_freq,
   paste0(params$inputs$output_dir, "/luc_projection.csv"), 
   quote=FALSE, 
