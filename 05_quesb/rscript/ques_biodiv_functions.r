@@ -784,12 +784,12 @@ teci_analysis <- function(landuse,
   # Read and process the class descriptor file
   classdesc_tbl <- classdesc %>%
     read.csv() %>%
-    rename(ID = 1, CLASS = 2, BIODIV = 3) %>%
+    dplyr::rename(ID = 1, CLASS = 2, BIODIV = 3) %>%
     filter(!ID %in% raster.nodata)
   
   # Prepare the class descriptor for Fragstats
   classdesc_fcd <- classdesc_tbl %>%
-    rename(ID = 1, Name = 2, Enabled = 3) %>%
+    dplyr::rename(ID = 1, Name = 2, Enabled = 3) %>%
     mutate(Enabled = as.logical(Enabled)) %>%
     mutate(IsBackground = FALSE)
   
@@ -1034,11 +1034,7 @@ calculate_difa <- function(teci_map, focal_area, sampling_grid, total_area_lands
   )
 
   # Aggregate focal area and calculate sum for each grid cell
-  grid_focal_area <- suppressWarnings(terra::aggregate(
-    focal_area,
-    fact = c(100, 100) / res(focal_area),
-    fun = "modal"
-  )) %>%
+  grid_focal_area <- focal_area %>%
     terra::zonal(
       .,
       sampling_grid,
@@ -1212,7 +1208,7 @@ quesb_single_period <- function(lulc_lut_path,
               sampling_grid_path,
               filetype = "ESRI Shapefile",
               overwrite = TRUE)
-
+ 
   # Perform TECI analysis
   teci_t1 <- teci_analysis(
     landuse = lc_t1,
@@ -1264,7 +1260,7 @@ quesb_two_periods <- function(lulc_lut_path,
                               fca_path = NULL,
                               fragstats_path = NULL) {
   
-  
+
   # Load and prepare data
   # Load land use/land cover lookup table
   lulc_lut <- read.csv(lulc_lut_path)
@@ -1273,15 +1269,16 @@ quesb_two_periods <- function(lulc_lut_path,
   lc_t1 <- prepare_lc_data(lc_t1_path, year = t1, lookup_table = lulc_lut)
   lc_t2 <- prepare_lc_data(lc_t2_path, year = t2, lookup_table = lulc_lut)
   
+  # Harmonize geometries
+
+  if(!compareGeom(lc_t1, lc_t2, stopOnError=FALSE)){
+    lc_t2<- resample(lc_t2, lc_t1)
+  }
+
   # Harmonize NoData values
   list_lc <- harmonise_nodata(lc_t1, lc_t2, nodata_value = raster.nodata)
   lc_t1 <- list_lc[[1]]
   lc_t2 <- list_lc[[2]]
-  
-  # Harmonize geometries
-  list_lc <- check_and_harmonise_geometries(lc_t1, lc_t2)
-  lc_t1 <- list_lc$lc_t1
-  lc_t2 <- list_lc$lc_t2
   
   # Generate sampling grid
   sampling_grid <- generate_sampling_grid(lc_t1, n = sampling_points)
@@ -1297,6 +1294,8 @@ quesb_two_periods <- function(lulc_lut_path,
               sampling_grid_path,
               filetype = "ESRI Shapefile",
               overwrite = TRUE)
+  
+ 
   # Perform TECI analysis for both time periods
   teci_t1 <- teci_analysis(
     landuse = lc_t1,
