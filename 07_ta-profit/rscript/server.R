@@ -187,6 +187,7 @@ server <- function(input, output, session) {
         # Capture the start time at the beginning of the process
         start_time <- Sys.time()
         
+  
         map1_file_path <- rename_uploaded_file(rv$map1_file)
         map2_file_path <- rename_uploaded_file(rv$map2_file)
         npv_file_path <- rename_uploaded_file(rv$npv_file)
@@ -195,7 +196,7 @@ server <- function(input, output, session) {
         year2 <- rv$year2
         raster_nodata <- rv$raster_nodata
         output_dir <- rv$wd
-        
+
         #' Prepare NPV lookup table by combining carbon and NPV data, and calculate total area
         incProgress(0.2, detail = "Preparing NPV lookup table")
         npv_result <- prepare_npv_lookup(rv$tbl_npv, rv$quesc_tbl)
@@ -212,6 +213,11 @@ server <- function(input, output, session) {
         incProgress(0.4, detail = "Performing carbon accounting")
         map1_rast <- terra::rast(map1_file_path)
         map2_rast <- terra::rast(map2_file_path)
+        
+        if(!compareGeom(map1_rast, map2_rast, stopOnError=FALSE)){
+          map2_rast <- resample(map2_rast, map1_rast)
+        }
+        
         carbon_result <- carbon_accounting(map1_rast, map2_rast, rv$tbl_npv, rv$tbl_carbon, raster_nodata)
         rv$map_carbon1 <- carbon_result$map_carbon1
         rv$map_carbon2 <- carbon_result$map_carbon2
