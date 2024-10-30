@@ -67,12 +67,13 @@ syncGeom <- function(input, ref){
 
 # Prepare land cover data -------------------------------------------------
 
-prepare_lc_data <- function(lc_input, lookup_table, time_point) {
+prepare_lc_data <- function(lc_input, lookup_table, time_point, ref) {
   # if(is.null(lc_input) || !file.exists(lc_input$datapath)) {
   #   stop(paste("Invalid or missing land cover data for time point", time_point))
   # }
   lc_path <- rename_uploaded_file(input_file = lc_input)
-  lc_data <- rast(lc_path)
+  lc_data_raw <- rast(lc_path)
+  lc_data <- terra::resample(lc_data_raw, ref)
   lc_raster <- add_legend_to_categorical_raster(raster_file = lc_data, lookup_table = lookup_table, year = time_point)
   names(lc_raster) <- tools::file_path_sans_ext(lc_input$name)
   return(lc_raster)
@@ -94,14 +95,54 @@ compute_erosion_per_pu <- function(erosion_classified, pu){
 
 # Create dataset erosion result -------------------------------------------
 
+# erosion_dataset <- function(erosion_classified, map_resolution){
+#   erosion_db <- data.frame(erosion_classified) %>%
+#     group_by(across(everything())) %>% 
+#     summarise(count = n())
+#   colnames(erosion_db, do.NULL = FALSE)
+#   colnames(erosion_db) <- c("Class","Area (Ha)")
+#   map_res <- map_resolution * map_resolution
+#   erosion_db$`Area (Ha)` * map_res # (res(erosion_classified)[1] * res(erosion_classified)[2] / 10000) #(10000/(map_resolution^2))
+#   erosion_db$`Percentage (%)` <- (erosion_db$`Area (Ha)`/sum(erosion_db$`Area (Ha)`))*100
+#   return(erosion_db)
+# }
+
 erosion_dataset <- function(erosion_classified, map_resolution){
+  # # Calculate the area in hectares, excluding NA pixels
+  # map_resolution <- res(erosion_classified)[1]
+  # valid_pixels <- sum(!is.na(erosion_classified[]))
+  # area_hectares <- (map_resolution * map_resolution * valid_pixels) / 10000
+  # 
+  # # Create the summary data frame
+  # erosion_db <- data.frame(erosion_classified) %>%
+  #   group_by(across(everything())) %>% 
+  #   summarise(count = n())
+  # colnames(erosion_db, do.NULL = FALSE)
+  # colnames(erosion_db) <- c("Class", "Area (Ha)")
+  # 
+  # # Populate the Area (Ha) column
+  # erosion_db$`Area (Ha)` <- erosion_db$`Area (Ha)` * area_hectares / valid_pixels
+  # 
+  # # Calculate the percentage
+  # erosion_db$`Percentage (%)` <- (erosion_db$`Area (Ha)` / sum(erosion_db$`Area (Ha)`)) * 100
+  # return(erosion_db)
+
+  map_resolution <- res(erosion_classified)[1]
+  total_pixels <- ncol(erosion_classified) * nrow(erosion_classified)
+  area_hectares <- (map_resolution * map_resolution * total_pixels) / 10000
+  
+  # Create the summary data frame
   erosion_db <- data.frame(erosion_classified) %>%
     group_by(across(everything())) %>% 
     summarise(count = n())
   colnames(erosion_db, do.NULL = FALSE)
-  colnames(erosion_db) <- c("Class","Area (Ha)")
-  erosion_db$`Area (Ha)`* res(erosion_classified)[1] * res(erosion_classified)[2] / 10000 #(10000/(map_resolution^2))
-  erosion_db$`Percentage (%)` <- (erosion_db$`Area (Ha)`/sum(erosion_db$`Area (Ha)`))*100
+  colnames(erosion_db) <- c("Class", "Area (Ha)")
+  
+  # Populate the Area (Ha) column
+  erosion_db$`Area (Ha)` <- erosion_db$`Area (Ha)` * area_hectares / total_pixels
+  
+  # Calculate the percentage
+  erosion_db$`Percentage (%)` <- (erosion_db$`Area (Ha)` / sum(erosion_db$`Area (Ha)`)) * 100
   return(erosion_db)
 }
 

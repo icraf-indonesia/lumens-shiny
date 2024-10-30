@@ -1,4 +1,6 @@
 server <- function(input, output, session) {
+  options(shiny.maxRequestSize=30*1024^2)
+  
   # Directory selection
   volumes <- c(Home = fs::path_home(), "R Installation" = R.home(), getVolumes()())
   shinyDirChoose(input, "output_dir", roots = volumes, session = session)
@@ -205,7 +207,7 @@ server <- function(input, output, session) {
           req(rv$t1)
           lc1_path <- rename_uploaded_file(input_file = rv$lc_t1_file)
         }
-
+      
         # Prepare the planning unit
         pu1 <- read_shapefile(shp_input = rv$pu_file)
         pu <- rasterise_multipolygon(sf_object = pu1, raster_res = c(rv$map_resolution, rv$map_resolution), field = paste0(colnames(st_drop_geometry(pu1[1]))))
@@ -228,13 +230,16 @@ server <- function(input, output, session) {
         c_ref <- readr::read_csv(c_factor_path)
         
         if (input$multiseries == "two_step"){
-          landcover_t1 <- rast(lc1_path)
-          landcover_t2 <- rast(lc2_path)
-          landcover_t1_viz <- prepare_lc_data(lc_input = rv$lc_t1_file, lookup_table = c_ref, time_point = rv$t1)
-          landcover_t2_viz <- prepare_lc_data(lc_input = rv$lc_t2_file, lookup_table = c_ref, time_point = rv$t2)
+          landcover_t1_raw <- rast(lc1_path)
+          landcover_t2_raw <- rast(lc2_path)
+          landcover_t1 <- terra::resample(landcover_t1_raw, pu)
+          landcover_t2 <- terra::resample(landcover_t2_raw, pu)
+          landcover_t1_viz <- prepare_lc_data(lc_input = rv$lc_t1_file, lookup_table = c_ref, time_point = rv$t1, ref = pu)
+          landcover_t2_viz <- prepare_lc_data(lc_input = rv$lc_t2_file, lookup_table = c_ref, time_point = rv$t2, ref = pu)
           landcover_stack <- c(landcover_t1_viz, landcover_t2_viz)
         } else {
-          landcover_t1 <- rast(lc1_path)
+          landcover_t1_raw <- rast(lc1_path)
+          landcover_t1 <- terra::resample(landcover_t1_raw, pu)
           landcover_t1_viz <- prepare_lc_data(lc_input = rv$lc_t1_file, lookup_table = c_ref, time_point = rv$t1)
         }
         
@@ -523,12 +528,6 @@ server <- function(input, output, session) {
         )
         
         rv$report_file <- paste(rv$output_dir, output_file, sep = "/")
-        
-      }, error = function(e) {
-        cat("An error occurred:\n")
-        print(e)
-      }, finally = {
-        cat("Script execution completed.\n")
         
         # Post Analysis
         output$status_messages <- renderText("Analysis completed successfully!")
