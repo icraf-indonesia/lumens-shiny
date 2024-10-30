@@ -1,4 +1,5 @@
 server <- function(input, output, session) {
+  options(shiny.maxRequestSize=30*1024^2)
   # Directory selection
   volumes <- c(Home = fs::path_home(), "R Installation" = R.home(), getVolumes()())
   shinyDirChoose(input, 'output_dir', roots = volumes, session = session)
@@ -106,7 +107,7 @@ server <- function(input, output, session) {
         req(rv$ref_mapping)
         req(rv$pu_units)
         req(rv$map_resolution)
-        
+
         # Data preparation
         incProgress(0.1, detail = "Preparing data")
         shinyjs::disable("run_analysis")
@@ -144,6 +145,13 @@ server <- function(input, output, session) {
         ref_mapping <- rename_uploaded_file(input_file = rv$ref_mapping)
         tabel_mapping <- read.table(ref_mapping, header = FALSE, sep = ",", skip = 1) %>%
           setNames(c("REFERENCE", "IDSS")) %>% left_join(lookup_ref, by = "REFERENCE")
+        
+        # Check the reference map class
+        if (!identical(tabel_mapping$REFERENCE, lookup_ref$REFERENCE)) {
+          stop("The class in reference map does not match the class in lookup table. Please check your input files.")
+        } else {
+          message("The class in reference map matches the lookup table.")
+        }
         
         if ("COUNT" %in% colnames(tabel_mapping)) {
           tabel_mapping <- tabel_mapping %>% select(-COUNT)

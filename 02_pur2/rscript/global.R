@@ -79,12 +79,11 @@ rasterise_multipolygon <- function(sf_object, raster_res = c(100,100), field = "
   raster_template <- terra::rast(raster_extent, resolution = raster_res, crs = terra::crs(spatvect))
   
   # Rasterize the SpatVector based on the SpatRaster template
-  # Specify the field in the rasterize function
   rasterised_spatraster <- terra::rasterize(spatvect, raster_template, field = field)
   
-  # Convert the 'Kabupaten' column of the sf_object to a lookup_table
+  # Convert the column of the sf_object to a lookup_table
   lookup_table <- sf::st_drop_geometry(sf_object)
-  
+
   # Add legend to the rasterized SpatRaster using the lookup_table
   levels(rasterised_spatraster) <- lookup_table
   

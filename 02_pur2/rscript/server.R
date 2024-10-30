@@ -1,4 +1,5 @@
 server <- function(input, output, session) {
+  options(shiny.maxRequestSize=30*1024^2)
   # Directory selection
   volumes <- c(Home = fs::path_home(), "R Installation" = R.home(), getVolumes()())
   shinyDirChoose(input, 'output_dir', roots = volumes, session = session)
@@ -93,7 +94,7 @@ server <- function(input, output, session) {
         req(rv$recon_file)
         req(rv$unresolved_table)
         req(rv$map_resolution)
-        
+
         # 1. Data preparation -------------------------------------------
         shinyjs::disable("run_analysis")
         incProgress(0.1, detail = "Preparing data inputs")
