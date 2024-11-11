@@ -40,7 +40,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r load function, include=FALSE, error=TRUE, warning=TRUE, message=TRUE}
-source("../rscript/function_quesc.R")
+source("../rscript/function_ques_c.R")
 ```
 
 ```{r load_library, include=FALSE}
@@ -301,14 +301,12 @@ if (params$peat_decomposition == "Yes") {
 ```
 
 ```{r emission_map, echo=FALSE, fig.align='left', fig.keep='all', results='asis', message=FALSE, warning=FALSE}
-if (params$peat_decomposition == "Yes") {
-  plot_quesc_results(
+plot_quesc_results(
     map = params$map_em, 
     legend = "Emission (tonne CO2-eq/ha)", 
     low = "#FFCC66", 
     high = "#FF0000"
   )
-}
 ```
 
 ```{r Peat Emission Map head, echo=FALSE, fig.align='left', fig.keep='all', results='asis', message=FALSE, warning=FALSE}
