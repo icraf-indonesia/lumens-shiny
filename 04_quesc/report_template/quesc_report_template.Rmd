@@ -1,5 +1,5 @@
 ---
-title: "QUES-C Report"
+title: "QuES-C Report"
 output: 
   html_document:
     toc: true
@@ -18,7 +18,20 @@ params:
   ques_db: NA
   p1: NA
   p2: NA
+  lc_t1: NA
+  lc_t2: NA
+  zone: NA
+  df_pu: NA
+  df_c: NA
+  peatmap: NA
+  lookup_c.pt: NA
   inputs: NA
+  tbl_quesc_peat: NA
+  tbl_quesc_peat_sum: NA
+  map_e_peat: NA
+  map_e_mineral_peat: NA
+  quesc_database_mineral_peat: NA
+  peat_decomposition: NA
   session_log: NA  
 ---
 
@@ -27,12 +40,13 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r load function, include=FALSE, error=TRUE, warning=TRUE, message=TRUE}
-source("../rscript/function_ques_c.R")
+source("../rscript/function_quesc.R")
 ```
 
 ```{r load_library, include=FALSE}
 install_load(
   "raster",
+  "terra",
   "ggplot2",
   "dplyr",
   "reshape",
@@ -41,7 +55,8 @@ install_load(
   "DT",
   "kableExtra",
   "tidyterra",
-  "htmltools"
+  "htmltools",
+  "DT"
 )
 if (!("LUMENSR" %in% rownames(installed.packages()))) {
   install_github("icraf-indonesia/LUMENSR", force = T)
@@ -85,60 +100,70 @@ analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
 
 ```{r input-data, echo=FALSE, message=FALSE, warning=FALSE}
 period <- as.numeric(params$p2) - as.numeric(params$p1)
-zone_sf <- params$inputs$admin_z_path %>% st_read(quiet = TRUE)
-map_res <- res(params$map_c1 %>% raster())
-zone <- zone_sf %>% rasterise_multipolygon_quesc(raster_res = map_res, field = "IDS")
-df_pu <- data.frame(ID_PU = zone_sf[[1]], PU = zone_sf[[2]])
-
-zone_rst <- zone %>% raster()
-lc_t1 <- params$inputs$lc_t1_path %>% raster() %>% spatial_sync_raster(zone_rst)
-lc_t2 <- params$inputs$lc_t2_path %>% raster() %>% spatial_sync_raster(zone_rst)
-
-df_c <- read.csv(params$input$c_lookup_path)
-
-#=Load landuse for two time periods
-lc_t1 <- lc_t1 %>% rast() %>%
-  add_legend_to_categorical_raster(., lookup_table = df_c, year = as.numeric(params$p1))
-lc_t2 <- lc_t2 %>% rast() %>%
-  add_legend_to_categorical_raster(., lookup_table = df_c, year = as.numeric(params$p2))
-zone <- zone_rst %>% rast() %>%
-  add_legend_to_categorical_raster(., lookup_table = df_pu)
+df_pu <- params$df_pu
+zone_rst <- params$zone %>% raster()
+df_c <- params$df_c
 ```
 
 This report presents the results of an analysis based on the provided maps and lookup table.
 
 ## Summary of Emission Calculation
 
-```{r summary_emission, echo=FALSE, message=FALSE, warning=FALSE}
-s <- summary_of_emission_calculation(
+```{r summary_emission, echo=FALSE, fig.align='left', fig.keep='all', results='asis', message=FALSE, warning=FALSE}
+if (params$peat_decomposition == "Yes") {
+  s <- summary_of_emission_calculation(
+  quescdb = params$quesc_database_mineral_peat,
+  zone = zone_rst, 
+  map_em = params$map_e_mineral_peat, 
+  map_sq = params$map_sq, 
+  period = list(p1 = params$p1, p2 = params$p2)
+  )
+} else {
+  s <- summary_of_emission_calculation(
   quescdb = params$ques_db,
   zone = zone_rst, 
   map_em = params$map_em, 
   map_sq = params$map_sq, 
   period = list(p1 = params$p1, p2 = params$p2)
-)
-s$summary_df %>% kbl(caption = "Summary of Emission Calculation", escape = F) %>%
-  kable_paper("hover", full_width = F)
+  )
+}
+
+s$summary_df %>% datatable()
+  # kbl(caption = "Summary of Emission Calculation", escape = F) %>%
+  # kable_paper("hover", full_width = F)
 ```
 
-## Summary of Emission Calculation by Planning Unit
+## Summary of Emission Calculation by Planning Unit {.tabset}
 
-```{r summary_emission_by_pu_e, echo=FALSE}
-s$zone_carbon %>% kbl(caption = "Summary of Emissions and Sequestration by Planning Unit", escape = F) %>%
-  kable_paper("hover", full_width = F)
+### Summary of Emissions and Sequestration by Planning Unit
+
+```{r summary_emission_by_pu_e, echo=FALSE, fig.align='left', fig.keep='all', results='asis', message=FALSE, warning=FALSE}
+s$zone_carbon %>% datatable()
+  # kbl(caption = "Summary of Emissions and Sequestration by Planning Unit", escape = F) %>%
+  # kable_paper("hover", full_width = F)
 ```
 
-```{r summary_emission_by_pu_c, echo=FALSE}
-z <- zonal_statistic_database(
+### Carbon Stock and Net Emission Summary Across Time Periods by Planning Unit
+
+```{r summary_emission_by_pu_c, echo=FALSE, fig.align='left', fig.keep='all', results='asis', message=FALSE, warning=FALSE}
+if (params$peat_decomposition == "Yes") {
+  z <- zonal_statistic_database(
+  quescdb = params$quesc_database_mineral_peat,
+  period = period
+  )
+} else {
+  z <- zonal_statistic_database(
   quescdb = params$ques_db,
   period = period
-)
+  )
+}
 
 colnames(z$data_zone_df)[colnames(z$data_zone_df) == "Carbon Avg. (Periode 1)"] <- paste("Carbon Average", params$p1)
 colnames(z$data_zone_df)[colnames(z$data_zone_df) == "Carbon Avg. (Periode 2)"] <- paste("Carbon Average", params$p2)
 
-z$data_zone_df %>% kbl(caption = "Carbon Stock and Net Emission Summary Across Time Periods by Planning Unit", escape = F) %>%
-  kable_paper("hover", full_width = F)
+z$data_zone_df %>% datatable()
+  # kbl(caption = "Carbon Stock and Net Emission Summary Across Time Periods by Planning Unit", escape = F) %>%
+  # kable_paper("hover", full_width = F)
 ```
 
 # Module brief description
@@ -169,14 +194,41 @@ plot_categorical_raster(lc_t2)
 plot_categorical_raster(zone)
 ```
 
-## Carbon Stock Lookup Table
+```{r Peat Land Map, echo=FALSE, fig.align='left', fig.keep='all', results='asis', message=FALSE, warning=FALSE}
+if (params$peat_decomposition == "Yes") {
+  cat("## Peatland Map\n\n")
+  zone <- classify(params$zone, cbind(1:length(unique(values(params$zone))), 1))
+  zone_poly <- as.polygons(zone)
+}
+
+if (params$peat_decomposition == "Yes") {
+  if (!is.factor(values(params$peatmap))) {
+    peatmap <- as.factor(params$peatmap)
+  }
+  plot(peatmap, colNA = NULL, main = "Peatland", plg=list(x='topright'))
+  plot(zone_poly, add = TRUE, border = 'black', lwd = 1)
+}
+```
+
+## Carbon Stock Table
 
 The carbon stock being considered is time-averaged above ground carbon stock.
 
 ```{r Carbon Stock Lookup Table, echo=FALSE}
 read.csv(params$inputs$c_lookup_path) %>% 
-  kbl(caption = "Carbon Stock Lookup Table", escape = FALSE) %>%
-  kable_paper("hover", full_width = F )
+  datatable()
+  # kbl(caption = "Carbon Stock Lookup Table", escape = FALSE) %>%
+  # kable_paper("hover", full_width = F )
+```
+
+```{r Peat Emission Factor Table, echo=FALSE, fig.align='left', fig.keep='all', results='asis', message=FALSE, warning=FALSE}
+if (params$peat_decomposition == "Yes") {
+  cat("## Peat Emission Factor Table\n\n")
+}
+
+if (params$peat_decomposition == "Yes") {
+  datatable(params$lookup_c.pt)
+}
 ```
 
 # Results
@@ -188,10 +240,17 @@ QUES-C Database containing land cover transition between `r params$p1` and `r pa
 Summary statistics of the table contains `r nrow(params$ques_db)` rows and `r names(params$ques_db)` columns.
 
 ```{r load_quesdb, echo=FALSE, message=FALSE, warning=FALSE}
-datatable(params$ques_db)
+if (params$peat_decomposition == "Yes") {
+  datatable(quesc_database_mineral_peat)
+} else {
+  tbl_quesc_filtered <- params$ques_db %>% filter(!(Freq == 0 & Ha == 0))
+  datatable(tbl_quesc_filtered) 
+}
 ```
 
-## Carbon density map in `r params$p1`
+## Carbon Density Map {.tabset}
+
+### Carbon density map in `r params$p1`
 
 Carbon map illustrating the distribution and amount of carbon stored in land use/cover data at `r params$p1` (in tonne-C/ha).
 
@@ -212,7 +271,7 @@ plot_quesc_results(
 )
 ```
 
-## Carbon density map in `r params$p2`
+### Carbon density map in `r params$p2`
 
 Carbon map illustrating the distribution and amount of carbon stored in land use/cover data at `r params$p2` (in tonne-C/ha).
 
@@ -231,17 +290,59 @@ plot_quesc_results(
 )
 ```
 
-## Emission map in `r params$p1`-`r params$p2`
+## Emission map in `r params$p1`-`r params$p2` {.tabset}
 
 Emission map illustrating a decrease in carbon stock amount (in tonne CO2-eq/ha).
 
-```{r emission_map, echo=FALSE}
-plot_quesc_results(
-  map = params$map_em, 
-  legend = "Emission (tonne CO2-eq/ha)", 
-  low = "#FFCC66", 
-  high = "#FF0000"
-)
+```{r emission_map_head, echo=FALSE, fig.align='left', fig.keep='all', results='asis', message=FALSE, warning=FALSE}
+if (params$peat_decomposition == "Yes") {
+  cat("### Mineral-land Emission Map Table\n\n")
+}
+```
+
+```{r emission_map, echo=FALSE, fig.align='left', fig.keep='all', results='asis', message=FALSE, warning=FALSE}
+if (params$peat_decomposition == "Yes") {
+  plot_quesc_results(
+    map = params$map_em, 
+    legend = "Emission (tonne CO2-eq/ha)", 
+    low = "#FFCC66", 
+    high = "#FF0000"
+  )
+}
+```
+
+```{r Peat Emission Map head, echo=FALSE, fig.align='left', fig.keep='all', results='asis', message=FALSE, warning=FALSE}
+if (params$peat_decomposition == "Yes") {
+  cat("### Peat-land Emission Map\n\n")
+}
+```
+
+```{r Peat Emission Map, echo=FALSE, fig.align='left', fig.keep='all', results='asis', message=FALSE, warning=FALSE}
+if (params$peat_decomposition == "Yes") {
+  plot_quesc_results(
+    map = params$map_e_peat,
+    legend = "Emission (tonne CO2-eq/ha)",
+    low = "#FFCC66", 
+    high = "#FF0000"
+  )
+}
+```
+
+```{r Total Emission Map head, echo=FALSE, fig.align='left', fig.keep='all', results='asis', message=FALSE, warning=FALSE}
+if (params$peat_decomposition == "Yes") {
+  cat("### Total Emission Map\n\n")
+}
+```
+
+```{r Total Emission Map, echo=FALSE, fig.align='left', fig.keep='all', results='asis', message=FALSE, warning=FALSE}
+if (params$peat_decomposition == "Yes") {
+  plot_quesc_results(
+    map = params$map_e_mineral_peat,
+    legend = "Emission (tonne CO2-eq/ha)",
+    low = "#FFCC66", 
+    high = "#FF0000"
+  )
+}
 ```
 
 ## Sequestration map in `r params$p1`-`r params$p2`
@@ -263,7 +364,9 @@ plot_quesc_results(
 s$plot_zone_carbon
 ```
 
-## Average Carbon Density in `r params$p1`
+## Average Carbon Density {.tabset}
+
+### Average Carbon Density in `r params$p1`
 
 ```{r avg carbon density 1, echo=FALSE}
 reclassify_matrix <- as.matrix(z$data_zone[, 1]) %>% 
@@ -278,7 +381,7 @@ plot_quesc_results(
 )
 ```
 
-## Average Carbon Density in `r params$p2`
+### Average Carbon Density in `r params$p2`
 
 ```{r avg carbon density 2, echo=FALSE}
 reclassify_matrix <- as.matrix(z$data_zone[, 1]) %>% 
