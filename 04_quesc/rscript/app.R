@@ -1,4 +1,4 @@
-# source('../../helper.R')
+source('../../helper.R')
 source('function_ques_c.R')
 
 install_load(
@@ -35,7 +35,7 @@ library(LUMENSR)
 ui <- fluidPage(
   useShinyjs(),
   theme = bs_theme(version = 5),
-  # extendShinyjs(text = jscode, functions = c("closeWindow")),
+  extendShinyjs(text = jscode, functions = c("closeWindow")),
   tags$head(
     tags$link(rel = "shortcut icon", href = "favicon.ico")  
   ),
