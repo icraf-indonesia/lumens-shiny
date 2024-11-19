@@ -72,7 +72,7 @@ ques_pre <- function(lc_t1, lc_t2, admin_, cutoff_landscape = 5000, cutoff_pu = 
   
   # Calculate and tabulate land cover composition in Hectares
   lc_freq_table <- calc_lc_freq(raster_list = list(lc_t1, lc_t2)) %>%
-    abbreviate_by_column( "Land-use/cover types", remove_vowels = FALSE)
+    abbreviate_by_column(names(.)[1], remove_vowels = FALSE)
   
   
   if (grepl("\\+units=m", st_crs(lc_t1)$proj4string)) {
@@ -90,7 +90,7 @@ ques_pre <- function(lc_t1, lc_t2, admin_, cutoff_landscape = 5000, cutoff_pu = 
 
   # Plot land cover composition
   lc_composition_barplot <- lc_freq_table %>% 
-    plot_lc_freq(column_lc_type = "Land-use/cover types",
+    plot_lc_freq(column_lc_type = names(lc_freq_table)[1],
                  column_T1 = names(lc_freq_table)[2],
                  column_T2 = names(lc_freq_table)[3])
   
@@ -773,7 +773,18 @@ plot_categorical_raster <- function(raster_object) {
   if ("color_palette" %in% names(cats(raster_object)[[1]]) && all(grepl("^#[0-9A-Fa-f]{6}$", cats(raster_object)$color_pallete))) {
     fill_scale <- scale_fill_manual(values = cats(raster_object)[[1]]$color_palette, na.value = "white")
   } else {
-    fill_scale <- scale_fill_manual(values = c("#4E79A7", "#F28E2B", "#E15759", "#76B7B2", "#59A14F", "#EDC948", "#B07AA1", "#FF9DA7", "#9C755F","#BAB0AC"), na.value = "white")
+    fill_scale <- scale_fill_manual(values = c(
+      "#4E79A7", "#F28E2B", "#E15759", "#76B7B2", "#59A14F",
+      "#EDC948", "#B07AA1", "#FF9DA7", "#9C755F", "#BAB0AC",
+      "#86BCB6", "#FFB84D", "#A5C1DC", "#D37295", "#C4AD66",
+      "#7B8D8E", "#B17B62", "#8CD17D", "#DE9D9C", "#5A5A5A",
+      "#A0A0A0", "#D7B5A6", "#6D9EEB", "#E69F00", "#56B4E9",
+      "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7",
+      "#999999", "#E51E10", "#FF7F00", "#FFFF33", "#A65628",
+      "#F781BF", "#999933", "#8DD3C7", "#FFFFB3", "#BEBADA",
+      "#FB8072", "#80B1D3", "#FDB462", "#B3DE69", "#FCCDE5",
+      "#D9D9D9", "#BC80BD", "#CCEBC5", "#FFED6F", "#E41A1C"
+    ), na.value = "white")
   }
   if(!is.na(time(raster_object))) {
     plot_title <- time(raster_object)
@@ -782,7 +793,7 @@ plot_categorical_raster <- function(raster_object) {
   }
   # Generate the plot
   plot_lc <- ggplot() +
-    geom_spatraster(data = raster_object) +
+    tidyterra::geom_spatraster(data = raster_object) +
     fill_scale +
     theme_bw() +
     labs(title = plot_title, fill = NULL) +
@@ -1067,14 +1078,20 @@ plot_lc_freq <- function(lc_table, column_lc_type, column_T1, column_T2) {
   stopifnot(is.character(column_T1))
   stopifnot(is.character(column_T2))
   
+  zero_value <- lc_table[[column_T1]][1] * 0
+  
   # Replace NA values with 0
   lc_table <- lc_table %>%
-    mutate(!!sym(column_T1) := replace_na(!!sym(column_T1), 0),
-           !!sym(column_T2) := replace_na(!!sym(column_T2), 0))
+    mutate(!!sym(column_T1) := tidyr::replace_na(!!sym(column_T1), zero_value),
+           !!sym(column_T2) := tidyr::replace_na(!!sym(column_T2), zero_value))
+  
+  # lc_table <- lc_table %>%
+  #   mutate(!!sym(column_T1) := tidyr::replace_na(!!sym(column_T1), 0),
+  #          !!sym(column_T2) := tidyr::replace_na(!!sym(column_T2), 0))
   
   # Reshape data to long format. This structure is more suitable for plotting.
   lc_table_long <- lc_table %>%
-    pivot_longer(cols = c(all_of(column_T1), all_of(column_T2)),
+    tidyr::pivot_longer(cols = c(all_of(column_T1), all_of(column_T2)),
                  names_to = "Year",
                  values_to = "Count")
   
@@ -1083,17 +1100,17 @@ plot_lc_freq <- function(lc_table, column_lc_type, column_T1, column_T2) {
   
   # Reorder the factor levels of Land_Cover_Type based on the count from Timepoint 1 data
   lc_table_T1 <- lc_table %>%
-    mutate(!!column_lc_type := fct_reorder(!!sym(column_lc_type), !!sym(column_T1)))
+    mutate(!!column_lc_type := forcats::fct_reorder(!!sym(column_lc_type), !!sym(column_T1)))
   
   # Create lc_table_long with new level order
   lc_table_long <- lc_table_T1 %>%
-    pivot_longer(cols = c(column_T1, column_T2),
+    tidyr::pivot_longer(cols = c(column_T1, column_T2),
                  names_to = "Year",
                  values_to = "Count") %>% 
     mutate(Count_numeric = as.numeric(Count))
 
   # Wrap the text of Land_Cover_Type to make it fit into two lines
-  lc_table_long[[column_lc_type]] <- factor(str_wrap(as.character(lc_table_long[[column_lc_type]]), width = 30))
+  lc_table_long[[column_lc_type]] <- factor(stringr::str_wrap(as.character(lc_table_long[[column_lc_type]]), width = 30))
   roundUp <- function(x) 10^ceiling(log10(x))
   # Create the Timepoint 1 plot with positive values
   plot1 <- ggplot(lc_table_long[lc_table_long$Year == column_T1,],
@@ -1125,7 +1142,7 @@ plot_lc_freq <- function(lc_table, column_lc_type, column_T1, column_T2) {
     theme(axis.text.y = element_text(angle = 0, hjust = 0.5))
   
   # Arrange the plots side by side using the cowplot package
-  final_plot <- plot_grid(plot1, lc_label, plot2, align = "h", nrow = 1, rel_widths = c(1, 0.2, 1))
+  final_plot <- cowplot::plot_grid(plot1, lc_label, plot2, align = "h", nrow = 1, rel_widths = c(1, 0.2, 1))
   
   return(final_plot)
 }
@@ -1186,9 +1203,6 @@ lcc_summary_by_pu <- function(crosstab_tbl, pu_column, pu_name, sankey_area_cuto
     sankey_pu <- filter_crosstab |>
       create_sankey(area_cutoff = sankey_area_cutoff, change_only = FALSE)
   }
-  
-  
-  
   # Calculate the top land cover changes based on the filtered crosstab table
   luc_top_pu <- filter_crosstab |>
     calc_top_lcc(n_rows = n_top_lcc)
@@ -1199,8 +1213,6 @@ lcc_summary_by_pu <- function(crosstab_tbl, pu_column, pu_name, sankey_area_cuto
   # Return a list containing the Sankey plot and the top land cover changes
   return(list(sankey_pu = sankey_pu, luc_top_pu = luc_top_pu, crosstab_pu = crosstab_pu))
 }
-
-
 
 # create_sankey -----------------------------------------------------------
 
@@ -2204,6 +2216,7 @@ process_planning_unit <- function(zone_type, zone_input, lc_t1_raster) {
     zone_raster <- as.factor(terra::rast(zone_input$datapath))
     lookup_zone <- NULL
   } else {
+    
     sf_object <- read_shapefile(zone_input)
     
     if (is.null(sf_object)) {
