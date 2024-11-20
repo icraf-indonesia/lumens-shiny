@@ -593,13 +593,13 @@ generate_egoml_raster_cube <- function(factor_path, output_dir, egoml) {
   return(out)
 }
 
-run_dinamica_raster_cube <- function(dinamica_path = NULL, output_dir, egoml) {
+run_dinamica_raster_cube <- function(dinamica_path = NULL, output_dir, egoml, memory_allocation) {
   params <- list()
   params$dinamica_path <- dinamica_path
   params$output_dir <- output_dir
   params$egoml <- egoml
   
-  executeDINAMICA(params)
+  executeDINAMICA(params, memory_allocation)
   
   # check raster cube file 
   ers_file <- paste0(output_dir, "/sciendo_factors.tif")
@@ -872,13 +872,13 @@ generate_egoml_woe_model <- function(aliasFactor, lusim_lc,
   return(out)
 }
 
-run_dinamica_woe_model <- function(dinamica_path = NULL, output_dir, egoml){
+run_dinamica_woe_model <- function(dinamica_path = NULL, output_dir, egoml, memory_allocation){
   params <- list()
   params$dinamica_path <- dinamica_path
   params$output_dir <- output_dir
   params$egoml <- egoml
   
-  executeDINAMICA(params)
+  executeDINAMICA(params, memory_allocation)
   
   n_woe_report <- paste0(output_dir, "/woe") %>% 
     list.files(full.names=TRUE, pattern="weight_report*") %>%
