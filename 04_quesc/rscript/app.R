@@ -81,6 +81,7 @@ ui <- fluidPage(
 )
 
 server <- function(input, output, session) {
+  options(shiny.maxRequestSize = 1024^3)
   #### Initialize all required reactive values ####
   rv <- reactiveValues(
     wd = NULL,

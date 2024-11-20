@@ -1,6 +1,6 @@
 source('function_sciendo_simulate.R')
 source('../../helper.R')
-options(shiny.maxRequestSize=30*1024^2)
+options(shiny.maxRequestSize = 1024^3)
 
 install_load(
   "shinyFiles", "shinyvalidate", "shinyjs", "bslib", "sf", "raster",
