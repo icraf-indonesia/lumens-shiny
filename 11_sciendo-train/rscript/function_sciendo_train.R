@@ -301,7 +301,7 @@ generate_sciendo_train_report <- function(output, dir) {
 }
 
 
-executeDINAMICA <- function(params) {
+executeDINAMICA <- function(params, memory_allocation) {
   # Find DINAMICA directory if not provided
   if (is.null(params$dinamica_path) | identical(params$dinamica_path, character(0))) {
     program_files <- c("C:/Program Files/", "C:/Program Files (x86)/")
@@ -333,7 +333,14 @@ executeDINAMICA <- function(params) {
   }
   
   # Prepare DINAMICA command
-  command<-paste('"', dinamica_exe, '" -processors 0 -log-level 4 "', params$egoml, '"', sep="")
+  # command<-paste('"', dinamica_exe, '" -processors 0 -log-level 4 -memory-allocation-policy 1 "', params$egoml, '"', sep="")
+  command <- paste(
+    '"', dinamica_exe, 
+    '" -processors 0 -log-level 4 -memory-allocation-policy ', 
+    memory_allocation, 
+    ' "', params$egoml, '"', 
+    sep = ""
+  )
   
   # Execute DINAMICA
   result <- system(command)
@@ -471,13 +478,13 @@ generate_egoml_transition_matrix <- function(lc1_path, lc2_path,
   return(egoml_mtx_file)
 }
 
-run_dinamica_transition_matrix <- function(dinamica_path = NULL, output_dir, egoml) {
+run_dinamica_transition_matrix <- function(dinamica_path = NULL, output_dir, egoml, memory_allocation) {
   params <- list()
   params$dinamica_path <- dinamica_path
   params$output_dir <- output_dir
   params$egoml <- egoml
   
-  executeDINAMICA(params)
+  executeDINAMICA(params, memory_allocation)
 }
 
 generate_egoml_raster_cube <- function(factor_path, output_dir, egoml) {
@@ -883,20 +890,20 @@ run_dinamica_woe_model <- function(dinamica_path = NULL, output_dir, egoml){
 
 run_sciendo_train_process <- function(lc_t1_path, lc_t2_path, zone_path, lc_lookup_table_path,
                                       lc_lookup_table, z_lookup_table_path, factor_path, time_points,
-                                      dinamica_path = NULL, output_dir, progress_callback = NULL) {
+                                      dinamica_path = NULL, output_dir, memory_allocation, progress_callback = NULL) {
   start_time <- Sys.time()
   cat("Started at:", format(start_time, "%Y-%m-%d %H:%M:%S"), "\n")
   
   if (!is.null(progress_callback)) progress_callback(0.1, "generate egoml: baseline matrix generation")
   period <- as.numeric(time_points$t2) - as.numeric(time_points$t1)
   egoml_mtx_file <- generate_egoml_transition_matrix(lc_t1_path, lc_t2_path, zone_path, period, output_dir, egoml = "00_sciendo_baseline_tpm")
-  run_dinamica_transition_matrix(dinamica_path, output_dir, egoml_mtx_file)
+  run_dinamica_transition_matrix(dinamica_path, output_dir, egoml_mtx_file, memory_allocation)
   
   if (!is.null(progress_callback)) progress_callback(0.2, "generate egoml: raster cube generation")
   out_rc <- generate_egoml_raster_cube(factor_path, output_dir, egoml = "01_sciendo_train_raster_cube")
   
   if (!is.null(progress_callback)) progress_callback(0.5, "run dinamica raster cube")
-  run_dinamica_raster_cube(dinamica_path, output_dir, out_rc$egoml_rc_file)
+  run_dinamica_raster_cube(dinamica_path, output_dir, out_rc$egoml_rc_file, memory_allocation)
   
   if (!is.null(progress_callback)) progress_callback(0.7, "generate egoml: initialize weight of evidence parameters")
   out_woe <- generate_egoml_woe_model(out_rc$alias, lc_lookup_table, 
@@ -905,7 +912,7 @@ run_sciendo_train_process <- function(lc_t1_path, lc_t2_path, zone_path, lc_look
                                       egoml = "02_sciendo_train_woe")
   
   if (!is.null(progress_callback)) progress_callback(0.9, "run dinamica determine weight of evidence")
-  run_dinamica_woe_model(dinamica_path, output_dir, out_woe$egoml_woe_file)
+  run_dinamica_woe_model(dinamica_path, output_dir, out_woe$egoml_woe_file, memory_allocation)
   
   listWoeReport <- out_woe$weight  %>% list.files(full.names=TRUE, pattern="weight_report*")
   df_pu <- read.csv(z_lookup_table_path) %>% dplyr::rename(ID_PU = 1, PU = 2)

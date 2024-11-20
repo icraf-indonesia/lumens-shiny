@@ -42,6 +42,11 @@ ui <- fluidPage(
         fileInput("mapz_file", "Planning Unit", accept = c("image/tiff"))
       ),
       fileInput("z_file", "Planning Unit Lookup Table (CSV)", accept = c(".csv")),
+      
+      selectInput("memory_allocation", "Choose Memory Allocation",
+        choices = c("Balanced" = 1, "Prefer Memory" = 0, "Prefer Disk" = 2, "Memory Only" = 3, "Aggressive" = 4)
+      ),
+      
       div(style = "display: flex; flex-direction: column; gap: 10px;",
           shinyDirButton("factors_path", "Factor(s) Folder Path", "Choose a folder contains factor files"),
           verbatimTextOutput("print_factor_dir", placeholder = TRUE),
@@ -94,7 +99,8 @@ server <- function(input, output, session) {
     lc_path = NULL,
     lc_df = NULL,
     z_path = NULL,
-    period_year = NULL
+    period_year = NULL,
+    memory_allocation = NULL
   )
   
   lc_list <- c("map1", "map2")
@@ -297,6 +303,7 @@ server <- function(input, output, session) {
   iv$add_rule("z_file", sv_required(message = "Please upload planning unit lookup table"))
   iv$add_rule("factors_path", sv_required(message = "Please select a directory of factors"))
   iv$add_rule("wd", sv_required(message = "Please select an output directory"))
+  iv$add_rule("memory_allocation", sv_required(message = "Please select memory allocation option"))
   
   #### Do the calculation and store it to the markdown content ####
   observeEvent(input$processTrain, {
@@ -330,6 +337,7 @@ server <- function(input, output, session) {
           time_points = list(t1 = rv$map1_year, t2 = rv$map2_year),
           dinamica_path = rv$dinamica_path,
           output_dir = rv$wd,
+          memory_allocation = input$memory_allocation,
           progress_callback = function(value, detail) {
             setProgress(value = value, message = detail)
           }

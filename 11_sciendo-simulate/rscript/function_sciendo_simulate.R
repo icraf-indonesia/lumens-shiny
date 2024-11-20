@@ -257,7 +257,7 @@ generate_sciendo_simulate_report <- function(output, dir) {
 }
 
 
-executeDINAMICA <- function(params) {
+executeDINAMICA <- function(params, memory_allocation) {
   # Find DINAMICA directory if not provided
   if (is.null(params$dinamica_path) | identical(params$dinamica_path, character(0))) {
     program_files <- c("C:/Program Files/", "C:/Program Files (x86)/")
@@ -289,7 +289,14 @@ executeDINAMICA <- function(params) {
   }
   
   # Prepare DINAMICA command
-  command<-paste('"', dinamica_exe, '" -processors 0 -log-level 4 "', params$egoml, '"', sep="")
+  # command<-paste('"', dinamica_exe, '" -processors 0 -log-level 4 "', params$egoml, '"', sep="")
+  command <- paste(
+    '"', dinamica_exe, 
+    '" -processors 0 -log-level 4 -memory-allocation-policy ', 
+    memory_allocation, 
+    ' "', params$egoml, '"', 
+    sep = ""
+  )
   
   # Execute DINAMICA
   result <- system(command)
@@ -305,7 +312,8 @@ generate_egoml_simulate <- function(lc1_path, lusim_lc,
                                     zone_path, ers_path, n_rep,
                                     tm_path, dcf_path,
                                     output_dir, probability = FALSE,
-                                    egoml) {
+                                    egoml,
+                                    memory_allocation) {
   prob_path <- paste0(output_dir, "/probabilities.tif")
   landscape_path <- paste0(output_dir, "/landscape.tif")
   
@@ -583,13 +591,13 @@ generate_egoml_simulate <- function(lc1_path, lusim_lc,
   return(out)
 }
 
-run_dinamica_simulation <- function(dinamica_path = NULL, output_dir, egoml) {
+run_dinamica_simulation <- function(dinamica_path = NULL, output_dir, egoml, memory_allocation) {
   params <- list()
   params$dinamica_path <- dinamica_path
   params$output_dir <- output_dir
   params$egoml <- egoml
   
-  executeDINAMICA(params)
+  executeDINAMICA(params, memory_allocation)
   
   # check result
   new_lc_file <- paste0(output_dir, "/landscape01.tif")
@@ -599,7 +607,7 @@ run_dinamica_simulation <- function(dinamica_path = NULL, output_dir, egoml) {
 }
 
 run_sciendo_simulate_process <- function(lc_t1_path, lc_lookup_table_path, lc_lookup_table, zone_path, ers_path, 
-                                         n_rep, tm_path, dcf_path, dinamica_path = NULL, output_dir, progress_callback = NULL) {
+                                         n_rep, tm_path, dcf_path, dinamica_path = NULL, output_dir, memory_allocation, progress_callback = NULL) {
   start_time <- Sys.time()
   cat("Started at:", format(start_time, "%Y-%m-%d %H:%M:%S"), "\n")
   
@@ -610,7 +618,7 @@ run_sciendo_simulate_process <- function(lc_t1_path, lc_lookup_table_path, lc_lo
                                      probability = FALSE, egoml = "03_sciendo_simulation")
   
   if (!is.null(progress_callback)) progress_callback(0.7, "run dinamica simulation per region")
-  run_dinamica_simulation(dinamica_path, output_dir, out_sim$egoml_sim_file)
+  run_dinamica_simulation(dinamica_path, output_dir, out_sim$egoml_sim_file, memory_allocation)
   
   end_time <- Sys.time()
   cat("Ended at:", format(end_time, "%Y-%m-%d %H:%M:%S"), "\n")

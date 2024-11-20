@@ -28,6 +28,9 @@ ui <- fluidPage(
       fileInput("lc_file", "Land Use/Cover Lookup Table (CSV)", accept = c(".csv")),
       fileInput("rc_file", "Raster Cube", multiple=T),
       numericInput("repetition", "Repetition", value = 2),
+      selectInput("memory_allocation", "Choose Memory Allocation",
+                  choices = c("Balanced" = 1, "Prefer Memory" = 0, "Prefer Disk" = 2, "Memory Only" = 3, "Aggressive" = 4)
+      ),
       div(style = "display: flex; flex-direction: column; gap: 10px;",
           shinyDirButton("tm_path", "Transition Matrix Folder Path", "Choose a folder contains CSV files"),
           verbatimTextOutput("print_tm_dir", placeholder = TRUE),
@@ -79,7 +82,8 @@ server <- function(input, output, session) {
     mapz_file = NULL,
     mapz_df = NULL,
     lc_path = NULL,
-    lc_df = NULL
+    lc_df = NULL,
+    memory_allocation = NULL
   )
   
   volumes <- c(
@@ -265,6 +269,7 @@ server <- function(input, output, session) {
   iv$add_rule("tm_path", sv_required(message = "Please select a directory of transition matrix"))
   iv$add_rule("dcf_path", sv_required(message = "Please select a directory of woe dcf"))
   iv$add_rule("wd", sv_required(message = "Please select an output directory"))
+  iv$add_rule("memory_allocation", sv_required(message = "Please select memory allocation option"))
   
   #### Do the calculation and store it to the markdown content ####
   observeEvent(input$processSimulate, {
@@ -291,6 +296,7 @@ server <- function(input, output, session) {
           dcf_path = rv$dcf_path,
           dinamica_path = rv$dinamica_path,
           output_dir = rv$wd,
+          memory_allocation = input$memory_allocation,
           progress_callback = function(value, detail) {
             setProgress(value = value, message = detail)
           }
