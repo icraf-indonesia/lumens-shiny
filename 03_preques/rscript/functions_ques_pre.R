@@ -2188,7 +2188,8 @@ read_shapefile <- function(shp_input) {
     print(list.files(uploaded_dir))
     
     # Read and return the shapefile
-    sf_object <- sf::st_read(shp_file)
+    sf_object1 <- sf::st_read(shp_file)
+    sf_object <- st_cast(sf_object1, "MULTIPOLYGON")
     return(sf_object)
   }, error = function(e) {
     cat("Error occurred:", e$message, "\n")

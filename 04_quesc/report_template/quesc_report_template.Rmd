@@ -85,9 +85,11 @@ analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
 
 ```{r input-data, echo=FALSE, message=FALSE, warning=FALSE}
 period <- as.numeric(params$p2) - as.numeric(params$p1)
-zone_sf <- params$inputs$admin_z_path %>% st_read(quiet = TRUE)
+zone_sf1 <- params$inputs$admin_z_path %>% st_read(quiet = TRUE)
+zone_sf <- st_cast(zone_sf1, "MULTIPOLYGON")
+
 map_res <- res(params$map_c1 %>% raster())
-zone <- zone_sf %>% rasterise_multipolygon_quesc(raster_res = map_res, field = "IDS")
+zone <- zone_sf %>% rasterise_multipolygon_quesc(raster_res = map_res, field = paste0(colnames(st_drop_geometry(zone_sf[1]))))
 df_pu <- data.frame(ID_PU = zone_sf[[1]], PU = zone_sf[[2]])
 
 zone_rst <- zone %>% raster()

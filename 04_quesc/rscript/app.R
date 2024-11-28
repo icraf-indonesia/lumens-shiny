@@ -46,9 +46,9 @@ ui <- fluidPage(
       fileInput("carbon_file", "Carbon stock lookup table", accept = c(".csv")),
       fileInput("mapz_file", 
                 "Planning Unit", 
-                accept = c(".shp", ".dbf", ".sbn", ".sbx", ".shx", ".prj"), 
-                multiple = T, 
-                placeholder = "All related shapefiles"),
+                accept = c(".shp", ".dbf", ".prj", ".shx"), 
+                multiple = TRUE,
+                placeholder = "input shapefiles (.shp, .dbf, .prj, .shx)"),
       div(style = "display: flex; flex-direction: column; gap: 10px;",
           shinyDirButton("wd", "Select output directory", "Please select a directory"),
           verbatimTextOutput("print_output_dir", placeholder = TRUE),
@@ -156,11 +156,12 @@ server <- function(input, output, session) {
     
     rv$mapz_file <- paste(uploaded_dir, shp$name[grep(pattern="*.shp$", shp$name)], sep = "/")
     
-    zone_sf <- rv$mapz_file %>% st_read()
+    zone_sf1 <- rv$mapz_file %>% st_read()
+    zone_sf <- st_cast(zone_sf1, "MULTIPOLYGON")
     zone <- zone_sf %>% 
       rasterise_multipolygon_quesc(
         raster_res = res(rv$map1_rast), 
-        field = "IDS" 
+        field = paste0(colnames(st_drop_geometry(zone_sf[1]))) 
       )
     rv$mapz_df <- data.frame(ID_PU = zone_sf[[1]], PU = zone_sf[[2]])
     rv$mapz_rast <- zone %>% raster()
