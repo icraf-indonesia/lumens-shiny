@@ -775,7 +775,11 @@ plot_categorical_raster <- function(raster_object) {
         "#1F77B4", "#FF7F0E", "#2CA02C", "#D62728", "#9467BD",
         "#8C564B", "#E377C2", "#7F7F7F", "#BCBD22", "#17BECF",
         "#67001F", "#3288BD", "#66C2A5", "#FC8D62", "#8DA0CB",
-        "#E78AC3", "#A6D854", "#FFD92F", "#E5C494", "#B3B3B3"
+        "#E78AC3", "#A6D854", "#FFD92F", "#E5C494", "#B3B3B3",
+        "#7FC97F", "#BEAED4", "#FDC086", "#FFFF99", "#386CB0",
+        "#F0027F", "#BF5B17", "#666666", "#A6CEE3", "#1F78B4",
+        "#B2DF8A", "#33A02C", "#FB9A99", "#E31A1C", "#FDBF6F",
+        "#FF7F00", "#CAB2D6", "#6A3D9A", "#FFFF33", "#B15928"
       ),
       na.value = "white"
     )
@@ -1069,8 +1073,8 @@ run_quesc_peat_analysis <- function(output_dir, lc_t1_path, lc_t2_path, admin_z_
   names(lookup_c.pt)[ncol(lookup_c.pt)] <- "Peat"
   
   # Prepare landcover/use map
-  luc_1 <- rast(lc_t1_path)
-  luc_2 <- rast(lc_t2_path)
+  luc_1raw <- rast(lc_t1_path)
+  luc_2raw <- rast(lc_t2_path)
   
   # Prepare zone
   zone_sf <- read_shapefile(shp_input = admin_z_path)
@@ -1078,7 +1082,7 @@ run_quesc_peat_analysis <- function(output_dir, lc_t1_path, lc_t2_path, admin_z_
   zone_sf <- st_cast(zone_sf, "MULTIPOLYGON")
   zone <- zone_sf %>% 
     rasterise_multipolygon_quesc(
-      raster_res = res(luc_1), 
+      raster_res = res(luc_1raw), 
       field = paste0(colnames(st_drop_geometry(zone_sf[1])))
     )
   pu_table <- data.frame(ID_PU = zone_sf[[1]], PU = zone_sf[[2]])
@@ -1086,6 +1090,9 @@ run_quesc_peat_analysis <- function(output_dir, lc_t1_path, lc_t2_path, admin_z_
   for (i in 1:nrow(pu_table)) {
     zone <- subst(zone, from = pu_table$PU[i], to = pu_table$ID_PU[i])
   }
+  
+  luc_1 <- resample(luc_1raw, zone)
+  luc_2 <- resample(luc_2raw, zone)
   
   # Prepare peat map
   peat_sf <- read_shapefile(shp_input = peat_map_path)
