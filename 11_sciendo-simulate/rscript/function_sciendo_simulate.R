@@ -200,7 +200,18 @@ plot_categorical_raster <- function(raster_object) {
   if ("color_palette" %in% names(cats(raster_object)[[1]]) && all(grepl("^#[0-9A-Fa-f]{6}$", cats(raster_object)$color_pallete))) {
     fill_scale <- scale_fill_manual(values = cats(raster_object)[[1]]$color_palette, na.value = "white")
   } else {
-    fill_scale <- scale_fill_manual(values = c("#4E79A7", "#F28E2B", "#E15759", "#76B7B2", "#59A14F", "#EDC948", "#B07AA1", "#FF9DA7", "#9C755F","#BAB0AC"), na.value = "white")
+    fill_scale <- scale_fill_manual(values = c(
+      "#4E79A7", "#F28E2B", "#E15759", "#76B7B2", "#59A14F",
+      "#EDC948", "#B07AA1", "#FF9DA7", "#9C755F", "#BAB0AC",
+      "#86BCB6", "#FFB84D", "#A5C1DC", "#D37295", "#C4AD66",
+      "#7B8D8E", "#B17B62", "#8CD17D", "#DE9D9C", "#5A5A5A",
+      "#A0A0A0", "#D7B5A6", "#6D9EEB", "#E69F00", "#56B4E9",
+      "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7",
+      "#999999", "#E51E10", "#FF7F00", "#FFFF33", "#A65628",
+      "#F781BF", "#999933", "#8DD3C7", "#FFFFB3", "#BEBADA",
+      "#FB8072", "#80B1D3", "#FDB462", "#B3DE69", "#FCCDE5",
+      "#D9D9D9", "#BC80BD", "#CCEBC5", "#FFED6F", "#E41A1C"), 
+      na.value = "white")
   }
   if(!is.na(time(raster_object))) {
     plot_title <- time(raster_object)
