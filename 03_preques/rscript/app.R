@@ -84,6 +84,8 @@ ui <- fluidPage(
 )
 
 server <- function(input, output, session) {
+  options(shiny.maxRequestSize = 100 * 1024^2)
+  
   # Directory selection
   volumes <- c(Home = fs::path_home(), "R Installation" = R.home(), getVolumes()())
   shinyDirChoose(input, "output_dir", roots = volumes, session = session)
@@ -182,7 +184,6 @@ server <- function(input, output, session) {
     showNotification("Analysis is running. Please wait...", type = "message", duration = NULL, id = "running_notification")
     withProgress(message = 'Running Pre-QuES Analysis', value = 0, {
       tryCatch({
-       
         # Load LC T1 raster
         lc_t1_raster <- terra::rast(rv$lc_t1$datapath)
 

@@ -1,6 +1,5 @@
 source('function_sciendo_simulate.R')
 source('../../helper.R')
-options(shiny.maxRequestSize = 1024^3)
 
 install_load(
   "shinyFiles", "shinyvalidate", "shinyjs", "bslib", "sf", "raster",
@@ -71,6 +70,7 @@ ui <- fluidPage(
 )
 
 server <- function(input, output, session) {
+  options(shiny.maxRequestSize = 100 * 1024^2)
   #### Initialize all required reactive values ####
   rv <- reactiveValues(
     wd = NULL,
