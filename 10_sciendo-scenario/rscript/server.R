@@ -1,5 +1,7 @@
 server <- function(input, output, session) {
   options(shiny.maxRequestSize = 100 * 1024^2)
+  options(shiny.session.inactivity = 0)
+  
   vars <-
     c("primary",
       "success",

@@ -1,3 +1,17 @@
+inactivity <- "function idleTimer() {
+  var t; 
+
+  window.onmousemove = resetTimer; // catches mouse movements
+  window.onmousedown = resetTimer; // catches mouse movements
+  window.onclick = resetTimer;     // catches mouse clicks
+  window.onscroll = resetTimer;    // catches scrolling
+  window.onkeypress = resetTimer;  // catches keyboard actions
+
+  function resetTimer() {
+    clearTimeout(t);
+  }
+}
+idleTimer();"
 
 generate_download_link <- function(df, title) {
   p(p(tags$b(title)), apply(df, 1, function(x) {
@@ -250,6 +264,7 @@ download_panel <- layout_column_wrap(
 #### UI MAIN PAGE ####
 ui <-
   page_navbar(
+    tags$script(inactivity),
     id = "main_page",
     theme = bs_theme(
       primary = "#540b0e",
