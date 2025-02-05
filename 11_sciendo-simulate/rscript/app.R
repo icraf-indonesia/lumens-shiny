@@ -27,9 +27,37 @@ ui <- fluidPage(
       fileInput("lc_file", "Land Use/Cover Lookup Table (CSV)", accept = c(".csv")),
       fileInput("rc_file", "Raster Cube", multiple=T),
       numericInput("repetition", "Repetition", value = 2),
-      selectInput("memory_allocation", "Choose Memory Allocation",
-                  choices = c("Balanced" = 1, "Prefer Memory" = 0, "Prefer Disk" = 2, "Memory Only" = 3, "Aggressive" = 4)
+      # selectInput("memory_allocation", "Choose Memory Allocation",
+      #             choices = c("Balanced" = 1, "Prefer Memory" = 0, "Prefer Disk" = 2, "Memory Only" = 3, "Aggressive" = 4)
+      # ),
+      
+      tags$head(
+        tags$style(HTML("
+      .selectize-dropdown-content .option {
+        padding-left: 20px;
+      }
+    "))
       ),
+      
+      selectizeInput("memory_allocation", "Choose Memory Allocation",
+                     choices = c("Balanced" = 1, "Prefer Memory" = 0, "Prefer Disk" = 2, 
+                                 "Memory Only" = 3, "Aggressive" = 4),
+                     options = list(render = I("
+                   {
+                     option: function(item, escape) {
+                       var explanations = {
+                         '1': 'Balanced: This memory management policy keeps input maps in memory and tries to keep resulting maps in memory whenever possible. However, resulting maps will be kept in disk if there is not enough free memory available to store them, or if Dinamica EGO suspects that by storing them in memory, it will hurt its ability of allocating memory to perform other types of operations in the future.',
+                         '0': 'Prefer Memory: This memory management policy keeps input maps and resulting maps in memory whenever possible. However, maps will be kept in disk and brought back to memory piece by piece if there is not enough free memory available to store them. Beware that a model execution might fail if there is not enough free memory left in the system to perform other types of operations.',
+                         '2': 'Prefer Disk: This memory management policy keeps all maps in disk, including the resulting ones, and brings them back to memory piece by piece, as necessary.',
+                         '3': 'Memory Only: This memory management policy keeps input maps and resulting maps only in memory. However, if there is not enough free memory available to store the maps, an ERROR will be reported and the model script execution will be aborted.',
+                         '4': 'Aggressive: This memory management policy keeps all input maps in disk and keeps resulting maps in memory whenever possible. However, maps will be kept in disk and brought back to memory piece by piece if there is not enough free memory available to store them. Beware that a model execution might fail if there is not enough free memory left in the system to perform other types of operations.'
+                       };
+                       var tooltip = explanations[item.value] || 'No explanation available';
+                       return '<div style=\"padding-left: 20px;\" title=\"' + tooltip + '\">' + escape(item.label) + '</div>';
+                     }
+                   }
+                 "))),
+      
       div(style = "display: flex; flex-direction: column; gap: 10px;",
           shinyDirButton("tm_path", "Transition Matrix Folder Path", "Choose a folder contains CSV files"),
           verbatimTextOutput("print_tm_dir", placeholder = TRUE),
