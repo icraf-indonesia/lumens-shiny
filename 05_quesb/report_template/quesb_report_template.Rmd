@@ -269,9 +269,9 @@ lut %>%
 A table defining contrast weights between different land use/cover types. Values range from 0 (identical) to 1 (maximum contrast).
 
 ```{r Edge Contrast Matrix, echo=FALSE}
-contrast_table <- read.csv(params$inputs$contab_pat, skip = 2)
-colnames(contrast_table) <- read.csv(params$inputs$lulc_lut_path) %>% rename(Value=1) %>% filter(!Value %in% 0) %>% pull(2)
-rownames(contrast_table)<- read.csv(params$inputs$lulc_lut_path) %>% rename(Value=1) %>%  filter(!Value %in% 0) %>% pull(2)
+contrast_table <- read.csv(params$inputs$contab_path, skip = 2)
+colnames(contrast_table) <- read.csv(params$inputs$lulc_lut_path) %>% rename(Value=1) %>% pull(2)
+rownames(contrast_table) <- read.csv(params$inputs$lulc_lut_path) %>% rename(Value=1) %>% pull(2)
 
 contrast_table %>% round(digits = 3) %>% 
   kbl(caption = "Edge Contrast Matrix", escape = FALSE) %>%
