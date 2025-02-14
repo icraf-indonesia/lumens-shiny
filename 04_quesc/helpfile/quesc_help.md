@@ -20,7 +20,10 @@ Before using the QUES-C Analysis tool, prepare the following:
 
 Follow these steps to use the tool:
 
-![](quesc.gif){style="max-width:80%;height=auto;"}
+<video controls style="max-width:80%;height:auto;">
+    <source src="quesc.mp4" type="video/mp4">
+    Your browser does not support the video tag.
+</video>
 
 1.  **Land Use/Cover T1**
     -   Click "Browse" and select your land cover raster file for the first time point (T1).
