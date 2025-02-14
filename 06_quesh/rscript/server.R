@@ -179,7 +179,7 @@ server <- function(input, output, session) {
         showNotification("Analysis is running. Please wait...", type = "message", duration = NULL, id = "running_notification")
         shinyjs::disable("run_analysis")
         incProgress(0.1, detail = "Preparing data inputs")
-      
+
         # Rename uploaded file
         lapply(list(rv$output_dir, rv$rainfall_file, rv$dem_file, rv$sand_file, rv$silt_file, rv$clay_file, rv$orgc_file, rv$pu_file, rv$c_ref_file, rv$map_resolution), req)
         rainfall_path <- rename_uploaded_file(input_file = rv$rainfall_file)
@@ -234,13 +234,13 @@ server <- function(input, output, session) {
           landcover_t2_raw <- rast(lc2_path)
           landcover_t1 <- terra::resample(landcover_t1_raw, pu)
           landcover_t2 <- terra::resample(landcover_t2_raw, pu)
-          landcover_t1_viz <- prepare_lc_data(lc_input = rv$lc_t1_file, lookup_table = c_ref, time_point = rv$t1, ref = pu)
-          landcover_t2_viz <- prepare_lc_data(lc_input = rv$lc_t2_file, lookup_table = c_ref, time_point = rv$t2, ref = pu)
+          landcover_t1_viz <- prepare_lc_data_quesh(lc_input = rv$lc_t1_file, lookup_table = c_ref, time_point = rv$t1, ref = pu)
+          landcover_t2_viz <- prepare_lc_data_quesh(lc_input = rv$lc_t2_file, lookup_table = c_ref, time_point = rv$t2, ref = pu)
           landcover_stack <- c(landcover_t1_viz, landcover_t2_viz)
         } else {
           landcover_t1_raw <- rast(lc1_path)
           landcover_t1 <- terra::resample(landcover_t1_raw, pu)
-          landcover_t1_viz <- prepare_lc_data(lc_input = rv$lc_t1_file, lookup_table = c_ref, time_point = rv$t1)
+          landcover_t1_viz <- prepare_lc_data_quesh(lc_input = rv$lc_t1_file, lookup_table = c_ref, time_point = rv$t1, ref = pu)
         }
         
         # Prepare P factor input parameters

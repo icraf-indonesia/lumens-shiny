@@ -67,7 +67,7 @@ syncGeom <- function(input, ref){
 
 # Prepare land cover data -------------------------------------------------
 
-prepare_lc_data <- function(lc_input, lookup_table, time_point, ref) {
+prepare_lc_data_quesh <- function(lc_input, lookup_table, time_point, ref) {
   # if(is.null(lc_input) || !file.exists(lc_input$datapath)) {
   #   stop(paste("Invalid or missing land cover data for time point", time_point))
   # }
