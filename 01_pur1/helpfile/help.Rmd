@@ -27,7 +27,10 @@ Planning unit reconciliation is a process to resolve overlapping permits by refe
 
 Follow these steps to use the module:
 
-![](images/PURbuild-01.gif){style="max-width:80%; height:auto;"}
+<video controls style="max-width:80%;height:auto;">
+    <source src="images/pur1.mp4" type="video/mp4">
+    Your browser does not support the video tag.
+</video>
 
 # Accessing Outputs
 

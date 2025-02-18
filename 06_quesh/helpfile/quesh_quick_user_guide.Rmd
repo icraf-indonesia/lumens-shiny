@@ -8,7 +8,6 @@ output:
     df_print: kable
     math_method:
       engine: mathjax
-runtime: shiny
 ---
 
 # Overview
@@ -97,7 +96,10 @@ RUSLE is a multiplicative model where each factor influences the overall soil lo
 
 Follow these steps to use the module:
 
-![](images/QUES-H_GUI_10pfs_new.gif){style="max-width:80%; height:auto;"}
+<video controls style="max-width:80%;height:auto;">
+    <source src="images/quesh.mp4" type="video/mp4">
+    Your browser does not support the video tag.
+</video>
 
 # Accessing Outputs
 

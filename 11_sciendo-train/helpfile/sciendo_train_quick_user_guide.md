@@ -11,7 +11,10 @@ Before using the SCIENDO Train tool, prepare the following:
 
 ## Using the SCIENDO Train Analysis Tool
 
-![](sciendo_train_help.gif){style="max-width:80%;height=auto;"}
+<video controls style="max-width:80%;height:auto;">
+    <source src="sciendo_train.mp4" type="video/mp4">
+    Your browser does not support the video tag.
+</video>
 
 Follow these steps to use the tool:
 

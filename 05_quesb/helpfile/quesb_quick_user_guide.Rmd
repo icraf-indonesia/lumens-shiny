@@ -61,7 +61,10 @@ Before using the QuES-B Analysis tool, prepare the following:
 
 Follow these steps to use the module:
 
-![QuES-B GUI Animation Entry](ques_b_gui_animation_entry.gif){style="max-width:80%;height:auto;"}
+<video controls style="max-width:80%;height:auto;">
+    <source src="quesb.mp4" type="video/mp4">
+    Your browser does not support the video tag.
+</video>
 
 # Accessing Outputs
 

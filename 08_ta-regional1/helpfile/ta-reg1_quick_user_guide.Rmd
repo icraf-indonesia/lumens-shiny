@@ -8,7 +8,6 @@ output:
     df_print: kable
     math_method:
       engine: mathjax
-runtime: shiny
 ---
 
 # Overview
@@ -57,7 +56,10 @@ Before using the Regional Economic Descriptive Analysis tool, prepare the follow
 
 Follow these steps to use the module:
 
-![](ta-reg1_quick_user_guide.gif){style="max-width:80%;height=auto;"}
+<video controls style="max-width:80%;height:auto;">
+    <source src="ta-reg1.mp4" type="video/mp4">
+    Your browser does not support the video tag.
+</video>
 
 # Accessing Outputs
 

@@ -8,7 +8,6 @@ output:
     df_print: kable
     math_method:
       engine: mathjax
-runtime: shiny
 ---
 
 # Overview
@@ -41,7 +40,10 @@ Before using the Profitability Analysis tool, prepare the following:
 
 Follow these steps to use the module:
 
-![](ta-profit_quick_user_guide.gif){style="max-width:80%;height=auto;"}
+<video controls style="max-width:80%;height:auto;">
+    <source src="ta-profit.mp4" type="video/mp4">
+    Your browser does not support the video tag.
+</video>
 
 # Accessing Outputs
 
