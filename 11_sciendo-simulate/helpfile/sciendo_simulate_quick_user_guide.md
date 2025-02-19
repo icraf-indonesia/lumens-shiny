@@ -16,6 +16,11 @@ Before using the SCIENDO Simulate tool, prepare the following:
 
 Follow these steps to use the tool:
 
+<video controls style="max-width:80%;height:auto;">
+    <source src="sciendo-sim.mp4" type="video/mp4">
+    Your browser does not support the video tag.
+</video>
+
 1.  **Land Use/Cover T1**
     -   Click "Browse" and select your land cover raster file for the first time point (T1).
 2.  **Planning Units**

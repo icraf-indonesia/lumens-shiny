@@ -8,6 +8,11 @@ Before using the QUES-C Analysis tool, prepare the following:
 
 Follow these steps to use the tool:
 
+<video controls style="max-width:80%;height:auto;">
+    <source src="sciendo-builder.mp4" type="video/mp4">
+    Your browser does not support the video tag.
+</video>
+
 1.  **QUES-C Database**
     -   Click "Browse" and select QUES-C Database CSV file containing the emission factors with their corresponding land cover classes.
 2.  **Output Directory**
