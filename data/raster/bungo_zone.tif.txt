@@ -1,8 +1,0 @@
-ID: 5
-Data: bungo_zone.tif
-Name: Bungo Zone
-URL: data/raster/bungo_zone.tif
-Label: raster
-Definition: This raster data represents the RPL (Rencana Pola Ruang) or spatial plan of Bungo Regency in Jambi Province, Indonesia. It includes 8 classification classes. The map resolution is 100 m in UTM Zone 48S projection.
-Comment: NA
-Reference: NA
