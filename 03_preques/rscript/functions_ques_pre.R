@@ -1875,6 +1875,7 @@ run_preques_analysis <- function(lc_t1_input, lc_t2_input, admin_z_input,
   # Run ques-b for lc
   start_time <- Sys.time()
   cat("Started at:", format(start_time, "%Y-%m-%d %H:%M:%S"), "\n")
+  
   # Load lookup tables
   lc_lookup <- if(!is.null(lc_lookup_input) && file.exists(lc_lookup_input$datapath)) {
     read.csv(lc_lookup_input$datapath)
@@ -2100,6 +2101,9 @@ generate_preques_report <- function(output_pre_ques,
     ques_pre_report_path <- "../report_template/ques_pre.Rmd"
     helper_functions_path <- "../rscript/functions_ques_pre.R"
 
+  } else if (file.exists("../../03_preques/report_template/ques_pre.Rmd")){
+    ques_pre_report_path <- "../../03_preques/report_template/ques_pre.Rmd"
+    helper_functions_path <- "../../03_preques/rscript/functions_ques_pre.R"
   } else {
     ques_pre_report_path <- "03_preques/report_template/ques_pre.Rmd"
     helper_functions_path <- "03_preques/rscript/functions_ques_pre.R"
