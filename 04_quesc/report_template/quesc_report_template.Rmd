@@ -27,7 +27,11 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r load function, include=FALSE, error=TRUE, warning=TRUE, message=TRUE}
-source("../rscript/function_ques_c.R")
+if (file.exists("function_ques_c.R")){
+  source("function_ques_c.R")
+} else {
+  source("04_quesc/rscript/function_ques_c.R")
+}
 ```
 
 ```{r load_library, include=FALSE}

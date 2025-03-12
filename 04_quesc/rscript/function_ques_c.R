@@ -1,3 +1,7 @@
+is_numeric_str <- function(s) {
+  return(!is.na(as.integer(as.character(s))))
+}
+
 summary_text_en <- c("Period",
                      "Total area (ha)",
                      "Total emission (tonne CO2-eq)",
@@ -701,13 +705,39 @@ generate_quesc_report <- function(output_quesc, dir) {
   )
   output_file <- paste0("quesc_report_", Sys.Date(), ".html")
   
+  temp_dir <- tempdir()
+  
+  # Copy report template and functions to temporary directory
+  if (file.exists("../report_template/quesc_report_template.Rmd")){
+    quesc_report_path <- "../report_template/quesc_report_template.Rmd"
+    helper_functions_path <- "../rscript/function_ques_c.R"
+  } else if (file.exists("../../04_quesc/report_template/quesc_report_template.Rmd")){
+    quesc_report_path <- "../../04_quesc/report_template/quesc_report_template.Rmd"
+    helper_functions_path <- "../../04_quesc/rscript/function_ques_c.R"
+  } else {
+    quesc_report_path <- "04_quesc/report_template/quesc_report_template.Rmd"
+    helper_functions_path <- "04_quesc/rscript/function_ques_c.R"
+  }
+  
+  file.copy(quesc_report_path,
+            to = file.path(temp_dir, "quesc_report_template.Rmd"), overwrite = TRUE)
+  file.copy(helper_functions_path,
+            to = file.path(temp_dir, "function_ques_c.R"), overwrite = TRUE)
+  
+  # Render the R Markdown report
+  if (rmarkdown::pandoc_available()==FALSE){
+    Sys.setenv(RSTUDIO_PANDOC=paste0(getwd(), "/pandoc"))
+  }
+  
   rmarkdown::render(
-    "../report_template/quesc_report_template.Rmd",
+    input = file.path(temp_dir, "quesc_report_template.Rmd"),
+    # "../report_template/quesc_report_template.Rmd",
     output_file = output_file,
     output_dir = dir,
     params = report_params
   )
 }
+
 
 #' Run QUES-C Analysis
 #' 
@@ -730,12 +760,41 @@ generate_quesc_report <- function(output_quesc, dir) {
 #' 
 #' @export
 run_quesc_analysis <- function(lc_t1_path, lc_t2_path, admin_z_path, c_lookup_path,
-                               lc_t1_input, lc_t2_input, admin_z_input,
-                               c_lookup_input, zone_lookup_input,
                                time_points, output_dir, progress_callback = NULL) {
   start_time <- Sys.time()
   cat("Started at:", format(start_time, "%Y-%m-%d %H:%M:%S"), "\n")
   
+  # read raster
+  lc_t1_input <- raster::raster(lc_t1_path)
+  lc_t2_input <- raster::raster(lc_t2_path)
+  
+  # read polygon
+  zone_sf1 <- admin_z_path %>% st_read()
+  zone_sf <- st_cast(zone_sf1, "MULTIPOLYGON")
+  zone <- zone_sf %>% 
+    rasterise_multipolygon_quesc(
+      raster_res = res(lc_t1_input), 
+      field = paste0(colnames(st_drop_geometry(zone_sf[1]))) 
+    )
+  zone_lookup_input <- data.frame(ID_PU = zone_sf[[1]], PU = zone_sf[[2]])
+  admin_z_input <- zone %>% raster()
+  
+  # read table
+  df_c <- read.csv(c_lookup_path)
+  
+  if(nrow(df_c) == 0)
+    return()
+  if(nrow(df_c) < 2)
+    return()
+  if(!is_numeric_str(df_c[1, 1]))
+    return()
+
+  df <- data.frame("ID_LC" = as.integer((as.character(df_c[, 1]))))
+  df$LC <- df_c[, 2]
+  df$CARBON <- df_c[, 3]
+  c_lookup_input <- df
+  
+  # spatial sync raster
   map1_rast <- lc_t1_input %>% spatial_sync_raster(admin_z_input)
   map2_rast <- lc_t2_input %>% spatial_sync_raster(admin_z_input)
   
@@ -756,9 +815,9 @@ run_quesc_analysis <- function(lc_t1_path, lc_t2_path, admin_z_path, c_lookup_pa
   
   # join table
   df_lucdb <- c_lookup_input %>% dplyr::rename(ID_LC1 = 1, C_T1 = 3) %>% 
-    rename_with(.cols = 2, ~time_points$t1) %>% right_join(lucDummy, by="ID_LC1")
+    rename_with(.cols = 2, ~as.character(time_points$t1)) %>% right_join(lucDummy, by="ID_LC1")
   df_lucdb <- c_lookup_input %>% dplyr::rename(ID_LC2 = 1, C_T2 = 3) %>% 
-    rename_with(.cols = 2, ~time_points$t2) %>% right_join(df_lucdb, by="ID_LC2")
+    rename_with(.cols = 2, ~as.character(time_points$t2)) %>% right_join(df_lucdb, by="ID_LC2")
   df_lucdb <- zone_lookup_input %>% dplyr::rename(ID_PU = 1) %>% 
     rename_with(.cols = 2, ~names(zone)) %>% right_join(df_lucdb, by="ID_PU") 
   df_lucdb <- df_lucdb %>% 
@@ -786,7 +845,7 @@ run_quesc_analysis <- function(lc_t1_path, lc_t2_path, admin_z_path, c_lookup_pa
   df_lucdb <- df_lucdb %>% mutate(
     EM = (C_T1 - C_T2) * (C_T1 > C_T2) * Ha * 3.67,
     SQ = (C_T2 - C_T1) * (C_T1 < C_T2) * Ha * 3.67,
-    LU_CHG = do.call(paste, c(df_lucdb[c(time_points$t1, time_points$t2)], sep = " to "))
+    LU_CHG = do.call(paste, c(df_lucdb[as.character(c(time_points$t1, time_points$t2))], sep = " to "))
   )
   
   end_time <- Sys.time()
