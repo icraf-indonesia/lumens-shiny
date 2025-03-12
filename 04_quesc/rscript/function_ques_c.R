@@ -888,8 +888,8 @@ run_quesc_analysis <- function(lc_t1_path, lc_t2_path, admin_z_path, c_lookup_pa
   writeRaster(map_sequestration,
               paste0(output_dir, "/sequestration_map.tif"), overwrite = T)
   
-  if (!is.null(progress_callback)) progress_callback(1, "generate report")
-  generate_quesc_report(output_quesc = out, dir = output_dir)
+  # if (!is.null(progress_callback)) progress_callback(1, "generate report")
+  # generate_quesc_report(output_quesc = out, dir = output_dir)
   
   return(out)
 }
