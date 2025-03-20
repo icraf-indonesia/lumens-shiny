@@ -1,3 +1,101 @@
+source('../../helper.R')
+
+### Required Library ###
+install_load <- function (package1, ...)  {
+  # convert arguments to vector
+  packages <- c(package1, ...)
+  options(repos = c(CRAN = "https://cloud.r-project.org"))
+  # start loop to determine if each package is installed
+  for (package in packages) {
+    # if package is installed locally, load
+    if (package %in% rownames(installed.packages()))
+      do.call('library', list(package))
+    # if package is not installed locally, download, then load
+    else {
+      install.packages(package)
+      do.call("library", list(package))
+    }
+  }
+}
+
+install_load(
+  "shiny","shinyFiles",
+  "bslib","foreign", 
+  "terra","raster",
+  "dplyr","sp","sf", 
+  "openxlsx","shinyvalidate",
+  "remotes","shinyjs",
+  "rmarkdown","tools",
+  "DT","tibble",
+  "RColorBrewer","tidyterra",
+  "scales","shinyalert"
+)
+
+if (file.exists("functions_PUR1.R")){
+  source("functions_PUR1.R")
+} else {
+  source("01_pur1/rscript/functions_PUR1.R")
+}
+
+# Define UI elements ------------------------------------------------------
+
+ui <- fluidPage(
+  useShinyjs(),
+  theme = bs_theme(version = 5),
+  extendShinyjs(text = jscode, functions = c("closeWindow")),
+  tags$head(
+    tags$link(rel = "shortcut icon", href = "favicon.ico")  
+  ),
+  titlePanel("PUR Build Module"),
+  sidebarLayout(
+    sidebarPanel(
+      fileInput("ref_map", 
+                "Reference Map", 
+                accept = c(".shp", ".dbf", ".shx", ".prj"), 
+                multiple = T,
+                placeholder = "input shapefiles (.shp, .dbf, .shx, .prj)"),
+      fileInput("ref_class", "Reference Class", accept = c(".csv"), placeholder = "input table (.csv)"),
+      fileInput("ref_mapping", "Reference Class of Reference Map", accept = c(".csv"), placeholder = "input table (.csv)"),
+      fileInput("pu_units", "List of Planning Units", accept = c(".csv"), placeholder = "input table (.csv)"),
+      textInput("map_resolution", "Map Resolution (m)", placeholder = "e.g., 100, 30, etc."),
+      div(style = "display: flex; flex-direction: column; gap: 10px;",
+          shinyDirButton("output_dir", "Select Output Directory", "Please select a directory"),
+          verbatimTextOutput("selected_directory", placeholder = TRUE),
+          actionButton("run_analysis", "Run PUR Build",
+                       style = "font-size: 18px; padding: 10px 15px; background-color: #4CAF50; color: white;"),
+          hidden(
+            actionButton("open_report", "Open Report",
+                         style = "font-size: 18px; padding: 10px 15px; background-color: #008CBA; color: white;")
+          ),
+          hidden(
+            actionButton("open_output_folder", "Open Output Folder",
+                         style = "font-size: 18px; padding: 10px 15px; background-color: #008CBA; color: white;")
+          ),
+          actionButton("returnButton", "Return to Main Menu", 
+                       style = "font-size: 18px; padding: 10px 15px; background-color: #FA8072; color: white;")
+      )
+    ),
+    mainPanel(
+      tabsetPanel(
+        tabPanel("User Guide",
+                 div(
+                   style = "height: 800px; overflow-y: scroll; padding: 15px; border: 1px solid #ddd; border-radius: 5px;",
+                   uiOutput("user_guide")
+                 )
+        ),
+        tabPanel("Log",
+                 textOutput("selected_dir"),
+                 verbatimTextOutput("status_messages"),
+                 verbatimTextOutput("error_messages"),
+                 verbatimTextOutput("success_message")
+        )
+      )
+    )
+  )
+)
+
+# -------------------------------------------------------------------------
+
 server <- function(input, output, session) {
   options(shiny.maxRequestSize=30*1024^2)
   # Directory selection
@@ -107,7 +205,7 @@ server <- function(input, output, session) {
         req(rv$ref_mapping)
         req(rv$pu_units)
         req(rv$map_resolution)
-
+        
         # Data preparation
         incProgress(0.1, detail = "Preparing data")
         shinyjs::disable("run_analysis")
@@ -417,7 +515,7 @@ server <- function(input, output, session) {
         
         #=Save PUR final database and unresolved case(s)
         database_unresolved <- subset(PUR_dbfinal, Rec_phase1b == "unresolved_case") |> dplyr::select(-ID_rec)
-
+        
         # save final database for viz
         #database_final <- as.data.frame(levels(PUR))
         #database_final$COUNT_ha <- database_final$COUNT * Spat_res
@@ -474,7 +572,7 @@ server <- function(input, output, session) {
           
           # Create the workbook
           database_unresolved_out_wb = createWorkbook()
-
+          
           # Add worksheets
           addWorksheet(database_unresolved_out_wb, "PUR_unresolved_case")
           writeData(database_unresolved_out_wb, sheet = "PUR_unresolved_case", x = as_tibble(database_unresolved_out1), startCol = 1)
@@ -652,3 +750,6 @@ server <- function(input, output, session) {
     }
   })
 }
+
+# Run the App
+shinyApp(ui = ui, server = server)

@@ -1,3 +1,101 @@
+source('../../helper.R')
+
+### Required Library ###
+install_load <- function (package1, ...)  {
+  # convert arguments to vector
+  packages <- c(package1, ...)
+  options(repos = c(CRAN = "https://cloud.r-project.org"))
+  # start loop to determine if each package is installed
+  for (package in packages) {
+    # if package is installed locally, load
+    if (package %in% rownames(installed.packages()))
+      do.call('library', list(package))
+    # if package is not installed locally, download, then load
+    else {
+      install.packages(package)
+      do.call("library", list(package))
+    }
+  }
+}
+
+install_load(
+  "shiny","shinyFiles",
+  "bslib","foreign", 
+  "raster","terra", 
+  "dplyr","sp","sf", 
+  "readxl","shinyvalidate",
+  "remotes","shinyjs",
+  "rmarkdown","tools",
+  "ggplot2","knitr",
+  "kableExtra","DT",
+  "tidyterra","ggspatial",
+  "RColorBrewer","cowplot",
+  "shinyalert"
+)
+
+if (file.exists("functions_PUR2.R")){
+  source("functions_PUR2.R")
+} else {
+  source("01_pur1/rscript/functions_PUR2.R")
+}
+
+# -------------------------------------------------------------------------
+
+ui <- fluidPage(
+  useShinyjs(),
+  theme = bs_theme(version = 5),
+  extendShinyjs(text = jscode, functions = c("closeWindow")),
+  tags$head(
+    tags$link(rel = "shortcut icon", href = "favicon.ico")  
+  ),
+  titlePanel("PUR Reconcile Module"),
+  sidebarLayout(
+    sidebarPanel(
+      fileInput("recon_file",
+                "Built Planning Unit Map",
+                accept = c(".shp", ".dbf", ".shx", ".prj"),
+                multiple = T,
+                placeholder = "input shapefiles (.shp, .dbf, .shx, .prj)"),
+      fileInput("unresolved_table", "Reconciliation Table", accept = c(".xlsx"), placeholder = "input table (.xlsx)"),
+      textInput("map_resolution", "Map Resolution (m)", placeholder = "e.g., 100, 30, etc."),
+      div(style = "display: flex; flex-direction: column; gap: 10px;",
+          shinyDirButton("output_dir", "Select Output Directory", "Please select a directory"),
+          verbatimTextOutput("selected_directory", placeholder = TRUE),
+          actionButton("run_analysis", "Run PUR Reconcile",
+                       style = "font-size: 18px; padding: 10px 15px; background-color: #4CAF50; color: white;"),
+          hidden(
+            actionButton("open_report", "Open Report",
+                         style = "font-size: 18px; padding: 10px 15px; background-color: #008CBA; color: white;")
+          ),
+          hidden(
+            actionButton("open_output_folder", "Open Output Folder",
+                         style = "font-size: 18px; padding: 10px 15px; background-color: #008CBA; color: white;")
+          ),
+          actionButton("returnButton", "Return to Main Menu",
+                       style = "font-size: 18px; padding: 10px 15px; background-color: #FA8072; color: white;")
+      )
+    ),
+    mainPanel(
+      tabsetPanel(
+        tabPanel("User Guide",
+                 div(
+                   style = "height: 800px; overflow-y: scroll; padding: 15px; border: 1px solid #ddd; border-radius: 5px;",
+                   uiOutput("user_guide")
+                 )
+        ),
+        tabPanel("Log",
+                 textOutput("selected_dir"),
+                 verbatimTextOutput("status_messages"),
+                 verbatimTextOutput("error_messages"),
+                 verbatimTextOutput("success_message")
+        )
+      )
+    )
+  )
+)
+
+# -------------------------------------------------------------------------
+
 server <- function(input, output, session) {
   options(shiny.maxRequestSize=30*1024^2)
   # Directory selection
@@ -94,7 +192,7 @@ server <- function(input, output, session) {
         req(rv$recon_file)
         req(rv$unresolved_table)
         req(rv$map_resolution)
-
+        
         # 1. Data preparation -------------------------------------------
         shinyjs::disable("run_analysis")
         incProgress(0.1, detail = "Preparing data inputs")
@@ -105,7 +203,7 @@ server <- function(input, output, session) {
         ref <- rasterise_multipolygon(sf_object = sa, raster_res = c(rv$map_resolution, rv$map_resolution), field = paste0(colnames(st_drop_geometry(sa[1]))))
         
         unresolved_edit <- readxl::read_xlsx(u)
-
+        
         # select ID and Reconcile action column
         reconcile_scenario <- unresolved_edit %>% 
           dplyr::rename("ID"=1, 
@@ -134,7 +232,7 @@ server <- function(input, output, session) {
         } else {
           message("The planning unit IDs and attribute table IDs are matched.")
         }
-
+        
         # 2. Resolve any unresolved cases --------------------------------
         incProgress(0.2, detail = "Resolve Any Unresolved Cases")
         
@@ -158,7 +256,7 @@ server <- function(input, output, session) {
         } else {
           cat("The CRS units are not in meters. Cannot calculate area in hectares.\n")
         }
-
+        
         # 4. Export results --------------------------------
         incProgress(0.4, detail = "Exporting Results")
         
@@ -324,3 +422,6 @@ server <- function(input, output, session) {
     }
   })
 }
+
+# Run the App
+shinyApp(ui = ui, server = server)
