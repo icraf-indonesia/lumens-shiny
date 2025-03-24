@@ -58,6 +58,13 @@ ui <- fluidPage(
       fileInput("ref_mapping", "Reference Class of Reference Map", accept = c(".csv"), placeholder = "input table (.csv)"),
       fileInput("pu_units", "List of Planning Units", accept = c(".csv"), placeholder = "input table (.csv)"),
       textInput("map_resolution", "Map Resolution (m)", placeholder = "e.g., 100, 30, etc."),
+      
+      #####################
+      actionButton("addFile", "Add File"),  # Button to add more file inputs
+      br(), br(),
+      div(id = "fileInputs"),  # Container for dynamic file inputs
+      #####################
+      
       div(style = "display: flex; flex-direction: column; gap: 10px;",
           shinyDirButton("output_dir", "Select Output Directory", "Please select a directory"),
           verbatimTextOutput("selected_directory", placeholder = TRUE),
@@ -87,7 +94,10 @@ ui <- fluidPage(
                  textOutput("selected_dir"),
                  verbatimTextOutput("status_messages"),
                  verbatimTextOutput("error_messages"),
-                 verbatimTextOutput("success_message")
+                 verbatimTextOutput("success_message"),
+                 ###########
+                 tableOutput("fileTable")  # Display uploaded file names and custom names
+                 ###########
         )
       )
     )
@@ -102,6 +112,154 @@ server <- function(input, output, session) {
   volumes <- c(Home = fs::path_home(), "R Installation" = R.home(), getVolumes()())
   shinyDirChoose(input, 'output_dir', roots = volumes, session = session)
   selected_output_dir <- reactiveVal(value = NULL)
+  
+  # Create reactive values for inputs
+  rv <- reactiveValues(
+    output_dir = NULL,
+    report_file = NULL,
+    ref_map = NULL,
+    ref_class = NULL,
+    ref_mapping = NULL,
+    pu_units = NULL,
+    map_resolution = NULL,
+    database_unresolved_out = NULL,
+    pur_unresolved_vector = NULL,
+    fileData = NULL
+  )
+  
+  ###################
+  # Track the indices of active file inputs
+  fileCounter <- reactiveValues(count = 0)
+  activeIds <- reactiveValues(ids = c())  # Track active file IDs
+  
+  # Store uploaded files and custom names
+  uploadedFiles <- reactiveValues(
+    files = list(), 
+    pu_names = list(), 
+    pu_identities = list(), 
+    ref_ids = list(), 
+    types = list()
+  )
+  
+  # Add a new file input when the "Add File" button is clicked
+  observeEvent(input$addFile, {
+    if (length(activeIds$ids) == 0) {
+      # Reset the counter if there are no active file inputs
+      fileCounter$count <- 0
+    }
+    fileCounter$count <- fileCounter$count + 1
+    id <- fileCounter$count
+    activeIds$ids <- c(activeIds$ids, id)  # Add the new ID to active IDs
+    
+    # Insert a new file input row
+    insertUI(
+      selector = "#fileInputs",
+      ui = fluidRow(
+        id = paste0("row", id),
+        column(
+          width = 8,
+          fileInput(inputId = paste0("file", id), "Planning Unit", multiple = TRUE, accept = c(".shp", ".dbf", ".shx", ".prj"), placeholder = "input shapefiles (.shp,.dbf,.shx,.prj)"),
+          textInput(inputId = paste0("pu_name", id), label = "PU Name", 
+                    value = uploadedFiles$pu_names[[as.character(id)]]),  # Restore PU Name
+          textInput(inputId = paste0("pu_identity", id), label = "PU Identity", 
+                    value = uploadedFiles$pu_identities[[as.character(id)]]),  # Restore PU Identity
+          textInput(inputId = paste0("ref_id", id), label = "Ref ID", 
+                    value = uploadedFiles$ref_ids[[as.character(id)]]),  # Restore Ref ID
+          textInput(inputId = paste0("type", id), label = "Type", 
+                    value = uploadedFiles$types[[as.character(id)]]),  # Restore Type
+          actionButton(inputId = paste0("remove", id), label = "Remove", class = "btn-danger")
+        )
+      )
+    )
+    
+    # Handle remove button clicks
+    observeEvent(input[[paste0("remove", id)]], {
+      # Remove the file input row
+      removeUI(selector = paste0("#row", id))
+      
+      # Remove the file and additional information from storage
+      uploadedFiles$files[[as.character(id)]] <- NULL
+      uploadedFiles$pu_names[[as.character(id)]] <- NULL
+      uploadedFiles$pu_identities[[as.character(id)]] <- NULL
+      uploadedFiles$ref_ids[[as.character(id)]] <- NULL
+      uploadedFiles$types[[as.character(id)]] <- NULL
+      
+      # Remove the ID from active IDs
+      activeIds$ids <- setdiff(activeIds$ids, id)
+      
+      # Reset the counter if there are no active file inputs
+      if (length(activeIds$ids) == 0) {
+        fileCounter$count <- 0
+      }
+    }, ignoreInit = TRUE)
+  })
+  
+  # Automatically store uploaded files and additional information
+  observe({
+    lapply(activeIds$ids, function(i) {
+      file <- input[[paste0("file", i)]]
+      pu_name <- input[[paste0("pu_name", i)]]
+      pu_identity <- input[[paste0("pu_identity", i)]]
+      ref_id <- input[[paste0("ref_id", i)]]
+      type <- input[[paste0("type", i)]]
+      
+      if (!is.null(file)) {
+        # Validate shapefile components
+        if (!validate_shapefile(file)) {
+          showNotification("Upload all shapefile components (.shp, .shx, .dbf)", type = "error")
+          return(NULL)
+        }
+        
+        # Read the shapefile
+        pu_vector <- read_shapefile(file)
+        
+        # Store the shapefile object
+        uploadedFiles$files[[as.character(i)]] <- pu_vector
+      }
+      
+      # Store additional information
+      if (!is.null(pu_name)) {
+        uploadedFiles$pu_names[[as.character(i)]] <- pu_name
+      }
+      if (!is.null(pu_identity)) {
+        uploadedFiles$pu_identities[[as.character(i)]] <- pu_identity
+      }
+      if (!is.null(ref_id)) {
+        uploadedFiles$ref_ids[[as.character(i)]] <- ref_id
+      }
+      if (!is.null(type)) {
+        uploadedFiles$types[[as.character(i)]] <- type
+      }
+    })
+  })
+  
+  # Automatically update the file table whenever there are changes
+  output$fileTable <- renderTable({
+    fileData <- lapply(activeIds$ids, function(i) {
+      file <- uploadedFiles$files[[as.character(i)]]
+      pu_name <- uploadedFiles$pu_names[[as.character(i)]]
+      pu_identity <- uploadedFiles$pu_identities[[as.character(i)]]
+      ref_id <- uploadedFiles$ref_ids[[as.character(i)]]
+      type <- uploadedFiles$types[[as.character(i)]]
+      
+      if (!is.null(file)) {
+        return(data.frame(
+          PU_Name = ifelse(is.null(pu_name) || pu_name == "", "N/A", pu_name),
+          PU_Identity = ifelse(is.null(pu_identity) || pu_identity == "", "N/A", pu_identity),
+          Ref_ID = ifelse(is.null(ref_id) || ref_id == "", "N/A", ref_id),
+          Type = ifelse(is.null(type) || type == "", "N/A", type),
+          Path = file$datapath  # Include the datapath in the output
+        ))
+      } else {
+        return(NULL)
+      }
+    })
+    # Combine all file data into a single data frame
+    fileData <- do.call(rbind, fileData)
+    rv$fileData <- fileData
+    fileData
+  })
+  ###################
   
   # Update reactive value when output directory is selected
   observe({
@@ -136,19 +294,6 @@ server <- function(input, output, session) {
     }
   })
   
-  # Create reactive values for inputs
-  rv <- reactiveValues(
-    output_dir = NULL,
-    report_file = NULL,
-    ref_map = NULL,
-    ref_class = NULL,
-    ref_mapping = NULL,
-    pu_units = NULL,
-    map_resolution = NULL,
-    database_unresolved_out = NULL,
-    pur_unresolved_vector = NULL
-  )
-  
   # Update reactive values when inputs change
   observe({
     rv$output_dir <- parseDirPath(volumes, input$output_dir)
@@ -157,10 +302,12 @@ server <- function(input, output, session) {
     rv$ref_mapping <- input$ref_mapping
     rv$pu_units <- input$pu_units
     rv$map_resolution <- input$map_resolution
+    rv$fileData <- rv$fileData
   })
   
   #### Run analysis ####
   observeEvent(input$run_analysis, {
+    
     # Check if any input is missing
     missing_inputs <- c()
     
@@ -256,10 +403,14 @@ server <- function(input, output, session) {
         }
         
         tabel_mapping <- tabel_mapping %>% rename(IDO = paste0(colnames(st_drop_geometry(ref_data[1]))))
-        browser()
+        
         # Planning unit data preparation
-        pu_units <- rename_uploaded_file(input_file = rv$pu_units)
-        pu_list <- read.table(pu_units, header = FALSE, sep = ",", skip = 1)
+        # pu_units <- rename_uploaded_file(input_file = rv$pu_units)
+        # pu_list <- read.table(pu_units, header = FALSE, sep = ",", skip = 1)
+        browser()
+        pu_list <- rv$fileData
+        colnames(pu_list) <- NULL
+        
         n_pu_list <- nrow(pu_list)
         pu_lut_list <- list()
         cmd <- paste()
@@ -269,7 +420,7 @@ server <- function(input, output, session) {
         # Iterate over each planning unit in the list
         for (i in 1:n_pu_list) {
           data_name <- as.character(pu_list[i, 1])
-          lut_table <- pu_list[i, 5]
+          lut_table <- pu_list[i, 5] #rename_uploaded_file(pu_list[i, 5])
           # pu_vector <- st_read(file.path(dirname(lut_table), paste0(data_name, ".shp")))
           pu_vector <- st_read(file.path(paste0(lut_table)))
           pu_raster_raw <- rasterise_multipolygon(sf_object = pu_vector, raster_res = c(rv$map_resolution, rv$map_resolution), paste0(colnames(st_drop_geometry(pu_vector[1]))))

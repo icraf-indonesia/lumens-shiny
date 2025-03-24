@@ -1,3 +1,26 @@
+validate_shapefile <- function(files) {
+  required_ext <- c(".shp", ".shx", ".dbf")
+  uploaded_ext <- tools::file_ext(files$name)
+  
+  if (!all(required_ext %in% uploaded_ext)) {
+    return(FALSE)
+  }
+  return(TRUE)
+}
+
+read_shapefile <- function(files) {
+  shp_path <- files$datapath[tools::file_ext(files$name) == ".shp"]
+  shp_dir <- dirname(shp_path)
+  
+  # Rename uploaded files to their original names
+  for (i in seq_along(files$name)) {
+    file.rename(files$datapath[i], file.path(shp_dir, files$name[i]))
+  }
+  
+  # Read the shapefile
+  sf::st_read(shp_path)
+}
+
 #' Rasterize an sf MULTIPOLYGON object
 #'
 #' This function rasterizes an sf MULTIPOLYGON object to a SpatRaster object. The function also retains
