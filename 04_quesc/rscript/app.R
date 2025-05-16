@@ -12,6 +12,7 @@ install_load(
   "reshape2",
   "dplyr",
   "reshape",
+  "reshape2",
   "purrr",
   "plotly",
   "sf",
@@ -22,7 +23,8 @@ install_load(
   "bslib",
   "shinyalert",
   "data.table",
-  "magrittr"
+  "magrittr",
+  "tidyr"
 )
 
 if (!("LUMENSR" %in% rownames(installed.packages()))) {
@@ -104,6 +106,7 @@ ui <- fluidPage(
 
 server <- function(input, output, session) {
   options(shiny.maxRequestSize=30*1024^2)
+  session$allowReconnect(TRUE) 
   
   # Directory selection
   volumes <- c(Home = fs::path_home(), "R Installation" = R.home(), getVolumes()())
@@ -413,7 +416,7 @@ server <- function(input, output, session) {
         if (rmarkdown::pandoc_available() == FALSE) {
           Sys.setenv(RSTUDIO_PANDOC = paste0(getwd(), "/pandoc"))
         }
-        
+
         output_file <- paste0("QuES-C_report_", format(Sys.time(), "%Y-%m-%d_%H-%M-%S"), ".html")
         
         rmarkdown::render(

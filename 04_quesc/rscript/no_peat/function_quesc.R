@@ -158,19 +158,16 @@ rename_uploaded_file <- function(input_file) {
 }
 
 # Summary of emission calculation
-summary_of_emission_calculation <- function(peat_decomposition, quescdb, zone, map_em, map_sq, period) {
+summary_of_emission_calculation <- function(quescdb, zone, map_em, map_sq, period) {
   p <- as.numeric(period$p2) - as.numeric(period$p1)
-  
-  # Use tidyr::pivot_longer instead of melt
   az <- quescdb %>%
-    pivot_longer(cols = Ha, names_to = "variable", values_to = "value") %>%
-    group_by(ID_PU, PU) %>%
-    summarise(Ha = sum(value), .groups = 'drop') %>%
+    melt(id.vars=c('ID_PU', 'PU'), measure.vars=c('Ha')) %>%
+    dcast(formula = ID_PU + PU ~ ., fun.aggregate = sum) %>%
     dplyr::rename(
-      ID = ID_PU,
-      Ha = Ha
+      ID = 1,
+      Ha = 3
     )
-  
+
   ze <- map_em %>%
     raster() %>%
     zonal(zone, 'sum') %>%
@@ -179,7 +176,6 @@ summary_of_emission_calculation <- function(peat_decomposition, quescdb, zone, m
       ID = 1,
       TOTAL_EM = 2
     )
-  
   zs <- map_sq %>%
     raster() %>%
     zonal(zone, 'sum') %>%
@@ -188,18 +184,22 @@ summary_of_emission_calculation <- function(peat_decomposition, quescdb, zone, m
       ID = 1,
       TOTAL_SQ = 2
     )
-  
+
   zc <- az %>%
     left_join(ze, by = "ID") %>%
     left_join(zs, by = "ID") %>%
     mutate(
-      NET_EM = TOTAL_EM - TOTAL_SQ,
-      NET_EM_RATE = round(NET_EM / Ha / p, 2),
+      NET_EM = TOTAL_EM - TOTAL_SQ
+    ) %>%
+    mutate(
+      NET_EM_RATE = round(NET_EM / Ha / p, 2)
+    ) %>%
+    mutate(
       TOTAL_EM = round(TOTAL_EM, 2),
       TOTAL_SQ = round(TOTAL_SQ, 2),
       NET_EM = round(NET_EM, 2)
     )
-  
+
   zc_plot <- zc %>% ggplot(aes(x = reorder(PU, -NET_EM_RATE), y = (NET_EM_RATE))) +
     geom_bar(stat = "identity", fill = "red") +
     geom_text(data = zc, aes(label = round(NET_EM_RATE, 1)), size = 4) +
@@ -209,90 +209,37 @@ summary_of_emission_calculation <- function(peat_decomposition, quescdb, zone, m
     theme(plot.title = element_text(lineheight = 5, face = "bold")) +
     theme(axis.title.x = element_blank(), axis.text.x = element_text(angle = 20),
           panel.grid.major = element_blank(), panel.grid.minor = element_blank())
-  
+
   total_area <- sum(az$Ha)
-  # total_emission <- sum(zc$TOTAL_EM)
+  total_emission <- sum(zc$TOTAL_EM)
   total_sequestration <- sum(zc$TOTAL_SQ)
-  # total_net_emission <- total_emission - total_sequestration
-  # total_rate_emission <- total_net_emission / p
-  # total_rate_emission_ha <- total_rate_emission / total_area
-  
+  total_net_emission <- total_emission - total_sequestration
+  total_rate_emission <- total_net_emission / p
+  total_rate_emission_ha <- total_rate_emission / total_area
+
   zc <- zc %>%
+    # mutate(Ha = print_area(Ha)) %>%
     mutate(Ha = format(round(Ha, 2), nsmall = 2, big.mark = ",", decimal.mark = ".")) %>%
     mutate_if(is.numeric, print_rate) %>%
     dplyr::rename(
       unlist(summary_zona_carbon_text_en)
     )
-  
-  if (peat_decomposition == "Yes") {
-    total_em_mineral <- sum(quescdb %>% select(em_mineral))
-    total_em_peat <- sum(quescdb %>% select(em_peat))
-    total_emission <- sum(quescdb %>% select(EM))
-    total_net_emission <- total_emission - total_sequestration
-    total_rate_emission <- total_net_emission / p
-    total_rate_emission_ha <- total_rate_emission / total_area
-    
-    # Ensure summary_text_en has 9 elements for this case
-    summary_text_en <- c(
-      "Period",
-      "Total Area (Ha)",
-      "Total Emission From Mineral land (tonne CO2-eq)",
-      "Total Emission From Peat land (tonne CO2-eq)",
-      "Total Emission (tonne CO2-eq)",
-      "Total Sequestration (tonne CO2-eq)",
-      "Net Emission (tonne CO2-eq)",
-      "Net Emission Rate (tonne CO2-eq/yr)",
-      "Net Emission Rate per Ha (tonne CO2-eq/ha.yr)"
-    )
-    
-    summary_df <- data.frame(
-      ID = c(1:9),
-      Category = summary_text_en,
-      Summary = as.character(
-        c(paste0(period$p1, "-", period$p2),
-          print_area(round(total_area, 2)),
-          print_rate(round(total_em_mineral, 2)),
-          print_rate(round(total_em_peat, 2)),
-          print_rate(round(total_emission, 2)),
-          print_rate(round(total_sequestration, 2)),
-          print_rate(round(total_net_emission, 2)),
-          print_rate(round(total_rate_emission, 2)),
-          print_rate(round(total_rate_emission_ha, 2))
-        )
+
+  summary_df <- data.frame(
+    ID = c(1:7),
+    Category = summary_text_en,
+    Summary = as.character(
+      c(paste0(period$p1, "-", period$p2),
+        print_area(round(total_area, 2)),
+        print_rate(round(total_emission, 2)),
+        print_rate(round(total_sequestration, 2)),
+        print_rate(round(total_net_emission, 2)),
+        print_rate(round(total_rate_emission, 2)),
+        print_rate(round(total_rate_emission_ha, 2))
       )
     )
-  } else {
-    total_emission <- sum(zc$TOTAL_EM)
-    total_net_emission <- total_emission - total_sequestration
-    total_rate_emission <- total_net_emission / p
-    total_rate_emission_ha <- total_rate_emission / total_area
-    
-    summary_text_en <- c(
-      "Period",
-      "Total Area (Ha)",
-      "Total Emission (tonne CO2-eq)",
-      "Total Sequestration (tonne CO2-eq)",
-      "Net Emission (tonne CO2-eq)",
-      "Net Emission Rate (tonne CO2-eq/yr)",
-      "Net Emission Rate per Ha (tonne CO2-eq/ha.yr)"
-    )
-    
-    summary_df <- data.frame(
-      ID = c(1:7),
-      Category = summary_text_en,
-      Summary = as.character(
-        c(paste0(period$p1, "-", period$p2),
-          print_area(round(total_area, 2)),
-          print_rate(round(total_emission, 2)),
-          print_rate(round(total_sequestration, 2)),
-          print_rate(round(total_net_emission, 2)),
-          print_rate(round(total_rate_emission, 2)),
-          print_rate(round(total_rate_emission_ha, 2))
-        )
-      )
-    )
-  }
-  
+  )
+
   out <- list(
     area_zone = az,
     zone_emission = ze,
@@ -307,19 +254,17 @@ summary_of_emission_calculation <- function(peat_decomposition, quescdb, zone, m
     total_rate_emission_ha = total_rate_emission_ha,
     summary_df = summary_df
   )
-  
+
   return(out)
 }
 
 zonal_statistic_database <- function(quescdb, period) {
-  # Use tidyr::pivot_longer instead of melt
   area_zone <- quescdb %>% 
-    pivot_longer(cols = Ha, names_to = "variable", values_to = "value") %>%
-    group_by(ID_PU, PU) %>%
-    summarise(Ha = sum(value), .groups = 'drop') %>%
+    melt(id.vars=c('ID_PU', 'PU'), measure.vars=c('Ha')) %>%
+    dcast(formula = ID_PU + PU ~ ., fun.aggregate = sum) %>%
     dplyr::rename(
-      ID = ID_PU,
-      Ha = Ha
+      ID = 1,
+      Ha = 3
     )
   
   data_zone <- area_zone
@@ -830,11 +775,7 @@ plot_categorical_raster <- function(raster_object) {
         "#1F77B4", "#FF7F0E", "#2CA02C", "#D62728", "#9467BD",
         "#8C564B", "#E377C2", "#7F7F7F", "#BCBD22", "#17BECF",
         "#67001F", "#3288BD", "#66C2A5", "#FC8D62", "#8DA0CB",
-        "#E78AC3", "#A6D854", "#FFD92F", "#E5C494", "#B3B3B3",
-        "#7FC97F", "#BEAED4", "#FDC086", "#FFFF99", "#386CB0",
-        "#F0027F", "#BF5B17", "#666666", "#A6CEE3", "#1F78B4",
-        "#B2DF8A", "#33A02C", "#FB9A99", "#E31A1C", "#FDBF6F",
-        "#FF7F00", "#CAB2D6", "#6A3D9A", "#FFFF33", "#B15928"
+        "#E78AC3", "#A6D854", "#FFD92F", "#E5C494", "#B3B3B3"
       ),
       na.value = "white"
     )
@@ -1128,8 +1069,8 @@ run_quesc_peat_analysis <- function(output_dir, lc_t1_path, lc_t2_path, admin_z_
   names(lookup_c.pt)[ncol(lookup_c.pt)] <- "Peat"
   
   # Prepare landcover/use map
-  luc_1raw <- rast(lc_t1_path)
-  luc_2raw <- rast(lc_t2_path)
+  luc_1 <- rast(lc_t1_path)
+  luc_2 <- rast(lc_t2_path)
   
   # Prepare zone
   zone_sf <- read_shapefile(shp_input = admin_z_path)
@@ -1137,7 +1078,7 @@ run_quesc_peat_analysis <- function(output_dir, lc_t1_path, lc_t2_path, admin_z_
   zone_sf <- st_cast(zone_sf, "MULTIPOLYGON")
   zone <- zone_sf %>% 
     rasterise_multipolygon_quesc(
-      raster_res = res(luc_1raw), 
+      raster_res = res(luc_1), 
       field = paste0(colnames(st_drop_geometry(zone_sf[1])))
     )
   pu_table <- data.frame(ID_PU = zone_sf[[1]], PU = zone_sf[[2]])
@@ -1145,9 +1086,6 @@ run_quesc_peat_analysis <- function(output_dir, lc_t1_path, lc_t2_path, admin_z_
   for (i in 1:nrow(pu_table)) {
     zone <- subst(zone, from = pu_table$PU[i], to = pu_table$ID_PU[i])
   }
-  
-  luc_1 <- resample(luc_1raw, zone)
-  luc_2 <- resample(luc_2raw, zone)
   
   # Prepare peat map
   peat_sf <- read_shapefile(shp_input = peat_map_path)

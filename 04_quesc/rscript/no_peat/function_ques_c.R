@@ -147,31 +147,17 @@ plot_quesc_results <- function(map, legend, low, high, title_size = 8, text_size
   return(p)
 }
 
-# Rename uploaded file
-rename_uploaded_file <- function(input_file) {
-  if (is.null(input_file)) return(NULL)
-  
-  old_path <- input_file$datapath
-  new_path <- file.path(dirname(old_path), input_file$name)
-  file.rename(old_path, new_path)
-  return(new_path)
-}
-
-# Summary of emission calculation
-summary_of_emission_calculation <- function(peat_decomposition, quescdb, zone, map_em, map_sq, period) {
+summary_of_emission_calculation <- function(quescdb, zone, map_em, map_sq, period) {
   p <- as.numeric(period$p2) - as.numeric(period$p1)
-  
-  # Use tidyr::pivot_longer instead of melt
-  az <- quescdb %>%
-    pivot_longer(cols = Ha, names_to = "variable", values_to = "value") %>%
-    group_by(ID_PU, PU) %>%
-    summarise(Ha = sum(value), .groups = 'drop') %>%
+  az <- quescdb %>% 
+    melt(id.vars=c('ID_PU', 'PU'), measure.vars=c('Ha')) %>%
+    dcast(formula = ID_PU + PU ~ ., fun.aggregate = sum) %>%
     dplyr::rename(
-      ID = ID_PU,
-      Ha = Ha
+      ID = 1,
+      Ha = 3
     )
   
-  ze <- map_em %>%
+  ze <- map_em %>% 
     raster() %>%
     zonal(zone, 'sum') %>%
     as.data.frame() %>%
@@ -179,119 +165,69 @@ summary_of_emission_calculation <- function(peat_decomposition, quescdb, zone, m
       ID = 1,
       TOTAL_EM = 2
     )
-  
   zs <- map_sq %>%
     raster() %>%
-    zonal(zone, 'sum') %>%
+    zonal(zone, 'sum') %>% 
     as.data.frame() %>%
     dplyr::rename(
       ID = 1,
       TOTAL_SQ = 2
     )
   
-  zc <- az %>%
-    left_join(ze, by = "ID") %>%
-    left_join(zs, by = "ID") %>%
+  zc <- az %>% 
+    left_join(ze, by = "ID") %>% 
+    left_join(zs, by = "ID") %>% 
     mutate(
-      NET_EM = TOTAL_EM - TOTAL_SQ,
-      NET_EM_RATE = round(NET_EM / Ha / p, 2),
+      NET_EM = TOTAL_EM - TOTAL_SQ
+    ) %>% 
+    mutate(
+      NET_EM_RATE = round(NET_EM / Ha / p, 2)
+    ) %>% 
+    mutate(
       TOTAL_EM = round(TOTAL_EM, 2),
       TOTAL_SQ = round(TOTAL_SQ, 2),
       NET_EM = round(NET_EM, 2)
-    )
+    ) 
   
-  zc_plot <- zc %>% ggplot(aes(x = reorder(PU, -NET_EM_RATE), y = (NET_EM_RATE))) +
+  zc_plot <- zc %>% ggplot(aes(x = reorder(PU, -NET_EM_RATE), y = (NET_EM_RATE))) + 
     geom_bar(stat = "identity", fill = "red") +
     geom_text(data = zc, aes(label = round(NET_EM_RATE, 1)), size = 4) +
     ggtitle(paste("Average of net emission rate", period$p1,"-", period$p2)) +
-    guides(fill = FALSE) +
+    guides(fill = FALSE) + 
     ylab("tonne CO2-eq/ha.yr") +
     theme(plot.title = element_text(lineheight = 5, face = "bold")) +
     theme(axis.title.x = element_blank(), axis.text.x = element_text(angle = 20),
           panel.grid.major = element_blank(), panel.grid.minor = element_blank())
   
   total_area <- sum(az$Ha)
-  # total_emission <- sum(zc$TOTAL_EM)
+  total_emission <- sum(zc$TOTAL_EM)
   total_sequestration <- sum(zc$TOTAL_SQ)
-  # total_net_emission <- total_emission - total_sequestration
-  # total_rate_emission <- total_net_emission / p
-  # total_rate_emission_ha <- total_rate_emission / total_area
+  total_net_emission <- total_emission - total_sequestration
+  total_rate_emission <- total_net_emission / p
+  total_rate_emission_ha <- total_rate_emission / total_area
   
-  zc <- zc %>%
-    mutate(Ha = format(round(Ha, 2), nsmall = 2, big.mark = ",", decimal.mark = ".")) %>%
+  zc <- zc %>% 
+    # mutate(Ha = print_area(Ha)) %>%
+    mutate(Ha = format(round(Ha, 2), nsmall = 2, big.mark = ",", decimal.mark = ".")) %>% 
     mutate_if(is.numeric, print_rate) %>%
     dplyr::rename(
       unlist(summary_zona_carbon_text_en)
     )
   
-  if (peat_decomposition == "Yes") {
-    total_em_mineral <- sum(quescdb %>% select(em_mineral))
-    total_em_peat <- sum(quescdb %>% select(em_peat))
-    total_emission <- sum(quescdb %>% select(EM))
-    total_net_emission <- total_emission - total_sequestration
-    total_rate_emission <- total_net_emission / p
-    total_rate_emission_ha <- total_rate_emission / total_area
-    
-    # Ensure summary_text_en has 9 elements for this case
-    summary_text_en <- c(
-      "Period",
-      "Total Area (Ha)",
-      "Total Emission From Mineral land (tonne CO2-eq)",
-      "Total Emission From Peat land (tonne CO2-eq)",
-      "Total Emission (tonne CO2-eq)",
-      "Total Sequestration (tonne CO2-eq)",
-      "Net Emission (tonne CO2-eq)",
-      "Net Emission Rate (tonne CO2-eq/yr)",
-      "Net Emission Rate per Ha (tonne CO2-eq/ha.yr)"
-    )
-    
-    summary_df <- data.frame(
-      ID = c(1:9),
-      Category = summary_text_en,
-      Summary = as.character(
-        c(paste0(period$p1, "-", period$p2),
-          print_area(round(total_area, 2)),
-          print_rate(round(total_em_mineral, 2)),
-          print_rate(round(total_em_peat, 2)),
-          print_rate(round(total_emission, 2)),
-          print_rate(round(total_sequestration, 2)),
-          print_rate(round(total_net_emission, 2)),
-          print_rate(round(total_rate_emission, 2)),
-          print_rate(round(total_rate_emission_ha, 2))
-        )
+  summary_df <- data.frame(
+    ID = c(1:7),
+    Category = summary_text_en,
+    Summary = as.character(
+      c(paste0(period$p1, "-", period$p2),
+        print_area(round(total_area, 2)),
+        print_rate(round(total_emission, 2)),
+        print_rate(round(total_sequestration, 2)),
+        print_rate(round(total_net_emission, 2)),
+        print_rate(round(total_rate_emission, 2)),
+        print_rate(round(total_rate_emission_ha, 2))
       )
     )
-  } else {
-    total_emission <- sum(zc$TOTAL_EM)
-    total_net_emission <- total_emission - total_sequestration
-    total_rate_emission <- total_net_emission / p
-    total_rate_emission_ha <- total_rate_emission / total_area
-    
-    summary_text_en <- c(
-      "Period",
-      "Total Area (Ha)",
-      "Total Emission (tonne CO2-eq)",
-      "Total Sequestration (tonne CO2-eq)",
-      "Net Emission (tonne CO2-eq)",
-      "Net Emission Rate (tonne CO2-eq/yr)",
-      "Net Emission Rate per Ha (tonne CO2-eq/ha.yr)"
-    )
-    
-    summary_df <- data.frame(
-      ID = c(1:7),
-      Category = summary_text_en,
-      Summary = as.character(
-        c(paste0(period$p1, "-", period$p2),
-          print_area(round(total_area, 2)),
-          print_rate(round(total_emission, 2)),
-          print_rate(round(total_sequestration, 2)),
-          print_rate(round(total_net_emission, 2)),
-          print_rate(round(total_rate_emission, 2)),
-          print_rate(round(total_rate_emission_ha, 2))
-        )
-      )
-    )
-  }
+  )
   
   out <- list(
     area_zone = az,
@@ -312,14 +248,12 @@ summary_of_emission_calculation <- function(peat_decomposition, quescdb, zone, m
 }
 
 zonal_statistic_database <- function(quescdb, period) {
-  # Use tidyr::pivot_longer instead of melt
   area_zone <- quescdb %>% 
-    pivot_longer(cols = Ha, names_to = "variable", values_to = "value") %>%
-    group_by(ID_PU, PU) %>%
-    summarise(Ha = sum(value), .groups = 'drop') %>%
+    melt(id.vars=c('ID_PU', 'PU'), measure.vars=c('Ha')) %>%
+    dcast(formula = ID_PU + PU ~ ., fun.aggregate = sum) %>%
     dplyr::rename(
-      ID = ID_PU,
-      Ha = Ha
+      ID = 1,
+      Ha = 3
     )
   
   data_zone <- area_zone
@@ -529,70 +463,6 @@ zonal_statistic_database <- function(quescdb, period) {
   )
 }
 
-# Define the is_numeric_str() function to check if a string is numeric
-is_numeric_str <- function(s) {
-  !is.na(as.numeric(s)) && nzchar(s)
-}
-
-#' Read Shapefile
-#'
-#' This function reads a shapefile from uploaded files, handling file renaming and validation.
-#'
-#' @param shp_input List. Input data for the shapefile, including file paths and names.
-#'
-#' @return sf object. The read shapefile.
-#'
-#' @importFrom sf st_read
-#' @importFrom tools file_ext
-#'
-#' @export
-read_shapefile <- function(shp_input) {
-  if (is.null(shp_input)) return(NULL)
-  
-  prev_wd <- getwd()
-  on.exit(setwd(prev_wd), add = TRUE)  # This ensures we always return to the previous working directory
-  
-  tryCatch({
-    uploaded_dir <- dirname(shp_input$datapath[1])
-    setwd(uploaded_dir)
-    
-    for (i in 1:nrow(shp_input)) {
-      old_path <- shp_input$datapath[i]
-      new_path <- file.path(uploaded_dir, shp_input$name[i])
-      cat("Attempting to rename:", old_path, "to", new_path, "\n")
-      rename_result <- file.rename(old_path, new_path)
-      cat("Rename result:", rename_result, "\n")
-      if (!rename_result) {
-        cat("File exists (old):", file.exists(old_path), "\n")
-        cat("File exists (new):", file.exists(new_path), "\n")
-      }
-    }
-    
-    shp_file <- shp_input$name[grep(pattern = "*.shp$", shp_input$name)]
-    if (length(shp_file) == 0) {
-      stop("No .shp file found in the uploaded files.")
-    }
-    
-    required_extensions <- c("shp", "dbf", "prj", "shx")
-    missing_files <- required_extensions[!required_extensions %in% tools::file_ext(list.files(uploaded_dir))]
-    if (length(missing_files) > 0) {
-      stop(paste("Missing required shapefile components:", paste(missing_files, collapse = ", ")))
-    }
-    
-    cat("About to read shapefile:", shp_file, "\n")
-    cat("Files in directory after renaming:\n")
-    print(list.files(uploaded_dir))
-    
-    # Read and return the shapefile
-    sf_object <- sf::st_read(shp_file)
-    return(sf_object)
-  }, error = function(e) {
-    cat("Error occurred:", e$message, "\n")
-    stop(paste("Error reading shapefile:", e$message))
-  })
-}
-
-
 ### Required Library ####
 #' Install Required Library
 #' 
@@ -608,7 +478,6 @@ read_shapefile <- function(shp_input) {
 install_load <- function (package1, ...)  {
   # convert arguments to vector
   packages <- c(package1, ...)
-  options(repos = c(CRAN = "https://cloud.r-project.org"))
   # start loop to determine if each package is installed
   for (package in packages) {
     # if package is installed locally, load
@@ -639,19 +508,18 @@ install_load <- function (package1, ...)  {
 #' @importFrom raster projection res bbox rotate projectExtent setExtent resample extend extent crop
 #' 
 #' @export
-#' 
 spatial_sync_raster <- function(unsynced, reference, method="ngb", size_only=FALSE, raster_size, verbose=FALSE, ...) {
   if(!size_only) {
     new_projection=projection(reference)
     old_projection=projection(unsynced)
-
+    
     new_res=res(reference)
     old_res=res(unsynced)
-
+    
     # Check for rotation
     new_extent=bbox(reference)
     old_extent=bbox(unsynced)
-
+    
     if((new_extent[1,1] < 0 && old_extent[1,1] >=0) || (new_extent[1,1] >= 0 && old_extent[1,1] <0)) {
       if(verbose) { message ("Rotating...") }
       unsynced_rotated=rotate(unsynced)
@@ -659,7 +527,7 @@ spatial_sync_raster <- function(unsynced, reference, method="ngb", size_only=FAL
     {
       unsynced_rotated=unsynced
     }
-
+    
     if(new_projection!=old_projection | new_res[1] != old_res[1] | new_res[2] != old_res[2])
     {
       pr_extent=projectExtent(unsynced_rotated, new_projection)
@@ -680,12 +548,12 @@ spatial_sync_raster <- function(unsynced, reference, method="ngb", size_only=FAL
       if(verbose) { message("Same projection and pixel size...") }
       pr=unsynced_rotated
     }
-
+    
     if(verbose) { message("Expanding...") }
     expanded_raster=extend(pr,reference)
     if(verbose) { message("Cropping...") }
     synced_raster=crop(expanded_raster,reference)
-
+    
     # This in theory shouldn't be neccesasary...
     if(verbose) { message("Fixing extents...") }
     extent(synced_raster)=extent(reference)
@@ -693,23 +561,23 @@ spatial_sync_raster <- function(unsynced, reference, method="ngb", size_only=FAL
     #		if(missing(raster_size))
     #		{
     #			stop("For size_only=TRUE you must set the raster_size as c(ncol,nrow)")
-    #		}
-
+    #		} 
+    
     unsynced_ncol=ncol(unsynced)
     unsynced_nrow=nrow(unsynced)
-
-    # Eventually we should preserve the pixel size
+    
+    # Eventually we should preserve the pixel size		
     unsynced_ulx=(raster_size[[1]]-unsynced_ncol)/2
     unsynced_uly=(raster_size[[2]]-unsynced_nrow)/2
-
+    
     extent(unsynced)=extent(unsynced_ulx,unsynced_ulx+unsynced_ncol,unsynced_uly,unsynced_uly+unsynced_nrow)
     full_extent=extent(0,raster_size[[1]],0,raster_size[[2]])
-
+    
     synced_raster=extend(unsynced,full_extent)
     extent(synced_raster)=full_extent
     res(synced_raster)=c(1,1)
   }
-
+  
   return(synced_raster)
 }
 
@@ -749,60 +617,6 @@ generate_dummy_crosstab <- function(landcover, zone){
   return(lucDummy)
 }
 
-cross_tabulation <- function(pu_table, luc_lut, zone, luc_1, luc_2, lu_chg) {
-  # Prepare the reference table
-  ref_table <- pu_table
-  colnames(ref_table) <- c("IDADM", "ZONE")
-  
-  # Generate count_ref
-  count_ref <- as.data.frame(freq(zone))
-  if (ncol(count_ref) > 2){
-    count_ref <- count_ref[, -1]
-  }
-  count_ref <- na.omit(count_ref)
-  colnames(count_ref) <- c("IDADM", "COUNT")
-  lookup_z <- merge(count_ref, ref_table, by = "IDADM")
-  
-  # Prepare the land use lookup tables
-  lut.lc <- luc_lut
-  lut.lc <- lut.lc[, 1:2]
-  lookup_lc <- lut.lc
-  colnames(lookup_lc) <- c("ID", "CLASS")
-  
-  # Generate the land use change map dummy
-  landUseChangeMapDummy <- generate_dummy_crosstab(lookup_lc, lookup_z)
-  
-  # Calculate the land use change map
-  lu.db <- as.data.frame(freq(lu_chg))
-  if (ncol(lu.db) > 2){
-    lu.db <- lu.db[, -1]
-  }
-  lu.db <- na.omit(lu.db)
-  
-  # Decompose the land use change map values
-  n <- 3
-  k <- 0
-  lu.db$value_temp <- lu.db$value
-  while (k < n) {
-    eval(parse(text = (paste("lu.db$Var", n - k, "<-lu.db$value_temp %% 100", sep = ""))))
-    lu.db$value_temp <- floor(lu.db$value_temp / 100)
-    k = k + 1
-  }
-  lu.db$value_temp <- NULL
-  colnames(lu.db) = c('ID_CHG', 'COUNT', 'ID_PU', 'ID_LC1', 'ID_LC2')
-  lu.db$ID_PU <- as.numeric(lu.db$ID_PU)
-
-  # Merge with the land use change map dummy
-  lu.db <- merge(landUseChangeMapDummy, lu.db, by = c('ID_PU', 'ID_LC1', 'ID_LC2'), all = TRUE)
-  lu.db$ID_PU <- as.numeric(as.character(lu.db$ID_PU))
-  # lu.db <- na.omit(lu.db)
-  lu.db$ID_CHG <- (lu.db$ID_PU * 1) + (lu.db$ID_LC1 * 100^1) + (lu.db$ID_LC2 * 100^2)
-  lu.db <- replace(lu.db, is.na(lu.db), 0)
-  
-  return(list(lu.db = lu.db, landUseChangeMapDummy = landUseChangeMapDummy))
-}
-
-
 #' Plot a categorical raster map
 #'
 #' This function takes a raster object as input and produces a ggplot. If the raster
@@ -823,21 +637,18 @@ plot_categorical_raster <- function(raster_object) {
     fill_scale <- scale_fill_manual(values = cats(raster_object)[[1]]$color_palette, na.value = "white")
   } else {
     # fill_scale <- scale_fill_manual(values = c("#4E79A7", "#F28E2B", "#E15759", "#76B7B2", "#59A14F", "#EDC948", "#B07AA1", "#FF9DA7", "#9C755F","#BAB0AC"), na.value = "white")
-    fill_scale <- scale_fill_manual(
-      values = c(
-        "#4E79A7", "#F28E2B", "#E15759", "#76B7B2", "#59A14F", 
-        "#EDC948", "#B07AA1", "#FF9DA7", "#9C755F", "#BAB0AC",
-        "#1F77B4", "#FF7F0E", "#2CA02C", "#D62728", "#9467BD",
-        "#8C564B", "#E377C2", "#7F7F7F", "#BCBD22", "#17BECF",
-        "#67001F", "#3288BD", "#66C2A5", "#FC8D62", "#8DA0CB",
-        "#E78AC3", "#A6D854", "#FFD92F", "#E5C494", "#B3B3B3",
-        "#7FC97F", "#BEAED4", "#FDC086", "#FFFF99", "#386CB0",
-        "#F0027F", "#BF5B17", "#666666", "#A6CEE3", "#1F78B4",
-        "#B2DF8A", "#33A02C", "#FB9A99", "#E31A1C", "#FDBF6F",
-        "#FF7F00", "#CAB2D6", "#6A3D9A", "#FFFF33", "#B15928"
-      ),
-      na.value = "white"
-    )
+    fill_scale <- scale_fill_manual(values = c(
+      "#4E79A7", "#F28E2B", "#E15759", "#76B7B2", "#59A14F",
+      "#EDC948", "#B07AA1", "#FF9DA7", "#9C755F", "#BAB0AC",
+      "#86BCB6", "#FFB84D", "#A5C1DC", "#D37295", "#C4AD66",
+      "#7B8D8E", "#B17B62", "#8CD17D", "#DE9D9C", "#5A5A5A",
+      "#A0A0A0", "#D7B5A6", "#6D9EEB", "#E69F00", "#56B4E9",
+      "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7",
+      "#999999", "#E51E10", "#FF7F00", "#FFFF33", "#A65628",
+      "#F781BF", "#999933", "#8DD3C7", "#FFFFB3", "#BEBADA",
+      "#FB8072", "#80B1D3", "#FDB462", "#B3DE69", "#FCCDE5",
+      "#D9D9D9", "#BC80BD", "#CCEBC5", "#FFED6F", "#E41A1C"
+    ), na.value = "white")
   }
   if(!is.na(time(raster_object))) {
     plot_title <- time(raster_object)
@@ -874,43 +685,26 @@ plot_categorical_raster <- function(raster_object) {
 #' @importFrom rmarkdown render
 #'
 #' @export
-generate_quesc_report <- function(output_quesc, output_dir) {
+generate_quesc_report <- function(output_quesc, dir) {
   report_params <- list(
-    start_time = start_time,
-    end_time = end_time,
-    map_c1 = map_c1,
-    map_c2 = map_c2,
-    map_em = map_e,
-    map_sq = map_s,
-    ques_db = tbl_quesc,
-    p1 = rv$t1,
-    p2 = rv$t2,
-    if (input$peat_decomposition == "Yes"){
-      tbl_quesc_peat = tbl_quesc_peat
-      tbl_quesc_peat_sum = tbl_quesc_peat_sum
-      map_e_peat = map_e_peat
-      map_e_mineral_peat = map_e_mineral_peat
-      quesc_database_mineral_peat = quesc_database_mineral_peat
-    },
-    inputs = list(
-      lc_t1_path = lc_t1_path,
-      lc_t2_path = lc_t2_path,
-      admin_z_path = admin_z_path,
-      c_lookup_path = c_lookup_path,
-      if (input$peat_decomposition == "Yes"){
-        peat_emission_factor_table_path = peat_emission_factor_table_path
-      },
-      output_dir = output_dir
-    ),
-    session_log = session_log
+    start_time = output_quesc$start_time,
+    end_time = output_quesc$end_time,
+    map_c1 = output_quesc$map_c1,
+    map_c2 = output_quesc$map_c2,
+    map_em = output_quesc$map_em,
+    map_sq = output_quesc$map_sq,
+    ques_db = output_quesc$ques_db,
+    p1 = output_quesc$p1,
+    p2 = output_quesc$p2,
+    inputs = output_quesc$inputs,
+    session_log = output_quesc$session_log
   )
-  
   output_file <- paste0("quesc_report_", Sys.Date(), ".html")
   
   rmarkdown::render(
     "../report_template/quesc_report_template.Rmd",
     output_file = output_file,
-    output_dir = output_dir,
+    output_dir = dir,
     params = report_params
   )
 }
@@ -936,71 +730,41 @@ generate_quesc_report <- function(output_quesc, output_dir) {
 #' 
 #' @export
 run_quesc_analysis <- function(lc_t1_path, lc_t2_path, admin_z_path, c_lookup_path,
+                               lc_t1_input, lc_t2_input, admin_z_input,
+                               c_lookup_input, zone_lookup_input,
                                time_points, output_dir, progress_callback = NULL) {
-  is_numeric_str <- function(s) {
-    return(!is.na(as.integer(as.character(s))))
-  }
-  
-  # Prepare LC raster
-  lc_t1_input <- raster(lc_t1_path)
-  lc_t2_input <- raster(lc_t2_path)
-  
-  # Prepare zone
-  zone_sf <- read_shapefile(shp_input = admin_z_path)
-  # zone_sf <- admin_z_path %>% st_read()
-  zone_sf <- st_cast(zone_sf, "MULTIPOLYGON")
-  zone <- zone_sf %>% 
-    rasterise_multipolygon_quesc(
-      raster_res = res(lc_t1_input), 
-      field = paste0(colnames(st_drop_geometry(zone_sf[1])))
-    )
-  zone_lookup_input <- data.frame(ID_PU = zone_sf[[1]], PU = zone_sf[[2]])
-  admin_z_input <- zone %>% raster()
-  
-  # Prepare C lookup table
-  df_c <- read.csv(c_lookup_path)
-  
-  if(nrow(df_c) == 0)
-    return()
-  if(nrow(df_c) < 2)
-    return()
-  if(!is_numeric_str(df_c[1, 1]))
-    return()
-  
-  df <- data.frame("ID_LC" = as.integer((as.character(df_c[, 1]))))
-  df$LC <- df_c[, 2]
-  df$CARBON <- df_c[, 3]
-  c_lookup_input <- df
+  start_time <- Sys.time()
+  cat("Started at:", format(start_time, "%Y-%m-%d %H:%M:%S"), "\n")
   
   map1_rast <- lc_t1_input %>% spatial_sync_raster(admin_z_input)
   map2_rast <- lc_t2_input %>% spatial_sync_raster(admin_z_input)
   
-  # if (!is.null(progress_callback)) progress_callback(0.2, "load maps")
+  if (!is.null(progress_callback)) progress_callback(0.2, "load maps")
   
   lc_t1 <- map1_rast %>% rast() %>%
-    add_legend_to_categorical_raster(lookup_table = c_lookup_input, year = as.numeric(as.character(time_points$t1)))
+    add_legend_to_categorical_raster(lookup_table = c_lookup_input, year = as.numeric(time_points$t1))
   lc_t2 <- map2_rast %>% rast() %>%
-    add_legend_to_categorical_raster(lookup_table = c_lookup_input, year = as.numeric(as.character(time_points$t2)))  
+    add_legend_to_categorical_raster(lookup_table = c_lookup_input, year = as.numeric(time_points$t2))  
   zone <- admin_z_input %>% rast() %>%
     add_legend_to_categorical_raster(lookup_table = zone_lookup_input)
   
   preques <- ques_pre(lc_t1, lc_t2, zone)
-  period_year <- as.numeric(as.character(time_points$t1)) - as.numeric(as.character(time_points$t2))
+  period_year <- as.numeric(time_points$t1) - as.numeric(time_points$t2)
   lucDummy <- generate_dummy_crosstab(c_lookup_input, zone_lookup_input)
   
-  # if (!is.null(progress_callback)) progress_callback(0.5, "create QUES-C database")
+  if (!is.null(progress_callback)) progress_callback(0.5, "create QUES-C database")
   
   # join table
   df_lucdb <- c_lookup_input %>% dplyr::rename(ID_LC1 = 1, C_T1 = 3) %>% 
-    rename_with(.cols = 2, ~as.character(time_points$t1)) %>% right_join(lucDummy, by="ID_LC1")
+    rename_with(.cols = 2, ~time_points$t1) %>% right_join(lucDummy, by="ID_LC1")
   df_lucdb <- c_lookup_input %>% dplyr::rename(ID_LC2 = 1, C_T2 = 3) %>% 
-    rename_with(.cols = 2, ~as.character(time_points$t2)) %>% right_join(df_lucdb, by="ID_LC2")
+    rename_with(.cols = 2, ~time_points$t2) %>% right_join(df_lucdb, by="ID_LC2")
   df_lucdb <- zone_lookup_input %>% dplyr::rename(ID_PU = 1) %>% 
     rename_with(.cols = 2, ~names(zone)) %>% right_join(df_lucdb, by="ID_PU") 
   df_lucdb <- df_lucdb %>% 
     left_join(
       preques[["landscape_level"]][["crosstab_long"]], 
-      by = c(names(zone), as.character(time_points$t1), as.character(time_points$t2))
+      by = c(names(zone), time_points$t1, time_points$t2)
     ) 
   # the full version of preques database from preques analysis combined with all possible landcover listed in the lookup table
   df_lucdb <- df_lucdb %>% replace(is.na(df_lucdb), 0) %>% dplyr::rename(PU = names(zone))
@@ -1010,7 +774,7 @@ run_quesc_analysis <- function(lc_t1_path, lc_t2_path, admin_z_path, c_lookup_pa
     cbind(., as.matrix(c_lookup_input[,3])) %>%
     rbind(., c(0, NA))
   
-  # if (!is.null(progress_callback)) progress_callback(0.7, "generate carbon, emission, and sequestration maps")
+  if (!is.null(progress_callback)) progress_callback(0.7, "generate carbon, emission, and sequestration maps")
   
   # create all maps
   map_carbon1 <- lc_t1 %>% classify(reclassify_matrix)
@@ -1022,198 +786,51 @@ run_quesc_analysis <- function(lc_t1_path, lc_t2_path, admin_z_path, c_lookup_pa
   df_lucdb <- df_lucdb %>% mutate(
     EM = (C_T1 - C_T2) * (C_T1 > C_T2) * Ha * 3.67,
     SQ = (C_T2 - C_T1) * (C_T1 < C_T2) * Ha * 3.67,
-    LU_CHG = do.call(paste, c(df_lucdb[c(as.character(time_points$t1), as.character(time_points$t2))], sep = " to "))
+    LU_CHG = do.call(paste, c(df_lucdb[c(time_points$t1, time_points$t2)], sep = " to "))
   )
-  # session_log <- format_session_info_table()
+  
+  end_time <- Sys.time()
+  cat("Ended at:", format(end_time, "%Y-%m-%d %H:%M:%S"), "\n")
+  
+  session_log <- format_session_info_table()
   
   out <- list(
+    start_time = as.character(format(start_time, "%Y-%m-%d %H:%M:%S")),
+    end_time = as.character(format(end_time, "%Y-%m-%d %H:%M:%S")),
     map_c1 = map_carbon1,
     map_c2 = map_carbon2,
     map_em = map_emission,
     map_sq = map_sequestration,
     ques_db = df_lucdb,
-    lc_t1 = lc_t1,
-    lc_t2 = lc_t2, 
-    zone = zone,
-    df_pu = zone_lookup_input,
-    df_c = df_c
+    p1 = time_points$t1,
+    p2 = time_points$t2,
+    inputs = list(
+      lc_t1_path = lc_t1_path,
+      lc_t2_path = lc_t2_path,
+      admin_z_path = admin_z_path,
+      c_lookup_path = c_lookup_path,
+      output_dir = output_dir
+    ),
+    session_log = session_log
   )
   
-  # if (!is.null(progress_callback)) progress_callback(0.9, "outputs generated and saved")
-  # write.table(df_lucdb,
-  #             paste0(output_dir, "/quesc_database.csv"), 
-  #             quote=FALSE, 
-  #             row.names=FALSE, 
-  #             sep=",")
-  # writeRaster(map_carbon1,
-  #             paste0(output_dir, "/carbon_map_t1.tif"), overwrite = T)
-  # writeRaster(map_carbon2,
-  #             paste0(output_dir, "/carbon_map_t2.tif"), overwrite = T)
-  # writeRaster(map_emission,
-  #             paste0(output_dir, "/emission_map.tif"), overwrite = T)
-  # writeRaster(map_sequestration,
-  #             paste0(output_dir, "/sequestration_map.tif"), overwrite = T)
+  if (!is.null(progress_callback)) progress_callback(0.9, "outputs generated and saved")
+  write.table(df_lucdb,
+              paste0(output_dir, "/quesc_database.csv"), 
+              quote=FALSE, 
+              row.names=FALSE, 
+              sep=",")
+  writeRaster(map_carbon1,
+              paste0(output_dir, "/carbon_map_t1.tif"), overwrite = T)
+  writeRaster(map_carbon2,
+              paste0(output_dir, "/carbon_map_t2.tif"), overwrite = T)
+  writeRaster(map_emission,
+              paste0(output_dir, "/emission_map.tif"), overwrite = T)
+  writeRaster(map_sequestration,
+              paste0(output_dir, "/sequestration_map.tif"), overwrite = T)
   
-  # if (!is.null(progress_callback)) progress_callback(1, "generate report")
-  # generate_quesc_report(output_quesc = out, dir = output_dir)
+  if (!is.null(progress_callback)) progress_callback(1, "generate report")
+  generate_quesc_report(output_quesc = out, dir = output_dir)
   
   return(out)
-}
-
-#' Run QuES-C Peat Analysis
-#'
-#' This function calculates peat emissions based on land use change between two time periods.
-#' It processes spatial data including land cover maps, administrative zones, and peat maps
-#' to compute emission changes and create related spatial outputs.
-#'
-#' @param output_dir Character string specifying the output directory path
-#' @param lc_t1_path Character string specifying the path to land cover map for time 1
-#' @param lc_t2_path Character string specifying the path to land cover map for time 2
-#' @param admin_z_path Character string specifying the path to administrative zone shapefile
-#' @param peat_map_path Character string specifying the path to peat distribution map
-#' @param peat_emission_factor_table_path Character string specifying the path to emission factor table
-#' @param t1 Numeric value specifying the first time period year
-#' @param t2 Numeric value specifying the second time period year
-#'
-#' @return A list containing three elements:
-#' \describe{
-#'   \item{chg_ptable}{Data frame containing detailed peat emission calculations per land use change}
-#'   \item{chg_pdtable}{Data frame containing summarized emissions per administrative unit}
-#'   \item{em_map}{SpatRaster object showing spatial distribution of emissions}
-#' }
-#'
-#' @details
-#' The function performs the following main steps:
-#' \enumerate{
-#'   \item Prepares input data including emission factors and spatial layers
-#'   \item Creates cross tabulation of land use changes
-#'   \item Calculates emissions for each pixel
-#'   \item Computes total emissions and generates summary statistics
-#' }
-#'
-#' @note
-#' All spatial inputs should be in the same coordinate reference system.
-#' The emission factor table should contain columns for ID and Peat values.
-#'
-#' @import terra
-#' @import sf
-#' @import data.table
-#'
-#' @examples
-#' \dontrun{
-#' results <- run_quesc_peat_analysis(
-#'   output_dir = "output/",
-#'   lc_t1_path = "data/landcover_2000.tif",
-#'   lc_t2_path = "data/landcover_2020.tif",
-#'   admin_z_path = "data/admin_zones.shp",
-#'   peat_map_path = "data/peat_distribution.shp",
-#'   peat_emission_factor_table_path = "data/emission_factors.csv",
-#'   t1 = 2000,
-#'   t2 = 2020
-#' )
-#'
-#' # Access results
-#' chg_ptable <- results$chg_ptable
-#' chg_pdtable <- results$chg_pdtable
-#' em_map <- results$em_map
-#' }
-#'
-run_quesc_peat_analysis <- function(output_dir, lc_t1_path, lc_t2_path, admin_z_path, 
-                                     peat_map_path, peat_emission_factor_table_path, t1, t2) {
-  # 1. Data Preparation -----------------------------------------------------
-  # Prepare lookup table of peat emission factor
-  lookup_c.pt <- read.csv(peat_emission_factor_table_path)
-  luc_lut <- lookup_c.pt
-  names(lookup_c.pt)[1] <- "ID"
-  names(lookup_c.pt)[ncol(lookup_c.pt)] <- "Peat"
-  
-  # Prepare landcover/use map
-  luc_1raw <- rast(lc_t1_path)
-  luc_2raw <- rast(lc_t2_path)
-  
-  # Prepare zone
-  zone_sf <- read_shapefile(shp_input = admin_z_path)
-  # zone_sf <- admin_z_path %>% st_read()
-  zone_sf <- st_cast(zone_sf, "MULTIPOLYGON")
-  zone <- zone_sf %>% 
-    rasterise_multipolygon_quesc(
-      raster_res = res(luc_1raw), 
-      field = paste0(colnames(st_drop_geometry(zone_sf[1])))
-    )
-  pu_table <- data.frame(ID_PU = zone_sf[[1]], PU = zone_sf[[2]])
-  zone <- as.factor(zone)
-  for (i in 1:nrow(pu_table)) {
-    zone <- subst(zone, from = pu_table$PU[i], to = pu_table$ID_PU[i])
-  }
-  
-  luc_1 <- resample(luc_1raw, zone)
-  luc_2 <- resample(luc_2raw, zone)
-  
-  # Prepare peat map
-  peat_sf <- read_shapefile(shp_input = peat_map_path)
-  # peat_sf <- peat_map_path %>% st_read()
-  peat_sf <- st_cast(peat_sf, "MULTIPOLYGON")
-  peat_table <- data.frame(ID = peat_sf[[1]])
-  peatmap_raw <- peat_sf %>%
-    rasterise_multipolygon_quesc(
-      raster_res = res(luc_1), 
-      field = paste0(colnames(st_drop_geometry(peat_sf[1])))
-    )
-  peatmap <- resample(peatmap_raw, luc_1)
-  
-  # Peat reclassification
-  rec_value <- peat_table$ID
-  rep_value <- 1
-  peatmap <- classify(peatmap, matrix(c(rec_value, rep_value), ncol = 2))
-  
-  # 2. Create Cross Tabulation ----------------------------------------------
-  lu_chg <- (zone * 1) + (luc_1 * 100^1) + (luc_2 * 100^2)
-  cross_tab <- cross_tabulation(pu_table, luc_lut, zone, luc_1, luc_2, lu_chg)
-  chg_db <- cross_tab$lu.db
-  landUseChangeMapDummy <- cross_tab$landUseChangeMapDummy
-  
-  # 3. Calculate Emission Each Pixels ---------------------------------------
-  # Subset the landuse change
-  chg_ptmap <- lu_chg * peatmap
-  chg_ptable <- as.data.frame(freq(chg_ptmap))
-  chg_ptable <- chg_ptable[, -1]
-  chg_ptable <- na.omit(chg_ptable)
-  names(chg_ptable) <- c("ID", "COUNT")
-  chg_ptable$HECT <- chg_ptable$COUNT * res(zone)[1]^2 / 10000  # area in hectare
-  chg_ptable <- chg_ptable[, c("ID", "HECT")]
-  sub.chg_db <- chg_db[chg_db$ID_CHG %in% chg_ptable$ID, !names(chg_db) %in% "COUNT"]
-  chg_ptable <- merge(chg_ptable, sub.chg_db, by.x = "ID", by.y = "ID_CHG", all.x = TRUE)
-  
-  # Merge with the 'lookup_c.pt'
-  for (p in 1:2) {
-    chg_ptable <- merge(chg_ptable, lookup_c.pt, 
-                        by.x = paste0("ID_LC", p), 
-                        by.y = "ID", 
-                        all.x = TRUE)
-    names(chg_ptable)[names(chg_ptable) == "Peat"] <- paste0("EM_F_", eval(parse(text = paste0("t", p))))
-  }
-  
-  # 4. Calculate Total Emission ---------------------------------------------
-  # Calculate the total emission of each row
-  t_mult <- abs(as.numeric(as.character(t2)) - as.numeric(as.character(t1))) / 2 # multiplier, in year
-  chg_ptable$raw_em <- t_mult * eval(parse(text = paste0("chg_ptable$EM_F_", t1, "+ chg_ptable$EM_F_", t2)))
-  chg_ptable$em_calc <- chg_ptable$raw_em * chg_ptable$HECT
-  names(chg_ptable)[6] <- as.character(t1)
-  names(chg_ptable)[8] <- as.character(t2)
-  
-  # Merge as data.table
-  chg_pdtable <- data.table(chg_ptable[, c("ID_PU", "em_calc", "HECT")])
-  chg_pdtable <- chg_pdtable[, lapply(.SD, sum), by = list(ID_PU)][!is.na(ID_PU)]
-  
-  # Emission map: peat area either with emission or not
-  em_map <- classify(chg_ptmap, as.matrix(chg_ptable[, c("ID", "raw_em")]))
-  
-  # Return results
-  return(list(
-    chg_ptable = chg_ptable,
-    chg_pdtable = chg_pdtable,
-    em_map = em_map,
-    peatmap = peatmap,
-    lookup_c.pt = lookup_c.pt
-  ))
 }

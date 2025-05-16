@@ -1,0 +1,377 @@
+---
+title: "QUES-C Report"
+output: 
+  html_document:
+  toc: true
+toc_float: true
+number_sections: true
+theme: united
+highlight: tango
+df_print: kable
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load function, include=FALSE, error=TRUE, warning=TRUE, message=TRUE}
+source("D:/ICRAF/Kodingan/icraf-indonesia/lumens-shiny/04_quesc/rscript/function_ques_c.R")
+```
+
+```{r load_library, include=FALSE}
+library(raster)
+library(ggplot2)
+library(dplyr)
+library(reshape)
+library(lattice)
+library(rasterVis)
+library(DT)
+library(kableExtra)
+library(tidyterra)
+library(htmltools)
+library(sf)
+library(LUMENSR)
+library(terra)
+library(reshape2)
+
+params <- list(
+  start_time = as.character(format(Sys.time(), "%Y-%m-%d %H:%M:%S")),
+  end_time = as.character(format(Sys.time(), "%Y-%m-%d %H:%M:%S")),
+  map_c1 = "C:/Users/ykarimah/Downloads/00 QUESC/carbon_map_t1.tif",
+  map_c2 = "C:/Users/ykarimah/Downloads/00 QUESC/carbon_map_t2.tif",
+  map_em = "C:/Users/ykarimah/Downloads/00 QUESC/emission_map.tif",
+  map_sq = "C:/Users/ykarimah/Downloads/00 QUESC/sequestration_map.tif",
+  ques_db = "C:/Users/ykarimah/Downloads/00 QUESC/quesc_database.csv",
+  p1 = 1990,
+  p2 = 2010,
+  inputs = list(
+    lc_t1_path = "D:/ICRAF/Kodingan/icraf-indonesia/lumens-shiny/data/raster/bungo_landcover_1990r.tif",
+    lc_t2_path = "D:/ICRAF/Kodingan/icraf-indonesia/lumens-shiny/data/raster/bungo_landcover_2010r.tif",
+    admin_z_path = "D:/ICRAF/Kodingan/icraf-indonesia/lumens-shiny/data/vector/planning_unit_bungo.shp",
+    c_lookup_path = "D:/ICRAF/Kodingan/icraf-indonesia/lumens-shiny/data/table/carbon_bungo.csv",
+    output_dir = "C:/Users/ykarimah/Downloads/00 QUESC/"
+  ),
+  session_log = format_session_info_table()
+)
+```
+
+<details>
+
+<summary>Click here for Analysis Log</summary>
+
+```{r analysis-log, echo=FALSE}
+analysis_log <- tribble(
+  ~Category,                      ~Details,
+  "Analysis Start",               params$start_time,
+  "Analysis End",                 params$end_time,
+  "Input Data and Parameters",    "",
+  "1. Landcover map at T1",       params$inputs$lc_t1_path,
+  "2. Landcover map at T2",       params$inputs$lc_t2_path,
+  "3. Planning unit",             params$inputs$admin_z_path,
+  "4. Year of T1",                as.character(params$p1),
+  "5. Year of T2",                as.character(params$p2),
+  "6. Carbon stock lookup table", params$inputs$c_lookup_path,
+  "Output Workspace",             params$inputs$output_dir,
+  "1. Carbon Map at T1",          paste0(params$inputs$output_dir, "/carbon_map_t1.tif"),
+  "2. Carbon Map at T2",          paste0(params$inputs$output_dir, "/carbon_map_t2.tif"),
+  "3. Emission Map",              paste0(params$inputs$output_dir, "/emission_map.tif"),
+  "4. Sequestration Map",         paste0(params$inputs$output_dir, "/sequestration_map.tif"),
+  "5. QUES-C Database",           paste0(params$inputs$output_dir, "/quesc_database.csv"),
+  "Session Summary",              ""
+) %>% rbind(params$session_log)
+
+analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
+  kable_paper("hover", full_width = F )
+```
+
+</details>
+
+# Summary
+
+```{r input-data, echo=FALSE, message=FALSE, warning=FALSE}
+period <- as.numeric(params$p2) - as.numeric(params$p1)
+zone_sf <- params$inputs$admin_z_path %>% st_read(quiet = TRUE)
+map_res <- res(params$map_c1 %>% raster())
+zone <- zone_sf %>% rasterise_multipolygon_quesc(raster_res = map_res, field = "IDS")
+df_pu <- data.frame(ID_PU = zone_sf[[1]], PU = zone_sf[[2]])
+
+zone_rst <- zone %>% raster()
+lc_t1 <- params$inputs$lc_t1_path %>% raster() %>% spatial_sync_raster(zone_rst)
+lc_t2 <- params$inputs$lc_t2_path %>% raster() %>% spatial_sync_raster(zone_rst)
+
+df_c <- read.csv(params$input$c_lookup_path)
+
+#=Load landuse for two time periods
+lc_t1 <- lc_t1 %>% rast() %>%
+  add_legend_to_categorical_raster(., lookup_table = df_c, year = as.numeric(params$p1))
+lc_t2 <- lc_t2 %>% rast() %>%
+  add_legend_to_categorical_raster(., lookup_table = df_c, year = as.numeric(params$p2))
+zone <- zone_rst %>% rast() %>%
+  add_legend_to_categorical_raster(., lookup_table = df_pu)
+```
+
+This report presents the results of an analysis based on the provided maps and lookup table.
+
+## Summary of Emission Calculation
+
+```{r summary_emission, echo=FALSE, message=FALSE, warning=FALSE}
+quescdb <- read.csv(params$ques_db)
+
+s <- summary_of_emission_calculation(
+  quescdb = quescdb,
+  zone = zone_rst, 
+  map_em = params$map_em, 
+  map_sq = params$map_sq, 
+  period = list(p1 = params$p1, p2 = params$p2)
+)
+s$summary_df %>% kbl(caption = "Summary of Emission Calculation", escape = F) %>%
+  kable_paper("hover", full_width = F)
+```
+
+## Summary of Emission Calculation by Planning Unit
+
+```{r summary_emission_by_pu_e, echo=FALSE}
+s$zone_carbon %>% kbl(caption = "Summary of Emission Calculation by Planning Unit", escape = F) %>%
+  kable_paper("hover", full_width = F)
+```
+
+```{r summary_emission_by_pu_c, echo=FALSE}
+quescdb <- read.csv(params$ques_db)
+
+z <- zonal_statistic_database(
+  quescdb = quescdb,
+  period = period
+)
+
+colnames(z$data_zone_df)[colnames(z$data_zone_df) == "Carbon Avg. (Periode 1)"] <- paste("Carbon Average", params$p1)
+colnames(z$data_zone_df)[colnames(z$data_zone_df) == "Carbon Avg. (Periode 2)"] <- paste("Carbon Average", params$p2)
+
+z$data_zone_df %>% kbl(caption = "Summary of Emission Calculation by Planning Unit", escape = F) %>%
+  kable_paper("hover", full_width = F)
+```
+
+# Module brief description
+
+-   QUES-C describes the estimation of carbon stock for various land use types in a region using Stock Difference method, where the dynamics of carbon stock are based on the amount of carbon stock at two different points in time.
+
+-   Emission is obtained from the reduction in carbon stock in a land area due to land use changes from a land use type with high carbon stock to a land use type with low carbon stock.
+
+-   Sequestration is obtained from the increase in carbon stock in a land area due to land use changes from a land use type with low carbon stock to a land use type with high carbon stock.
+
+# Input data {.tabset}
+
+## Land-Use/Cover Map in `r params$p1`
+
+```{r Land-Use/Cover Map T1, echo=FALSE, message=FALSE, warning=FALSE}
+plot_categorical_raster(lc_t1)
+```
+
+## Land-Use/Cover Map in `r params$p2`
+
+```{r Land-Use/Cover Map T2, echo=FALSE, message=FALSE, warning=FALSE}
+plot_categorical_raster(lc_t2)
+```
+
+## Planning Unit
+
+```{r Planning Unit, echo=FALSE, message=FALSE, warning=FALSE}
+plot_categorical_raster(zone)
+```
+
+## Carbon Stock Lookup Table
+
+The carbon stock being considered is time-averaged above ground carbon stock.
+
+```{r Carbon Stock Lookup Table, echo=FALSE}
+read.csv(params$inputs$c_lookup_path) %>% 
+  kbl(caption = "Carbon Stock Lookup Table", escape = FALSE) %>%
+  kable_paper("hover", full_width = F )
+```
+
+# Results
+
+## QUES-C Database
+
+QUES-C Database containing land cover transition between T1 and T2 in each planning unit with the value of carbon stock, emission, and sequestration.
+
+Summary statistics of the table contains `r nrow(params$ques_db)` rows and `r names(params$ques_db)` columns.
+
+```{r load_quesdb, echo=FALSE, message=FALSE, warning=FALSE}
+quescdb <- read.csv(params$ques_db)
+datatable(quescdb)
+```
+
+## Carbon density map in `r nrow(params$p1)` (in tonne-C/ha)
+
+Carbon map illustrating the distribution and amount of carbon stored in land use/cover data at T1 (in tonne-C/ha).
+
+```{r carbon_map_t1, echo=FALSE, message=FALSE, warning=FALSE}
+map_c1 <- params$map_c1 %>% rast()
+y <- ceiling(minmax(map_c1)[2] / 100)
+y <- y * 100
+plot_quesc_results(
+  map = map_c1, 
+  legend = "Carbon density", 
+  low = "#FFCC66", 
+  high = "#003300", 
+  limits = c(0,y), 
+  breaks = c(0,10,20,50,100,200,300), 
+  title_size = 8, 
+  text_size = 7, 
+  height = 1.5, 
+  width = 0.375
+)
+```
+
+## Carbon density map in `r nrow(params$p2)` (in tonne-C/ha)
+
+Carbon map illustrating the distribution and amount of carbon stored in land use/cover data at T2 (in tonne-C/ha).
+
+```{r carbon_map_t2, echo=FALSE}
+map_c2 <- params$map_c2 %>% rast()
+
+plot_quesc_results(
+  map = map_c2, 
+  legend = "Carbon density", 
+  low = "#FFCC66", 
+  high = "#003300", 
+  limits = c(0,y), 
+  breaks = c(0,10,20,50,100,200,300), 
+  title_size = 8, 
+  text_size = 7, 
+  height = 1.5, 
+  width = 0.375
+)
+```
+
+## Emission map in `r params$p1`-`r params$p2`
+
+Emission map illustrating a decrease in carbon stock amount from land use/cover T1 to land use/cover T2 (in tonne-C/ha).
+
+```{r emission_map, echo=FALSE}
+map_em <- params$map_em %>% rast()
+plot_quesc_results(
+  map = map_em, 
+  legend = "Emission (tonne CO2-eq)", 
+  low = "#FFCC66", 
+  high = "#FF0000"
+)
+```
+
+## Sequestration map in `r params$p1`-`r params$p2`
+
+Sequestration map illustrating an increase in carbon stock amount from land use/cover T1 to land use/cover T2 (in tonne-C/ha).
+
+```{r sequestration_map, echo=FALSE}
+map_sq <- params$map_sq %>% rast()
+plot_quesc_results(
+  map = map_sq, 
+  legend = "Sequestration (tonne CO2-eq)", 
+  low = "#FFCC66", 
+  high = "#000033"
+)
+```
+
+## Average of Net Emission Rate
+
+```{r avg_net_em_rate, echo=FALSE}
+s$plot_zone_carbon
+```
+
+## Average Carbon Density in `r params$p1`
+
+```{r avg carbon density 1, echo=FALSE}
+reclassify_matrix <- as.matrix(z$data_zone[, 1]) %>% 
+    cbind(., as.matrix(z$data_zone[, 4])) %>%
+    rbind(., c(0, NA))
+z_avg_c1 <- zone %>% classify(reclassify_matrix)
+plot_quesc_results(
+  map = z_avg_c1, 
+  legend = "Carbon Density Level", 
+  low = "#FFCC66", 
+  high = "#003300"
+)
+```
+
+## Average Carbon Density in `r params$p2`
+
+```{r avg carbon density 2, echo=FALSE}
+reclassify_matrix <- as.matrix(z$data_zone[, 1]) %>% 
+    cbind(., as.matrix(z$data_zone[, 5])) %>%
+    rbind(., c(0, NA))
+z_avg_c2 <- zone %>% classify(reclassify_matrix)
+plot_quesc_results(
+  map = z_avg_c2, 
+  legend = "Carbon Density Level", 
+  low = "#FFCC66", 
+  high = "#003300"
+)
+```
+
+## Average Emission Rate
+
+```{r avg emission rate, echo=FALSE}
+reclassify_matrix <- as.matrix(z$data_zone[, 1]) %>% 
+    cbind(., as.matrix(z$data_zone[, 6])) %>%
+    rbind(., c(0, NA))
+z_em_rate <- zone %>% classify(reclassify_matrix)
+plot_quesc_results(
+  map = z_em_rate, 
+  legend = "Emission Level", 
+  low = "#FFCC66", 
+  high = "#003300"
+)
+```
+
+## Average Sequestration Rate (Tonne CO2-eq/ha.yr)
+
+Average rate of carbon sequestration for each planning unit.
+
+```{r avg sequestration rate, echo=FALSE}
+reclassify_matrix <- as.matrix(z$data_zone[, 1]) %>% 
+    cbind(., as.matrix(z$data_zone[, 7])) %>%
+    rbind(., c(0, NA))
+z_sq_rate <- zone %>% classify(reclassify_matrix)
+plot_quesc_results(
+  map = z_sq_rate, 
+  legend = "Sequestration Level", 
+  low = "#FFCC66", 
+  high = "#003300"
+)
+```
+
+## The Largest Source of Emission {.tabset}
+
+### Plot
+
+```{r plot_largest_em, echo=FALSE}
+z$largest_emission
+```
+
+### Table
+
+```{r tbl_largest_em, echo=FALSE}
+z$tb_em_total_10_summary %>% kbl(caption = "The Largest Source of Emission", escape = F) %>%
+  kable_paper("hover", full_width = F)
+```
+
+## The Largest Source of Sequestration {.tabset}
+
+### Plot
+
+```{r plot_largest_sq, echo=FALSE}
+z$largest_sequestration
+```
+
+### Table
+
+```{r tbl_largest_sq, echo=FALSE}
+z$tb_sq_total_10_summary %>% kbl(caption = "The Largest Source of Sequestration", escape = F) %>%
+  kable_paper("hover", full_width = F)
+```
+
+------------------------------------------------------------------------
+
+<!-- Mandatory closing statement for all module -->
+
+<font size="1"> LUMENS is free software and comes with ABSOLUTELY NO WARRANTY. Users are responsible for the results generated. Results depend on the quality of the input data ("garbage in, garbage out") and may vary or be sensitive to the parameters used. Please report any problems encountered while using LUMENS as [a GitHub issue](https://github.com/icraf-indonesia/lumens-shiny/issues). Feedback and questions are welcome [Contact Us URL]. </font size>
