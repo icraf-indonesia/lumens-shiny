@@ -123,18 +123,25 @@ s <- summary_of_emission_calculation(
   map_sq = params$map_sq, 
   period = list(p1 = params$p1, p2 = params$p2)
 )
-s$summary_df %>% kbl(caption = "Summary of Emission Calculation", escape = F) %>%
-  kable_paper("hover", full_width = F)
+
+datatable(s$summary_df)
+# s$summary_df %>% kbl(caption = "Summary of Emission Calculation", escape = F) %>%
+#   kable_paper("hover", full_width = F)
 ```
 
 ## Summary of Emission Calculation by Planning Unit
 
-```{r summary_emission_by_pu_e, echo=FALSE}
-s$zone_carbon %>% kbl(caption = "Summary of Emissions and Sequestration by Planning Unit", escape = F) %>%
-  kable_paper("hover", full_width = F)
+### Summary of Emissions and Sequestration by Planning Unit
+
+```{r summary_emission_by_pu_e, echo=FALSE, message=FALSE, warning=FALSE}
+datatable(s$zone_carbon)
+# s$zone_carbon %>% kbl(caption = "Summary of Emissions and Sequestration by Planning Unit", escape = F) %>%
+#   kable_paper("hover", full_width = F)
 ```
 
-```{r summary_emission_by_pu_c, echo=FALSE}
+### Carbon Stock and Net Emission Summary Across Time Periods by Planning Unit
+
+```{r summary_emission_by_pu_c, echo=FALSE, message=FALSE, warning=FALSE}
 z <- zonal_statistic_database(
   quescdb = params$ques_db,
   period = period
@@ -143,8 +150,9 @@ z <- zonal_statistic_database(
 colnames(z$data_zone_df)[colnames(z$data_zone_df) == "Carbon Avg. (Periode 1)"] <- paste("Carbon Average", params$p1)
 colnames(z$data_zone_df)[colnames(z$data_zone_df) == "Carbon Avg. (Periode 2)"] <- paste("Carbon Average", params$p2)
 
-z$data_zone_df %>% kbl(caption = "Carbon Stock and Net Emission Summary Across Time Periods by Planning Unit", escape = F) %>%
-  kable_paper("hover", full_width = F)
+datatable(z$data_zone_df)
+# z$data_zone_df %>% kbl(caption = "Carbon Stock and Net Emission Summary Across Time Periods by Planning Unit", escape = F) %>%
+#   kable_paper("hover", full_width = F)
 ```
 
 # Module brief description
@@ -179,10 +187,13 @@ plot_categorical_raster(zone)
 
 The carbon stock being considered is time-averaged above ground carbon stock.
 
-```{r Carbon Stock Lookup Table, echo=FALSE}
-read.csv(params$inputs$c_lookup_path) %>% 
-  kbl(caption = "Carbon Stock Lookup Table", escape = FALSE) %>%
-  kable_paper("hover", full_width = F )
+```{r Carbon Stock Lookup Table, echo=FALSE, message=FALSE, warning=FALSE}
+datatable(
+  read.csv(params$inputs$c_lookup_path)
+)
+# read.csv(params$inputs$c_lookup_path) %>% 
+  # kbl(caption = "Carbon Stock Lookup Table", escape = FALSE) %>%
+  # kable_paper("hover", full_width = F )
 ```
 
 # Results
@@ -209,12 +220,12 @@ plot_quesc_results(
   legend = "Carbon density (tonne-C/ha)", 
   low = "#FFCC66", 
   high = "#003300", 
-  limits = c(0,y), 
-  breaks = c(0,10,20,50,100,200,300), 
-  title_size = 8, 
-  text_size = 7, 
-  height = 1.5, 
-  width = 0.375
+  # limits = c(0,y), 
+  # breaks = c(0,10,20,50,100,200,300), 
+  # title_size = 8, 
+  # text_size = 7, 
+  # height = 1.5, 
+  # width = 0.375
 )
 ```
 
@@ -222,18 +233,18 @@ plot_quesc_results(
 
 Carbon map illustrating the distribution and amount of carbon stored in land use/cover data at `r params$p2` (in tonne-C/ha).
 
-```{r carbon_map_t2, echo=FALSE}
+```{r carbon_map_t2, echo=FALSE, message=FALSE, warning=FALSE}
 plot_quesc_results(
   map = params$map_c2, 
   legend = "Carbon density (tonne-C/ha)", 
   low = "#FFCC66", 
   high = "#003300", 
-  limits = c(0,y), 
-  breaks = c(0,10,20,50,100,200,300), 
-  title_size = 8, 
-  text_size = 7, 
-  height = 1.5, 
-  width = 0.375
+  # limits = c(0,y), 
+  # breaks = c(0,10,20,50,100,200,300), 
+  # title_size = 8, 
+  # text_size = 7, 
+  # height = 1.5, 
+  # width = 0.375
 )
 ```
 
@@ -241,7 +252,7 @@ plot_quesc_results(
 
 Emission map illustrating a decrease in carbon stock amount (in tonne CO2-eq/ha).
 
-```{r emission_map, echo=FALSE}
+```{r emission_map, echo=FALSE, message=FALSE, warning=FALSE}
 plot_quesc_results(
   map = params$map_em, 
   legend = "Emission (tonne CO2-eq/ha)", 
@@ -254,7 +265,7 @@ plot_quesc_results(
 
 Sequestration map illustrating an increase in carbon stock amount (in tonne CO2-eq/ha).
 
-```{r sequestration_map, echo=FALSE}
+```{r sequestration_map, echo=FALSE, message=FALSE, warning=FALSE}
 plot_quesc_results(
   map = params$map_sq, 
   legend = "Sequestration (tonne CO2-eq/ha)", 
@@ -265,13 +276,13 @@ plot_quesc_results(
 
 ## Average of Net Emission Rate
 
-```{r avg_net_em_rate, echo=FALSE}
+```{r avg_net_em_rate, echo=FALSE, message=FALSE, warning=FALSE}
 s$plot_zone_carbon
 ```
 
 ## Average Carbon Density in `r params$p1`
 
-```{r avg carbon density 1, echo=FALSE}
+```{r avg carbon density 1, echo=FALSE, message=FALSE, warning=FALSE}
 reclassify_matrix <- as.matrix(z$data_zone[, 1]) %>% 
     cbind(., as.matrix(z$data_zone[, 4])) %>%
     rbind(., c(0, NA))
@@ -286,7 +297,7 @@ plot_quesc_results(
 
 ## Average Carbon Density in `r params$p2`
 
-```{r avg carbon density 2, echo=FALSE}
+```{r avg carbon density 2, echo=FALSE, message=FALSE, warning=FALSE}
 reclassify_matrix <- as.matrix(z$data_zone[, 1]) %>% 
     cbind(., as.matrix(z$data_zone[, 5])) %>%
     rbind(., c(0, NA))
@@ -303,7 +314,7 @@ plot_quesc_results(
 
 The map below shows the average carbon emission rates (tonne CO2-eq/ha.yr) across planning units, representing the release of carbon from land cover changes. Darker areas indicate higher emission levels.
 
-```{r avg emission rate, echo=FALSE}
+```{r avg emission rate, echo=FALSE, message=FALSE, warning=FALSE}
 reclassify_matrix <- as.matrix(z$data_zone[, 1]) %>% 
     cbind(., as.matrix(z$data_zone[, 6])) %>%
     rbind(., c(0, NA))
@@ -320,7 +331,7 @@ plot_quesc_results(
 
 The map below shows the average carbon sequestration rates (tonne CO2-eq/ha.yr) across planning units, indicating increases in above-ground carbon stocks due to land cover changes. Darker greens represent higher sequestration levels.
 
-```{r avg sequestration rate, echo=FALSE}
+```{r avg sequestration rate, echo=FALSE, message=FALSE, warning=FALSE}
 reclassify_matrix <- as.matrix(z$data_zone[, 1]) %>% 
     cbind(., as.matrix(z$data_zone[, 7])) %>%
     rbind(., c(0, NA))
@@ -337,30 +348,32 @@ plot_quesc_results(
 
 ### Plot
 
-```{r plot_largest_em, echo=FALSE}
+```{r plot_largest_em, echo=FALSE, message=FALSE, warning=FALSE}
 z$largest_emission
 ```
 
 ### Table
 
-```{r tbl_largest_em, echo=FALSE}
-z$tb_em_total_10_summary %>% kbl(caption = "The Largest Source of Emission", escape = F) %>%
-  kable_paper("hover", full_width = F)
+```{r tbl_largest_em, echo=FALSE, message=FALSE, warning=FALSE}
+datatable(z$tb_em_total_10_summary)
+# z$tb_em_total_10_summary %>% kbl(caption = "The Largest Source of Emission", escape = F) %>%
+#   kable_paper("hover", full_width = F)
 ```
 
 ## The Largest Source of Sequestration {.tabset}
 
 ### Plot
 
-```{r plot_largest_sq, echo=FALSE}
+```{r plot_largest_sq, echo=FALSE, message=FALSE, warning=FALSE}
 z$largest_sequestration
 ```
 
 ### Table
 
-```{r tbl_largest_sq, echo=FALSE}
-z$tb_sq_total_10_summary %>% kbl(caption = "The Largest Source of Sequestration", escape = F) %>%
-  kable_paper("hover", full_width = F)
+```{r tbl_largest_sq, echo=FALSE, message=FALSE, warning=FALSE}
+datatable(z$tb_sq_total_10_summary)
+# z$tb_sq_total_10_summary %>% kbl(caption = "The Largest Source of Sequestration", escape = F) %>%
+#   kable_paper("hover", full_width = F)
 ```
 
 ------------------------------------------------------------------------

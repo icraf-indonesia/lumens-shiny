@@ -134,21 +134,52 @@ print_rate <- function(x){
   format(x, digits=15, nsmall=2, decimal.mark=".", big.mark=",")
 }
 
-plot_quesc_results <- function(map, legend, low, high, title_size = 8, text_size = 8, height = 0.375, width = 0.375, ...) {
-  p <- gplot(map, maxpixels = 100000) + 
-    geom_raster(aes(fill = value)) + 
-    coord_equal() +
-    scale_fill_gradient(name = legend, low = low, high = high, guide = "colourbar", ...) +
-    theme(plot.title = element_text(lineheight = 5, face = "bold")) +
-    theme(axis.title.x = element_blank(), axis.title.y = element_blank(),
-          panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
-          legend.title = element_text(size = title_size),
-          legend.text = element_text(size = text_size),
-          legend.key.height = unit(height, "cm"),
-          legend.key.width = unit(width, "cm"))
+# plot_quesc_results <- function(map, legend, low, high, title_size = 8, text_size = 8, height = 0.375, width = 0.375, ...) {
+#   p <- gplot(map, maxpixels = 100000) +
+#     geom_raster(aes(fill = value)) +
+#     coord_equal() +
+#     scale_fill_gradient(name = legend, low = low, high = high, guide = "colourbar", ...) +
+#     theme(plot.title = element_text(lineheight = 5, face = "bold")) +
+#     theme(axis.title.x = element_blank(), axis.title.y = element_blank(),
+#           panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+#           legend.title = element_text(size = title_size),
+#           legend.text = element_text(size = text_size),
+#           legend.key.height = unit(height, "cm"),
+#           legend.key.width = unit(width, "cm"))
+# 
+# 
+#   return(p)
+# 
+
+plot_quesc_results <- function(map, legend, low, high, na_color = "white") {
+  # Determine plot title
+  # plot_title <- if (!is.na(time(map))) time(map) else names(map)
   
+  # Generate the plot
+  plot_lc <- ggplot() +
+    geom_spatraster(data = map) +
+    scale_fill_gradient(
+      low = low,
+      high = high,
+      na.value = na_color,
+      name = if (!is.null(legend)) legend else NULL
+    ) +
+    theme_bw() +
+    # labs(title = plot_title) +
+    theme(
+      axis.title.x = element_blank(),
+      axis.title.y = element_blank(),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      legend.title = element_text(size = 10),
+      legend.text = element_text(size = 8),
+      legend.key.height = unit(1, "cm"),
+      legend.key.width = unit(0.25, "cm"),  # Wider for continuous legend
+      legend.position = "right",
+      legend.justification = c(0, 0.5)
+    )
   
-  return(p)
+  return(plot_lc)
 }
 
 summary_of_emission_calculation <- function(quescdb, zone, map_em, map_sq, period) {
@@ -193,15 +224,47 @@ summary_of_emission_calculation <- function(quescdb, zone, map_em, map_sq, perio
       NET_EM = round(NET_EM, 2)
     ) 
   
-  zc_plot <- zc %>% ggplot(aes(x = reorder(PU, -NET_EM_RATE), y = (NET_EM_RATE))) + 
-    geom_bar(stat = "identity", fill = "red") +
-    geom_text(data = zc, aes(label = round(NET_EM_RATE, 1)), size = 4) +
-    ggtitle(paste("Average of net emission rate", period$p1,"-", period$p2)) +
-    guides(fill = FALSE) + 
-    ylab("tonne CO2-eq/ha.yr") +
-    theme(plot.title = element_text(lineheight = 5, face = "bold")) +
-    theme(axis.title.x = element_blank(), axis.text.x = element_text(angle = 20),
-          panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+  # zc_plot <- zc %>% ggplot(aes(x = reorder(PU, -NET_EM_RATE), y = (NET_EM_RATE))) +
+  #   geom_bar(stat = "identity", fill = "red") +
+  #   geom_text(data = zc, aes(label = round(NET_EM_RATE, 1)), size = 4) +
+  #   ggtitle(paste("Average of net emission rate", period$p1,"-", period$p2)) +
+  #   guides(fill = FALSE) +
+  #   ylab("tonne CO2-eq/ha.yr") +
+  #   theme(plot.title = element_text(lineheight = 5, face = "bold")) +
+  #   theme(axis.title.x = element_blank(), axis.text.x = element_text(angle = 20),
+  #         panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+  
+  zc <- zc %>%
+    mutate(PU_wrapped = str_wrap(PU, width = 10))  # Adjust width for optimal wrapping
+  
+  zc_plot <- plot_ly(
+    data = zc,
+    x = ~reorder(PU_wrapped, -NET_EM_RATE),  
+    y = ~NET_EM_RATE,
+    type = "bar",
+    marker = list(color = "red"),
+    text = ~round(NET_EM_RATE, 1),
+    textposition = "inside",
+    textfont = list(color = "white", size = 12)
+  ) %>%
+    layout(
+      title = list(
+        text = paste("Average of net emission rate", period$p1, "-", period$p2),
+        font = list(weight = "bold")
+      ),
+      yaxis = list(title = "tonne CO2-eq/ha.yr"),
+      xaxis = list(
+        title = "",
+        tickangle = 0, 
+        tickfont = list(size = 10), 
+        automargin = TRUE 
+      ),
+      showlegend = FALSE,
+      margin = list(t = 60, b = 120), 
+      plot_bgcolor = "white",
+      xaxis = list(showgrid = FALSE),
+      yaxis = list(showgrid = FALSE)
+    )
   
   total_area <- sum(az$Ha)
   total_emission <- sum(zc$TOTAL_EM)
@@ -336,17 +399,35 @@ zonal_statistic_database <- function(quescdb, period) {
       "Percentage" = PERCENTAGE
     )
   
-  largest_emission <- tb_em_total_10 %>% 
-    ggplot(aes(x = reorder(LU_CODE, -EM), y = (EM))) +
-    geom_bar(stat = "identity", fill = "blue") +
-    geom_text(data = tb_em_total_10, aes(x=LU_CODE, y=EM, label = round(EM, 1)), size = 3, vjust = 0.1) +
-    ggtitle(paste("Largest sources of emission")) + 
-    guides(fill = FALSE) + 
-    ylab("CO2-eq") +
-    theme(plot.title = element_text(lineheight = 5, face = "bold")) + 
-    scale_y_continuous() +
-    theme(axis.title.x = element_blank(), axis.text.x = element_text(size = 8),
-          panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+  # largest_emission <- tb_em_total_10 %>% 
+  #   ggplot(aes(x = reorder(LU_CODE, -EM), y = (EM))) +
+  #   geom_bar(stat = "identity", fill = "blue") +
+  #   geom_text(data = tb_em_total_10, aes(x=LU_CODE, y=EM, label = round(EM, 1)), size = 3, vjust = 0.1) +
+  #   ggtitle(paste("Largest sources of emission")) + 
+  #   guides(fill = FALSE) + 
+  #   ylab("CO2-eq") +
+  #   theme(plot.title = element_text(lineheight = 5, face = "bold")) + 
+  #   scale_y_continuous() +
+  #   theme(axis.title.x = element_blank(), axis.text.x = element_text(size = 8),
+  #         panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+  
+  largest_emission <- plot_ly(
+    data = tb_em_total_10,
+    x = ~reorder(LU_CODE, -EM),
+    y = ~EM,
+    type = "bar",
+    marker = list(color = "blue"),
+    text = ~round(EM, 1),
+    textposition = "inside",
+    textfont = list(color = "white", size = 12)
+  ) %>%
+    layout(
+      title = list(text = "Largest sources of emission", font = list(weight = "bold")),
+      yaxis = list(title = "CO2-eq"),
+      xaxis = list(title = "", tickfont = list(size = 8)),
+      showlegend = FALSE,
+      margin = list(t = 60)
+    )
   
   # zonal emission
   tb_em_zonal <- as.data.frame(NULL)
@@ -409,17 +490,35 @@ zonal_statistic_database <- function(quescdb, period) {
       "Percentage" = PERCENTAGE
     )
   
-  largest_sequestration <- tb_sq_total_10 %>% 
-    ggplot(aes(x = reorder(LU_CODE, -SQ), y = (SQ))) +
-    geom_bar(stat = "identity", fill = "green") +
-    geom_text(data = tb_sq_total_10, aes(x=LU_CODE, y=SQ, label = round(SQ, 1)), size = 3, vjust = 0.1) +
-    ggtitle(paste("Largest sources of sequestration")) + 
-    guides(fill = FALSE) + 
-    ylab("CO2-eq") +
-    theme(plot.title = element_text(lineheight = 5, face = "bold")) + 
-    scale_y_continuous() +
-    theme(axis.title.x = element_blank(), axis.text.x = element_text(size = 8),
-          panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+  # largest_sequestration <- tb_sq_total_10 %>% 
+  #   ggplot(aes(x = reorder(LU_CODE, -SQ), y = (SQ))) +
+  #   geom_bar(stat = "identity", fill = "green") +
+  #   geom_text(data = tb_sq_total_10, aes(x=LU_CODE, y=SQ, label = round(SQ, 1)), size = 3, vjust = 0.1) +
+  #   ggtitle(paste("Largest sources of sequestration")) + 
+  #   guides(fill = FALSE) + 
+  #   ylab("CO2-eq") +
+  #   theme(plot.title = element_text(lineheight = 5, face = "bold")) + 
+  #   scale_y_continuous() +
+  #   theme(axis.title.x = element_blank(), axis.text.x = element_text(size = 8),
+  #         panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+  
+  largest_sequestration <- plot_ly(
+    data = tb_sq_total_10,
+    x = ~reorder(LU_CODE, -SQ),
+    y = ~SQ,
+    type = "bar",
+    marker = list(color = "green"),
+    text = ~round(SQ, 1),
+    textposition = "inside",
+    textfont = list(color = "white", size = 12)
+  ) %>%
+    layout(
+      title = list(text = "Largest sources of sequestration", font = list(weight = "bold")),
+      yaxis = list(title = "CO2-eq"),
+      xaxis = list(title = "", tickfont = list(size = 8)),
+      showlegend = FALSE,
+      margin = list(t = 60)
+    )
   
   # zonal sequestration
   tb_sq_zonal <- as.data.frame(NULL)
@@ -847,7 +946,7 @@ run_quesc_analysis <- function(lc_t1_path, lc_t2_path, admin_z_path, c_lookup_pa
     SQ = (C_T2 - C_T1) * (C_T1 < C_T2) * Ha * 3.67,
     LU_CHG = do.call(paste, c(df_lucdb[as.character(c(time_points$t1, time_points$t2))], sep = " to "))
   )
-  
+
   end_time <- Sys.time()
   cat("Ended at:", format(end_time, "%Y-%m-%d %H:%M:%S"), "\n")
   
@@ -887,7 +986,7 @@ run_quesc_analysis <- function(lc_t1_path, lc_t2_path, admin_z_path, c_lookup_pa
               paste0(output_dir, "/emission_map.tif"), overwrite = T)
   writeRaster(map_sequestration,
               paste0(output_dir, "/sequestration_map.tif"), overwrite = T)
-  
+
   if (!is.null(progress_callback)) progress_callback(1, "generate report")
   generate_quesc_report(output_quesc = out, dir = output_dir)
   

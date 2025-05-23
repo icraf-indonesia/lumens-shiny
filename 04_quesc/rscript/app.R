@@ -20,7 +20,9 @@ install_load(
   "shinyjs",
   "rmarkdown",
   "bslib",
-  "shinyalert"
+  "shinyalert",
+  "plotly",
+  "stringr"
 )
 
 if (!("LUMENSR" %in% rownames(installed.packages()))) {
