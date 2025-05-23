@@ -24,7 +24,8 @@ install_load(
   "shinyalert",
   "data.table",
   "magrittr",
-  "tidyr"
+  "tidyr",
+  "tidyterra"
 )
 
 if (!("LUMENSR" %in% rownames(installed.packages()))) {
@@ -252,7 +253,7 @@ server <- function(input, output, session) {
         }
         
         incProgress(0.2, detail = "Calculating Land Based Carbon Emission")
-        
+
         # Run QuES-C analysis
         results <- run_quesc_analysis(
           lc_t1_path = lc_t1_path,
