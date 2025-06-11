@@ -660,8 +660,93 @@ run_sciendo_simulate_process <- function(lc_t1_path, lc_lookup_table_path, lc_lo
   return(out)
 }
 
-
 # Functions for report ----------------------------------------------------
+
+#' @title Generate a Robust and Interactive Stacked Area Chart using Plotly
+#' @description This function takes a tibble of land use data and creates a
+#' stacked area chart directly with plotly. It is robust to variations in
+#' column names and data types.
+#' @param luc_data_wide A tibble or data.frame in wide format.
+#' @param class_col A string specifying the name of the column containing land use
+#'   class labels. Defaults to "LC".
+#' @param id_col A string specifying the name of the column containing row
+#'   identifiers. This column is excluded from the plot. Defaults to "ID".
+#' @param chart_title The main title for the chart.
+#' @param x_axis_label The label for the x-axis.
+#' @param y_axis_label The label for the y-axis.
+#' @return A plotly object representing the interactive stacked area chart.
+#'
+plot_interactive_stacked_area <- function(luc_data_wide,
+                                          class_col = "LC",
+                                          id_col = "ID",
+                                          x_axis_label = "Time Step",
+                                          y_axis_label = "Area (Hectares)") 
+{
+  
+  # Step 2: Input Validation and Cleaning
+  # Check if the specified columns exist in the data frame
+  required_cols <- c(class_col, id_col)
+  if (!all(required_cols %in% names(luc_data_wide))) {
+    stop(paste("The provided data frame must contain the columns:", paste(required_cols, collapse = ", ")))
+  }
+  
+  # Ensure all data columns (non-ID, non-class) are numeric.
+  # This version is more robust: it only attempts to parse columns that are not already numeric.
+  clean_data_wide <- luc_data_wide %>%
+    dplyr::mutate(across(
+      .cols = -all_of(required_cols), 
+      .fns = ~ if(!is.numeric(.)){ readr::parse_number(as.character(.))} else .
+    )
+    )
+  
+  # Step 3: Prepare Data for Plotting (Reshape and Process)
+  luc_data_long <- clean_data_wide %>%
+    # Use !!sym() to programmatically refer to the class_col
+    dplyr::mutate(!!sym(class_col) := factor(!!sym(class_col), levels = unique(!!sym(class_col)))) %>%
+    tidyr::pivot_longer(
+      cols = -all_of(required_cols),
+      names_to = "Year",
+      values_to = "Area"
+    ) %>%
+    dplyr::mutate(
+      Year = readr::parse_number(Year)
+    )
+  
+  # Step 4: Define and Shuffle Tableau 20 Color Palette using ggthemes
+  n_colors <- length(unique(luc_data_long[[class_col]]))
+  tableau_palette <- ggthemes::tableau_color_pal(palette = "Tableau 20", direction=1)(n_colors)
+  
+  
+  
+  # Step 5: Create the Interactive Chart directly with Plotly
+  # Build formulas for aesthetics programmatically
+  color_formula <- as.formula(paste0("~`", class_col, "`"))
+  text_formula <- as.formula(
+    paste0("~paste('<b>', `", class_col, "`, '</b><br>', 'Time Step (T+n):', Year, '<br>', 'Area:', scales::comma(Area), ' ha')")
+  )
+  
+  interactive_plot <- plot_ly(
+    data = luc_data_long,
+    x = ~Year,
+    y = ~Area,
+    color = color_formula,
+    colors = tableau_palette,
+    type = 'scatter',
+    mode = 'lines',
+    stackgroup = 'one',
+    line = list(width = 0),
+    hoverinfo = 'text',
+    text = text_formula
+  ) %>%
+    layout(
+      xaxis = list(title = x_axis_label, dtick = 1),
+      yaxis = list(title = y_axis_label),
+      legend = list(orientation = "h", x = 0.5, y = -0.2, xanchor = 'center')
+    )
+  
+  # Step 6: Return the Interactive Plotly Object
+  return(interactive_plot)
+}
 
 #' Calculate Land Cover Frequency for Entire Landscape or Planning Units
 #'
@@ -857,9 +942,6 @@ multiple_lc_freq_combined <- function(lc_dir, PU = "NO", zone = NULL, split = "N
     return(freq_tbl)
   }
 }
-
-
-# Pre-QuES functions ------------------------------------------------------
 
 # add_legend_to_categorical_raster ----------------------------------------
 
