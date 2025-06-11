@@ -19,9 +19,7 @@ library(terra)    # For spatial raster data operations
 library(sf)       # For spatial vector data (shapefiles)
 library(dplyr)    # For data manipulation and pipelines
 
-# Set the working directory to the location of the test script.
-# This ensures that relative paths for sourcing files work correctly.
-setwd("tests/testthat/")
+
 
 # Load required functions into the testing environment
 source("helper_tests.R") # Contains functions to set up test data
