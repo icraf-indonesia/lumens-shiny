@@ -1,8 +1,0 @@
-ID: 20
-Data: pu_units_bungo.csv
-Name: List of Bungo Planning Unit analyze in PUR Build Module
-URL: data/table/pu_units_bungo.csv
-Label: table
-Definition: This table data lists all the planning unit maps used in the PUR Build module. This table contains 5 column fields: PU_name, PU_identity, Ref_ID, Type, and Path. Each cell needs to be defined by the user. Each row represents information for a planning unit.
-Comment: NA
-Reference: NA
