@@ -7,7 +7,7 @@ output:
     number_sections: true
     theme: united
     highlight: tango
-    df_print: kable
+    df_print: paged
 params:
   start_time: NA
   end_time: NA
@@ -89,7 +89,8 @@ plot_categorical_raster(lc_t1)
 ## Planning Unit
 
 ```{r planning unit, echo=FALSE, message=FALSE, warning=FALSE}
-params$inputs$zone_path %>% rast() %>% plot()
+zone <- rast(params$inputs$zone_path)
+plot(zone)
 ```
 
 
@@ -134,44 +135,49 @@ for(i in list_luc){
 }
 ```
 
-## Land Use/Cover Change Lookup Table
+## Land Use/Cover Change Lookup Table at the Landscape Level
 
 ```{r lut change, echo=FALSE, message=FALSE, warning=FALSE}
-all_freq <- calc_lc_freq(raster_list = rst_list) %>%
-    abbreviate_by_column("Jenis tutupan lahan", remove_vowels = FALSE) 
-colnames(all_freq) <- c("LC", paste0("T+", 1:(ncol(all_freq)-1)))
+lc_dir <- params$inputs$output_dir
+lc_freq_table <- multiple_lc_freq_combined(lc_dir, PU = "NO")
 
-if (grepl("\\+units=m", st_crs(lc_t1)$proj4string)) {
-  spatRes <- calc_res_conv_factor_to_ha(lc_t1)
-  lc_freq_table <-
-    mutate(all_freq, across(c(2:ncol(all_freq)), ~(spatRes*.x))) %>% 
-    mutate(across(c(2:ncol(all_freq)), ~units::set_units(x = .x, value = "ha")))
-  
-  all_freq <- mutate(all_freq, across(c(2:ncol(all_freq)), ~(spatRes*.x)))
-} else {
-  cat("Frequency is shown in number of pixels instead of hectares in the lc_freq_table")
-}
+datatable(lc_freq_table)
 
-df_merge <- df_lc[, 1:2] %>% dplyr::rename(ID = 1, LC = 2)
-lc_freq_table <- lc_freq_table %>% 
-  dplyr::left_join(df_merge, by = "LC") %>%
-  dplyr::arrange(ID) %>%
-  dplyr::relocate(ID, .before = LC)
-lc_freq_table %>% kable() %>%
-  kable_styling(bootstrap_options = c("striped", "hover"))
-```
+# Export csv
+ref_subset <- df_lc[, 1:2]
+colnames(ref_subset) <- c("ID", "Landcover")
 
-```{r echo=FALSE, message=FALSE, warning=FALSE}
-all_freq <- all_freq %>% 
-  dplyr::left_join(df_merge, by = "LC") %>%
-  dplyr::arrange(ID) %>%
-  dplyr::relocate(ID, .before = LC)
-write.table(all_freq,
-  paste0(params$inputs$output_dir, "/luc_projection.csv"), 
-  quote=FALSE, 
-  row.names=FALSE, 
+lc_freq_table_raw <- merge(ref_subset, lc_freq_table, by = "Landcover", all.y = TRUE)
+lc_freq_table_export <- lc_freq_table_raw[, c("ID", "Landcover", setdiff(names(lc_freq_table_raw), c("ID", "Landcover")))]
+lc_freq_table_export <- lc_freq_table_export[order(lc_freq_table_export$ID), ]
+
+write.table(lc_freq_table_export,
+  paste0(params$inputs$output_dir, "/luc_projection.csv"),
+  quote=FALSE,
+  row.names=FALSE,
   sep=","
 )
+```
+
+## Land Use/Cover Change Lookup Table at the Planning Unit Level {.tabset}
+
+```{r child_document, echo=FALSE, message=FALSE, warning=FALSE, fig.keep='all', results='asis'}
+all_freq_pu_list <- multiple_lc_freq_combined(lc_dir, PU = "YES", zone = zone, split = "YES")
+
+for (i in names(all_freq_pu_list)) {
+  cat("### ", i, "\n\n")
+  
+  tbl <- DT::datatable(
+    all_freq_pu_list[[i]],
+    caption = paste("Projected Land Use/Cover in", i),
+    options = list(
+      dom = 't',
+      pageLength = nrow(all_freq_pu_list[[i]])
+    )
+  )
+  print(htmltools::tagList(tbl))
+  cat("\n\n<br><br>\n\n") 
+}
 ```
 
 
