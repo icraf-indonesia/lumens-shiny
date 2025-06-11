@@ -258,7 +258,6 @@ generate_sciendo_simulate_report <- function(output, dir) {
     session_log = output$session_log
   )
   output_file <- paste0("sciendo_simulate_report_", Sys.Date(), ".html")
-  
   rmarkdown::render(
     "../report_template/sciendo_simulate_report_template.Rmd",
     output_file = output_file,
@@ -677,8 +676,8 @@ run_sciendo_simulate_process <- function(lc_t1_path, lc_lookup_table_path, lc_lo
 #' @return A plotly object representing the interactive stacked area chart.
 #'
 plot_interactive_stacked_area <- function(luc_data_wide,
-                                          class_col = "LC",
-                                          id_col = "ID",
+                                          class_col = names(luc_data_wide)[2],
+                                          id_col = names(luc_data_wide)[1],
                                           x_axis_label = "Time Step",
                                           y_axis_label = "Area (Hectares)") 
 {
