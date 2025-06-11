@@ -136,6 +136,7 @@ ques_pre <- function(lc_t1, lc_t2, admin_, cutoff_landscape = 5000, cutoff_pu = 
     crosstab_landscape <- summarise(grouped_df, Freq = sum(.data[["Freq"]]), .groups = "drop")
   }
   # Create Sankey diagrams at landscape level
+
   ## Sankey diagram showing all changes
   sankey_landscape <- crosstab_landscape %>%
     create_sankey(area_cutoff = cutoff_landscape, change_only = FALSE)
@@ -541,7 +542,8 @@ add_legend_to_categorical_raster <- function(raster_file, lookup_table, year = N
   lookup_table <- lookup_table[lookup_table[[1]] %in% terra::freq(raster_file)[["value"]], ]
   
   # Convert lookup_table into a data frame
-  lookup_table <- data.frame(lookup_table)
+  lookup_table <- data.frame(lookup_table) %>% 
+    dplyr::rename("ID"=1, "LC"=2)
   
   # Convert the first column to numeric if it is not already
   if (!is.numeric(first_column)) {
@@ -1263,21 +1265,33 @@ create_sankey <- function(freq_table, area_cutoff = 10000, change_only = FALSE) 
     value_col <- "Freq"
   }
   
+  # 1. Prepare the base data frame depending on the 'change_only' flag
   if(change_only){
-    df_filtered <- freq_table %>%
-      mutate_if(is.factor, as.character) %>%
-      rowwise() %>%
-      filter(n_distinct(c_across(-length(freq_table))) > 1) %>%
-      ungroup() %>%
-      filter((!!sym(value_col)) > area_cutoff)
+    base_df <- freq_table %>%
+      dplyr::mutate_if(is.factor, as.character) %>%
+      dplyr::rowwise() %>%
+      # This filters for rows where the 'from' and 'to' classes are different
+      dplyr::filter(dplyr::n_distinct(dplyr::c_across(-{{value_col}})) > 1) %>%
+      dplyr::ungroup()
   } else {
-    df_filtered <- freq_table %>%
-      dplyr::filter((!!sym(value_col)) > area_cutoff)
+    base_df <- freq_table
   }
   
-  # Error handling: if dataframe is empty after filtering
+  # 2. Attempt to filter the base data frame by the specified area_cutoff
+  df_filtered <- base_df %>%
+    dplyr::filter((!!rlang::sym(value_col)) > area_cutoff)
+  
+  # 3. Conditional Check: If filtering removed all data, warn the user and revert.
+  if (nrow(df_filtered) == 0 && nrow(base_df) > 0) {
+    warning(paste0("The specified 'area_cutoff' of ", area_cutoff, " resulted in no data. ",
+                   "The cutoff has been ignored to generate the plot with all available data."))
+    # Revert to the unfiltered base data
+    df_filtered <- base_df
+  }
+  
+  # 4. Final Safeguard: If there's no data to plot even with a zero cutoff, then stop.
   if(nrow(df_filtered) == 0){
-    stop("No data left after filtering, please check your inputs.")
+    stop("No data available to create a Sankey diagram (the input table might be empty or contain no changes).")
   }
   
   # Get column names (years) without the 'X' prefix and 'Freq'
@@ -1923,8 +1937,7 @@ run_preques_analysis <- function(lc_t1_input, lc_t2_input, admin_z_input,
   }
   
   if (!is.null(progress_callback)) progress_callback(0.2, "Land cover data prepared")
-  
-  
+
   # Prepare administrative zones data
   if(!inherits(admin_z_input, "SpatRaster")){
     admin_z <- terra::rast(admin_z_input$datapath) %>%
