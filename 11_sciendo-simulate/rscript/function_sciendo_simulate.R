@@ -659,3 +659,559 @@ run_sciendo_simulate_process <- function(lc_t1_path, lc_lookup_table_path, lc_lo
   
   return(out)
 }
+
+
+# Functions for report ----------------------------------------------------
+
+#' Calculate Land Cover Frequency for Entire Landscape or Planning Units
+#'
+#' This function calculates the frequency (area or pixel count) of land cover classes either for 
+#' the entire landscape or within individual planning units (PUs). It can process multiple 
+#' time points and automatically converts pixel counts to hectares when appropriate.
+#'
+#' @param lc_dir Character. Path to directory containing land cover raster files (TIFF format).
+#' @param PU Character. Whether to calculate by planning units ("YES") or for entire landscape ("NO"). 
+#'           Default is "NO" (case-insensitive).
+#' @param zone SpatRaster or NULL. Planning unit raster (required when PU = "YES"). 
+#'             Should have the same extent and resolution as land cover rasters.
+#'
+#' @return A tibble containing land cover frequencies:
+#' \itemize{
+#'   \item When PU = "NO": Returns tibble with columns Landcover, T+1, T+2, etc. showing frequencies
+#'   \item When PU = "YES": Returns tibble with columns PU, Landcover, T+1, T+2, etc. showing frequencies per PU
+#' }
+#' Values represent either pixel counts or area in hectares (when CRS units are meters).
+#'
+#' @details 
+#' The function:
+#' \itemize{
+#'   \item Automatically reads all TIFF files in \code{lc_dir}
+#'   \item Processes each time point sequentially (T+1, T+2, etc. based on filenames)
+#'   \item For PU calculations, requires zone raster with PU IDs
+#'   \item Converts pixel counts to hectares when CRS uses meter units
+#'   \item Returns results in tidy tibble format
+#' }
+#'
+#' @note 
+#' \itemize{
+#'   \item Land cover rasters should be categorical with proper legends
+#'   \item Files should follow naming convention that includes landscape numbers (e.g., "landscape1.tif")
+#'   \item When PU="YES", zone raster must have PU IDs in its attribute table
+#' }
+#'
+#' @examples
+#' \dontrun{
+#' # For entire landscape
+#' lc_freq <- multiple_lc_freq_combined("path/to/landcover/files")
+#' 
+#' # For planning units
+#' pu_freq <- multiple_lc_freq_combined("path/to/landcover/files", 
+#'                                    PU = "YES", 
+#'                                    zone = pu_raster)
+#' }
+#' 
+#' @importFrom terra rast
+#' @importFrom dplyr arrange mutate across select everything rename relocate
+#' @importFrom tidyr pivot_longer pivot_wider
+#' @importFrom tibble as_tibble
+#' @export
+#' 
+#' @param split Character. Whether to split results by planning unit when PU="YES" ("YES" or "NO"). 
+#'              Default is "NO" (case-insensitive). Only applicable when PU="YES".
+#'              
+multiple_lc_freq_combined <- function(lc_dir, PU = "NO", zone = NULL, split = "NO") {
+  
+  # Read raster data
+  list_luc <- lc_dir %>% list.files(full.names=TRUE, pattern="*.tif$")
+  rst_list <- list()
+  counter <- 0
+  
+  for(i in list_luc){
+    r <- i %>% rast() %>% add_legend_to_categorical_raster(., lookup_table = df_lc)
+    rst_list[[i]] <- r
+    counter <- counter + 1
+    r %>% plot_categorical_raster()
+  }
+  
+  # Conditional scripts
+  if (toupper(PU) == "YES") {
+    if (is.null(zone)) {
+      stop("Zone parameter must be provided when PU = YES")
+    }
+    
+    # Count freq for each planning unit
+    all_freq_pu <- lapply(seq_along(rst_list), function(i) {
+      result <- terra::crosstab(c(rst_list[[i]], zone))
+      names(result) <- names(rst_list)[i]
+      return(result)
+    })
+    
+    df <- as.data.frame(all_freq_pu)
+    pu_names <- names(zone)
+    
+    # Extract landscape numbers from filenames
+    landscape_numbers <- gsub(".*landscape(\\d+)\\.tif", "\\1", names(rst_list))
+    year_labels <- landscape_numbers
+    base_pattern <- "layer_0" # refer to naming format of simulated landcover raster files
+    year_data_list <- list()
+    
+    # Extract data for each landscape
+    for (i in seq_along(landscape_numbers)) {
+      landscape_num <- landscape_numbers[i]
+      year_label <- year_labels[i]
+      
+      # Determine the corresponding columns in the data frame
+      if (i == 1) {
+        # For first landscape
+        landcover_col <- base_pattern 
+        pu_col <- pu_names           
+        freq_col <- "Freq"        
+      } else {
+        # For subsequent landscapes
+        landcover_col <- paste0(base_pattern, ".", i-1)  
+        pu_col <- paste0(pu_names, ".", i-1)           
+        freq_col <- paste0("Freq.", i-1)  
+      }
+      
+      # Check if columns exist in the data frame
+      required_cols <- c(landcover_col, pu_col, freq_col)
+      missing_cols <- setdiff(required_cols, names(df))
+      if (length(missing_cols) > 0) {
+        stop("Columns not found in data frame: ", paste(missing_cols, collapse = ", "),
+             "\nAvailable columns: ", paste(names(df), collapse = ", "))
+      }
+      
+      # Extract the data for this landscape
+      temp_data <- df[, c(landcover_col, pu_col, freq_col)]
+      names(temp_data) <- c("landcover", "PU", "value")
+      temp_data$year <- year_label
+      
+      year_data_list[[year_label]] <- temp_data
+    }
+    
+    combined_data <- do.call(rbind, year_data_list)
+    final_data <- tidyr::pivot_wider(combined_data,
+                                     names_from = year, 
+                                     values_from = value) %>%
+      dplyr::arrange(PU, landcover) %>%
+      dplyr::select(PU, landcover, dplyr::everything())
+    
+    lc_ref <- rst_list[[1]]
+    
+    if (grepl("\\+units=m", st_crs(lc_ref)$proj4string)) {
+      spatRes <- calc_res_conv_factor_to_ha(lc_ref)
+      final_data <- mutate(final_data, across(c(3:ncol(final_data)), ~(spatRes*.x)))
+    } else {
+      cat("Frequency is shown in number of pixels instead of hectares")
+    }
+    
+    colnames(final_data) <- c("PU", "Landcover", paste0("T+", 1:(ncol(final_data)-1)))
+    
+    # Split the data by PU and convert to list of tibbles
+    if (toupper(split) == "YES") {
+      pu_list <- final_data %>%
+        dplyr::group_split(PU) %>%
+        purrr::map(~ dplyr::select(., -PU)) 
+      
+      pu_names <- unique(final_data$PU)
+      names(pu_list) <- paste0("PU_", pu_names)
+      
+      return(pu_list)
+    } else {
+      return(final_data)
+    }
+    
+  } else {
+    
+    # Count freq
+    freq_data <- calc_lc_freq(raster_list = rst_list) %>%
+      abbreviate_by_column("Land-use/cover types", remove_vowels = FALSE)
+    
+    # Convert to long format
+    landscape_numbers <- gsub(".*landscape(\\d+)\\.tif", "\\1", names(rst_list))
+    time_points <- paste0("T+", seq_along(landscape_numbers))
+    colnames(freq_data) <- c("Landcover", time_points)
+    
+    # Convert to tibble
+    freq_tbl <- freq_data %>%
+      tibble::as_tibble() %>%
+      tidyr::pivot_longer(
+        cols = -Landcover,
+        names_to = "Time",
+        values_to = "value"
+      ) %>%
+      dplyr::arrange(Landcover, Time) %>%
+      tidyr::pivot_wider(
+        names_from = Time,
+        values_from = value
+      )
+    
+    if (grepl("\\+units=m", st_crs(rst_list[[1]])$proj4string)) {
+      spatRes <- calc_res_conv_factor_to_ha(rst_list[[1]])
+      freq_tbl <- freq_tbl %>%
+        dplyr::mutate(dplyr::across(-Landcover, ~ .x * spatRes))
+    } else {
+      cat("Frequency is shown in number of pixels instead of hectares")
+    }
+    
+    return(freq_tbl)
+  }
+}
+
+
+# Pre-QuES functions ------------------------------------------------------
+
+# add_legend_to_categorical_raster ----------------------------------------
+
+#' Add legend to categorical raster
+#'
+#' This function adds a legend to a categorical raster file, often containing information about land cover or planning units.
+#'
+#' @param raster_file A categorical raster file (an object of class `SpatRaster`)
+#' @param lookup_table A corresponding lookup table of descriptions for each class category
+#' @param year An optional year to be associated with the raster file
+#'
+#' @return A raster file that contains descriptions for each class category
+#' @importFrom terra levels freq time names
+#' @importFrom stats setNames
+#' @export
+#'
+#' @examples
+#' \dontrun{
+#' add_legend_to_categorical_raster(raster_file = kalbar_11,
+#'               lookup_table = lc_lookup_klhk,
+#'               year = 2011) %>%
+#'               plot()
+#' }
+
+add_legend_to_categorical_raster <- function(raster_file, lookup_table, year = NULL) {
+  # Check if raster_file is a SpatRaster object
+  if (!inherits(raster_file, "SpatRaster")) {
+    stop("raster_file should be a SpatRaster object")
+  }
+  
+  # Check if lookup_table is a data frame
+  if (!is.data.frame(lookup_table)) {
+    stop("lookup_table should be a data frame")
+  }
+  
+  # Check if the first column of lookup_table is numeric or convertible to numeric
+  first_column <- lookup_table[[1]]
+  if (!is.numeric(first_column) && any(is.na(as.numeric(first_column)))) {
+    stop("The first column of lookup_table should be numeric or convertible to numeric")
+  }
+  
+  # Check if year is a numeric value or NULL, and if it consists of 4 digits
+  if (!is.null(year) && (!is.numeric(year) || nchar(as.character(year)) != 4)) {
+    stop("year should be a numeric value consisting of 4 digits")
+  }
+  
+  # Filter lookup_table to only include values present in raster_file
+  lookup_table <- lookup_table[lookup_table[[1]] %in% terra::freq(raster_file)[["value"]], ]
+  
+  # Convert lookup_table into a data frame
+  lookup_table <- data.frame(lookup_table)
+  
+  # Convert the first column to numeric if it is not already
+  if (!is.numeric(first_column)) {
+    lookup_table[[1]] <- as.numeric(first_column)
+  }
+  
+  # Get the names of raster_file
+  name_rast <- names(raster_file)
+  
+  # Set the levels of raster_file to be lookup_table
+  levels(raster_file) <- lookup_table
+  
+  # Set the names of raster_file
+  raster_file <- setNames(raster_file, name_rast)
+  
+  # Set the year if year is not NULL
+  if (!is.null(year)) {
+    terra::time(raster_file, tstep="years") <- year
+  }
+  
+  # Return the modified raster_file
+  return(raster_file)
+}
+
+# plot_categorical_raster -------------------------------------------------
+
+#' Plot a categorical raster map
+#'
+#' This function takes a raster object as input and produces a ggplot. If the raster
+#' object includes a "color_pallete" column with hex color codes, these colors are
+#' used for the fill scale. Otherwise, the default `scale_fill_hypso_d()` fill scale
+#' from the tidyterra package is used.
+#'
+#' @param raster_object A raster object.
+#'
+#' @return A ggplot object.
+#' @importFrom tidyterra scale_fill_hypso_d
+#' @importFrom ggplot2 ggplot theme_bw labs theme scale_fill_manual element_text unit element_blank guides guide_legend
+#' @importFrom tidyterra geom_spatraster scale_fill_hypso_d
+#' @export
+plot_categorical_raster <- function(raster_object) {
+  # Check if raster_object has a color_pallete column and it contains hex color codes
+  if ("color_palette" %in% names(cats(raster_object)[[1]]) && all(grepl("^#[0-9A-Fa-f]{6}$", cats(raster_object)$color_pallete))) {
+    fill_scale <- scale_fill_manual(values = cats(raster_object)[[1]]$color_palette, na.value = "white")
+  } else {
+    fill_scale <- scale_fill_manual(values = c(
+      "#4E79A7", "#F28E2B", "#E15759", "#76B7B2", "#59A14F",
+      "#EDC948", "#B07AA1", "#FF9DA7", "#9C755F", "#BAB0AC",
+      "#86BCB6", "#FFB84D", "#A5C1DC", "#D37295", "#C4AD66",
+      "#7B8D8E", "#B17B62", "#8CD17D", "#DE9D9C", "#5A5A5A",
+      "#A0A0A0", "#D7B5A6", "#6D9EEB", "#E69F00", "#56B4E9",
+      "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7",
+      "#999999", "#E51E10", "#FF7F00", "#FFFF33", "#A65628",
+      "#F781BF", "#999933", "#8DD3C7", "#FFFFB3", "#BEBADA",
+      "#FB8072", "#80B1D3", "#FDB462", "#B3DE69", "#FCCDE5",
+      "#D9D9D9", "#BC80BD", "#CCEBC5", "#FFED6F", "#E41A1C"
+    ), na.value = "white")
+  }
+  if(!is.na(time(raster_object))) {
+    plot_title <- time(raster_object)
+  } else {
+    plot_title <- names(raster_object)
+  }
+  # Generate the plot
+  plot_lc <- ggplot() +
+    tidyterra::geom_spatraster(data = raster_object) +
+    fill_scale +
+    theme_bw() +
+    labs(title = plot_title, fill = NULL) +
+    guides(fill = guide_legend(title.position = "top", ncol=3))+
+    theme(axis.title.x = element_blank(),
+          axis.title.y = element_blank(),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          legend.title = element_text(size = 12),
+          legend.text = element_text(size = 10),
+          legend.key.height = unit(0.25, "cm"),
+          legend.key.width = unit(0.25, "cm"),
+          legend.position = "bottom",
+          legend.justification = c(0,0.8))
+  
+  return(plot_lc)
+}
+
+# calc_res_conve_factor_to_ha ---------------------------------------------
+
+#' Calculate Resolution Conversion Factor To Hectares
+#'
+#' This function calculates the conversion factor of a raster map resolution to hectares,
+#' depending on the coordinate reference system (CRS) of the raster.
+#' Raster maps with projection in meter or degree units are supported.
+#'
+#' @param raster_input A terra::SpatRaster object.
+#' @return A numerical value representing the conversion factor of the raster map resolution to hectares.
+#' @importFrom terra crs res
+#' @export
+calc_res_conv_factor_to_ha <- function(raster_input) {
+  
+  crs <- terra::crs(raster_input, proj=TRUE) # Get the CRS of the raster
+  
+  # Check if the CRS is in meter unit
+  if (grepl("+units=m", crs)) {
+    message("Raster map has a projection in metre unit.")
+    conversion_factor <- terra::res(raster_input)[1] * terra::res(raster_input)[2] / 10000
+    message(paste("Raster map has ", conversion_factor, " Ha spatial resolution. Pre-QuES will automatically generate data in Ha unit."))
+    
+    # Check if the CRS is in degree unit
+  } else if (grepl("+proj=longlat", crs)) {
+    message("Raster map has a projection in degree unit.")
+    conversion_factor <- terra::res(raster_input)[1] * terra::res(raster_input)[2] * (111319.9 ^ 2) / 10000
+    message(paste("Raster map has ", conversion_factor, " Ha spatial resolution. Pre-QuES will automatically generate data in Ha unit."))
+    
+    # If the CRS is neither in meter nor degree unit, throw an error
+  } else {
+    stop("Projection of the raster map is unknown")
+  }
+  
+  return(conversion_factor)
+}
+
+# calc_lc_freq ------------------------------------------------------------
+
+#' Calculate land cover frequency for multiple raster layers
+#'
+#' This function takes multiple raster layers as input and returns a
+#' frequency table for each layer, sorted by the count of the last raster layer in descending order.
+#' An input of a terra's rast object is allowed.
+#'
+#' @param raster_list list of raster layers or a single raster layer.
+#'
+#' @return A dataframe of frequency tables.
+#'
+#' @importFrom terra compareGeom freq levels time
+#' @importFrom dplyr left_join select arrange desc rename
+#' @importFrom purrr map
+#' @export
+#'
+#' @examples
+#' \dontrun{
+#' library(tidyverse)
+#'
+#' # Create a vector of raster file names
+#' lc_maps <- c("kalbar_LC11.tif", "kalbar_LC20.tif") %>%
+#'   # Apply LUMENSR_example function to each file in the vector
+#'   map(~ LUMENSR_example(.x)) %>%
+#'   # Convert each file to a raster object
+#'   map(~ terra::rast(.x)) %>%
+#'   # Add a legend to each raster object using a provided lookup table
+#'   map(~ add_legend_to_categorical_raster(raster_file = .x, lookup_table = lc_lookup_klhk))
+#'
+#' # Calculate the frequency table for each raster object in the list
+#' freq_table <- calc_lc_freq(lc_maps)
+#'
+#' # Print the resulting frequency table
+#' print(freq_table)
+#' }
+calc_lc_freq <- function(raster_list) {
+  
+  # Check if input is a single raster layer
+  if (class(raster_list)[1] == "SpatRaster") {
+    raster_list <- list(raster_list)
+  } else if (!is.list(raster_list)) {
+    stop("Input must be a list of raster layers or a single raster layer")
+  }
+  
+  # Check if all rasters have the same extent and CRS
+  if (length(raster_list) > 1) {
+    for (i in 2:length(raster_list)) {
+      if (!terra::compareGeom(raster_list[[1]], raster_list[[i]])) {
+        stop("All rasters must have the same extent and projection system")
+      }
+    }
+  }
+  
+  # Prepare an empty list to store frequency tables
+  freq_tables <- list()
+  
+  # Loop over all raster layers in the list
+  for (i in 1:length(raster_list)) {
+    # Check if raster has attributes
+    if (is.null(terra::levels(raster_list[[i]]))) {
+      warning(paste0("Raster ", i, " has no attributes"))
+    }
+    
+    # Get frequency table
+    freq <- terra::freq(raster_list[[i]])
+    
+    # Rename 'count' column to be specific for each raster
+    names(freq)[names(freq) == "count"] <- paste0(names(raster_list[[i]]), "_count")
+    
+    # Store frequency table in the list
+    freq_tables[[i]] <- freq
+  }
+  
+  # Combine frequency tables into one dataframe
+  freq_df <- freq_tables[[1]]
+  if (length(freq_tables) > 1) {
+    for (i in 2:length(freq_tables)) {
+      freq_df <- dplyr::left_join(freq_df, freq_tables[[i]], by = c("layer", "value"))
+    }
+    freq_df <- dplyr::select(freq_df, -layer)
+  }
+  
+  # Sort by the count of the last raster layer in descending order
+  freq_df <- dplyr::arrange(freq_df, dplyr::desc(freq_df[[ncol(freq_df)]]))
+  freq_df <- dplyr::rename(freq_df, `Land-use/cover types` = value)
+  
+  # Check if all SpatRaster objects have a time attribute
+  all_times_present <- all(sapply(raster_list, function(x) !is.null(time(x))))
+  if (all_times_present) {
+    # Loop over raster_list
+    for (i in seq_along(raster_list)) {
+      # Get the time attribute as a string
+      time_i <- as.character(time(raster_list[[i]]))
+      # Rename the corresponding column of freq_df
+      names(freq_df)[i+1] <- time_i
+    }
+    return(freq_df)
+  } else {
+    return("Not all SpatRaster objects in the list have a time attribute")
+  }
+  return(freq_df)
+}
+
+# abbreviate by column ----------------------------------------------------
+
+#' Replace Column Values with Shorter Version
+#'
+#' This function shortens the character column values in a data frame by removing vowels after the first character,
+#' and also provides an option to disable this vowel removal. It replaces spaces with underscores and removes characters after a slash.
+#' If no column names are provided, the function attempts to find and use the first character column in the data frame.
+#'
+#' @param df A data frame.
+#' @param col_names A character vector specifying the names of the columns to be abbreviated.
+#' If NULL (default), the function attempts to use the first character column.
+#' @param remove_vowels A logical value indicating whether to remove vowels from column values after the first character. Default is FALSE.
+#' @importFrom textclean replace_non_ascii
+#' @return A data frame with specified columns abbreviated.
+#' @export
+#'
+#' @examples
+#' df <- data.frame(
+#'   col1 = c("Hutan lahan kering sekunder / bekas tebangan", "Savanna / Padang rumput"),
+#'   col2 = c("Hutan lahan kering sekunder", "Savanna"),
+#'   stringsAsFactors = FALSE
+#' )
+#' abbreviate_by_column(df, c("col1", "col2"), remove_vowels=TRUE)
+abbreviate_by_column <- function(df, col_names = NULL, remove_vowels= FALSE) {
+  # Check if df is a data frame
+  if(!is.data.frame(df)) {
+    stop("df must be a data frame")
+  }
+  
+  # Check if df has at least one column
+  if(ncol(df) < 1) {
+    stop("df must have at least one column")
+  }
+  
+  # If col_names is NULL, find the first character column
+  if(is.null(col_names)) {
+    col_names <- names(df)[which(sapply(df, is.character))[1]]
+  }
+  
+  # Check if the provided col_names exist in df
+  if(!all(col_names %in% names(df))) {
+    stop("Some column names provided are not columns in df")
+  }
+  
+  # Define the abbreviation function
+  abbreviate_string <- function(input_string, drop_vowels = remove_vowels) {
+    
+    # Remove characters after the slash, if any
+    string <- textclean::replace_non_ascii(input_string)
+    string <- strsplit(string," / ")[[1]][1]
+    
+    if(isTRUE(drop_vowels)){
+      # Replace spaces with underscores
+      string <- gsub(" ", "_", string)
+      
+      # Split string into words
+      words <- strsplit(string, "_")[[1]]
+      
+      # Abbreviate each word by removing the vowels (but keep the first character even if it's a vowel)
+      words <- sapply(words, function(word) {
+        ifelse(grepl("^[aeiouAEIOU]", word),
+               paste0(substr(word, 1, 1), gsub("[aeiouAEIOU]", "", substr(word, 2, nchar(word)))),
+               gsub("[aeiouAEIOU]", "", word)
+        )
+      })
+      
+      # Combine words back into a single string
+      string <- paste(words, collapse = "_")
+    }
+    
+    return(string)
+  }
+  
+  # Apply the abbreviation function to the selected columns
+  for (col_name in col_names) {
+    df[[col_name]] <- unlist(lapply(df[[col_name]], abbreviate_string))
+  }
+  
+  return(df)
+}
