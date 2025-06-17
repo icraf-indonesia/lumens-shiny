@@ -174,7 +174,7 @@ plot_quesc_results <- function(map, legend, low, high, na_color = "white") {
       legend.title = element_text(size = 10),
       legend.text = element_text(size = 8),
       legend.key.height = unit(1, "cm"),
-      legend.key.width = unit(0.25, "cm"),  # Wider for continuous legend
+      legend.key.width = unit(0.25, "cm"), 
       legend.position = "right",
       legend.justification = c(0, 0.5)
     )
@@ -235,35 +235,48 @@ summary_of_emission_calculation <- function(quescdb, zone, map_em, map_sq, perio
   #         panel.grid.major = element_blank(), panel.grid.minor = element_blank())
   
   zc <- zc %>%
-    mutate(PU_wrapped = str_wrap(PU, width = 10))  # Adjust width for optimal wrapping
+    mutate(PU_wrapped = str_wrap(PU, width = 10)) 
   
   zc_plot <- plot_ly(
     data = zc,
-    x = ~reorder(PU_wrapped, -NET_EM_RATE),  
+    x = ~reorder(str_wrap(PU, width = 40), -NET_EM_RATE),
     y = ~NET_EM_RATE,
     type = "bar",
-    marker = list(color = "red"),
     text = ~round(NET_EM_RATE, 1),
-    textposition = "inside",
-    textfont = list(color = "white", size = 12)
+    hoverinfo = "text",
+    hovertext = ~paste(
+      "Planning Unit:", PU, "<br>", 
+      "Average Net Emission Rate:", round(NET_EM_RATE, 1), "tonne CO<sub>2</sub>-eq/ha.yr" 
+    ),
+    marker = list(
+      color = ~NET_EM_RATE,  
+      colorscale = "Oranges",  
+      reversescale = TRUE,
+      showscale = FALSE, 
+      colorbar = list(
+        title = "Emission Rate",
+        tickformat = ".1f"
+      )
+    )
   ) %>%
     layout(
-      title = list(
-        text = paste("Average of net emission rate", period$p1, "-", period$p2),
-        font = list(weight = "bold")
-      ),
-      yaxis = list(title = "tonne CO2-eq/ha.yr"),
+      title = paste("Average of net emission rate", period$p1, "-", period$p2),
       xaxis = list(
         title = "",
-        tickangle = 0, 
-        tickfont = list(size = 10), 
-        automargin = TRUE 
+        categoryorder = "total descending",
+        tickangle = -270
       ),
-      showlegend = FALSE,
-      margin = list(t = 60, b = 120), 
-      plot_bgcolor = "white",
-      xaxis = list(showgrid = FALSE),
-      yaxis = list(showgrid = FALSE)
+      yaxis = list(
+        title = "tonne CO<sub>2</sub>-eq/ha.yr",
+        tickformat = ".1f"
+      ),
+      margin = list(b = 150),
+      hoverlabel = list(
+        bgcolor = "white",
+        font = list(color = "black"),
+        align = "left" 
+      ),
+      showlegend = FALSE  
     )
   
   total_area <- sum(az$Ha)
@@ -411,22 +424,40 @@ zonal_statistic_database <- function(quescdb, period) {
   #   theme(axis.title.x = element_blank(), axis.text.x = element_text(size = 8),
   #         panel.grid.major = element_blank(), panel.grid.minor = element_blank())
   
-  largest_emission <- plot_ly(
+  # Create the largest emission plot
+  largest_em_bar <- plot_ly(
     data = tb_em_total_10,
-    x = ~reorder(LU_CODE, -EM),
+    x =  ~str_wrap(LU_CHG, width = 25),
     y = ~EM,
     type = "bar",
-    marker = list(color = "blue"),
-    text = ~round(EM, 1),
-    textposition = "inside",
-    textfont = list(color = "white", size = 12)
+    text = "", 
+    hoverinfo = "text",
+    hovertext = ~paste(
+      "Land Cover/Use Change:", LU_CHG, "<br>", 
+      "Emission:", format(EM, big.mark = ",", scientific = FALSE), " ton CO<sub>2</sub>-eq"
+    ),
+    marker = list(
+      color = ~EM,
+      colorscale = "Magma",
+      showscale = FALSE
+    )
   ) %>%
     layout(
-      title = list(text = "Largest sources of emission", font = list(weight = "bold")),
-      yaxis = list(title = "CO2-eq"),
-      xaxis = list(title = "", tickfont = list(size = 8)),
-      showlegend = FALSE,
-      margin = list(t = 60)
+      title = "Top 10 GHG Emissions by Land Cover/Use Change",
+      xaxis = list(
+        title = "",
+        categoryorder = "total descending", 
+        tickangle = -270 
+      ),
+      yaxis = list(
+        title = "GHG Emission (ton CO<sub>2</sub>-eq)",
+        tickformat = ",.0f"
+      ),
+      margin = list(b = 150),
+      hoverlabel = list(
+        bgcolor = "white", 
+        font = list(color = "black")
+      )
     )
   
   # zonal emission
@@ -502,22 +533,41 @@ zonal_statistic_database <- function(quescdb, period) {
   #   theme(axis.title.x = element_blank(), axis.text.x = element_text(size = 8),
   #         panel.grid.major = element_blank(), panel.grid.minor = element_blank())
   
-  largest_sequestration <- plot_ly(
+  # Create the sequestration plot
+  largest_sq_bar <- plot_ly(
     data = tb_sq_total_10,
-    x = ~reorder(LU_CODE, -SQ),
+    x =  ~str_wrap(LU_CHG, width = 25),
     y = ~SQ,
     type = "bar",
-    marker = list(color = "green"),
-    text = ~round(SQ, 1),
-    textposition = "inside",
-    textfont = list(color = "white", size = 12)
+    text = "",
+    hoverinfo = "text",
+    hovertext = ~paste(
+      "Land Cover/Use Change:", LU_CHG, "<br>", 
+      "Sequestration:", format(SQ, big.mark = ",", scientific = FALSE), " ton CO<sub>2</sub>-eq"
+    ),
+    marker = list(
+      color = ~SQ,
+      reversescale = TRUE,
+      colorscale = "Greens",
+      showscale = FALSE
+    )
   ) %>%
     layout(
-      title = list(text = "Largest sources of sequestration", font = list(weight = "bold")),
-      yaxis = list(title = "CO2-eq"),
-      xaxis = list(title = "", tickfont = list(size = 8)),
-      showlegend = FALSE,
-      margin = list(t = 60)
+      title = "Top 10 GHG Sequestration by Land Cover/Use Change",
+      xaxis = list(
+        title = "",
+        categoryorder = "total descending",
+        tickangle = -270 
+      ),
+      yaxis = list(
+        title = "GHG Sequestration (ton CO<sub>2</sub>-eq)",
+        tickformat = ",.0f" 
+      ),
+      margin = list(b = 150), 
+      hoverlabel = list(
+        bgcolor = "white",
+        font = list(color = "black")
+      )
     )
   
   # zonal sequestration
@@ -557,11 +607,11 @@ zonal_statistic_database <- function(quescdb, period) {
     data_zone_df = data_zone_summary,
     tb_em_total_10 = tb_em_total_10,
     tb_em_total_10_summary = tb_em_total_10_summary,
-    largest_emission = largest_emission,
+    largest_emission = largest_em_bar,
     tb_em_zonal = tb_em_zonal,
     tb_sq_total_10 = tb_sq_total_10,
     tb_sq_total_10_summary = tb_sq_total_10_summary,
-    largest_sequestration = largest_sequestration,
+    largest_sequestration = largest_sq_bar,
     tb_sq_zonal = tb_sq_zonal
   )
 }
@@ -986,7 +1036,7 @@ run_quesc_analysis <- function(lc_t1_path, lc_t2_path, admin_z_path, c_lookup_pa
               paste0(output_dir, "/emission_map.tif"), overwrite = T)
   writeRaster(map_sequestration,
               paste0(output_dir, "/sequestration_map.tif"), overwrite = T)
-
+  
   if (!is.null(progress_callback)) progress_callback(1, "generate report")
   generate_quesc_report(output_quesc = out, dir = output_dir)
   

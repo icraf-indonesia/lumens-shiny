@@ -355,7 +355,10 @@ z$largest_emission
 ### Table
 
 ```{r tbl_largest_em, echo=FALSE, message=FALSE, warning=FALSE}
-datatable(z$tb_em_total_10_summary)
+tbl_largest_em <- z$tb_em_total_10_summary
+tbl_largest_em <- tbl_largest_em[-1]
+
+datatable(tbl_largest_em)
 # z$tb_em_total_10_summary %>% kbl(caption = "The Largest Source of Emission", escape = F) %>%
 #   kable_paper("hover", full_width = F)
 ```
@@ -371,7 +374,10 @@ z$largest_sequestration
 ### Table
 
 ```{r tbl_largest_sq, echo=FALSE, message=FALSE, warning=FALSE}
-datatable(z$tb_sq_total_10_summary)
+tbl_largest_sq <- z$tb_sq_total_10_summary
+tbl_largest_sq <- tbl_largest_sq[-1]
+
+datatable(tbl_largest_sq)
 # z$tb_sq_total_10_summary %>% kbl(caption = "The Largest Source of Sequestration", escape = F) %>%
 #   kable_paper("hover", full_width = F)
 ```
