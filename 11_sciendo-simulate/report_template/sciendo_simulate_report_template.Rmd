@@ -104,8 +104,10 @@ plot(zone)
 ## Land-Use/Cover Lookup Table
 
 ```{r lut, echo=FALSE, message=FALSE, warning=FALSE}
-df_lc %>% kable() %>%
-  kable_styling(bootstrap_options = c("striped", "hover"))
+datatable(df_lc)
+
+# df_lc %>% kable() %>%
+#   kable_styling(bootstrap_options = c("striped", "hover"))
 ```
 
 # Results
@@ -147,7 +149,7 @@ for(i in list_luc){
 ```{r lut change, echo=FALSE, message=FALSE, warning=FALSE}
 # Calculate freq table
 lc_dir <- params$inputs$output_dir
-lc_freq_table <- multiple_lc_freq_combined(lc_dir, PU = "NO")
+lc_freq_table <- multiple_lc_freq_combined(lc_dir, df_lc, PU = "NO")
 
 # Export csv
 ref_subset <- df_lc[, 1:2]
@@ -178,11 +180,11 @@ datatable(lc_freq_table)
 ## Land Use/Cover Change Lookup Table at the Planning Unit Level {.tabset}
 
 ```{r child_document, echo=FALSE, message=FALSE, warning=FALSE, fig.keep='all', results='asis'}
-all_freq_pu_list <- multiple_lc_freq_combined(lc_dir, PU = "YES", zone = zone, split = "YES")
+all_freq_pu_list <- multiple_lc_freq_combined(lc_dir, df_lc, PU = "YES", zone = zone, split = "YES")
 
 for (i in names(all_freq_pu_list)) {
   cat("### ", i, "\n\n")
-  
+
   tbl <- DT::datatable(
     all_freq_pu_list[[i]],
     caption = paste("Projected Land Use/Cover in", i),
@@ -192,7 +194,7 @@ for (i in names(all_freq_pu_list)) {
     )
   )
   print(htmltools::tagList(tbl))
-  cat("\n\n<br><br>\n\n") 
+  cat("\n\n<br><br>\n\n")
 }
 ```
 

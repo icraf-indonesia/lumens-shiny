@@ -803,7 +803,7 @@ plot_interactive_stacked_area <- function(luc_data_wide,
 #' @param split Character. Whether to split results by planning unit when PU="YES" ("YES" or "NO"). 
 #'              Default is "NO" (case-insensitive). Only applicable when PU="YES".
 #'              
-multiple_lc_freq_combined <- function(lc_dir, PU = "NO", zone = NULL, split = "NO") {
+multiple_lc_freq_combined <- function(lc_dir, df_lc, PU = "NO", zone = NULL, split = "NO") {
   
   # Read raster data
   list_luc <- lc_dir %>% list.files(full.names=TRUE, pattern="*.tif$")
