@@ -106,7 +106,7 @@ This report presents the results of an analysis based on the QUES-C database gen
 
 # Input data 
 
-## QUES-C Database
+## QuES-C Database
 
 ```{r load_quesdb, echo=FALSE, message=FALSE, warning=FALSE}
 datatable(params$inputs$quescdb)
@@ -141,21 +141,41 @@ datatable(params$inputs$quescdb)
 for(i in 1:length(scenario_modif_list)) {
   label <- scenario_modif_list[[i]]$label
   scenario_modif <- scenario_modif_list[[i]]$abacus_scenario$scenario$tpm
-  
+  tpm_tbl_ready <- tpm_tbl_prep(scenario_modif)
+
   cat("### ", label, "\n\n")
   cat(
       knitr::knit_child(
         text = c(
           "```{r}",
           "#| echo: false",
-          "scenario_modif %>% dplyr::select(period, zone, lc1, lc2, area) %>% datatable()",
+          "tpm_table_viz(tpm_tbl_ready)",
           "```"
         ), quiet = TRUE
       ), sep = "\n"
     )
   cat('\n')
-  
+
 }
+
+# for(i in 1:length(scenario_modif_list)) {
+#   label <- scenario_modif_list[[i]]$label
+#   scenario_modif <- scenario_modif_list[[i]]$abacus_scenario$scenario$tpm
+#   
+#   cat("### ", label, "\n\n")
+#   cat(
+#       knitr::knit_child(
+#         text = c(
+#           "```{r}",
+#           "#| echo: false",
+#           "scenario_modif %>% dplyr::select(period, zone, lc1, lc2, area) %>% datatable()",
+#           "```"
+#         ), quiet = TRUE
+#       ), sep = "\n"
+#     )
+#   cat('\n')
+#   
+# }
 ```
 
 
