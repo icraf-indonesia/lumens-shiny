@@ -3,7 +3,8 @@ source('../../helper.R')
 
 install_load(
   "shinyFiles", "shinyvalidate", "shinyjs", "bslib", "sf", "raster",
-  "dplyr", "remotes", "rmarkdown", "XML", "splitstackshape", "shinyalert"
+  "dplyr", "remotes", "rmarkdown", "XML", "splitstackshape", "shinyalert",
+  "usdm", "corrplot"
 )
 
 if (!("LUMENSR" %in% rownames(installed.packages()))) {
