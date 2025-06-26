@@ -20,7 +20,9 @@ install_load(
   "shinyjs",
   "rmarkdown",
   "bslib",
-  "shinyalert"
+  "shinyalert",
+  "plotly",
+  "stringr"
 )
 
 if (!("LUMENSR" %in% rownames(installed.packages()))) {
@@ -91,12 +93,12 @@ server <- function(input, output, session) {
     map1_file = NULL,
     map2_file = NULL,
     mapz_file = NULL,
-    map1_rast = NULL,
-    map2_rast = NULL,
-    mapz_rast = NULL,
-    mapc_spat = NULL,
-    maps_spat = NULL,
-    mapz_df = NULL,
+    # map1_rast = NULL,
+    # map2_rast = NULL,
+    # mapz_rast = NULL,
+    # mapc_spat = NULL,
+    # maps_spat = NULL,
+    # mapz_df = NULL,
     map_c1 = NULL,
     map_c2 = NULL,
     map_e = NULL,
@@ -114,9 +116,9 @@ server <- function(input, output, session) {
     getVolumes()()
   )
   
-  is_numeric_str <- function(s) {
-    return(!is.na(as.integer(as.character(s))))
-  }
+  # is_numeric_str <- function(s) {
+  #   return(!is.na(as.integer(as.character(s))))
+  # }
   
   # Function to rename uploaded file
   rename_uploaded_file <- function(input_file) {
@@ -132,12 +134,12 @@ server <- function(input, output, session) {
   lapply(lc_list, function(id) {
     inputs <- paste0(id, "_file")
     files <- paste0(id, "_file")
-    rasters <- paste0(id, "_rast")
+    # rasters <- paste0(id, "_rast")
     df <- paste0(id, "_df")
     
     observeEvent(input[[inputs]], {
       rv[[files]] <- rename_uploaded_file(input[[inputs]])
-      rv[[rasters]] <- rv[[files]] %>% raster() 
+      # rv[[rasters]] <- rv[[files]] %>% raster() 
     })
   })
   
@@ -156,15 +158,15 @@ server <- function(input, output, session) {
     
     rv$mapz_file <- paste(uploaded_dir, shp$name[grep(pattern="*.shp$", shp$name)], sep = "/")
     
-    zone_sf1 <- rv$mapz_file %>% st_read()
-    zone_sf <- st_cast(zone_sf1, "MULTIPOLYGON")
-    zone <- zone_sf %>% 
-      rasterise_multipolygon_quesc(
-        raster_res = res(rv$map1_rast), 
-        field = paste0(colnames(st_drop_geometry(zone_sf[1]))) 
-      )
-    rv$mapz_df <- data.frame(ID_PU = zone_sf[[1]], PU = zone_sf[[2]])
-    rv$mapz_rast <- zone %>% raster()
+    # zone_sf1 <- rv$mapz_file %>% st_read()
+    # zone_sf <- st_cast(zone_sf1, "MULTIPOLYGON")
+    # zone <- zone_sf %>% 
+    #   rasterise_multipolygon_quesc(
+    #     raster_res = res(rv$map1_rast), 
+    #     field = paste0(colnames(st_drop_geometry(zone_sf[1]))) 
+    #   )
+    # rv$mapz_df <- data.frame(ID_PU = zone_sf[[1]], PU = zone_sf[[2]])
+    # rv$mapz_rast <- zone %>% raster()
   })
   
   #### Read year input ####
@@ -178,19 +180,21 @@ server <- function(input, output, session) {
   #### Read carbon lookup table ####
   observeEvent(input$carbon_file, {
     f <- input$carbon_file
-    df_c <- read.csv(f$datapath)
+    rv$tbl_c <- rename_uploaded_file(input$carbon_file)
     
-    if(nrow(df_c) == 0)
-      return()
-    if(nrow(df_c) < 2)
-      return()
-    if(!is_numeric_str(df_c[1, 1]))
-      return()
-    
-    df <- data.frame("ID_LC" = as.integer((as.character(df_c[, 1]))))
-    df$LC <- df_c[, 2]
-    df$CARBON <- df_c[, 3]
-    rv$tbl_c <- df
+    # df_c <- read.csv(f$datapath)
+    # 
+    # if(nrow(df_c) == 0)
+    #   return()
+    # if(nrow(df_c) < 2)
+    #   return()
+    # if(!is_numeric_str(df_c[1, 1]))
+    #   return()
+    # 
+    # df <- data.frame("ID_LC" = as.integer((as.character(df_c[, 1]))))
+    # df$LC <- df_c[, 2]
+    # df$CARBON <- df_c[, 3]
+    # rv$tbl_c <- df
   })
   
   #### Set working directory ####
@@ -247,17 +251,17 @@ server <- function(input, output, session) {
     
     withProgress(message = "Running QUES-C Analysis", value = 0, {
       tryCatch({
-        c_lookup_path <- rename_uploaded_file(input$carbon_file)
+        # c_lookup_path <- rename_uploaded_file(input$carbon_file)
         results <- run_quesc_analysis(
           lc_t1_path = rv$map1_file,
           lc_t2_path = rv$map2_file,
           admin_z_path = rv$mapz_file,
-          c_lookup_path = c_lookup_path,
-          lc_t1_input = rv$map1_rast,
-          lc_t2_input = rv$map2_rast,
-          admin_z_input = rv$mapz_rast,
-          c_lookup_input = rv$tbl_c,
-          zone_lookup_input = rv$mapz_df,
+          c_lookup_path = rv$tbl_c,
+          # lc_t1_input = rv$map1_rast,
+          # lc_t2_input = rv$map2_rast,
+          # admin_z_input = rv$mapz_rast,
+          # c_lookup_input = rv$tbl_c,
+          # zone_lookup_input = rv$mapz_df,
           time_points = list(t1 = rv$map1_year, t2 = rv$map2_year),
           output_dir = rv$wd,
           progress_callback = function(value, detail) {

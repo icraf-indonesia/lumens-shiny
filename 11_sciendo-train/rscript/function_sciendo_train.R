@@ -955,9 +955,100 @@ run_sciendo_train_process <- function(lc_t1_path, lc_t2_path, zone_path, lc_look
     woe_list = woe_list$woe,
     session_log = session_log
   )
-  
+
   if (!is.null(progress_callback)) progress_callback(1, "generate report")
   generate_sciendo_train_report(output = out, dir = output_dir)
   
   return(out)
+}
+
+#' Analyze Multicollinearity in Raster Predictor Layers
+#'
+#' This function reads raster predictor layers from a folder, samples values, computes
+#' Variance Inflation Factor (VIF), and generates a correlation matrix plot.
+#'
+#' @param folder_path Character. Full path to the folder containing `.tif` raster files.
+#' @param sample_size Integer. Number of points to sample from the raster stack. Default is 10,000.
+#' @param vif_threshold Numeric. VIF threshold above which variables are recommended for removal. Default is 5.
+#' @param seed Integer. Seed for reproducible random sampling. Default is 123.
+#' @param verbose Logical. Whether to print VIF results and summary to the console. Default is FALSE.
+#'
+#' @return A list containing:
+#' \describe{
+#'   \item{vif_result}{The raw `vifstep` object from the `usdm` package.}
+#'   \item{vif_table}{A `data.frame` with variables and their VIF values.}
+#'   \item{excluded_vars}{Character vector of variable names recommended for removal (VIF > threshold).}
+#'   \item{correlation_matrix}{Correlation matrix (base R `cor`) of the sampled raster values.}
+#'   \item{correlation_plot}{A recorded base R plot object of the correlation matrix (use `replayPlot()` to render).}
+#' }
+#'
+#' @import terra
+#' @import usdm
+#' @import corrplot
+#' @importFrom graphics recordPlot
+#' @export
+#'
+#' @examples
+#' \dontrun{
+#' result <- analyze_multicollinearity("D:/predictors/", verbose = TRUE)
+#' head(result$vif_table)
+#' }
+analyze_multicollinearity <- function(folder_path, sample_size = 10000, vif_threshold = 5, seed = 123, verbose = FALSE) {
+  if (!requireNamespace("terra", quietly = TRUE)) stop("Package 'terra' is required.")
+  if (!requireNamespace("usdm", quietly = TRUE)) stop("Package 'usdm' is required.")
+  if (!requireNamespace("corrplot", quietly = TRUE)) stop("Package 'corrplot' is required.")
+  
+  library(terra)
+  library(usdm)
+  library(corrplot)
+  
+  # Read raster stack
+  tif_files <- list.files(path = folder_path, pattern = "\\.tif$", full.names = TRUE)
+  rasters <- rast(tif_files)
+  names(rasters) <- gsub(".tif", "", basename(tif_files))
+  
+  # Sample raster values
+  set.seed(seed)
+  sample_points <- spatSample(rasters, size = sample_size, na.rm = TRUE)
+  sample_df <- as.data.frame(sample_points)
+  
+  # Calculate VIF
+  vif_result <- vifstep(sample_df, th = vif_threshold)
+  high_vif_vars <- vif_result@excluded
+  vif_table <- vif_result@results 
+  
+  # Verbose printing
+  if (verbose) {
+    message("\n VIF Analysis Results (threshold = ", vif_threshold, "):")
+    print(vif_table)
+    
+    if (length(high_vif_vars) > 0) {
+      message("\n️ Variables recommended for removal (VIF > ", vif_threshold, "):\n", paste(high_vif_vars, collapse = "\n"))
+    } else {
+      message("\n No variables exceeded VIF threshold.")
+    }
+  }
+  
+  # Correlation matrix and plot
+  cor_matrix <- cor(sample_df, use = "complete.obs")
+  corrplot(cor_matrix,
+           method = "color",
+           type = "full",
+           order = "hclust",
+           tl.cex = 0.7,
+           tl.col = "black",
+           mar = c(0, 0, 2, 0),
+           addCoef.col = "black",
+           number.cex = 0.6,
+           diag = TRUE)
+  
+  corr_plot <- recordPlot()
+  
+  return(list(
+    vif_result = vif_result,
+    vif_table = vif_table,
+    excluded_vars = high_vif_vars,
+    correlation_matrix = cor_matrix,
+    correlation_plot = corr_plot
+  ))
 }

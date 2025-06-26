@@ -40,7 +40,8 @@ install_load(
   "shinyjs",
   "shinyvalidate",
   "shinyFiles",
-  "shinyalert"
+  "shinyalert",
+  "DT"
 )
 
 if (!("abacuslib" %in% rownames(installed.packages()))) {
@@ -347,4 +348,163 @@ generate_sciendo_scen_report <- function(output, dir) {
   )
   
   return(output_file)
+}
+
+#' Prepare Transition Probability Matrix (TPM) data for display
+#'
+#' Processes raw TPM data by filtering, calculating differences, and formatting 
+#' columns for display in interactive tables. The function prepares two key 
+#' formatted columns: projected area (with percentage) and changes (with colored formatting).
+#'
+#' @param tpm_tbl A data frame containing transition probability matrix data with
+#'   the following expected columns:
+#'   \itemize{
+#'     \item \code{area}: Projected area (numeric)
+#'     \item \code{r}: Transition rate (numeric)
+#'     \item \code{def_area}: Default/reference area (numeric)
+#'     \item \code{def_r}: Default/reference transition rate (numeric)
+#'     \item \code{zone}: Zone/region identifier
+#'     \item \code{period}: Time period
+#'     \item \code{lc1}: Original land cover class
+#'     \item \code{lc2}: Converted land cover class
+#'   }
+#'
+#' @return A data frame with the following columns:
+#'   \itemize{
+#'     \item \code{zone}: Zone/region identifier (grouping variable)
+#'     \item \code{period}: Time period (grouping variable)
+#'     \item \code{lc1}: Original land cover class
+#'     \item \code{lc2}: Converted land cover class
+#'     \item \code{projected_area}: Formatted string "X,XXX ha [YY%]"
+#'     \item \code{changes}: Formatted string with difference from reference values
+#'       ("±X,XXX ha [±YY%]") ready for color-coded display
+#'   }
+#'
+#' @details The function:
+#' \enumerate{
+#'   \item Filters to include only rows with area > 0 (or alternatively lock == TRUE)
+#'   \item Calculates differences between projected and default values
+#'   \item Formats numeric values with proper rounding and thousand separators
+#'   \item Creates display-ready strings with percentage values
+#'   \item Prepares change values with +/- signs for color coding
+#' }
+#'
+#' @examples
+#' \dontrun{
+#' # Sample usage:
+#' tpm_data <- data.frame(
+#'   area = c(5492.2, 2353.8, 1095.9),
+#'   r = c(0.7, 0.3, 1),
+#'   def_area = c(7846, 0, 141.7),
+#'   def_r = c(1, 0, 0.1293),
+#'   zone = c("Zone_A", "Zone_A", "Zone_B"),
+#'   period = c("2000-2010", "2000-2010", "2000-2010"),
+#'   lc1 = c("Forest", "Forest", "Wetland"),
+#'   lc2 = c("Forest", "Shrub", "Wetland")
+#' )
+#' 
+#' prepared_data <- tpm_tbl_prep(tpm_data)
+#' DT::datatable(prepared_data)
+#' }
+#' 
+#' @export
+tpm_tbl_prep <- function(tpm_tbl) {
+  tpm_tbl %>%
+    filter(area > 0) %>%  # only include rows with value > 0, other option can be lock == TRUE
+    mutate(
+      across(c(area, r, def_area, def_r), as.numeric),
+      dif_area = area - def_area,
+      dif_r = r - def_r,
+      
+      # calculate percentages
+      r_pct = round(r * 100, 0),
+      def_r_pct = round(def_r * 100, 0),
+      dif_r_pct = r_pct - def_r_pct,
+      
+      # set format for projected area column
+      projected_area = paste0(
+        format(round(area, 1), big.mark = ","), 
+        " ha [", 
+        r_pct, 
+        "%]"
+      ),
+      
+      # set format for changes column
+      changes = ifelse(
+        dif_area == 0,
+        "0",
+        paste0(
+          ifelse(dif_area < 0, "-", "+"),
+          format(abs(round(dif_area, 1)), big.mark = ","),
+          " ha [",
+          ifelse(dif_r_pct < 0, "-", "+"),
+          abs(dif_r_pct),
+          "%]"
+        )
+      )
+    ) %>%
+    select(zone, period, lc1, lc2, projected_area, changes)
+}
+
+#' Create Interactive Transition Probability Matrix Table
+#' 
+#' Generates an interactive DT table displaying land cover transition data with
+#' grouped rows by zone and period, and color-coded change values.
+#'
+#' @param tpm_tbl_ready A data frame prepared by `tpm_tbl_prep()` containing:
+#'   \itemize{
+#'     \item zone (hidden grouping column)
+#'     \item period (hidden grouping column) 
+#'     \item lc1 (Original Land Cover)
+#'     \item lc2 (Converted To)
+#'     \item projected_area (Projected Area)
+#'     \item changes (Changes)
+#'   }
+#'
+#' @return An interactive DT datatable object with:
+#'   \itemize{
+#'     \item Rows grouped by zone and period
+#'     \item Zone and period columns hidden
+#'     \item Changes column color-coded (green=positive, red=negative)
+#'     \item Clean column headers
+#'   }
+#' 
+#' @examples
+#' \dontrun{
+#' prepared_data <- tpm_tbl_prep(raw_data)
+#' tpm_table_viz(prepared_data)
+#' }
+#' 
+#' @seealso \code{\link{tpm_tbl_prep}} for data preparation
+#' @export
+tpm_table_viz <- function(tpm_tbl_ready) {
+  DT::datatable(
+    tpm_tbl_ready,
+    colnames = c('Zone', 'Time Period', 'Original Land Cover',
+                 'Converted To', 'Projected Area', 'Changes'),
+    rownames = FALSE,
+    extensions = c('RowGroup'),
+    options = list(
+      rowGroup = list(dataSrc = c(0, 1)), # Group by zone and period
+      dom = 'Bfrtip',
+      pageLength = 10,
+      columnDefs = list(
+        list(visible = FALSE, targets = c(0, 1)), # Hide zone and period columns
+        list(
+          targets = 5, # Apply coloring to Changes column
+          render = DT::JS(
+            "function(data, type, row) {
+              if (data.startsWith('+')) {
+                return '<span style=\"color:green;font-weight:bold\">' + data + '</span>';
+              } else if (data.startsWith('-') || (data.length > 0 && !data.startsWith('0'))) {
+                return '<span style=\"color:red;font-weight:bold\">' + data + '</span>';
+              } else {
+                return data;
+              }
+            }"
+          )
+        )
+      )
+    )
+  )
 }

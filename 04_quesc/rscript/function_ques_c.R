@@ -1,11 +1,31 @@
-summary_text_en <- c(
-  "Period",
-  "Total area (ha)",
-  "Total emission (tonne CO2-eq)",
-  "Total sequestration (tonne CO2-eq)",
-  "Net emission (tonne CO2-eq)",
-  "Emission rate (tonne CO2-eq/ha.year)",
-  "Emission rate per-unit area (tonne CO2-eq/ha.year)"
+
+is_numeric_str <- function(s) {
+  return(!is.na(as.integer(as.character(s))))
+}
+
+summary_text_en <- c("Period",
+                     "Total area (ha)",
+                     "Total emission (tonne CO2-eq)",
+                     "Total sequestration (tonne CO2-eq)",
+                     "Net emission (tonne CO2-eq)",
+                     "Emission rate (tonne CO2-eq/ha.year)",
+                     "Emission rate per-unit area (tonne CO2-eq/ha.year)")
+
+summary_text_id <- c("Periode", 
+                     "Total area (ha)", 
+                     "Total Emisi (Ton CO2-eq)", 
+                     "Total Sekuestrasi (Ton CO2-eq)", 
+                     "Emisi Bersih (Ton CO2-eq)", 
+                     "Laju Emisi (Ton CO2-eq/tahun)",
+                     "Laju emisi per-unit area (Ton CO2-eq/ha.tahun)")
+
+summary_zonal_text_en <- list(ID = 1,
+                              "Planning Unit" = 2, 
+                              "Area (Ha)" = 3, 
+                              "Carbon Avg. (Periode 1)" = 4, 
+                              "Carbon Avg. (Periode 2)" = 5, 
+                              "Net Emission" = 6, 
+                              "Emission Rate" = 7
 )
 
 summary_text_id <- c(
@@ -137,23 +157,36 @@ print_rate <- function(x) {
   format(x, digits = 15, nsmall = 2, decimal.mark = ".", big.mark = ",")
 }
 
-plot_quesc_results <- function(map, legend, low, high, title_size = 8, text_size = 8, height = 0.375, width = 0.375, ...) {
-  p <- gplot(map, maxpixels = 100000) +
-    geom_raster(aes(fill = value)) +
-    coord_equal() +
-    scale_fill_gradient(name = legend, low = low, high = high, guide = "colourbar", ...) +
-    theme(plot.title = element_text(lineheight = 5, face = "bold")) +
+
+plot_quesc_results <- function(map, legend, low, high, na_color = "white") {
+  # Determine plot title
+  # plot_title <- if (!is.na(time(map))) time(map) else names(map)
+  
+  # Generate the plot
+  plot_lc <- ggplot() +
+    geom_spatraster(data = map) +
+    scale_fill_gradient(
+      low = low,
+      high = high,
+      na.value = na_color,
+      name = if (!is.null(legend)) legend else NULL
+    ) +
+    theme_bw() +
+    # labs(title = plot_title) +
     theme(
-      axis.title.x = element_blank(), axis.title.y = element_blank(),
-      panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
-      legend.title = element_text(size = title_size),
-      legend.text = element_text(size = text_size),
-      legend.key.height = unit(height, "cm"),
-      legend.key.width = unit(width, "cm")
+      axis.title.x = element_blank(),
+      axis.title.y = element_blank(),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      legend.title = element_text(size = 10),
+      legend.text = element_text(size = 8),
+      legend.key.height = unit(1, "cm"),
+      legend.key.width = unit(0.25, "cm"), 
+      legend.position = "right",
+      legend.justification = c(0, 0.5)
     )
-
-
-  return(p)
+  
+  return(plot_lc)
 }
 
 summary_of_emission_calculation <- function(quescdb, zone, map_em, map_sq, period) {
@@ -196,20 +229,52 @@ summary_of_emission_calculation <- function(quescdb, zone, map_em, map_sq, perio
       TOTAL_EM = round(TOTAL_EM, 2),
       TOTAL_SQ = round(TOTAL_SQ, 2),
       NET_EM = round(NET_EM, 2)
-    )
 
-  zc_plot <- zc %>% ggplot(aes(x = reorder(PU, -NET_EM_RATE), y = (NET_EM_RATE))) +
-    geom_bar(stat = "identity", fill = "red") +
-    geom_text(data = zc, aes(label = round(NET_EM_RATE, 1)), size = 4) +
-    ggtitle(paste("Average of net emission rate", period$p1, "-", period$p2)) +
-    guides(fill = FALSE) +
-    ylab("tonne CO2-eq/ha.yr") +
-    theme(plot.title = element_text(lineheight = 5, face = "bold")) +
-    theme(
-      axis.title.x = element_blank(), axis.text.x = element_text(angle = 20),
-      panel.grid.major = element_blank(), panel.grid.minor = element_blank()
+  zc <- zc %>%
+    mutate(PU_wrapped = str_wrap(PU, width = 10)) 
+  
+  zc_plot <- plot_ly(
+    data = zc,
+    x = ~reorder(str_wrap(PU, width = 40), -NET_EM_RATE),
+    y = ~NET_EM_RATE,
+    type = "bar",
+    text = ~round(NET_EM_RATE, 1),
+    hoverinfo = "text",
+    hovertext = ~paste(
+      "Planning Unit:", PU, "<br>", 
+      "Average Net Emission Rate:", round(NET_EM_RATE, 1), "tonne CO<sub>2</sub>-eq/ha.yr" 
+    ),
+    marker = list(
+      color = ~NET_EM_RATE,  
+      colorscale = "Oranges",  
+      reversescale = TRUE,
+      showscale = FALSE, 
+      colorbar = list(
+        title = "Emission Rate",
+        tickformat = ".1f"
+      )
     )
-
+  ) %>%
+    layout(
+      title = paste("Average of net emission rate", period$p1, "-", period$p2),
+      xaxis = list(
+        title = "",
+        categoryorder = "total descending",
+        tickangle = -270
+      ),
+      yaxis = list(
+        title = "tonne CO<sub>2</sub>-eq/ha.yr",
+        tickformat = ".1f"
+      ),
+      margin = list(b = 150),
+      hoverlabel = list(
+        bgcolor = "white",
+        font = list(color = "black"),
+        align = "left" 
+      ),
+      showlegend = FALSE  
+    )
+  
   total_area <- sum(az$Ha)
   total_emission <- sum(zc$TOTAL_EM)
   total_sequestration <- sum(zc$TOTAL_SQ)
@@ -347,21 +412,43 @@ zonal_statistic_database <- function(quescdb, period) {
       "Total Emission" = EM,
       "Percentage" = PERCENTAGE
     )
-
-  largest_emission <- tb_em_total_10 %>%
-    ggplot(aes(x = reorder(LU_CODE, -EM), y = (EM))) +
-    geom_bar(stat = "identity", fill = "blue") +
-    geom_text(data = tb_em_total_10, aes(x = LU_CODE, y = EM, label = round(EM, 1)), size = 3, vjust = 0.1) +
-    ggtitle(paste("Largest sources of emission")) +
-    guides(fill = FALSE) +
-    ylab("CO2-eq") +
-    theme(plot.title = element_text(lineheight = 5, face = "bold")) +
-    scale_y_continuous() +
-    theme(
-      axis.title.x = element_blank(), axis.text.x = element_text(size = 8),
-      panel.grid.major = element_blank(), panel.grid.minor = element_blank()
+  
+  # Create the largest emission plot
+  largest_em_bar <- plot_ly(
+    data = tb_em_total_10,
+    x =  ~str_wrap(LU_CHG, width = 25),
+    y = ~EM,
+    type = "bar",
+    text = "", 
+    hoverinfo = "text",
+    hovertext = ~paste(
+      "Land Cover/Use Change:", LU_CHG, "<br>", 
+      "Emission:", format(EM, big.mark = ",", scientific = FALSE), " ton CO<sub>2</sub>-eq"
+    ),
+    marker = list(
+      color = ~EM,
+      colorscale = "Magma",
+      showscale = FALSE
     )
-
+  ) %>%
+    layout(
+      title = "Top 10 GHG Emissions by Land Cover/Use Change",
+      xaxis = list(
+        title = "",
+        categoryorder = "total descending", 
+        tickangle = -270 
+      ),
+      yaxis = list(
+        title = "GHG Emission (ton CO<sub>2</sub>-eq)",
+        tickformat = ",.0f"
+      ),
+      margin = list(b = 150),
+      hoverlabel = list(
+        bgcolor = "white", 
+        font = list(color = "black")
+      )
+    )
+  
   # zonal emission
   tb_em_zonal <- as.data.frame(NULL)
   for (i in 1:nrow(area_zone)) {
@@ -427,21 +514,43 @@ zonal_statistic_database <- function(quescdb, period) {
       "Total Sequestration" = SQ,
       "Percentage" = PERCENTAGE
     )
-
-  largest_sequestration <- tb_sq_total_10 %>%
-    ggplot(aes(x = reorder(LU_CODE, -SQ), y = (SQ))) +
-    geom_bar(stat = "identity", fill = "green") +
-    geom_text(data = tb_sq_total_10, aes(x = LU_CODE, y = SQ, label = round(SQ, 1)), size = 3, vjust = 0.1) +
-    ggtitle(paste("Largest sources of sequestration")) +
-    guides(fill = FALSE) +
-    ylab("CO2-eq") +
-    theme(plot.title = element_text(lineheight = 5, face = "bold")) +
-    scale_y_continuous() +
-    theme(
-      axis.title.x = element_blank(), axis.text.x = element_text(size = 8),
-      panel.grid.major = element_blank(), panel.grid.minor = element_blank()
+  # Create the sequestration plot
+  largest_sq_bar <- plot_ly(
+    data = tb_sq_total_10,
+    x =  ~str_wrap(LU_CHG, width = 25),
+    y = ~SQ,
+    type = "bar",
+    text = "",
+    hoverinfo = "text",
+    hovertext = ~paste(
+      "Land Cover/Use Change:", LU_CHG, "<br>", 
+      "Sequestration:", format(SQ, big.mark = ",", scientific = FALSE), " ton CO<sub>2</sub>-eq"
+    ),
+    marker = list(
+      color = ~SQ,
+      reversescale = TRUE,
+      colorscale = "Greens",
+      showscale = FALSE
     )
-
+  ) %>%
+    layout(
+      title = "Top 10 GHG Sequestration by Land Cover/Use Change",
+      xaxis = list(
+        title = "",
+        categoryorder = "total descending",
+        tickangle = -270 
+      ),
+      yaxis = list(
+        title = "GHG Sequestration (ton CO<sub>2</sub>-eq)",
+        tickformat = ",.0f" 
+      ),
+      margin = list(b = 150), 
+      hoverlabel = list(
+        bgcolor = "white",
+        font = list(color = "black")
+      )
+    )
+  
   # zonal sequestration
   tb_sq_zonal <- as.data.frame(NULL)
   for (i in 1:nrow(area_zone)) {
@@ -484,11 +593,11 @@ zonal_statistic_database <- function(quescdb, period) {
     data_zone_df = data_zone_summary,
     tb_em_total_10 = tb_em_total_10,
     tb_em_total_10_summary = tb_em_total_10_summary,
-    largest_emission = largest_emission,
+    largest_emission = largest_em_bar,
     tb_em_zonal = tb_em_zonal,
     tb_sq_total_10 = tb_sq_total_10,
     tb_sq_total_10_summary = tb_sq_total_10_summary,
-    largest_sequestration = largest_sequestration,
+    largest_sequestration = largest_sq_bar,
     tb_sq_zonal = tb_sq_zonal
   )
 }
@@ -668,19 +777,47 @@ generate_quesc_report <- function(output_quesc, dir) {
   )
   output_file <- paste0("quesc_report_", Sys.Date(), ".html")
 
-  template_path <- here::here("04_quesc", "report_template", "quesc_report_template.Rmd")
+  #template_path <- here::here("04_quesc", "report_template", "quesc_report_template.Rmd")
 
-  if (!file.exists(template_path)) {
-    stop(paste("Template file not found at:", template_path))
+  #if (!file.exists(template_path)) {
+  #  stop(paste("Template file not found at:", template_path))}
+  #fun_path <- here::here("04_quesc", "rscript", "function_ques_c.R")
+  #if (!file.exists(fun_path)) {
+  #stop(paste("Template file not found at:", fun_path))}
+
+  temp_dir <- tempdir()
+  
+  # Copy report template and functions to temporary directory
+  if (file.exists("../report_template/quesc_report_template.Rmd")){
+    quesc_report_path <- "../report_template/quesc_report_template.Rmd"
+    helper_functions_path <- "../rscript/function_ques_c.R"
+  } else if (file.exists("../../04_quesc/report_template/quesc_report_template.Rmd")){
+    quesc_report_path <- "../../04_quesc/report_template/quesc_report_template.Rmd"
+    helper_functions_path <- "../../04_quesc/rscript/function_ques_c.R"
+  } else {
+    quesc_report_path <- "04_quesc/report_template/quesc_report_template.Rmd"
+    helper_functions_path <- "04_quesc/rscript/function_ques_c.R"
   }
-
+  
+  file.copy(quesc_report_path,
+            to = file.path(temp_dir, "quesc_report_template.Rmd"), overwrite = TRUE)
+  file.copy(helper_functions_path,
+            to = file.path(temp_dir, "function_ques_c.R"), overwrite = TRUE)
+  
+  # Render the R Markdown report
+  if (rmarkdown::pandoc_available()==FALSE){
+    Sys.setenv(RSTUDIO_PANDOC=paste0(getwd(), "/pandoc"))
+  }
+  
   rmarkdown::render(
-    template_path,
+    input = file.path(temp_dir, "quesc_report_template.Rmd"),
+    # "../report_template/quesc_report_template.Rmd",
     output_file = output_file,
     output_dir = dir,
     params = report_params
   )
 }
+
 
 #' Run QUES-C Analysis
 #'
@@ -703,12 +840,44 @@ generate_quesc_report <- function(output_quesc, dir) {
 #'
 #' @export
 run_quesc_analysis <- function(lc_t1_path, lc_t2_path, admin_z_path, c_lookup_path,
-                               zone_lookup_path,
                                time_points, output_dir, progress_callback = NULL) {
   start_time <- Sys.time()
   cat("Started at:", format(start_time, "%Y-%m-%d %H:%M:%S"), "\n")
+  
+  # read raster
+  lc_t1_input <- raster::raster(lc_t1_path)
+  lc_t2_input <- raster::raster(lc_t2_path)
+  
+  # read polygon
+  zone_sf1 <- admin_z_path %>% st_read()
+  zone_sf <- st_cast(zone_sf1, "MULTIPOLYGON")
+  zone <- zone_sf %>% 
+    rasterise_multipolygon_quesc(
+      raster_res = res(lc_t1_input), 
+      field = paste0(colnames(st_drop_geometry(zone_sf[1]))) 
+    )
+  zone_lookup_input <- data.frame(ID_PU = zone_sf[[1]], PU = zone_sf[[2]])
+  admin_z_input <- zone %>% raster()
+  
+  # read table
+  df_c <- read.csv(c_lookup_path)
+  
+  if(nrow(df_c) == 0)
+    return()
+  if(nrow(df_c) < 2)
+    return()
+  if(!is_numeric_str(df_c[1, 1]))
+    return()
 
-
+  df <- data.frame("ID_LC" = as.integer((as.character(df_c[, 1]))))
+  df$LC <- df_c[, 2]
+  df$CARBON <- df_c[, 3]
+  c_lookup_input <- df
+  
+  # spatial sync raster
+  map1_rast <- lc_t1_input %>% spatial_sync_raster(admin_z_input)
+  map2_rast <- lc_t2_input %>% spatial_sync_raster(admin_z_input)
+  
   if (!is.null(progress_callback)) progress_callback(0.2, "load maps")
 
   c_lookup_input <- read_csv(c_lookup_path)
@@ -741,21 +910,13 @@ run_quesc_analysis <- function(lc_t1_path, lc_t2_path, admin_z_path, c_lookup_pa
   if (!is.null(progress_callback)) progress_callback(0.5, "create QUES-C database")
 
   # join table
-  df_lucdb <- c_lookup_input %>%
-    dplyr::rename(ID_LC1 = 1, C_T1 = 3) %>%
-    dplyr::select(1:3) %>%
-    rename_with(.cols = 2, ~ as.character(time_points$t1)) %>%
-    right_join(lucDummy, by = "ID_LC1")
-  df_lucdb <- c_lookup_input %>%
-    dplyr::rename(ID_LC2 = 1, C_T2 = 3) %>%
-    dplyr::select(1:3) %>%
-    rename_with(.cols = 2, ~ as.character(time_points$t2)) %>%
-    right_join(df_lucdb, by = "ID_LC2")
-  df_lucdb <- zone_lookup_input %>%
-    dplyr::rename(ID_PU = 1) %>%
-    rename_with(.cols = 2, ~ names(zone)) %>%
-    right_join(df_lucdb, by = "ID_PU")
-  df_lucdb <- df_lucdb %>%
+  df_lucdb <- c_lookup_input %>% dplyr::rename(ID_LC1 = 1, C_T1 = 3) %>% dplyr::select(1:3) %>%
+    rename_with(.cols = 2, ~as.character(time_points$t1)) %>% right_join(lucDummy, by="ID_LC1")
+  df_lucdb <- c_lookup_input %>% dplyr::rename(ID_LC2 = 1, C_T2 = 3) %>% dplyr::select(1:3) %>%
+    rename_with(.cols = 2, ~as.character(time_points$t2)) %>% right_join(df_lucdb, by="ID_LC2")
+  df_lucdb <- zone_lookup_input %>% dplyr::rename(ID_PU = 1) %>% 
+    rename_with(.cols = 2, ~names(zone)) %>% right_join(df_lucdb, by="ID_PU") 
+  df_lucdb <- df_lucdb %>% 
     left_join(
       preques[["landscape_level"]][["crosstab_long"]],
       by = c(names(zone), time_points$t1, time_points$t2)
@@ -782,7 +943,9 @@ run_quesc_analysis <- function(lc_t1_path, lc_t2_path, admin_z_path, c_lookup_pa
   df_lucdb <- df_lucdb %>% mutate(
     EM = (C_T1 - C_T2) * (C_T1 > C_T2) * Ha * 3.67,
     SQ = (C_T2 - C_T1) * (C_T1 < C_T2) * Ha * 3.67,
+
     LU_CHG = do.call(paste, c(df_lucdb[c(as.character(time_points$t1), as.character(time_points$t2))], sep = " to "))
+
   )
 
   end_time <- Sys.time()

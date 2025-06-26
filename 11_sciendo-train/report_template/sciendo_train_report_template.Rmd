@@ -7,7 +7,7 @@ output:
     number_sections: true
     theme: united
     highlight: tango
-    df_print: kable
+    df_print: paged
 params:
   start_time: NA
   end_time: NA
@@ -43,6 +43,9 @@ library(ggplot2)
 library(terra)
 library(tidyterra)
 library(LUMENSR)
+library(knitr)
+library(corrplot)
+library(usdm)
 ```
 
 <details>
@@ -131,7 +134,7 @@ lc_t2 <- lc_t2 %>% terra::rast() %>%
 
 # Input data {.tabset}
 
-## Land-Use/Cover Map and Planning Unit {.tabset}
+## Land-Use/Cover Map {.tabset}
 
 ### Land-Use/Cover Map in `r params$inputs$year1`
 
@@ -145,13 +148,7 @@ plot_categorical_raster(lc_t1)
 plot_categorical_raster(lc_t2)
 ```
 
-### Planning Unit
-
-```{r Planning Unit, echo=FALSE, message=FALSE, warning=FALSE}
-plot_categorical_raster(zone)
-```
-
-## Factor maps {.tabset}
+## Factor Maps {.tabset}
 
 ```{r plot factor, echo=FALSE, fig.keep='all', results='asis'}
 factor_path <- params$inputs$factor_path 
@@ -179,98 +176,102 @@ for (a in 1:nFactors) {
 }
 ```
 
+## Planning Unit Map
+
+```{r Planning Unit, echo=FALSE, message=FALSE, warning=FALSE}
+plot_categorical_raster(zone)
+```
 
 # Results
 
-## Weight of Evidence Report  {.tabset}
+## Factors Multicollinearity {.tabset}
 
-```{r List of Csv of Woe, echo=FALSE}
-listWoeReport <- params$woe_report_path %>% list.files(full.names=TRUE, pattern="weight_report*")
-woe <- params$woe_list
-df_zone <- df_pu
-report_per_transition_per_variable <- data.frame(information = "No significant weight coeffients above five were detected")
-vec <- c()
-for(l in listWoeReport) {
-  number <- gsub(paste0(params$woe_report_path, "/weight_report"), "", l) %>% 
-    substr(1, 2) %>% 
-    as.numeric() # error if PU > 99
-  vec <- c(vec, number)
-}
+### Variance Inflation Factor (VIF)
+```{r vif, echo=FALSE, message=FALSE, warning=FALSE, fig.show='hide'}
+collinearity <- analyze_multicollinearity(factor_path, verbose = FALSE)
+DT::datatable(collinearity$vif_table)
 ```
 
-```{r print significant weight greater than 5, echo=FALSE, fig.keep='all', results='asis'}
-for(counter in 1:length(vec)){
-  i <- vec[counter]
-  cat("### ", df_zone[i, 2], "\n\n")
-  cat(paste("File location:", listWoeReport[counter]))
-  cat('\n\n')
-  
-  unique_trans <- woe[[paste0("pu", sprintf("%03d", i))]][['unique_transition']]
-  for(j in 1:length(unique_trans)) {
-    report_per_transition <- woe[[paste0("pu", sprintf("%03d", i))]][['report']] %>% 
-      dplyr::filter(Transition == unique_trans[j] & Significant == "yes" & Weight_Coefficient > 5)
-    unique_variable <- report_per_transition %>% 
-      dplyr::distinct(Variable.) %>% 
-      unlist() %>% 
-      as.vector()
+### Matrix of Collinearity
+```{r corrplot, echo=FALSE, message=FALSE, warning=FALSE}
+collinearity$correlation_plot
+```
+
+## Weight of Evidence Report
+
+```{r setup_result, echo=FALSE, message=FALSE, warning=FALSE}
+# Calculate weighted means for each PU
+weighted_means_list <- list()
+woe <- params$woe_list
+pu_keys <- grep("^pu\\d{3}$", names(woe), value = TRUE)
+
+for (key in pu_keys) {
+  woe_data <- woe[[key]]$report
+  if (!is.null(woe_data) &&
+      all(c("Significant", "Weight_Coefficient", "Executed_Transitions", 
+           "Transition", "Variable.") %in% names(woe_data))) {
     
-    
-    if(length(unique_variable) == 0) {
-      cat(
-          paste(
-            "Transition:", unique_trans[j],
-            sep = " ")
-        )
-      cat('\n')
-      cat('\n')
-      cat(
-          knitr::knit_child(
-            text = c(
-              "```{r}",
-              "#| echo: false",
-              "report_per_transition_per_variable %>% print.data.frame(row.names = F)",
-              "```"
-            ), quiet = TRUE
-          ), sep = "\n"
-        )
-    } else {
-      for(k in 1:length(unique_variable)) {
-        report_per_transition_per_variable <- report_per_transition %>% filter(Variable. == unique_variable[k]) %>% 
-          dplyr::select(
-            Range, Possible_Transitions, Executed_Transitions, Weight_Coefficient #, Contrast
-          ) %>%
-          mutate_if(is.double, as.character) %>%
-          bind_rows(summarise(., across(where(is.integer), sum),
-                              across(where(is.character), ~"") ))
-        cat(
-          paste(
-            "Transition:", unique_trans[j], 
-            "Variable:", unique_variable[k], 
-            sep = " ")
-        )
-        
-        cat('\n')
-        cat('\n')
-        
-        cat(
-          knitr::knit_child(
-            text = c(
-              "```{r}",
-              "#| echo: false",
-              "report_per_transition_per_variable %>% print.data.frame(row.names = F)",
-              "```"
-            ), quiet = TRUE
-          ), sep = "\n"
-        )
-        
-        cat('\n')
-      }
-      
-    }
+    weighted_means <- woe_data %>%
+      dplyr::filter(Significant == "yes") %>%
+      dplyr::group_by(Transition, Variable.) %>%
+      dplyr::summarize(
+        Weighted_Mean = round(stats::weighted.mean(
+          Weight_Coefficient,
+          Executed_Transitions,
+          na.rm = TRUE
+        ), 4),
+        .groups = "drop"
+      )
+    weighted_means_list[[key]] <- weighted_means
   }
 }
 ```
 
+```{r create expandable woe sections, echo=FALSE, results='asis'}
+pu_name_mapping <- setNames(df_pu$PU, paste0("pu", sprintf("%03d", df_pu$ID_PU)))
+
+# create expandable sections 
+src <- lapply(names(weighted_means_list), function(pu_key) {
+  descriptive_name <- pu_name_mapping[[pu_key]]
+  if (is.null(descriptive_name) || is.na(descriptive_name)) {
+    descriptive_name <- pu_key
+  }
+  
+  knitr::knit_expand(text = c(
+    "",
+    "<details style='margin-bottom: 20px; border: 1px solid #ddd; border-radius: 5px; padding: 10px;'>",
+    "<summary style='font-weight: bold; font-size: 1.1em; cursor: pointer; padding: 10px; background-color: #f8f9fa; border-radius: 3px; margin: -10px -10px 15px -10px;'>{{descriptive_name}}</summary>",
+    "",
+    "```{r {{pu_key}}_table, echo=FALSE}",
+    "current_table <- weighted_means_list[['{{pu_key}}']]",
+    "if (nrow(current_table) > 0) {",
+    "  DT::datatable(",
+    "    current_table,",
+    "    caption = htmltools::tags$caption(",
+    "      style = 'caption-side: top; text-align: center; color:black; font-size:1.2em;',",
+    "      'Significant Weighted Means'",
+    "    ),",
+    "    rownames = FALSE,",
+    "    filter = 'top',",
+    "    options = list(",
+    "      pageLength = 10,",
+    "      autoWidth = TRUE,",
+    "      scrollX = TRUE",
+    "    )",
+    "  )",
+    "} else {",
+    "  cat('<div style=\"text-align: center; margin: 20px; color: #666;\">No significant weights were found for this unit.</div>')",
+    "}",
+    "```",
+    "",
+    "</details>",
+    ""
+  ), pu_key = pu_key, descriptive_name = descriptive_name)
+})
+
+res <- knitr::knit_child(text = unlist(src), quiet = TRUE)
+cat(res, sep = '\n')
+```
 ------------------------------------------------------------------------
 
 <!-- Mandatory closing statement for all module -->

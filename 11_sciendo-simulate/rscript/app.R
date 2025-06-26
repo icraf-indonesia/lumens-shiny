@@ -3,7 +3,9 @@ source('../../helper.R')
 
 install_load(
   "shinyFiles", "shinyvalidate", "shinyjs", "bslib", "sf", "raster",
-  "dplyr", "remotes", "rmarkdown", "XML", "splitstackshape", "shinyalert"
+  "dplyr", "remotes", "rmarkdown", "XML", "splitstackshape", "shinyalert",
+  "terra", "tibble", "ggplot2", "magrittr", "tidyr", "tidyterra", "DT",
+  "readr", "plotly", "scales", "ggthemes", "rlang"
 )
 
 if (!("LUMENSR" %in% rownames(installed.packages()))) {
