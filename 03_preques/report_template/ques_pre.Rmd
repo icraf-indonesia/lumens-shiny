@@ -236,7 +236,7 @@ traj_map <- rast(params$dir_traj_map_)
 
 lookup_traj <-
   cats(traj_map)[[1]] %>%
-  left_join(color_landuse_trajectories(), by = "value")
+  inner_join(color_landuse_trajectories(), by = "trajectory")
 
 levels(traj_map) <- lookup_traj
 set.names(traj_map, "Land Use/Cover Trajectory")

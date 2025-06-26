@@ -27,11 +27,12 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r load function, include=FALSE, error=TRUE, warning=TRUE, message=TRUE}
-if (file.exists("function_ques_c.R")){
-  source("function_ques_c.R")
-} else {
-  source("04_quesc/rscript/function_ques_c.R")
+fun_path <- here::here("04_quesc", "rscript", "function_ques_c.R")
+
+if (!file.exists(fun_path)) {
+  stop(paste("Template file not found at:", fun_path))
 }
+source(fun_path)
 ```
 
 ```{r load_library, include=FALSE}
@@ -79,8 +80,9 @@ analysis_log <- tribble(
   "Session Summary",              ""
 ) %>% rbind(params$session_log)
 
-analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
-  kable_paper("hover", full_width = F )
+analysis_log %>%
+  kbl(caption = "Analysis Log", escape = FALSE) %>%
+  kable_paper("hover", full_width = F)
 ```
 
 </details>
@@ -89,28 +91,45 @@ analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
 
 ```{r input-data, echo=FALSE, message=FALSE, warning=FALSE}
 period <- as.numeric(params$p2) - as.numeric(params$p1)
-zone_sf1 <- params$inputs$admin_z_path %>% st_read(quiet = TRUE)
-zone_sf <- st_cast(zone_sf1, "MULTIPOLYGON")
-
-map_res <- res(params$map_c1 %>% raster())
-zone <- zone_sf %>% rasterise_multipolygon_quesc(raster_res = map_res, field = paste0(colnames(st_drop_geometry(zone_sf[1]))))
-df_pu <- data.frame(ID_PU = zone_sf[[1]], PU = zone_sf[[2]])
-
-zone_rst <- zone %>% raster()
-lc_t1 <- params$inputs$lc_t1_path %>% raster() %>% spatial_sync_raster(zone_rst)
-lc_t2 <- params$inputs$lc_t2_path %>% raster() %>% spatial_sync_raster(zone_rst)
-
 df_c <- read.csv(params$input$c_lookup_path)
 
-#=Load landuse for two time periods
-lc_t1 <- lc_t1 %>% rast() %>%
+# =Load landuse for two time periods
+lc_t1 <- params$inputs$lc_t1_path %>%
+  rast() %>%
   add_legend_to_categorical_raster(., lookup_table = df_c, year = as.numeric(params$p1))
-lc_t2 <- lc_t2 %>% rast() %>%
+lc_t2 <- params$inputs$lc_t2_path %>%
+  rast() %>%
   add_legend_to_categorical_raster(., lookup_table = df_c, year = as.numeric(params$p2))
-zone <- zone_rst %>% rast() %>%
-  add_legend_to_categorical_raster(., lookup_table = df_pu)
-```
 
+# Determine if the planning unit input is a shapefile or raster
+admin_z_path <- params$inputs$admin_z_path
+
+if (grepl("\\.shp$", admin_z_path, ignore.case = TRUE)) {
+  # If input is a shapefile
+  zone_sf <- sf::st_read(admin_z_path, quiet = TRUE)
+  zone_sf <- sf::st_cast(zone_sf, "MULTIPOLYGON")
+  map_res <- res(lc_t1)
+  # Use the first column as ID, second as name (adjust if needed)
+  zone_rst <- rasterise_multipolygon_quesc(
+    zone_sf,
+    raster_res = map_res,
+    field = colnames(sf::st_drop_geometry(zone_sf))[1]
+  ) %>% check_and_harmonise_geometry(reference_map = lc_t1)
+
+  df_pu <- data.frame(
+    ID_PU = zone_sf[[1]],
+    PU = if (ncol(zone_sf) > 1) zone_sf[[2]] else zone_sf[[1]]
+  )
+  zone_rst <- zone_rst %>%
+    add_legend_to_categorical_raster(., lookup_table = df_pu)
+} else if (grepl("\\.tif$", admin_z_path, ignore.case = TRUE)) {
+  # If input is a raster
+  zone_rst <- terra::rast(admin_z_path) %>%
+    check_and_harmonise_geometry(reference_map = lc_t1)
+} else {
+  stop("Unsupported planning unit file format: must be .shp or .tif")
+}
+```
 This report presents the results of an analysis based on the provided maps and lookup table.
 
 ## Summary of Emission Calculation
@@ -118,18 +137,17 @@ This report presents the results of an analysis based on the provided maps and l
 ```{r summary_emission, echo=FALSE, message=FALSE, warning=FALSE}
 s <- summary_of_emission_calculation(
   quescdb = params$ques_db,
-  zone = zone_rst, 
-  map_em = params$map_em, 
-  map_sq = params$map_sq, 
+  zone = zone_rst,
+  map_em = paste0(params$inputs$output_dir, "/emission_map.tif"),
+  map_sq = paste0(params$inputs$output_dir, "/sequestration_map.tif"),
   period = list(p1 = params$p1, p2 = params$p2)
 )
 
 datatable(s$summary_df)
-# s$summary_df %>% kbl(caption = "Summary of Emission Calculation", escape = F) %>%
-#   kable_paper("hover", full_width = F)
 ```
 
 ## Summary of Emission Calculation by Planning Unit
+
 
 ### Summary of Emissions and Sequestration by Planning Unit
 
@@ -151,8 +169,6 @@ colnames(z$data_zone_df)[colnames(z$data_zone_df) == "Carbon Avg. (Periode 1)"] 
 colnames(z$data_zone_df)[colnames(z$data_zone_df) == "Carbon Avg. (Periode 2)"] <- paste("Carbon Average", params$p2)
 
 datatable(z$data_zone_df)
-# z$data_zone_df %>% kbl(caption = "Carbon Stock and Net Emission Summary Across Time Periods by Planning Unit", escape = F) %>%
-#   kable_paper("hover", full_width = F)
 ```
 
 # Module brief description
@@ -187,13 +203,11 @@ plot_categorical_raster(zone)
 
 The carbon stock being considered is time-averaged above ground carbon stock.
 
+
 ```{r Carbon Stock Lookup Table, echo=FALSE, message=FALSE, warning=FALSE}
 datatable(
   read.csv(params$inputs$c_lookup_path)
 )
-# read.csv(params$inputs$c_lookup_path) %>% 
-  # kbl(caption = "Carbon Stock Lookup Table", escape = FALSE) %>%
-  # kable_paper("hover", full_width = F )
 ```
 
 # Results
@@ -216,15 +230,15 @@ Carbon map illustrating the distribution and amount of carbon stored in land use
 y <- ceiling(minmax(params$map_c1)[2] / 100)
 y <- y * 100
 plot_quesc_results(
-  map = params$map_c1, 
-  legend = "Carbon density (tonne-C/ha)", 
-  low = "#FFCC66", 
-  high = "#003300", 
-  # limits = c(0,y), 
-  # breaks = c(0,10,20,50,100,200,300), 
-  # title_size = 8, 
-  # text_size = 7, 
-  # height = 1.5, 
+  map = params$map_c1,
+  legend = "Carbon density (tonne-C/ha)",
+  low = "#FFCC66",
+  high = "#003300",
+  # limits = c(0,y),
+  # breaks = c(0,10,20,50,100,200,300),
+  # title_size = 8,
+  # text_size = 7,
+  # height = 1.5,
   # width = 0.375
 )
 ```
@@ -235,15 +249,15 @@ Carbon map illustrating the distribution and amount of carbon stored in land use
 
 ```{r carbon_map_t2, echo=FALSE, message=FALSE, warning=FALSE}
 plot_quesc_results(
-  map = params$map_c2, 
-  legend = "Carbon density (tonne-C/ha)", 
-  low = "#FFCC66", 
-  high = "#003300", 
-  # limits = c(0,y), 
-  # breaks = c(0,10,20,50,100,200,300), 
-  # title_size = 8, 
-  # text_size = 7, 
-  # height = 1.5, 
+  map = params$map_c2,
+  legend = "Carbon density (tonne-C/ha)",
+  low = "#FFCC66",
+  high = "#003300",
+  # limits = c(0,y),
+  # breaks = c(0,10,20,50,100,200,300),
+  # title_size = 8,
+  # text_size = 7,
+  # height = 1.5,
   # width = 0.375
 )
 ```
@@ -254,9 +268,9 @@ Emission map illustrating a decrease in carbon stock amount (in tonne CO2-eq/ha)
 
 ```{r emission_map, echo=FALSE, message=FALSE, warning=FALSE}
 plot_quesc_results(
-  map = params$map_em, 
-  legend = "Emission (tonne CO2-eq/ha)", 
-  low = "#FFCC66", 
+  map = params$map_em,
+  legend = "Emission (tonne CO2-eq/ha)",
+  low = "#FFCC66",
   high = "#FF0000"
 )
 ```
@@ -267,9 +281,9 @@ Sequestration map illustrating an increase in carbon stock amount (in tonne CO2-
 
 ```{r sequestration_map, echo=FALSE, message=FALSE, warning=FALSE}
 plot_quesc_results(
-  map = params$map_sq, 
-  legend = "Sequestration (tonne CO2-eq/ha)", 
-  low = "#FFCC66", 
+  map = params$map_sq,
+  legend = "Sequestration (tonne CO2-eq/ha)",
+  low = "#FFCC66",
   high = "#000033"
 )
 ```
@@ -283,14 +297,14 @@ s$plot_zone_carbon
 ## Average Carbon Density in `r params$p1`
 
 ```{r avg carbon density 1, echo=FALSE, message=FALSE, warning=FALSE}
-reclassify_matrix <- as.matrix(z$data_zone[, 1]) %>% 
-    cbind(., as.matrix(z$data_zone[, 4])) %>%
-    rbind(., c(0, NA))
+reclassify_matrix <- as.matrix(z$data_zone[, 1]) %>%
+  cbind(., as.matrix(z$data_zone[, 4])) %>%
+  rbind(., c(0, NA))
 z_avg_c1 <- zone %>% classify(reclassify_matrix)
 plot_quesc_results(
-  map = z_avg_c1, 
-  legend = "Carbon Density Level (tonne-C/ha)", 
-  low = "#FFCC66", 
+  map = z_avg_c1,
+  legend = "Carbon Density Level (tonne-C/ha)",
+  low = "#FFCC66",
   high = "#003300"
 )
 ```
@@ -298,14 +312,14 @@ plot_quesc_results(
 ## Average Carbon Density in `r params$p2`
 
 ```{r avg carbon density 2, echo=FALSE, message=FALSE, warning=FALSE}
-reclassify_matrix <- as.matrix(z$data_zone[, 1]) %>% 
-    cbind(., as.matrix(z$data_zone[, 5])) %>%
-    rbind(., c(0, NA))
+reclassify_matrix <- as.matrix(z$data_zone[, 1]) %>%
+  cbind(., as.matrix(z$data_zone[, 5])) %>%
+  rbind(., c(0, NA))
 z_avg_c2 <- zone %>% classify(reclassify_matrix)
 plot_quesc_results(
-  map = z_avg_c2, 
-  legend = "Carbon Density Level (tonne-C/ha)", 
-  low = "#FFCC66", 
+  map = z_avg_c2,
+  legend = "Carbon Density Level (tonne-C/ha)",
+  low = "#FFCC66",
   high = "#003300"
 )
 ```
@@ -315,14 +329,15 @@ plot_quesc_results(
 The map below shows the average carbon emission rates (tonne CO2-eq/ha.yr) across planning units, representing the release of carbon from land cover changes. Darker areas indicate higher emission levels.
 
 ```{r avg emission rate, echo=FALSE, message=FALSE, warning=FALSE}
-reclassify_matrix <- as.matrix(z$data_zone[, 1]) %>% 
-    cbind(., as.matrix(z$data_zone[, 6])) %>%
-    rbind(., c(0, NA))
+reclassify_matrix <- as.matrix(z$data_zone[, 1]) %>%
+  cbind(., as.matrix(z$data_zone[, 6])) %>%
+  rbind(., c(0, NA))
+
 z_em_rate <- zone %>% classify(reclassify_matrix)
 plot_quesc_results(
-  map = z_em_rate, 
-  legend = "Emission Level (Tonne CO2-eq/ha.yr)", 
-  low = "#FFCC66", 
+  map = z_em_rate,
+  legend = "Emission Level (Tonne CO2-eq/ha.yr)",
+  low = "#FFCC66",
   high = "#003300"
 )
 ```
@@ -332,14 +347,14 @@ plot_quesc_results(
 The map below shows the average carbon sequestration rates (tonne CO2-eq/ha.yr) across planning units, indicating increases in above-ground carbon stocks due to land cover changes. Darker greens represent higher sequestration levels.
 
 ```{r avg sequestration rate, echo=FALSE, message=FALSE, warning=FALSE}
-reclassify_matrix <- as.matrix(z$data_zone[, 1]) %>% 
-    cbind(., as.matrix(z$data_zone[, 7])) %>%
-    rbind(., c(0, NA))
+reclassify_matrix <- as.matrix(z$data_zone[, 1]) %>%
+  cbind(., as.matrix(z$data_zone[, 7])) %>%
+  rbind(., c(0, NA))
 z_sq_rate <- zone %>% classify(reclassify_matrix)
 plot_quesc_results(
-  map = z_sq_rate, 
-  legend = "Sequestration Level (Tonne CO2-eq/ha.yr)", 
-  low = "#FFCC66", 
+  map = z_sq_rate,
+  legend = "Sequestration Level (Tonne CO2-eq/ha.yr)",
+  low = "#FFCC66",
   high = "#003300"
 )
 ```
@@ -353,6 +368,7 @@ z$largest_emission
 ```
 
 ### Table
+
 
 ```{r tbl_largest_em, echo=FALSE, message=FALSE, warning=FALSE}
 tbl_largest_em <- z$tb_em_total_10_summary
