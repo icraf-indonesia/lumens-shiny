@@ -136,6 +136,7 @@ ques_pre <- function(lc_t1, lc_t2, admin_, cutoff_landscape = 5000, cutoff_pu = 
     crosstab_landscape <- summarise(grouped_df, Freq = sum(.data[["Freq"]]), .groups = "drop")
   }
   # Create Sankey diagrams at landscape level
+
   ## Sankey diagram showing all changes
   sankey_landscape <- crosstab_landscape %>%
     create_sankey(area_cutoff = cutoff_landscape, change_only = FALSE)
@@ -305,11 +306,12 @@ calc_trajectory_map <-
       reclass_raster_to_categories(raster_map = lc_t2_, reclass_table = lookup_traj_reclass)
     
     # Concatenate the reclassified rasters
-    concats_result <- concats(lc_t1_reclass, lc_t2_reclass)
+    concats_result <- concats(lc_t1_reclass, lc_t2_reclass) %>% terra::droplevels()
     
     # Extract the first level from the "concats_result" and convert it to a data frame.
     # Rename the columns as "ID" and "ID_traj".
-    lookup_concats <- levels(concats_result)[[1]] %>%
+    lookup_concats <- concats_result %>% 
+      cats() %>%
       data.frame() %>%
       dplyr::rename("ID" = 1, "ID_traj" = 2)
     
@@ -319,8 +321,7 @@ calc_trajectory_map <-
     
     # Perform a left join operation on "lookup_concats" and "lookup_traj" using "ID_traj" as the key.
     # Remove columns "ID" and "ID_traj" from the result.
-    lookup_traj <-
-      dplyr::left_join(lookup_concats, lookup_traj, by = "ID_traj") %>%
+    lookup_traj <- dplyr::inner_join(lookup_concats , lookup_traj, by = "ID_traj") %>%
       dplyr::select(-c("ID", "ID_traj"))
     
     # Add categorical information to "concats_result" based on the "lookup_traj".
@@ -541,7 +542,8 @@ add_legend_to_categorical_raster <- function(raster_file, lookup_table, year = N
   lookup_table <- lookup_table[lookup_table[[1]] %in% terra::freq(raster_file)[["value"]], ]
   
   # Convert lookup_table into a data frame
-  lookup_table <- data.frame(lookup_table)
+  lookup_table <- data.frame(lookup_table) %>% 
+    dplyr::rename("ID"=1, "LC"=2)
   
   # Convert the first column to numeric if it is not already
   if (!is.numeric(first_column)) {
@@ -1263,21 +1265,33 @@ create_sankey <- function(freq_table, area_cutoff = 10000, change_only = FALSE) 
     value_col <- "Freq"
   }
   
+  # 1. Prepare the base data frame depending on the 'change_only' flag
   if(change_only){
-    df_filtered <- freq_table %>%
-      mutate_if(is.factor, as.character) %>%
-      rowwise() %>%
-      filter(n_distinct(c_across(-length(freq_table))) > 1) %>%
-      ungroup() %>%
-      filter((!!sym(value_col)) > area_cutoff)
+    base_df <- freq_table %>%
+      dplyr::mutate_if(is.factor, as.character) %>%
+      dplyr::rowwise() %>%
+      # This filters for rows where the 'from' and 'to' classes are different
+      dplyr::filter(dplyr::n_distinct(dplyr::c_across(-{{value_col}})) > 1) %>%
+      dplyr::ungroup()
   } else {
-    df_filtered <- freq_table %>%
-      dplyr::filter((!!sym(value_col)) > area_cutoff)
+    base_df <- freq_table
   }
   
-  # Error handling: if dataframe is empty after filtering
+  # 2. Attempt to filter the base data frame by the specified area_cutoff
+  df_filtered <- base_df %>%
+    dplyr::filter((!!rlang::sym(value_col)) > area_cutoff)
+  
+  # 3. Conditional Check: If filtering removed all data, warn the user and revert.
+  if (nrow(df_filtered) == 0 && nrow(base_df) > 0) {
+    warning(paste0("The specified 'area_cutoff' of ", area_cutoff, " resulted in no data. ",
+                   "The cutoff has been ignored to generate the plot with all available data."))
+    # Revert to the unfiltered base data
+    df_filtered <- base_df
+  }
+  
+  # 4. Final Safeguard: If there's no data to plot even with a zero cutoff, then stop.
   if(nrow(df_filtered) == 0){
-    stop("No data left after filtering, please check your inputs.")
+    stop("No data available to create a Sankey diagram (the input table might be empty or contain no changes).")
   }
   
   # Get column names (years) without the 'X' prefix and 'Freq'
@@ -1683,31 +1697,48 @@ color_forest_trajectories <- function() {
 #' @export
 #' @importFrom tibble tibble
 color_landuse_trajectories <- function() {
-  # Create the tibble with trajectory categories and their corresponding colors
+  # Create the tibble with the final corrected trajectory IDs, names, and colors
   color_lookup_trajectory <- tibble(
-    value = c(1,2,3,4,5,6,7,8,9
-    ),
+    value = 1:18,
     trajectory = c(
       "Stable natural forest",
+      "Forest Loss to logged-over forest",
+      "Forest Loss to tree cropping",
+      "Forest Loss to bare land and abandoned",
+      "Forest Loss to cropland",
+      "Forest Loss to agroforest",
+      "Forest Loss to other",
+      "Forest Loss to infrastructure",
       "Recovery to forest",
-      "Loss to logged-over forest",
-      "Other",
-      "Recovery to tree cropping",
-      "Loss to bare land and abandoned",
-      "Loss to cropland",
+      "Stable",
+      "Conversion to bare land and abandoned",
+      "Conversion to cropland",
       "Recovery to agroforest",
-      "Loss to infrastructure"
+      "Conversion to other",
+      "Conversion to infrastructure",
+      "Recovery to tree cropping",
+      "Other",
+      "Conversion to tree cropping"
     ),
     color_palette = c(
-      "#228B22",  # Green for stable natural forest
-      "#ADFF2F",  # Light Green for forest recovery
-      "#FF8424",  # Goldenrod for logged-over forest loss
-      "#808080",  # Grey for other
-      "#8B4513",  # Saddle Brown for tree cropping
-      "#FE6AB2",  # Crimson for bare land and abandoned
-      "#FFFE00",  # Orange Red for cropland loss
-      "#9E00B3",  # Pale Violet Red for agroforest recovery
-      "#FF0000"   # Dark Red for infrastructure loss
+      "#006600",  # 1. Stable natural forest: Strong Green
+      "#00B300",  # 2. Forest Loss to logged-over forest: Sandy Brown
+      "#D2691E",  # 3. Forest Loss to tree cropping: Chocolate Brown
+      "#FA8072",  # 4. Forest Loss to bare land: Hot Pink
+      "#FFD700",  # 5. Forest Loss to cropland: Gold/Yellow
+      "#DA70D6",  # 6. Forest Loss to agroforest: Orchid (Purple-Pink)
+      "#BDB76B",  # 7. Forest Loss to other: Dark Khaki
+      "#FF0000",  # 8. Forest Loss to infrastructure: Bright Red
+      "#90EE90",  # 9. Recovery to forest: Light Green
+      "#D3D3D3",  # 10. Stable: White
+      "#00FFFF",  # 11. Conversion to bare land: Tan
+      "#FFA500",  # 12. Conversion to cropland: Orange
+      "#6BB300",  # 13. Recovery to agroforest: Dark Orchid
+      "#E6E6FA",  # 14. Conversion to other: Lavender
+      "#B22222",  # 15. Conversion to infrastructure: Firebrick Red
+      "#9ACD32",  # 16. Recovery to tree cropping: Yellow-Green
+      "#000000",  # 17. Other: Dark Grey
+      "#8B4513"   # 18. Conversion to tree cropping: Saddle Brown
     )
   )
   
@@ -1923,8 +1954,7 @@ run_preques_analysis <- function(lc_t1_input, lc_t2_input, admin_z_input,
   }
   
   if (!is.null(progress_callback)) progress_callback(0.2, "Land cover data prepared")
-  
-  
+
   # Prepare administrative zones data
   if(!inherits(admin_z_input, "SpatRaster")){
     admin_z <- terra::rast(admin_z_input$datapath) %>%
@@ -2006,6 +2036,7 @@ run_preques_analysis <- function(lc_t1_input, lc_t2_input, admin_z_input,
 #'
 #' @importFrom terra writeRaster cats
 #' @importFrom utils write.csv
+#' @importFrom writexl write_xlsx
 #'
 #' @export
 generate_outputs <- function(output_pre_ques, output_pre_ques_traj, #output_pre_ques_def,
@@ -2017,6 +2048,9 @@ generate_outputs <- function(output_pre_ques, output_pre_ques_traj, #output_pre_
   write.csv(output_pre_ques$landscape_level$crosstab_long,
             file.path(output_dir, "PreQuES_luc_change_transition_table.csv"),
             row.names = FALSE)
+  writexl::write_xlsx(output_pre_ques$landscape_level$crosstab_long,
+                      path = file.path(output_dir, 
+                                "PreQuES_luc_change_transition_table.xlsx"))
   
   # Export Change Trajectory lookup table and raster
   cats(output_pre_ques_traj$landscape_level$luc_trajectory_map)[[1]] %>%

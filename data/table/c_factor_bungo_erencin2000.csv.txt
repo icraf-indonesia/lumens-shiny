@@ -1,8 +1,0 @@
-ID: 18
-Data: c_factor_bungo_erencin2000.csv
-Name: Bungo RUSLE C Factor of Erencin (2000)
-URL: data/table/c_factor_bungo_erencin2000.csv
-Label: table
-Definition: This table data represents the RUSLE C factor value (range: 0-1) for each land cover/use class. This C factor value shows how vegetation cover prevents raindrops from impacting the soil surface and dissipates the kinetic energy of rainfall before it reaches the soil surface. This is a unitless value; a higher C factor value corresponds to a lower impact in reducing soil erosion.
-Comment: NA
-Reference: C Factor reference: Erencin Z, Shresta DP, Krol IB (2000) C-factor mapping using remote sensing and GIS. Case study Lom SakLom Kao Thail Geogr Inst Justus-Liebig-Univ Giess Intern Inst Aerosp Surv Earth SciITC Enschede Netherland

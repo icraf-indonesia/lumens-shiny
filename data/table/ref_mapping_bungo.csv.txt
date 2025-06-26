@@ -1,8 +1,0 @@
-ID: 22
-Data: ref_mapping_bungo.csv
-Name: Zone function reference classification of reference map in PUR Build Module
-URL: data/table/ref_mapping_bungo.csv
-Label: table
-Definition: This table data defines reference classes for reference map classes. This table is defined by the user.
-Comment: NA
-Reference: NA

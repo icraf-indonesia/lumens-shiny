@@ -1,8 +1,0 @@
-ID: 19
-Data: c_factor_bungo_usda1972.csv
-Name: Bungo RUSLE C Factor of Usda (1972)
-URL: data/table/c_factor_bungo_usda1972.csv
-Label: table
-Definition: This table data represents the RUSLE C factor value (range: 0-1) for each land cover/use class. This C factor value shows how vegetation cover prevents raindrops from impacting the soil surface and dissipates the kinetic energy of rainfall before it reaches the soil surface. This is a unitless value; a higher C factor value corresponds to a lower impact in reducing soil erosion.
-Comment: NA
-Reference: C Factor reference: https://www.researchgate.net/publication/340816115_Spatial_Estimation_of_Soil_Erosion_Using_RUSLE_Modeling_A_case_study_of_Dolakha_District_Nepal

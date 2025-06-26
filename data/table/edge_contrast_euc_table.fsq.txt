@@ -1,8 +1,0 @@
-ID: 23
-Data: Tabel_edge_contrast_euc.fsq
-Name: Edge contrast table of land cover/use
-URL: data/table/Tabel_edge_contrast_euc.fsq
-Label: table
-Definition: This table data contains a matrix of edge contrast values for every land cover/use class. A lower value indicates higher similarity between two land cover/use classes.
-Comment: NA
-Reference: NA

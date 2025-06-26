@@ -1,8 +1,0 @@
-ID: 24
-Data: focal_area_bungo.csv
-Name: Focal area classification of land cover class
-URL: data/table/focal_area_bungo.csv
-Label: table
-Definition: This table data contains information on the focal area for every land cover/use class, corresponding to the land cover/use raster by its ID. The value is Boolean (0 and 1), with 1 meaning the corresponding land cover/use class is defined as a focal area.
-Comment: NA
-Reference: NA
