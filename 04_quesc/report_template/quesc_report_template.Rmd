@@ -27,12 +27,11 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r load function, include=FALSE, error=TRUE, warning=TRUE, message=TRUE}
-fun_path <- here::here("04_quesc", "rscript", "function_ques_c.R")
-
-if (!file.exists(fun_path)) {
-  stop(paste("Template file not found at:", fun_path))
+if (file.exists("function_ques_c.R")){
+  source("function_ques_c.R")
+} else {
+  source("04_quesc/rscript/function_ques_c.R")
 }
-source(fun_path)
 ```
 
 ```{r load_library, include=FALSE}

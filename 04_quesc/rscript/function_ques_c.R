@@ -208,7 +208,7 @@ summary_of_emission_calculation <- function(quescdb, zone, map_em, map_sq, perio
     mutate(
       TOTAL_EM = round(TOTAL_EM, 2),
       TOTAL_SQ = round(TOTAL_SQ, 2),
-      NET_EM = round(NET_EM, 2)
+      NET_EM = round(NET_EM, 2))
 
   zc <- zc %>%
     mutate(PU_wrapped = str_wrap(PU, width = 10)) 
@@ -764,7 +764,7 @@ generate_quesc_report <- function(output_quesc, dir) {
   #fun_path <- here::here("04_quesc", "rscript", "function_ques_c.R")
   #if (!file.exists(fun_path)) {
   #stop(paste("Template file not found at:", fun_path))}
-
+  
   temp_dir <- tempdir()
   
   # Copy report template and functions to temporary directory
@@ -820,38 +820,13 @@ generate_quesc_report <- function(output_quesc, dir) {
 #' @export
 run_quesc_analysis <- function(lc_t1_path, lc_t2_path, admin_z_path, c_lookup_path,
                                time_points, output_dir, progress_callback = NULL) {
+  
   start_time <- Sys.time()
   cat("Started at:", format(start_time, "%Y-%m-%d %H:%M:%S"), "\n")
   
-  # read raster
-  lc_t1_input <- raster::raster(lc_t1_path)
-  lc_t2_input <- raster::raster(lc_t2_path)
-  
-  # read polygon
-  zone_sf1 <- admin_z_path %>% st_read()
-  zone_sf <- st_cast(zone_sf1, "MULTIPOLYGON")
-  zone <- zone_sf %>% 
-    rasterise_multipolygon_quesc(
-      raster_res = res(lc_t1_input), 
-      field = paste0(colnames(st_drop_geometry(zone_sf[1]))) 
-    )
-  zone_lookup_input <- data.frame(ID_PU = zone_sf[[1]], PU = zone_sf[[2]])
-
-  
   # read table
-  df_c <- read_csv(c_lookup_path)
+  c_lookup_input <- read_csv(c_lookup_path)
   
-  if(nrow(df_c) == 0)
-    return()
-  if(nrow(df_c) < 2)
-    return()
-  if(!is_numeric_str(df_c[1, 1]))
-    return()
-
-  df <- data.frame("ID_LC" = as.integer((as.character(df_c[, 1]))))
-  df$LC <- df_c[, 2]
-  df$CARBON <- df_c[, 3]
-  c_lookup_input <- df
   
   if (!is.null(progress_callback)) progress_callback(0.2, "load maps")
 
@@ -869,9 +844,18 @@ run_quesc_analysis <- function(lc_t1_path, lc_t2_path, admin_z_path, c_lookup_pa
       year = as.numeric(time_points$t2)
     ) %>%
     check_and_harmonise_geometry(reference_map = lc_t1)
+  
+  # read polygon
+  zone_sf1 <- admin_z_path %>% st_read()
+  zone_sf <- st_cast(zone_sf1, "MULTIPOLYGON")
+  zone <- zone_sf %>% 
+    rasterise_multipolygon_quesc(
+      raster_res = res(lc_t1), 
+      field = paste0(colnames(st_drop_geometry(zone_sf[1]))) 
+    )
+  zone_lookup_input <- data.frame(ID_PU = zone_sf[[1]], PU = zone_sf[[2]])
 
   zone <- zone %>%
-    add_legend_to_categorical_raster(lookup_table = zone_lookup_input) %>%
     check_and_harmonise_geometry(reference_map = lc_t1)
 
   preques <- ques_pre(lc_t1, lc_t2, zone)
