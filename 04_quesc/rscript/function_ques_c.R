@@ -148,7 +148,7 @@ rasterise_multipolygon_quesc <- function(sf_object, raster_res, field = "ID") {
   lookup_table <- sf::st_drop_geometry(sf_object)
   
   # Add legend to the rasterized SpatRaster using the lookup_table
-  terra::levels(rasterised_spatraster) <- lookup_table
+  levels(rasterised_spatraster) <- lookup_table
   
   # Return the rasterized SpatRaster with legend
   return(rasterised_spatraster)
