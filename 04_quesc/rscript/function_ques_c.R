@@ -57,7 +57,7 @@ summary_zona_carbon_text_id <- list(
 
 format_session_info_table <- function() {
   si <- sessionInfo()
-
+  
   # Extract R version info
   r_version <- si$R.version[c("major", "minor", "year", "month", "day", "nickname")]
   r_version <- paste0(
@@ -65,17 +65,17 @@ format_session_info_table <- function() {
     " (", r_version$year, "-", r_version$month, "-", r_version$day, ")",
     " '", r_version$nickname, "'"
   )
-
+  
   # Extract platform and OS info
   platform_os <- paste(si$platform, "|", si$running)
-
+  
   # Extract locale info
   locale_info <- strsplit(si[[3]], ";")[[1]]
   locale_info <- paste(locale_info, collapse = "<br>")
-
+  
   # Extract .libpaths, accomodate multiple library paths
   lib_paths <- .libPaths() |> paste(collapse = "<br>")
-
+  
   # Combine all info into a single tibble
   session_summary <- tibble(
     Category = c("R Version", "Platform | OS", ".libPaths", "Locale"),
@@ -106,26 +106,26 @@ rasterise_multipolygon_quesc <- function(sf_object, raster_res, field = "ID") {
   if (!grepl("\\+units=m", st_crs(sf_object)$proj4string)) stop("sf_object must have UTM projection system.")
   if (is.null(sf::st_drop_geometry(sf_object)) || !(field %in% names(sf::st_drop_geometry(sf_object)))) stop("sf_object must contain an attribute table with at least one numeric/factor column.")
   if (!is.numeric(sf_object[[field]]) && !is.factor(sf_object[[field]])) stop("The field must be numeric or a factor.")
-
+  
   # Convert the sf object to a SpatVector
   spatvect <- terra::vect(sf_object)
-
+  
   # Define the extent based on the SpatVector
   raster_extent <- terra::ext(spatvect)
-
+  
   # Create an empty SpatRaster based on the extent, resolution, and CRS
   raster_template <- terra::rast(raster_extent, resolution = raster_res, crs = terra::crs(spatvect))
-
+  
   # Rasterize the SpatVector based on the SpatRaster template
   # Specify the field in the rasterize function
   rasterised_spatraster <- terra::rasterize(spatvect, raster_template, field = field)
-
+  
   # Convert the 'Kabupaten' column of the sf_object to a lookup_table
   lookup_table <- sf::st_drop_geometry(sf_object)
-
+  
   # Add legend to the rasterized SpatRaster using the lookup_table
   levels(rasterised_spatraster) <- lookup_table
-
+  
   # Return the rasterized SpatRaster with legend
   return(rasterised_spatraster)
 }
@@ -169,50 +169,45 @@ plot_quesc_results <- function(map, legend, low, high, na_color = "white") {
   return(plot_lc)
 }
 
-summary_of_emission_calculation <- function(quescdb, zone, map_em, map_sq, period) {
+summary_of_emission_calculation <- function(quescdb, period) {
+  # Calculate the analysis period in years
   p <- as.numeric(period$p2) - as.numeric(period$p1)
-  az <- quescdb %>%
-    data.table::melt(id.vars = c("ID_PU", "PU"), measure.vars = c("Ha")) %>%
-    data.table::dcast(formula = ID_PU + PU ~ ., fun.aggregate = sum) %>%
-    dplyr::rename(
-      ID = 1,
-      Ha = 3
-    )
-
-  ze <- map_em %>%
-    rast() %>%
-    terra::zonal(zone, "sum") %>%
-    as.data.frame() %>%
-    dplyr::rename(
-      ID = 1,
-      TOTAL_EM = 2
-    )
-  zs <- map_sq %>%
-    rast() %>%
-    terra::zonal(zone, "sum") %>%
-    as.data.frame() %>%
-    dplyr::rename(
-      ID = 1,
-      TOTAL_SQ = 2
-    )
-
-  zc <- az %>%
-    left_join(ze, by = "ID") %>%
-    left_join(zs, by = "ID") %>%
+  # Summarize area by planning unit
+  az <- quescdb %>% 
+    group_by(ID_PU, PU) %>% 
+    summarise(Ha = sum(Ha, na.rm = TRUE), .groups = "drop") %>% 
+    rename(ID = ID_PU)
+  
+  # Calculate total emission per planning unit from quescdb
+  ze <- quescdb %>% 
+    group_by(ID_PU, PU) %>% 
+    summarise(TOTAL_EM = sum(EM, na.rm = TRUE), .groups = "drop") %>% 
+    dplyr::rename(ID = ID_PU)
+  
+  # Calculate total sequestration per planning unit from quescdb
+  zs <- quescdb %>% 
+    group_by(ID_PU, PU) %>% 
+    summarise(TOTAL_SQ = sum(SQ, na.rm = TRUE), .groups = "drop") %>% 
+    dplyr::rename(ID = ID_PU)
+  
+  # Combine and calculate carbon metrics
+  zc <- az %>% 
+    left_join(ze, by = c("ID", "PU")) %>% 
+    left_join(zs, by = c("ID", "PU")) %>% 
     mutate(
-      NET_EM = TOTAL_EM - TOTAL_SQ
-    ) %>%
-    mutate(
-      NET_EM_RATE = round(NET_EM / Ha / p, 2)
-    ) %>%
-    mutate(
+      NET_EM = TOTAL_EM - TOTAL_SQ,
+      NET_EM_RATE = round(NET_EM / Ha / p, 2),
       TOTAL_EM = round(TOTAL_EM, 2),
       TOTAL_SQ = round(TOTAL_SQ, 2),
-      NET_EM = round(NET_EM, 2))
-
-  zc <- zc %>%
-    mutate(PU_wrapped = str_wrap(PU, width = 10)) 
+      NET_EM = round(NET_EM, 2)
+    )
   
+  # Prepare data for plotting
+  zc_plot_data <- zc %>% 
+    mutate(PU_wrapped = str_wrap(PU, width = 10))
+  
+  # Create interactive plot
+  # Prepare data for plotting (moved outside the function for separation of concerns)
   zc_plot <- plot_ly(
     data = zc,
     x = ~reorder(str_wrap(PU, width = 40), -NET_EM_RATE),
@@ -255,23 +250,24 @@ summary_of_emission_calculation <- function(quescdb, zone, map_em, map_sq, perio
       showlegend = FALSE  
     )
   
-  total_area <- sum(az$Ha)
-  total_emission <- sum(zc$TOTAL_EM)
-  total_sequestration <- sum(zc$TOTAL_SQ)
+  # Calculate total values
+  total_area <- sum(az$Ha, na.rm = TRUE)
+  total_emission <- sum(zc$TOTAL_EM, na.rm = TRUE)
+  total_sequestration <- sum(zc$TOTAL_SQ, na.rm = TRUE)
   total_net_emission <- total_emission - total_sequestration
   total_rate_emission <- total_net_emission / p
   total_rate_emission_ha <- total_rate_emission / total_area
-
-  zc <- zc %>%
-    # mutate(Ha = print_area(Ha)) %>%
-    mutate(Ha = format(round(Ha, 2), nsmall = 2, big.mark = ",", decimal.mark = ".")) %>%
-    mutate_if(is.numeric, print_rate) %>%
-    dplyr::rename(
-      unlist(summary_zona_carbon_text_en)
-    )
-
+  
+  # Format final table
+  zc_final <- zc %>% 
+    mutate(Ha = format(round(Ha, 2), nsmall = 2, big.mark = ",", decimal.mark = ".")) %>% 
+    mutate_if(is.numeric, print_rate)
+  
+  names(zc_final)[1:length(summary_zona_carbon_text_en)] <- names(summary_zona_carbon_text_en)
+  
+  # Create summary data frame
   summary_df <- data.frame(
-    ID = c(1:7),
+    ID = 1:7,
     Category = summary_text_en,
     Summary = as.character(
       c(
@@ -285,12 +281,13 @@ summary_of_emission_calculation <- function(quescdb, zone, map_em, map_sq, perio
       )
     )
   )
-
+  
+  # Consolidate outputs
   out <- list(
     area_zone = az,
     zone_emission = ze,
     zone_sequestration = zs,
-    zone_carbon = zc,
+    zone_carbon = zc_final,
     plot_zone_carbon = zc_plot,
     total_area = total_area,
     total_emission = total_emission,
@@ -300,19 +297,19 @@ summary_of_emission_calculation <- function(quescdb, zone, map_em, map_sq, perio
     total_rate_emission_ha = total_rate_emission_ha,
     summary_df = summary_df
   )
-
+  
   return(out)
 }
 
 zonal_statistic_database <- function(quescdb, period) {
   area_zone <- quescdb %>%
-    data.table::melt(id.vars = c("ID_PU", "PU"), measure.vars = c("Ha")) %>%
-    data.table::dcast(formula = ID_PU + PU ~ ., fun.aggregate = sum) %>%
+    reshape2::melt(id.vars = c("ID_PU", "PU"), measure.vars = c("Ha")) %>%
+    reshape2::dcast(formula = ID_PU + PU ~ ., fun.aggregate = sum) %>%
     dplyr::rename(
       ID = 1,
       Ha = 3
     )
-
+  
   data_zone <- area_zone
   data_zone$Z_CODE <- toupper(abbreviate(data_zone$PU))
   data_zone$Rate_seq <- data_zone$Rate_em <- data_zone$Avg_C_t2 <- data_zone$Avg_C_t1 <- 0
@@ -321,30 +318,30 @@ zonal_statistic_database <- function(quescdb, period) {
     data_z <- quescdb[which(quescdb$PU == i), ]
     data_zone <- within(data_zone, {
       Avg_C_t1 <- ifelse(data_zone$PU == i,
-        sum(data_z$C_T1 * data_z$Ha) / sum(data_z$Ha),
-        Avg_C_t1
+                         sum(data_z$C_T1 * data_z$Ha) / sum(data_z$Ha),
+                         Avg_C_t1
       )
     })
     data_zone <- within(data_zone, {
       Avg_C_t2 <- ifelse(data_zone$PU == i,
-        sum(data_z$C_T2 * data_z$Ha) / sum(data_z$Ha),
-        Avg_C_t2
+                         sum(data_z$C_T2 * data_z$Ha) / sum(data_z$Ha),
+                         Avg_C_t2
       )
     })
     data_zone <- within(data_zone, {
       Rate_em <- ifelse(data_zone$PU == i,
-        sum(data_z$EM) / (sum(data_z$Ha) * period),
-        Rate_em
+                        sum(data_z$EM) / (sum(data_z$Ha) * period),
+                        Rate_em
       )
     })
     data_zone <- within(data_zone, {
       Rate_seq <- ifelse(data_zone$PU == i,
-        sum(data_z$SQ) / (sum(data_z$Ha) * period),
-        Rate_seq
+                         sum(data_z$SQ) / (sum(data_z$Ha) * period),
+                         Rate_seq
       )
     })
   }
-
+  
   data_zone_ori <- data_zone %>%
     dplyr::select(-Z_CODE) %>%
     mutate(
@@ -359,11 +356,11 @@ zonal_statistic_database <- function(quescdb, period) {
     dplyr::rename(
       unlist(summary_zonal_text_en)
     )
-
+  
   # data_merge_sel <- quescdb[ which((quescdb$EM + quescdb$SQ) > 0), ]
   order_sq <- quescdb[order(-quescdb$SQ), ] %>% as.data.frame()
   order_em <- quescdb[order(-quescdb$EM), ] %>% as.data.frame()
-
+  
   # total emission
   tb_em_total <- order_em$LU_CHG %>%
     cbind(as.data.frame(round(order_em$EM, digits = 3))) %>%
@@ -378,7 +375,7 @@ zonal_statistic_database <- function(quescdb, period) {
     ) %>%
     dplyr::arrange(desc(EM)) %>%
     dplyr::relocate(LU_CODE)
-
+  
   tb_em_total_10 <- tb_em_total %>%
     mutate(
       PERCENTAGE = as.numeric(format(round((EM / sum(tb_em_total$EM) * 100), 2), nsmall = 2))
@@ -442,7 +439,7 @@ zonal_statistic_database <- function(quescdb, period) {
             LU_CHG = 2,
             EM = 3
           )
-
+        
         a <- area_zone$PU[i]
         tb_em_z <- tb_em %>%
           dplyr::filter(PU == a) %>%
@@ -465,7 +462,7 @@ zonal_statistic_database <- function(quescdb, period) {
       }
     )
   }
-
+  
   # total sequestration
   tb_sq_total <- order_sq$LU_CHG %>%
     cbind(as.data.frame(round(order_sq$SQ, digits = 3))) %>%
@@ -480,7 +477,7 @@ zonal_statistic_database <- function(quescdb, period) {
     ) %>%
     dplyr::arrange(desc(SQ)) %>%
     dplyr::relocate(LU_CODE)
-
+  
   tb_sq_total_10 <- tb_sq_total %>%
     mutate(
       PERCENTAGE = as.numeric(format(round((SQ / sum(tb_sq_total$SQ) * 100), 2), nsmall = 2))
@@ -544,7 +541,7 @@ zonal_statistic_database <- function(quescdb, period) {
             LU_CHG = 2,
             SQ = 3
           )
-
+        
         a <- area_zone$PU[i]
         tb_sq_z <- tb_sq %>%
           dplyr::filter(PU == a) %>%
@@ -567,7 +564,7 @@ zonal_statistic_database <- function(quescdb, period) {
       }
     )
   }
-
+  
   out <- list(
     data_zone = data_zone_ori,
     data_zone_df = data_zone_summary,
@@ -649,23 +646,23 @@ generate_dummy_crosstab <- function(landcover, zone) {
   if (!is.data.frame(landcover)) {
     stop("Land cover is not a data frame")
   }
-
+  
   if (!is.data.frame(zone)) {
     stop("Zone is not a data frame")
   }
-
+  
   n_lc <- nrow(landcover)
   n_pu <- nrow(zone)
-
+  
   dummy1 <- data.frame(nPU = zone[[1]], divider = n_lc * n_lc)
   dummy1 <- splitstackshape::expandRows(dummy1, "divider")
-
+  
   dummy2 <- data.frame(nT1 = landcover[[1]], divider = n_lc)
   dummy2 <- splitstackshape::expandRows(dummy2, "divider")
   dummy2 <- data.frame(nT1 = rep(dummy2$nT1, n_pu))
-
+  
   dummy3 <- data.frame(nT2 = rep(rep(landcover[[1]], n_lc), n_pu))
-
+  
   lucDummy <- cbind(dummy1, dummy2, dummy3)
   colnames(lucDummy) <- c("ID_PU", "ID_LC1", "ID_LC2")
   return(tibble(lucDummy))
@@ -756,9 +753,9 @@ generate_quesc_report <- function(output_quesc, dir) {
     session_log = output_quesc$session_log
   )
   output_file <- paste0("quesc_report_", Sys.Date(), ".html")
-
+  
   #template_path <- here::here("04_quesc", "report_template", "quesc_report_template.Rmd")
-
+  
   #if (!file.exists(template_path)) {
   #  stop(paste("Template file not found at:", template_path))}
   #fun_path <- here::here("04_quesc", "rscript", "function_ques_c.R")
@@ -829,14 +826,14 @@ run_quesc_analysis <- function(lc_t1_path, lc_t2_path, admin_z_path, c_lookup_pa
   
   
   if (!is.null(progress_callback)) progress_callback(0.2, "load maps")
-
+  
   lc_t1 <- lc_t1_path %>%
     rast() %>%
     add_legend_to_categorical_raster(
       lookup_table = c_lookup_input,
       year = as.numeric(time_points$t1)
     )
-
+  
   lc_t2 <- lc_t2_path %>%
     rast() %>%
     add_legend_to_categorical_raster(
@@ -848,30 +845,30 @@ run_quesc_analysis <- function(lc_t1_path, lc_t2_path, admin_z_path, c_lookup_pa
   # read polygon
   zone_sf1 <- admin_z_path %>% st_read()
   zone_sf <- st_cast(zone_sf1, "MULTIPOLYGON")
-  zone <- zone_sf %>% 
+  zone <- zone_sf %>%
     rasterise_multipolygon_quesc(
       raster_res = res(lc_t1), 
       field = paste0(colnames(st_drop_geometry(zone_sf[1]))) 
     )
   zone_lookup_input <- data.frame(ID_PU = zone_sf[[1]], PU = zone_sf[[2]])
-
+  
   zone <- zone %>%
     check_and_harmonise_geometry(reference_map = lc_t1)
-
+  
   preques <- ques_pre(lc_t1, lc_t2, zone)
   period_year <- as.numeric(time_points$t1) - as.numeric(time_points$t2)
   lucDummy <- generate_dummy_crosstab(c_lookup_input, zone_lookup_input)
-
+  
   if (!is.null(progress_callback)) progress_callback(0.5, "create QUES-C database")
-
+  
   # join table
   df_lucdb <- c_lookup_input %>% dplyr::rename(ID_LC1 = 1, C_T1 = 3) %>% dplyr::select(1:3) %>%
     rename_with(.cols = 2, ~as.character(time_points$t1)) %>% right_join(lucDummy, by="ID_LC1")
   df_lucdb <- c_lookup_input %>% dplyr::rename(ID_LC2 = 1, C_T2 = 3) %>% dplyr::select(1:3) %>%
     rename_with(.cols = 2, ~as.character(time_points$t2)) %>% right_join(df_lucdb, by="ID_LC2")
-  df_lucdb <- zone_lookup_input %>% dplyr::rename(ID_PU = 1) %>% 
+  df_lucdb <- zone_lookup_input %>% dplyr::rename(ID_PU = 1) %>%
     rename_with(.cols = 2, ~names(zone)) %>% right_join(df_lucdb, by="ID_PU") 
-  df_lucdb <- df_lucdb %>% 
+  df_lucdb <- df_lucdb %>%
     left_join(
       preques[["landscape_level"]][["crosstab_long"]],
       by = c(names(zone), time_points$t1, time_points$t2)
@@ -880,34 +877,34 @@ run_quesc_analysis <- function(lc_t1_path, lc_t2_path, admin_z_path, c_lookup_pa
   df_lucdb <- df_lucdb %>%
     replace(is.na(df_lucdb), 0) %>%
     dplyr::rename(PU = names(zone))
-
+  
   # create new matrix reclassification
   reclassify_matrix <- as.matrix(c_lookup_input[, 1]) %>%
     cbind(., as.matrix(c_lookup_input[, 3])) %>%
     rbind(., c(0, NA))
-
+  
   if (!is.null(progress_callback)) progress_callback(0.7, "generate carbon, emission, and sequestration maps")
-
+  
   # create all maps
   map_carbon1 <- lc_t1 %>% classify(reclassify_matrix)
   map_carbon2 <- lc_t2 %>% classify(reclassify_matrix)
   map_emission <- ((map_carbon1 - map_carbon2) * 3.67) * (map_carbon1 > map_carbon2)
   map_sequestration <- ((map_carbon2 - map_carbon1) * 3.67) * (map_carbon1 < map_carbon2)
-
+  
   # quescdatabase
   df_lucdb <- df_lucdb %>% mutate(
     EM = (C_T1 - C_T2) * (C_T1 > C_T2) * Ha * 3.67,
     SQ = (C_T2 - C_T1) * (C_T1 < C_T2) * Ha * 3.67,
-
+    
     LU_CHG = do.call(paste, c(df_lucdb[c(as.character(time_points$t1), as.character(time_points$t2))], sep = " to "))
-
+    
   )
-
+  
   end_time <- Sys.time()
   cat("Ended at:", format(end_time, "%Y-%m-%d %H:%M:%S"), "\n")
-
+  
   session_log <- format_session_info_table()
-
+  
   out <- list(
     start_time = as.character(format(start_time, "%Y-%m-%d %H:%M:%S")),
     end_time = as.character(format(end_time, "%Y-%m-%d %H:%M:%S")),
@@ -927,34 +924,34 @@ run_quesc_analysis <- function(lc_t1_path, lc_t2_path, admin_z_path, c_lookup_pa
     ),
     session_log = session_log
   )
-
+  
   if (!is.null(progress_callback)) progress_callback(0.9, "outputs generated and saved")
   write.table(df_lucdb,
-    paste0(output_dir, "/quesc_database.csv"),
-    quote = FALSE,
-    row.names = FALSE,
-    sep = ","
+              paste0(output_dir, "/quesc_database.csv"),
+              quote = FALSE,
+              row.names = FALSE,
+              sep = ","
   )
   writeRaster(map_carbon1,
-    paste0(output_dir, "/carbon_map_t1.tif"),
-    overwrite = T
+              paste0(output_dir, "/carbon_map_t1.tif"),
+              overwrite = T
   )
   writeRaster(map_carbon2,
-    paste0(output_dir, "/carbon_map_t2.tif"),
-    overwrite = T
+              paste0(output_dir, "/carbon_map_t2.tif"),
+              overwrite = T
   )
   writeRaster(map_emission,
-    paste0(output_dir, "/emission_map.tif"),
-    overwrite = T
+              paste0(output_dir, "/emission_map.tif"),
+              overwrite = T
   )
   writeRaster(map_sequestration,
-    paste0(output_dir, "/sequestration_map.tif"),
-    overwrite = T
+              paste0(output_dir, "/sequestration_map.tif"),
+              overwrite = T
   )
-
+  
   if (!is.null(progress_callback)) progress_callback(1, "generate report")
   generate_quesc_report(output_quesc = out, dir = output_dir)
-
+  
   return(out)
 }
 
@@ -1000,17 +997,17 @@ check_and_install_packages <- function(required_packages) {
       )
     }
   }
-
+  
   # If there are missing packages, ask the user if they want to install them
   if (length(missing_packages) > 0) {
     cat("\nThe following packages are missing or could not be loaded:\n")
     cat(paste0("- ", missing_packages, "\n"))
-
+    
     install_choice <- readline(prompt = "Do you want to install/reinstall these packages? (y/n): ")
-
+    
     if (tolower(install_choice) == "y") {
       for (package in missing_packages) {
-        cat(paste0("\nAttempting to install package '", package, "'...\n"))
+        cat(paste0("\nAttempting to install package '", package, "'\n"))
         tryCatch(
           {
             install.packages(package)

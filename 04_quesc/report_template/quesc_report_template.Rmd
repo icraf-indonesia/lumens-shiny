@@ -45,7 +45,8 @@ install_load(
   "DT",
   "kableExtra",
   "tidyterra",
-  "htmltools"
+  "htmltools",
+  "plotly"
 )
 if (!("LUMENSR" %in% rownames(installed.packages()))) {
   install_github("icraf-indonesia/LUMENSR", force = T)
@@ -90,7 +91,7 @@ analysis_log %>%
 
 ```{r input-data, echo=FALSE, message=FALSE, warning=FALSE}
 period <- as.numeric(params$p2) - as.numeric(params$p1)
-df_c <- read.csv(params$input$c_lookup_path)
+df_c <- read.csv(params$inputs$c_lookup_path)
 
 # =Load landuse for two time periods
 lc_t1 <- params$inputs$lc_t1_path %>%
@@ -107,20 +108,14 @@ if (grepl("\\.shp$", admin_z_path, ignore.case = TRUE)) {
   # If input is a shapefile
   zone_sf <- sf::st_read(admin_z_path, quiet = TRUE)
   zone_sf <- sf::st_cast(zone_sf, "MULTIPOLYGON")
-  map_res <- res(lc_t1)
   # Use the first column as ID, second as name (adjust if needed)
-  zone_rst <- rasterise_multipolygon_quesc(
-    zone_sf,
-    raster_res = map_res,
-    field = colnames(sf::st_drop_geometry(zone_sf))[1]
-  ) %>% check_and_harmonise_geometry(reference_map = lc_t1)
-
-  df_pu <- data.frame(
-    ID_PU = zone_sf[[1]],
-    PU = if (ncol(zone_sf) > 1) zone_sf[[2]] else zone_sf[[1]]
-  )
-  zone_rst <- zone_rst %>%
-    add_legend_to_categorical_raster(., lookup_table = df_pu)
+  zone_rst <- zone_sf %>%
+    rasterise_multipolygon_quesc(
+      raster_res = res(lc_t1), 
+      field = paste0(colnames(st_drop_geometry(zone_sf[1]))) 
+    ) %>% 
+    check_and_harmonise_geometry(reference_map = lc_t1)
+  
 } else if (grepl("\\.tif$", admin_z_path, ignore.case = TRUE)) {
   # If input is a raster
   zone_rst <- terra::rast(admin_z_path) %>%
@@ -136,9 +131,6 @@ This report presents the results of an analysis based on the provided maps and l
 ```{r summary_emission, echo=FALSE, message=FALSE, warning=FALSE}
 s <- summary_of_emission_calculation(
   quescdb = params$ques_db,
-  zone = zone_rst,
-  map_em = paste0(params$inputs$output_dir, "/emission_map.tif"),
-  map_sq = paste0(params$inputs$output_dir, "/sequestration_map.tif"),
   period = list(p1 = params$p1, p2 = params$p2)
 )
 
@@ -172,11 +164,11 @@ datatable(z$data_zone_df)
 
 # Module brief description
 
--   QUES-C describes the estimation of carbon stock for various land use types in a region using Stock Difference method, where the dynamics of carbon stock are based on the amount of carbon stock at two different points in time.
+-	QUES-C describes the estimation of carbon stock for various land use types in a region using Stock Difference method, where the dynamics of carbon stock are based on the amount of carbon stock at two different points in time.
 
--   Emission is obtained from the reduction in carbon stock in a land area due to land use changes from a land use type with high carbon stock to a land use type with low carbon stock.
+-	Emission is obtained from the reduction in carbon stock in a land area due to land use changes from a land use type with high carbon stock to a land use type with low carbon stock.
 
--   Sequestration is obtained from the increase in carbon stock in a land area due to land use changes from a land use type with low carbon stock to a land use type with high carbon stock.
+-	Sequestration is obtained from the increase in carbon stock in a land area due to land use changes from a land use type with low carbon stock to a land use type with high carbon stock.
 
 # Input data {.tabset}
 
@@ -195,7 +187,7 @@ plot_categorical_raster(lc_t2)
 ## Planning Unit
 
 ```{r Planning Unit, echo=FALSE, message=FALSE, warning=FALSE}
-plot_categorical_raster(zone)
+plot_categorical_raster(zone_rst)
 ```
 
 ## Carbon Stock Lookup Table
@@ -299,7 +291,7 @@ s$plot_zone_carbon
 reclassify_matrix <- as.matrix(z$data_zone[, 1]) %>%
   cbind(., as.matrix(z$data_zone[, 4])) %>%
   rbind(., c(0, NA))
-z_avg_c1 <- zone %>% classify(reclassify_matrix)
+z_avg_c1 <- zone_rst %>% classify(reclassify_matrix)
 plot_quesc_results(
   map = z_avg_c1,
   legend = "Carbon Density Level (tonne-C/ha)",
@@ -314,7 +306,7 @@ plot_quesc_results(
 reclassify_matrix <- as.matrix(z$data_zone[, 1]) %>%
   cbind(., as.matrix(z$data_zone[, 5])) %>%
   rbind(., c(0, NA))
-z_avg_c2 <- zone %>% classify(reclassify_matrix)
+z_avg_c2 <- zone_rst %>% classify(reclassify_matrix)
 plot_quesc_results(
   map = z_avg_c2,
   legend = "Carbon Density Level (tonne-C/ha)",
@@ -332,7 +324,7 @@ reclassify_matrix <- as.matrix(z$data_zone[, 1]) %>%
   cbind(., as.matrix(z$data_zone[, 6])) %>%
   rbind(., c(0, NA))
 
-z_em_rate <- zone %>% classify(reclassify_matrix)
+z_em_rate <- zone_rst %>% classify(reclassify_matrix)
 plot_quesc_results(
   map = z_em_rate,
   legend = "Emission Level (Tonne CO2-eq/ha.yr)",
@@ -349,7 +341,7 @@ The map below shows the average carbon sequestration rates (tonne CO2-eq/ha.yr) 
 reclassify_matrix <- as.matrix(z$data_zone[, 1]) %>%
   cbind(., as.matrix(z$data_zone[, 7])) %>%
   rbind(., c(0, NA))
-z_sq_rate <- zone %>% classify(reclassify_matrix)
+z_sq_rate <- zone_rst %>% classify(reclassify_matrix)
 plot_quesc_results(
   map = z_sq_rate,
   legend = "Sequestration Level (Tonne CO2-eq/ha.yr)",

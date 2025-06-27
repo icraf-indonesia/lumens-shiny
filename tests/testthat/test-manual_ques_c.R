@@ -51,8 +51,6 @@ admin_z_input <- list(
 )
 
 # Lookup tables
-
-
 c_lookup_input <- list(
   datapath = "./data/table/carbon_bungo.csv" # Land cover class definitions
 )
