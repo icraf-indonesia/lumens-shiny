@@ -5,7 +5,7 @@ install_load(
   "shinyFiles", "shinyvalidate", "shinyjs", "bslib", "sf", "raster",
   "dplyr", "remotes", "rmarkdown", "XML", "splitstackshape", "shinyalert",
   "terra", "tibble", "ggplot2", "magrittr", "tidyr", "tidyterra", "DT",
-  "readr", "plotly", "scales", "ggthemes", "rlang"
+  "readr", "plotly", "scales", "ggthemes", "rlang", "xml2", "tidyverse"
 )
 
 if (!("LUMENSR" %in% rownames(installed.packages()))) {
@@ -113,7 +113,10 @@ server <- function(input, output, session) {
     mapz_df = NULL,
     lc_path = NULL,
     lc_df = NULL,
-    memory_allocation = NULL
+    zone_df = NULL,
+    memory_allocation = NULL,
+    rc = NULL,
+    rc_xml = NULL
   )
   
   volumes <- c(
@@ -143,25 +146,62 @@ server <- function(input, output, session) {
   })
   
   #### Read file inputs ####
+  # observeEvent(input$rc_file, {
+  #   pattern <- "*.tif$"
+  #   rc <- input$rc_file
+  #   if(is.null(rc))
+  #     return()
+  #   
+  #   prev_wd <- getwd()
+  #   uploaded_dir <- dirname(rc$datapath[1])
+  #   setwd(uploaded_dir)
+  #   for(i in 1:nrow(rc)){
+  #     print(rc$name[i])
+  #     if(substrRight(rc$name[i], 3) == "ers") {
+  #       pattern <- "*.ers$"
+  #     }
+  #     file.rename(rc$datapath[i], rc$name[i])
+  #   }
+  #   setwd(prev_wd)
+  #   
+  #   rv$rc <- paste(uploaded_dir, rc$name[grep(pattern = pattern, rc$name)], sep = "/")
+  # })
+  
   observeEvent(input$rc_file, {
-    pattern <- "*.tif$"
     rc <- input$rc_file
-    if(is.null(rc))
-      return()
+    if (is.null(rc)) return()
     
     prev_wd <- getwd()
     uploaded_dir <- dirname(rc$datapath[1])
     setwd(uploaded_dir)
-    for(i in 1:nrow(rc)){
-      print(rc$name[i])
-      if(substrRight(rc$name[i], 3) == "ers") {
-        pattern <- "*.ers$"
-      }
+    
+    for (i in 1:nrow(rc)) {
       file.rename(rc$datapath[i], rc$name[i])
     }
-    setwd(prev_wd)
     
-    rv$rc <- paste(uploaded_dir, rc$name[grep(pattern = pattern, rc$name)], sep = "/")
+    pattern <- ifelse(any(grepl("\\.ers$", rc$name)), "\\.ers$", "\\.tif$")
+    rv$rc <- paste(uploaded_dir, rc$name[grep(pattern, rc$name)], sep = "/")
+    
+    xml_file <- rc$name[grep("\\.xml$", rc$name, ignore.case = TRUE)]
+    if (length(xml_file) > 0) {
+      rv$rc_xml <- paste(uploaded_dir, xml_file, sep = "/")
+    } else {
+      rv$rc_xml <- NULL 
+    }
+    
+    # convert xml PU table into dataframe
+    xml_data <- read_xml(rv$rc_xml)
+    
+    pu_classes <- xml_data %>%
+      xml_find_all(".//PUClasses/Class") %>%
+      map_df(~ tibble(
+        ID = xml_attr(., "ID"),
+        PU = xml_attr(., "PU"))
+      )
+    
+    rv$zone_df <- pu_classes
+    
+    setwd(prev_wd)
   })
   
   #### Read lc lookup table ####
@@ -319,6 +359,7 @@ server <- function(input, output, session) {
           lc_t1_path = rv$map1_file,
           lc_lookup_table_path = rv$lc_path,
           lc_lookup_table = rv$lc_df,
+          zone_lookup_table = rv$zone_df,
           zone_path = rv$mapz_file,
           ers_path = rv$rc, 
           n_rep = input$repetition,

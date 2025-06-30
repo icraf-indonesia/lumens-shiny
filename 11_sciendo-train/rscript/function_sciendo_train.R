@@ -502,16 +502,16 @@ generate_egoml_raster_cube <- function(factor_path, output_dir, egoml) {
   # preparing factors
   listFactors <- factor_path %>% list.files(full.names = TRUE, pattern = ".tif$") %>%
     data.frame(file = ., select = 1)
-  
+
   factors <- as.character(listFactors$file)
   nFactors <- length(factors)
-  
+
   aliasFactor<-NULL
   for (a in 1:nFactors) {
     temp <- substr(basename(factors[a]), 1, nchar(basename(factors[a])) - 4)
     aliasFactor <- c(aliasFactor, temp)
   }
-  
+
   # create raster cube egoml
   # begin writing tag
   con <- xmlOutputDOM(tag = "script")
@@ -520,7 +520,7 @@ generate_egoml_raster_cube <- function(factor_path, output_dir, egoml) {
              attrs = c(key = "dff.date", value = "2016-Oct-17 12:02:15"))
   con$addTag("property",
              attrs = c(key = "dff.version", value = "3.0.17.20160922"))
-  
+
   # begin.
   # add functor = SaveMap
   con$addTag("functor",
@@ -529,7 +529,7 @@ generate_egoml_raster_cube <- function(factor_path, output_dir, egoml) {
   con$addTag("property",
              attrs = c(key = "dff.functor.alias", value = "saveMap1680"))
   con$addTag("inputport", attrs = c(name = "map", peerid = paste("v", nFactors + 1, sep = "")))
-  ers_file <- paste0('"', output_dir, '/sciendo_factors.tif"') 
+  ers_file <- paste0('"', output_dir, '/sciendo_factors.tif"')
   con$addTag(
     "inputport",
     attrs = c(name = "filename"),
@@ -541,7 +541,7 @@ generate_egoml_raster_cube <- function(factor_path, output_dir, egoml) {
   con$addTag("inputport", attrs = c(name = "workdir"), ".none")
   con$closeTag("functor")
   # end.
-  
+
   # begin.
   # add functor = LoadMap
   for (b in 1:nFactors) {
@@ -562,7 +562,7 @@ generate_egoml_raster_cube <- function(factor_path, output_dir, egoml) {
     con$closeTag("functor")
   }
   # end.
-  
+
   # begin.
   # add containerfunctor = CreateCubeMap
   con$addTag("containerfunctor",
@@ -589,10 +589,10 @@ generate_egoml_raster_cube <- function(factor_path, output_dir, egoml) {
   }
   con$closeTag("containerfunctor")
   # end.
-  
+
   egoml_rc_file <- paste0(output_dir, "/", egoml, ".egoml")
   saveXML(con$value(), file = egoml_rc_file)
-  
+
   out <- list(
     egoml_rc_file = egoml_rc_file,
     n = nFactors,
@@ -600,7 +600,7 @@ generate_egoml_raster_cube <- function(factor_path, output_dir, egoml) {
     alias = aliasFactor,
     ers = ers_file
   )
-  
+
   return(out)
 }
 
@@ -916,6 +916,14 @@ run_sciendo_train_process <- function(lc_t1_path, lc_t2_path, zone_path, lc_look
   if (!is.null(progress_callback)) progress_callback(0.5, "run dinamica raster cube")
   run_dinamica_raster_cube(dinamica_path, output_dir, out_rc$egoml_rc_file, memory_allocation)
   
+  # generate modified xml file
+  pu_df <- read.csv(z_lookup_table_path)
+  
+  add_pu_classes_to_pam(
+    output_dir = output_dir,  
+    pu_classes = pu_df
+  )
+
   if (!is.null(progress_callback)) progress_callback(0.7, "generate egoml: initialize weight of evidence parameters")
   out_woe <- generate_egoml_woe_model(out_rc$alias, lc_lookup_table, 
                                       lc_t1_path, lc_t2_path, zone_path, 
@@ -1051,4 +1059,137 @@ analyze_multicollinearity <- function(folder_path, sample_size = 10000, vif_thre
     correlation_matrix = cor_matrix,
     correlation_plot = corr_plot
   ))
+}
+
+#' Add Planning Unit Classes to Raster Metadata File
+#' 
+#' This function enhances a GDAL PAM (.aux.xml) metadata file by adding Planning Unit (PU)
+#' class information while preserving existing raster metadata. The PU classes are added
+#' as a separate XML node at the same level as the original PAMDataset content.
+#'
+#' @param output_dir Character string specifying the directory path containing the 
+#'                  'sciendo_factors.tif' file and where the PAM metadata will be saved.
+#' @param pu_classes A data frame or matrix containing PU class definitions where:
+#'                  \itemize{
+#'                    \item First column contains PU IDs (numeric or character)
+#'                    \item Second column contains PU class names (character)
+#'                  }
+#' @param overwrite Logical indicating whether to overwrite an existing PAM file
+#'                 (default = TRUE). If FALSE and file exists, function will error.
+#'
+#' @return Invisibly returns TRUE on success. Primarily called for its side effect of
+#'         creating/updating the PAM metadata file.
+#'
+#' @details
+#' The function performs the following operations:
+#' \enumerate{
+#'   \item Checks for required package dependencies
+#'   \item Validates input parameters
+#'   \item Creates a new XML structure with Root parent node
+#'   \item Preserves all existing PAM metadata if present
+#'   \item Adds PU classes under a new <PUClasses> node
+#'   \item Saves the combined XML structure with proper formatting
+#' }
+#'
+#' @section File Structure:
+#' The resulting XML structure will be:
+#' \preformatted{
+#' <Root>
+#'   <PAMDataset>
+#'     <!-- Original raster metadata -->
+#'   </PAMDataset>
+#'   <PUClasses>
+#'     <Class ID="1" PU="Protected Forest"/>
+#'     <!-- Additional classes -->
+#'   </PUClasses>
+#' </Root>
+#' }
+#'
+#' @examples
+#' \donttest{
+#' # Prepare sample PU classes data
+#' pu_data <- data.frame(
+#'   ID = 1:8,
+#'   Class = c("Protected Forest", "Production Forest", "Plantation",
+#'             "Urban Area", "Wetland Agriculture", "Dryland Agriculture",
+#'             "Riverbank Buffer", "Kerinci Sebelat National Park")
+#' )
+#'
+#' # Add to PAM file (using tempdir() for example)
+#' output_path <- tempdir()
+#' file.create(paste0(output_path, "/sciendo_factors.tif.aux.xml"))
+#' 
+#' try(
+#'   add_pu_classes_to_pam(
+#'     output_dir = output_path,
+#'     pu_classes = pu_data
+#'   )
+#' )
+#' }
+#'
+#' @seealso
+#' \code{\link[XML]{xmlParse}} for XML parsing functionality
+#'
+#' @export
+#' @importFrom XML newXMLNode xmlParse xmlRoot xmlChildren saveXML
+add_pu_classes_to_pam <- function(output_dir, pu_classes, overwrite = TRUE) {
+  # Verify XML package availability
+  if (!requireNamespace("XML", quietly = TRUE)) {
+    stop("Package 'XML' required but not installed. Please install with: install.packages('XML')")
+  }
+  
+  # Validate output directory
+  if (!dir.exists(output_dir)) {
+    stop("Specified output directory does not exist: ", output_dir)
+  }
+  
+  # Validate pu_classes structure
+  if (!is.data.frame(pu_classes) && !is.matrix(pu_classes)) {
+    stop("pu_classes must be a data frame or matrix")
+  }
+  if (ncol(pu_classes) < 2) {
+    stop("pu_classes must have at least 2 columns (ID and PU class)")
+  }
+  
+  # Define file paths
+  pam_file <- file.path(output_dir, "sciendo_factors.tif.aux.xml")
+  
+  # Check overwrite conditions
+  if (file.exists(pam_file) && !overwrite) {
+    stop("Output file already exists and overwrite=FALSE")
+  }
+  
+  # Create new XML structure
+  root <- XML::newXMLNode("Root")
+  
+  # Add existing PAM content if available
+  if (file.exists(pam_file)) {
+    tryCatch({
+      pam_content <- XML::xmlParse(pam_file)
+      pam_dataset <- XML::xmlRoot(pam_content)
+      XML::xmlChildren(root) <- XML::xmlChildren(pam_dataset)
+    }, error = function(e) {
+      warning("Failed to parse existing PAM file, creating new structure: ", e$message)
+    })
+  }
+  
+  # Add PU classes section
+  pu_node <- XML::newXMLNode("PUClasses", parent = root)
+  apply(pu_classes, 1, function(row) {
+    XML::newXMLNode("Class",
+                    attrs = c(
+                      ID = as.character(row[1]),
+                      PU = as.character(row[2])
+                    ),
+                    parent = pu_node)
+  })
+  
+  # Save output
+  tryCatch({
+    XML::saveXML(root, file = pam_file)
+    message("Successfully updated PAM metadata file:\n  ", pam_file)
+    invisible(TRUE)
+  }, error = function(e) {
+    stop("Failed to save XML file: ", e$message)
+  })
 }

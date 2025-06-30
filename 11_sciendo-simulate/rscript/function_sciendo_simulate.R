@@ -616,7 +616,7 @@ run_dinamica_simulation <- function(dinamica_path = NULL, output_dir, egoml, mem
   }
 }
 
-run_sciendo_simulate_process <- function(lc_t1_path, lc_lookup_table_path, lc_lookup_table, zone_path, ers_path, 
+run_sciendo_simulate_process <- function(lc_t1_path, lc_lookup_table_path, lc_lookup_table, zone_lookup_table, zone_path, ers_path, 
                                          n_rep, tm_path, dcf_path, dinamica_path = NULL, output_dir, memory_allocation, progress_callback = NULL) {
   start_time <- Sys.time()
   cat("Started at:", format(start_time, "%Y-%m-%d %H:%M:%S"), "\n")
@@ -630,6 +630,8 @@ run_sciendo_simulate_process <- function(lc_t1_path, lc_lookup_table_path, lc_lo
   if (!is.null(progress_callback)) progress_callback(0.7, "run dinamica simulation per region")
   run_dinamica_simulation(dinamica_path, output_dir, out_sim$egoml_sim_file, memory_allocation)
   
+  
+  
   end_time <- Sys.time()
   cat("Ended at:", format(end_time, "%Y-%m-%d %H:%M:%S"), "\n")
   
@@ -642,6 +644,7 @@ run_sciendo_simulate_process <- function(lc_t1_path, lc_lookup_table_path, lc_lo
       lc_t1_path = lc_t1_path,
       lc_lookup_table_path = lc_lookup_table_path,
       zone_path = zone_path,
+      zone_lookup_table = zone_lookup_table,
       ers_path = ers_path,
       tm_path = tm_path,
       dcf_path = dcf_path,
@@ -652,7 +655,7 @@ run_sciendo_simulate_process <- function(lc_t1_path, lc_lookup_table_path, lc_lo
   )
   
   if (!is.null(progress_callback)) progress_callback(0.9, "outputs generated and saved")
-  
+
   if (!is.null(progress_callback)) progress_callback(1, "generate report")
   generate_sciendo_simulate_report(output = out, dir = output_dir)
   
@@ -908,8 +911,9 @@ multiple_lc_freq_combined <- function(lc_dir, df_lc, PU = "NO", zone = NULL, spl
   } else {
     
     # Count freq
-    freq_data <- calc_lc_freq(raster_list = rst_list) %>%
-      abbreviate_by_column("Land-use/cover types", remove_vowels = FALSE)
+    freq_data <- calc_lc_freq(raster_list = rst_list) #%>%
+      # rename("Land Cover/Types" = 2) %>% 
+      # abbreviate_by_column("Land Cover/Types", remove_vowels = FALSE)
     
     # Convert to long format
     landscape_numbers <- gsub(".*landscape(\\d+)\\.tif", "\\1", names(rst_list))

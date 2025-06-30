@@ -181,21 +181,47 @@ datatable(lc_freq_table)
 
 ```{r child_document, echo=FALSE, message=FALSE, warning=FALSE, fig.keep='all', results='asis'}
 all_freq_pu_list <- multiple_lc_freq_combined(lc_dir, df_lc, PU = "YES", zone = zone, split = "YES")
+zone_df <- params$inputs$zone_lookup_table
 
-for (i in names(all_freq_pu_list)) {
-  cat("### ", i, "\n\n")
+# create expandable sections for each zone
+src <- lapply(seq_len(nrow(zone_df)), function(i) {
+  label <- zone_df$PU[[i]]
+  
+  knitr::knit_expand(text = c(
+    "",
+    "<details style='margin-bottom: 20px; border: 1px solid #ddd; border-radius: 5px; padding: 10px;'>",
+    "<summary style='font-weight: bold; font-size: 1.1em; cursor: pointer; padding: 10px; background-color: #f8f9fa; border-radius: 3px; margin: -10px -10px 15px -10px;'>{{label}}</summary>",
+    "",
+    "```{r zone_{{i}}_table, echo=FALSE}",
+    "current_table <- all_freq_pu_list[[{{i}}]]",
+    "if (nrow(current_table) > 0) {",
+    "  DT::datatable(",
+    "    current_table,",
+    "    caption = htmltools::tags$caption(",
+    "      style = 'caption-side: top; text-align: center; color:black; font-size:1.2em;',",
+    "      'Projected Land Use/Cover in {{label}}'",
+    "    ),",
+    "    rownames = FALSE,",
+    "    options = list(",
+    "      dom = 't',",
+    "      pageLength = nrow(current_table),",
+    "      autoWidth = FALSE,",
+    "      scrollX = TRUE,",
+    "      columnDefs = list(list(width = '100%', targets = '_all'))",
+    "    )",
+    "  )",
+    "} else {",
+    "  cat('<div style=\"text-align: center; margin: 20px; color: #666;\">No data available for this zone.</div>')",
+    "}",
+    "```",
+    "",
+    "</details>",
+    ""
+  ), i = i, label = label)
+})
 
-  tbl <- DT::datatable(
-    all_freq_pu_list[[i]],
-    caption = paste("Projected Land Use/Cover in", i),
-    options = list(
-      dom = 't',
-      pageLength = nrow(all_freq_pu_list[[i]])
-    )
-  )
-  print(htmltools::tagList(tbl))
-  cat("\n\n<br><br>\n\n")
-}
+res <- knitr::knit_child(text = unlist(src), quiet = TRUE)
+cat(res, sep = '\n')
 ```
 
 
