@@ -1,7 +1,17 @@
+#' Check if a string is numeric
+#'
+#' This function checks if a given string can be converted to an integer.
+#'
+#' @param s A character string.
+#' @return A boolean value, TRUE if the string can be converted to an integer, FALSE otherwise.
+#' @examples
+#' is_numeric_str("123") # returns TRUE
+#' is_numeric_str("abc") # returns FALSE
 is_numeric_str <- function(s) {
   return(!is.na(as.integer(as.character(s))))
 }
 
+#' English text for summary table
 summary_text_en <- c("Period",
                      "Total area (ha)",
                      "Total emission (tonne CO2-eq)",
@@ -10,6 +20,7 @@ summary_text_en <- c("Period",
                      "Emission rate (tonne CO2-eq/ha.year)",
                      "Emission rate per-unit area (tonne CO2-eq/ha.year)")
 
+#' Indonesian text for summary table
 summary_text_id <- c("Periode", 
                      "Total area (ha)", 
                      "Total Emisi (Ton CO2-eq)", 
@@ -18,6 +29,7 @@ summary_text_id <- c("Periode",
                      "Laju Emisi (Ton CO2-eq/tahun)",
                      "Laju emisi per-unit area (Ton CO2-eq/ha.tahun)")
 
+#' English text for zonal summary table
 summary_zonal_text_en <- list(ID = 1,
                               "Planning Unit" = 2, 
                               "Area (Ha)" = 3, 
@@ -27,6 +39,7 @@ summary_zonal_text_en <- list(ID = 1,
                               "Emission Rate" = 7
 )
 
+#' Indonesian text for zonal summary table
 summary_zonal_text_id <- list(
   ID = 1,
   "Unit Perencanaan" = 2,
@@ -36,6 +49,7 @@ summary_zonal_text_id <- list(
   "Emisi bersih" = 6,
   "Laju emisi" = 7
 )
+#' English text for zonal carbon summary table
 summary_zona_carbon_text_en <- list(
   ID = 1,
   "Planning Unit" = 2,
@@ -45,6 +59,7 @@ summary_zona_carbon_text_en <- list(
   "Net Emission (tonne CO2-eq)" = 6,
   "Emission Rate (tonne CO2-eq/ha.year)" = 7
 )
+#' Indonesian text for zonal carbon summary table
 summary_zona_carbon_text_id <- list(
   ID = 1,
   "Unit perencanaan" = 2,
@@ -55,9 +70,16 @@ summary_zona_carbon_text_id <- list(
   "Laju emisi (ton CO2-eq)" = 7
 )
 
+#' Format Session Information
+#'
+#' This function captures and formats the current R session information into a tibble.
+#'
+#' @return A tibble with session information, including R version, platform, OS, .libPaths, and locale.
+#' @importFrom tibble tibble
+#' @export
 format_session_info_table <- function() {
   si <- sessionInfo()
-
+  
   # Extract R version info
   r_version <- si$R.version[c("major", "minor", "year", "month", "day", "nickname")]
   r_version <- paste0(
@@ -65,19 +87,19 @@ format_session_info_table <- function() {
     " (", r_version$year, "-", r_version$month, "-", r_version$day, ")",
     " '", r_version$nickname, "'"
   )
-
+  
   # Extract platform and OS info
   platform_os <- paste(si$platform, "|", si$running)
-
+  
   # Extract locale info
   locale_info <- strsplit(si[[3]], ";")[[1]]
   locale_info <- paste(locale_info, collapse = "<br>")
-
+  
   # Extract .libpaths, accomodate multiple library paths
   lib_paths <- .libPaths() |> paste(collapse = "<br>")
-
+  
   # Combine all info into a single tibble
-  session_summary <- tibble(
+  session_summary <- tibble::tibble(
     Category = c("R Version", "Platform | OS", ".libPaths", "Locale"),
     Details = c(r_version, platform_os, lib_paths, locale_info)
   )
@@ -98,34 +120,36 @@ format_session_info_table <- function() {
 #' @importFrom terra vect ext rast rasterize levels
 #' @export
 #' @examples
-#' rasterise_multipolygon(sf_object = ntt_admin, raster_res = c(100, 100), field = "ID")
+#' \dontrun{
+#' rasterise_multipolygon_quesc(sf_object = ntt_admin, raster_res = c(100, 100), field = "ID")
+#' }
 rasterise_multipolygon_quesc <- function(sf_object, raster_res, field = "ID") {
   # Error checking
   if (!inherits(sf_object, "sf")) stop("sf_object must be an sf object.")
   if (!all(sf::st_geometry_type(sf_object) == "MULTIPOLYGON")) stop("All features in sf_object must be MULTIPOLYGONs.") # Check if sf_object has UTM projection
-  if (!grepl("\\+units=m", st_crs(sf_object)$proj4string)) stop("sf_object must have UTM projection system.")
+  if (!grepl("\\+units=m", sf::st_crs(sf_object)$proj4string)) stop("sf_object must have UTM projection system.")
   if (is.null(sf::st_drop_geometry(sf_object)) || !(field %in% names(sf::st_drop_geometry(sf_object)))) stop("sf_object must contain an attribute table with at least one numeric/factor column.")
   if (!is.numeric(sf_object[[field]]) && !is.factor(sf_object[[field]])) stop("The field must be numeric or a factor.")
-
+  
   # Convert the sf object to a SpatVector
   spatvect <- terra::vect(sf_object)
-
+  
   # Define the extent based on the SpatVector
   raster_extent <- terra::ext(spatvect)
-
+  
   # Create an empty SpatRaster based on the extent, resolution, and CRS
   raster_template <- terra::rast(raster_extent, resolution = raster_res, crs = terra::crs(spatvect))
-
+  
   # Rasterize the SpatVector based on the SpatRaster template
   # Specify the field in the rasterize function
   rasterised_spatraster <- terra::rasterize(spatvect, raster_template, field = field)
-
+  
   # Convert the 'Kabupaten' column of the sf_object to a lookup_table
   lookup_table <- sf::st_drop_geometry(sf_object)
-
+  
   # Add legend to the rasterized SpatRaster using the lookup_table
   levels(rasterised_spatraster) <- lookup_table
-
+  
   # Return the rasterized SpatRaster with legend
   return(rasterised_spatraster)
 }
@@ -133,35 +157,55 @@ rasterise_multipolygon_quesc <- function(sf_object, raster_res, field = "ID") {
 print_area <- function(x) {
   format(x, digits = 15, big.mark = ",")
 }
+#' Format Rate Values
+#'
+#' Formats a numeric value representing a rate with a big mark separator for thousands and two decimal places.
+#'
+#' @param x A numeric value.
+#' @return A formatted character string.
+#' @export
 print_rate <- function(x) {
   format(x, digits = 15, nsmall = 2, decimal.mark = ".", big.mark = ",")
 }
 
 
+#' Plot QUES-C Results
+#'
+#' This function creates a ggplot for a SpatRaster object with a gradient fill.
+#'
+#' @param map A SpatRaster object to plot.
+#' @param legend A character string for the legend title.
+#' @param low A character string for the low end of the color gradient.
+#' @param high A character string for the high end of the color gradient.
+#' @param na_color A character string for the color of NA values. Default is "white".
+#' @return A ggplot object.
+#' @importFrom ggplot2 ggplot theme_bw labs theme scale_fill_gradient element_text unit element_blank
+#' @importFrom tidyterra geom_spatraster
+#' @export
 plot_quesc_results <- function(map, legend, low, high, na_color = "white") {
   # Determine plot title
   # plot_title <- if (!is.na(time(map))) time(map) else names(map)
   
   # Generate the plot
   plot_lc <- ggplot() +
-    geom_spatraster(data = map) +
-    scale_fill_gradient(
+    tidyterra::geom_spatraster(data = map) +
+    ggplot2::scale_fill_gradient(
       low = low,
       high = high,
       na.value = na_color,
       name = if (!is.null(legend)) legend else NULL
     ) +
-    theme_bw() +
+    ggplot2::theme_bw() +
     # labs(title = plot_title) +
-    theme(
-      axis.title.x = element_blank(),
-      axis.title.y = element_blank(),
-      panel.grid.major = element_blank(),
-      panel.grid.minor = element_blank(),
-      legend.title = element_text(size = 10),
-      legend.text = element_text(size = 8),
-      legend.key.height = unit(1, "cm"),
-      legend.key.width = unit(0.25, "cm"), 
+    ggplot2::theme(
+      axis.title.x = ggplot2::element_blank(),
+      axis.title.y = ggplot2::element_blank(),
+      panel.grid.major = ggplot2::element_blank(),
+      panel.grid.minor = ggplot2::element_blank(),
+      legend.title = ggplot2::element_text(size = 10),
+      legend.text = ggplot2::element_text(size = 8),
+      legend.key.height = ggplot2::unit(1, "cm"),
+      legend.key.width = ggplot2::unit(0.25, "cm"), 
       legend.position = "right",
       legend.justification = c(0, 0.5)
     )
@@ -169,53 +213,77 @@ plot_quesc_results <- function(map, legend, low, high, na_color = "white") {
   return(plot_lc)
 }
 
-summary_of_emission_calculation <- function(quescdb, zone, map_em, map_sq, period) {
+#' Summarize Emission Calculation
+#'
+#' This function summarizes the emission and sequestration calculations from the QUES-C database.
+#' It calculates total area, total emission, total sequestration, net emission, and emission rates
+#' per planning unit and for the entire study area. It also generates an interactive bar plot
+#' of average net emission rates per planning unit.
+#'
+#' @param quescdb A data frame containing the QUES-C database. Expected columns include `ID_PU`,
+#'   `PU`, `Ha`, `EM` (emission), and `SQ` (sequestration).
+#' @param period A list or data frame with `p1` and `p2` specifying the start and end year of the analysis period.
+#' @return A list containing:
+#'   \itemize{
+#'     \item \code{area_zone}: Data frame with summarized area by planning unit.
+#'     \item \code{zone_emission}: Data frame with total emission per planning unit.
+#'     \item \code{zone_sequestration}: Data frame with total sequestration per planning unit.
+#'     \item \code{zone_carbon}: Data frame with combined carbon metrics per planning unit, formatted.
+#'     \item \code{plot_zone_carbon}: An interactive plotly bar plot of average net emission rates.
+#'     \item \code{total_area}: Numeric, total area of the study region.
+#'     \item \code{total_emission}: Numeric, total emission of the study region.
+#'     \item \code{total_sequestration}: Numeric, total sequestration of the study region.
+#'     \item \code{total_net_emission}: Numeric, total net emission of the study region.
+#'     \item \code{total_rate_emission}: Numeric, total emission rate of the study region.
+#'     \item \code{total_rate_emission_ha}: Numeric, total emission rate per hectare of the study region.
+#'     \item \code{summary_df}: Data frame summarizing overall study region metrics.
+#'   }
+#' @importFrom dplyr %>% group_by summarise rename left_join mutate mutate_if
+#' @importFrom stringr str_wrap
+#' @importFrom plotly plot_ly layout
+#' @export
+summary_of_emission_calculation <- function(quescdb, period) {
+  # Calculate the analysis period in years
   p <- as.numeric(period$p2) - as.numeric(period$p1)
-  az <- quescdb %>%
-    data.table::melt(id.vars = c("ID_PU", "PU"), measure.vars = c("Ha")) %>%
-    data.table::dcast(formula = ID_PU + PU ~ ., fun.aggregate = sum) %>%
-    dplyr::rename(
-      ID = 1,
-      Ha = 3
-    )
-
-  ze <- map_em %>%
-    rast() %>%
-    terra::zonal(zone, "sum") %>%
-    as.data.frame() %>%
-    dplyr::rename(
-      ID = 1,
-      TOTAL_EM = 2
-    )
-  zs <- map_sq %>%
-    rast() %>%
-    terra::zonal(zone, "sum") %>%
-    as.data.frame() %>%
-    dplyr::rename(
-      ID = 1,
-      TOTAL_SQ = 2
-    )
-
-  zc <- az %>%
-    left_join(ze, by = "ID") %>%
-    left_join(zs, by = "ID") %>%
+  # Summarize area by planning unit
+  az <- quescdb %>% 
+    group_by(ID_PU, PU) %>% 
+    summarise(Ha = sum(Ha, na.rm = TRUE), .groups = "drop") %>% 
+    rename(ID = ID_PU)
+  
+  # Calculate total emission per planning unit from quescdb
+  ze <- quescdb %>% 
+    group_by(ID_PU, PU) %>% 
+    summarise(TOTAL_EM = sum(EM, na.rm = TRUE), .groups = "drop") %>% 
+    dplyr::rename(ID = ID_PU)
+  
+  # Calculate total sequestration per planning unit from quescdb
+  zs <- quescdb %>% 
+    group_by(ID_PU, PU) %>% 
+    summarise(TOTAL_SQ = sum(SQ, na.rm = TRUE), .groups = "drop") %>% 
+    dplyr::rename(ID = ID_PU)
+  
+  # Combine and calculate carbon metrics
+  zc <- az %>% 
+    left_join(ze, by = c("ID", "PU")) %>% 
+    left_join(zs, by = c("ID", "PU")) %>% 
     mutate(
-      NET_EM = TOTAL_EM - TOTAL_SQ
-    ) %>%
-    mutate(
-      NET_EM_RATE = round(NET_EM / Ha / p, 2)
-    ) %>%
-    mutate(
+      NET_EM = TOTAL_EM - TOTAL_SQ,
+      NET_EM_RATE = round(NET_EM / Ha / p, 2),
       TOTAL_EM = round(TOTAL_EM, 2),
       TOTAL_SQ = round(TOTAL_SQ, 2),
       NET_EM = round(NET_EM, 2)
-
-  zc <- zc %>%
-    mutate(PU_wrapped = str_wrap(PU, width = 10)) 
+    )
   
-  zc_plot <- plot_ly(
+  # Prepare data for plotting
+  zc_plot_data <- zc %>% 
+    mutate(PU_wrapped = str_wrap(PU, width = 10))
+  
+  # Create interactive plot
+  # Prepare data for plotting (moved outside the function for separation of concerns)
+  zc_plot <- plotly::plot_ly(
     data = zc,
-    x = ~reorder(str_wrap(PU, width = 40), -NET_EM_RATE),
+    x = ~reorder(stringr::str_wrap(PU, width = 40), -NET_EM_RATE),
     y = ~NET_EM_RATE,
     type = "bar",
     text = ~round(NET_EM_RATE, 1),
@@ -235,7 +303,7 @@ summary_of_emission_calculation <- function(quescdb, zone, map_em, map_sq, perio
       )
     )
   ) %>%
-    layout(
+    plotly::layout(
       title = paste("Average of net emission rate", period$p1, "-", period$p2),
       xaxis = list(
         title = "",
@@ -255,23 +323,24 @@ summary_of_emission_calculation <- function(quescdb, zone, map_em, map_sq, perio
       showlegend = FALSE  
     )
   
-  total_area <- sum(az$Ha)
-  total_emission <- sum(zc$TOTAL_EM)
-  total_sequestration <- sum(zc$TOTAL_SQ)
+  # Calculate total values
+  total_area <- sum(az$Ha, na.rm = TRUE)
+  total_emission <- sum(zc$TOTAL_EM, na.rm = TRUE)
+  total_sequestration <- sum(zc$TOTAL_SQ, na.rm = TRUE)
   total_net_emission <- total_emission - total_sequestration
   total_rate_emission <- total_net_emission / p
   total_rate_emission_ha <- total_rate_emission / total_area
-
-  zc <- zc %>%
-    # mutate(Ha = print_area(Ha)) %>%
-    mutate(Ha = format(round(Ha, 2), nsmall = 2, big.mark = ",", decimal.mark = ".")) %>%
-    mutate_if(is.numeric, print_rate) %>%
-    dplyr::rename(
-      unlist(summary_zona_carbon_text_en)
-    )
-
+  
+  # Format final table
+  zc_final <- zc %>% 
+    mutate(Ha = format(round(Ha, 2), nsmall = 2, big.mark = ",", decimal.mark = ".")) %>% 
+    mutate_if(is.numeric, print_rate)
+  
+  names(zc_final)[1:length(summary_zona_carbon_text_en)] <- names(summary_zona_carbon_text_en)
+  
+  # Create summary data frame
   summary_df <- data.frame(
-    ID = c(1:7),
+    ID = 1:7,
     Category = summary_text_en,
     Summary = as.character(
       c(
@@ -285,12 +354,13 @@ summary_of_emission_calculation <- function(quescdb, zone, map_em, map_sq, perio
       )
     )
   )
-
+  
+  # Consolidate outputs
   out <- list(
     area_zone = az,
     zone_emission = ze,
     zone_sequestration = zs,
-    zone_carbon = zc,
+    zone_carbon = zc_final,
     plot_zone_carbon = zc_plot,
     total_area = total_area,
     total_emission = total_emission,
@@ -300,19 +370,48 @@ summary_of_emission_calculation <- function(quescdb, zone, map_em, map_sq, perio
     total_rate_emission_ha = total_rate_emission_ha,
     summary_df = summary_df
   )
-
+  
   return(out)
 }
 
+
+#' Calculate Zonal Statistics Database
+#'
+#' This function calculates various zonal statistics from the QUES-C database,
+#' including emission and sequestration rates by planning unit and land use change.
+#' It also generates interactive bar plots for top 10 GHG emissions and sequestration
+#' by land cover/use change.
+#'
+#' @param quescdb A data frame containing the QUES-C database. Expected columns include `ID_PU`,
+#'   `PU`, `Ha`, `C_T1`, `C_T2`, `EM` (emission), `SQ` (sequestration), and `LU_CHG`.
+#' @param period An integer representing the number of years in the analysis period.
+#' @return A list containing various data frames and plots summarizing zonal statistics:
+#'   \itemize{
+#'     \item \code{data_zone}: Data frame with average carbon and emission/sequestration rates per planning unit.
+#'     \item \code{data_zone_df}: Formatted version of `data_zone`.
+#'     \item \code{tb_em_total_10}: Data frame with top 10 total emissions by land use change.
+#'     \item \code{tb_em_total_10_summary}: Formatted version of `tb_em_total_10`.
+#'     \item \code{largest_emission}: An interactive plotly bar plot of top 10 GHG emissions.
+#'     \item \code{tb_em_zonal}: Data frame with zonal emissions by land use change.
+#'     \item \code{tb_sq_total_10}: Data frame with top 10 total sequestration by land use change.
+#'     \item \code{tb_sq_total_10_summary}: Formatted version of `tb_sq_total_10`.
+#'     \item \code{largest_sequestration}: An interactive plotly bar plot of top 10 GHG sequestration.
+#'     \item \code{tb_sq_zonal}: Data frame with zonal sequestration by land use change.
+#'   }
+#' @importFrom reshape2 melt dcast
+#' @importFrom dplyr %>% rename select mutate arrange relocate filter
+#' @importFrom stringr str_wrap
+#' @importFrom plotly plot_ly layout
+#' @export
 zonal_statistic_database <- function(quescdb, period) {
   area_zone <- quescdb %>%
-    data.table::melt(id.vars = c("ID_PU", "PU"), measure.vars = c("Ha")) %>%
-    data.table::dcast(formula = ID_PU + PU ~ ., fun.aggregate = sum) %>%
+    reshape2::melt(id.vars = c("ID_PU", "PU"), measure.vars = c("Ha")) %>%
+    reshape2::dcast(formula = ID_PU + PU ~ ., fun.aggregate = sum) %>%
     dplyr::rename(
       ID = 1,
       Ha = 3
     )
-
+  
   data_zone <- area_zone
   data_zone$Z_CODE <- toupper(abbreviate(data_zone$PU))
   data_zone$Rate_seq <- data_zone$Rate_em <- data_zone$Avg_C_t2 <- data_zone$Avg_C_t1 <- 0
@@ -321,30 +420,30 @@ zonal_statistic_database <- function(quescdb, period) {
     data_z <- quescdb[which(quescdb$PU == i), ]
     data_zone <- within(data_zone, {
       Avg_C_t1 <- ifelse(data_zone$PU == i,
-        sum(data_z$C_T1 * data_z$Ha) / sum(data_z$Ha),
-        Avg_C_t1
+                         sum(data_z$C_T1 * data_z$Ha) / sum(data_z$Ha),
+                         Avg_C_t1
       )
     })
     data_zone <- within(data_zone, {
       Avg_C_t2 <- ifelse(data_zone$PU == i,
-        sum(data_z$C_T2 * data_z$Ha) / sum(data_z$Ha),
-        Avg_C_t2
+                         sum(data_z$C_T2 * data_z$Ha) / sum(data_z$Ha),
+                         Avg_C_t2
       )
     })
     data_zone <- within(data_zone, {
       Rate_em <- ifelse(data_zone$PU == i,
-        sum(data_z$EM) / (sum(data_z$Ha) * period),
-        Rate_em
+                        sum(data_z$EM) / (sum(data_z$Ha) * period),
+                        Rate_em
       )
     })
     data_zone <- within(data_zone, {
       Rate_seq <- ifelse(data_zone$PU == i,
-        sum(data_z$SQ) / (sum(data_z$Ha) * period),
-        Rate_seq
+                         sum(data_z$SQ) / (sum(data_z$Ha) * period),
+                         Rate_seq
       )
     })
   }
-
+  
   data_zone_ori <- data_zone %>%
     dplyr::select(-Z_CODE) %>%
     mutate(
@@ -359,11 +458,11 @@ zonal_statistic_database <- function(quescdb, period) {
     dplyr::rename(
       unlist(summary_zonal_text_en)
     )
-
+  
   # data_merge_sel <- quescdb[ which((quescdb$EM + quescdb$SQ) > 0), ]
   order_sq <- quescdb[order(-quescdb$SQ), ] %>% as.data.frame()
   order_em <- quescdb[order(-quescdb$EM), ] %>% as.data.frame()
-
+  
   # total emission
   tb_em_total <- order_em$LU_CHG %>%
     cbind(as.data.frame(round(order_em$EM, digits = 3))) %>%
@@ -378,7 +477,7 @@ zonal_statistic_database <- function(quescdb, period) {
     ) %>%
     dplyr::arrange(desc(EM)) %>%
     dplyr::relocate(LU_CODE)
-
+  
   tb_em_total_10 <- tb_em_total %>%
     mutate(
       PERCENTAGE = as.numeric(format(round((EM / sum(tb_em_total$EM) * 100), 2), nsmall = 2))
@@ -394,9 +493,9 @@ zonal_statistic_database <- function(quescdb, period) {
     )
   
   # Create the largest emission plot
-  largest_em_bar <- plot_ly(
+  largest_em_bar <- plotly::plot_ly(
     data = tb_em_total_10,
-    x =  ~str_wrap(LU_CHG, width = 25),
+    x =  ~stringr::str_wrap(LU_CHG, width = 25),
     y = ~EM,
     type = "bar",
     text = "", 
@@ -411,7 +510,7 @@ zonal_statistic_database <- function(quescdb, period) {
       showscale = FALSE
     )
   ) %>%
-    layout(
+    plotly::layout(
       title = "Top 10 GHG Emissions by Land Cover/Use Change",
       xaxis = list(
         title = "",
@@ -442,7 +541,7 @@ zonal_statistic_database <- function(quescdb, period) {
             LU_CHG = 2,
             EM = 3
           )
-
+        
         a <- area_zone$PU[i]
         tb_em_z <- tb_em %>%
           dplyr::filter(PU == a) %>%
@@ -465,7 +564,7 @@ zonal_statistic_database <- function(quescdb, period) {
       }
     )
   }
-
+  
   # total sequestration
   tb_sq_total <- order_sq$LU_CHG %>%
     cbind(as.data.frame(round(order_sq$SQ, digits = 3))) %>%
@@ -480,7 +579,7 @@ zonal_statistic_database <- function(quescdb, period) {
     ) %>%
     dplyr::arrange(desc(SQ)) %>%
     dplyr::relocate(LU_CODE)
-
+  
   tb_sq_total_10 <- tb_sq_total %>%
     mutate(
       PERCENTAGE = as.numeric(format(round((SQ / sum(tb_sq_total$SQ) * 100), 2), nsmall = 2))
@@ -495,9 +594,9 @@ zonal_statistic_database <- function(quescdb, period) {
       "Percentage" = PERCENTAGE
     )
   # Create the sequestration plot
-  largest_sq_bar <- plot_ly(
+  largest_sq_bar <- plotly::plot_ly(
     data = tb_sq_total_10,
-    x =  ~str_wrap(LU_CHG, width = 25),
+    x =  ~stringr::str_wrap(LU_CHG, width = 25),
     y = ~SQ,
     type = "bar",
     text = "",
@@ -513,7 +612,7 @@ zonal_statistic_database <- function(quescdb, period) {
       showscale = FALSE
     )
   ) %>%
-    layout(
+    plotly::layout(
       title = "Top 10 GHG Sequestration by Land Cover/Use Change",
       xaxis = list(
         title = "",
@@ -544,7 +643,7 @@ zonal_statistic_database <- function(quescdb, period) {
             LU_CHG = 2,
             SQ = 3
           )
-
+        
         a <- area_zone$PU[i]
         tb_sq_z <- tb_sq %>%
           dplyr::filter(PU == a) %>%
@@ -567,7 +666,7 @@ zonal_statistic_database <- function(quescdb, period) {
       }
     )
   }
-
+  
   out <- list(
     data_zone = data_zone_ori,
     data_zone_df = data_zone_summary,
@@ -583,17 +682,20 @@ zonal_statistic_database <- function(quescdb, period) {
 }
 
 ### Required Library ####
-#' Install Required Library
+#' Install and Load Required Libraries
 #'
-#' Checks if a list of required packages are installed and loaded.
+#' Checks if a list of required packages are installed, installs them if they are not, and then loads them.
 #'
-#' @param package1 list of
-#' @param ... parameters to be passed to vector of packages
+#' @param package1 A character string of the first package name.
+#' @param ... Additional character strings of package names.
 #'
-#' @return None. This function is called for its side effects.
+#' @return None. This function is called for its side effects of installing and loading packages.
 #' @export
 #'
 #' @examples
+#' \dontrun{
+#' install_load("dplyr", "ggplot2")
+#' }
 install_load <- function(package1, ...) {
   # convert arguments to vector
   packages <- c(package1, ...)
@@ -645,30 +747,41 @@ check_and_harmonise_geometry <- function(raster_map, reference_map) {
 #' @importFrom splitstackshape expandRows
 #' @return A table or data.frame
 #' @export
+#' Generate Dummy Cross-tabulate
+#'
+#' Cross-tabulate two data.frame objects to create a contingency table of all possible combinations.
+#'
+#' @param landcover A data frame for the land cover lookup table. The first column should be the ID.
+#' @param zone A data frame for the zone lookup table. The first column should be the ID.
+#'
+#' @return A tibble with all possible combinations of land cover and zone IDs.
+#' @importFrom splitstackshape expandRows
+#' @importFrom tibble tibble
+#' @export
 generate_dummy_crosstab <- function(landcover, zone) {
   if (!is.data.frame(landcover)) {
     stop("Land cover is not a data frame")
   }
-
+  
   if (!is.data.frame(zone)) {
     stop("Zone is not a data frame")
   }
-
+  
   n_lc <- nrow(landcover)
   n_pu <- nrow(zone)
-
+  
   dummy1 <- data.frame(nPU = zone[[1]], divider = n_lc * n_lc)
   dummy1 <- splitstackshape::expandRows(dummy1, "divider")
-
+  
   dummy2 <- data.frame(nT1 = landcover[[1]], divider = n_lc)
   dummy2 <- splitstackshape::expandRows(dummy2, "divider")
   dummy2 <- data.frame(nT1 = rep(dummy2$nT1, n_pu))
-
+  
   dummy3 <- data.frame(nT2 = rep(rep(landcover[[1]], n_lc), n_pu))
-
+  
   lucDummy <- cbind(dummy1, dummy2, dummy3)
   colnames(lucDummy) <- c("ID_PU", "ID_LC1", "ID_LC2")
-  return(tibble(lucDummy))
+  return(tibble::tibble(lucDummy))
 }
 
 #' Plot a categorical raster map
@@ -685,13 +798,26 @@ generate_dummy_crosstab <- function(landcover, zone) {
 #' @importFrom ggplot2 ggplot theme_bw labs theme scale_fill_manual element_text unit element_blank guides guide_legend
 #' @importFrom tidyterra geom_spatraster scale_fill_hypso_d
 #' @export
+#' Plot a categorical raster map
+#'
+#' This function takes a raster object as input and produces a ggplot. If the raster
+#' object includes a "color_pallete" column with hex color codes, these colors are
+#' used for the fill scale. Otherwise, a default color palette is used.
+#'
+#' @param raster_object A SpatRaster object with categorical data.
+#'
+#' @return A ggplot object.
+#' @importFrom terra cats time
+#' @importFrom ggplot2 ggplot theme_bw labs theme scale_fill_manual element_text unit element_blank guides guide_legend
+#' @importFrom tidyterra geom_spatraster
+#' @export
 plot_categorical_raster <- function(raster_object) {
   # Check if raster_object has a color_pallete column and it contains hex color codes
   if ("color_palette" %in% names(terra::cats(raster_object)[[1]]) && all(grepl("^#[0-9A-Fa-f]{6}$", terra::cats(raster_object)$color_pallete))) {
-    fill_scale <- scale_fill_manual(values = terra::cats(raster_object)[[1]]$color_palette, na.value = "white")
+    fill_scale <- ggplot2::scale_fill_manual(values = terra::cats(raster_object)[[1]]$color_palette, na.value = "white")
   } else {
-    # fill_scale <- scale_fill_manual(values = c("#4E79A7", "#F28E2B", "#E15759", "#76B7B2", "#59A14F", "#EDC948", "#B07AA1", "#FF9DA7", "#9C755F","#BAB0AC"), na.value = "white")
-    fill_scale <- scale_fill_manual(values = c(
+    # fill_scale <- ggplot2::scale_fill_manual(values = c("#4E79A7", "#F28E2B", "#E15759", "#76B7B2", "#59A14F", "#EDC948", "#B07AA1", "#FF9DA7", "#9C755F","#BAB0AC"), na.value = "white")
+    fill_scale <- ggplot2::scale_fill_manual(values = c(
       "#4E79A7", "#F28E2B", "#E15759", "#76B7B2", "#59A14F",
       "#EDC948", "#B07AA1", "#FF9DA7", "#9C755F", "#BAB0AC",
       "#86BCB6", "#FFB84D", "#A5C1DC", "#D37295", "#C4AD66",
@@ -704,27 +830,27 @@ plot_categorical_raster <- function(raster_object) {
       "#D9D9D9", "#BC80BD", "#CCEBC5", "#FFED6F", "#E41A1C"
     ), na.value = "white")
   }
-  if (!is.na(time(raster_object))) {
-    plot_title <- time(raster_object)
+  if (!is.na(terra::time(raster_object))) {
+    plot_title <- terra::time(raster_object)
   } else {
     plot_title <- names(raster_object)
   }
   # Generate the plot
-  plot_lc <- ggplot() +
-    geom_spatraster(data = raster_object) +
+  plot_lc <- ggplot2::ggplot() +
+    tidyterra::geom_spatraster(data = raster_object) +
     fill_scale +
-    theme_bw() +
-    labs(title = plot_title, fill = NULL) +
-    guides(fill = guide_legend(title.position = "top", ncol = 3)) +
-    theme(
-      axis.title.x = element_blank(),
-      axis.title.y = element_blank(),
-      panel.grid.major = element_blank(),
-      panel.grid.minor = element_blank(),
-      legend.title = element_text(size = 10),
-      legend.text = element_text(size = 8),
-      legend.key.height = unit(0.25, "cm"),
-      legend.key.width = unit(0.25, "cm"),
+    ggplot2::theme_bw() +
+    ggplot2::labs(title = plot_title, fill = NULL) +
+    ggplot2::guides(fill = ggplot2::guide_legend(title.position = "top", ncol = 3)) +
+    ggplot2::theme(
+      axis.title.x = ggplot2::element_blank(),
+      axis.title.y = ggplot2::element_blank(),
+      panel.grid.major = ggplot2::element_blank(),
+      panel.grid.minor = ggplot2::element_blank(),
+      legend.title = ggplot2::element_text(size = 10),
+      legend.text = ggplot2::element_text(size = 8),
+      legend.key.height = ggplot2::unit(0.25, "cm"),
+      legend.key.width = ggplot2::unit(0.25, "cm"),
       legend.position = "bottom",
       legend.justification = c(0, 0.5)
     )
@@ -739,6 +865,16 @@ plot_categorical_raster <- function(raster_object) {
 #' @param dir Character string. Directory to save the report.
 #'
 #' @importFrom rmarkdown render
+#'
+#' @export
+#' Generate QUES-C Report
+#'
+#' Generates a report for the QUES-C analysis using R Markdown.
+#'
+#' @param output_quesc List. Output from `run_quesc_analysis`.
+#' @param dir Character string. Directory to save the report.
+#'
+#' @importFrom rmarkdown render pandoc_available
 #'
 #' @export
 generate_quesc_report <- function(output_quesc, dir) {
@@ -756,15 +892,15 @@ generate_quesc_report <- function(output_quesc, dir) {
     session_log = output_quesc$session_log
   )
   output_file <- paste0("quesc_report_", Sys.Date(), ".html")
-
+  
   #template_path <- here::here("04_quesc", "report_template", "quesc_report_template.Rmd")
-
+  
   #if (!file.exists(template_path)) {
   #  stop(paste("Template file not found at:", template_path))}
   #fun_path <- here::here("04_quesc", "rscript", "function_ques_c.R")
   #if (!file.exists(fun_path)) {
   #stop(paste("Template file not found at:", fun_path))}
-
+  
   temp_dir <- tempdir()
   
   # Copy report template and functions to temporary directory
@@ -818,77 +954,96 @@ generate_quesc_report <- function(output_quesc, dir) {
 #' @importFrom terra writeRaster resample compareGeom
 #'
 #' @export
+#' Run QUES-C Analysis
+#'
+#' Perform LUMENS module QUES-C (Carbon) analysis. This function orchestrates the entire QUES-C workflow,
+#' from loading and harmonizing input data to generating carbon, emission, and sequestration maps,
+#' creating a QUES-C database, and finally generating a comprehensive report.
+#'
+#' @param lc_t1_path Character string. Absolute path to the land cover raster for time point 1.
+#' @param lc_t2_path Character string. Absolute path to the land cover raster for time point 2.
+#' @param admin_z_path Character string. Absolute path to the administrative zones vector file (e.g., shapefile).
+#' @param c_lookup_path Character string. Absolute path to the carbon lookup table (CSV format).
+#' @param time_points List. A list with two elements, `t1` and `t2`, specifying the years for the analysis.
+#' @param output_dir Character string. Absolute path to the directory where output files (maps, database, report) will be saved.
+#' @param progress_callback Function. An optional callback function to report progress during execution.
+#'   It should accept two arguments: `progress_value` (numeric, 0 to 1) and `message` (character string).
+#'
+#' @return A list containing the results of the QUES-C analysis, including:
+#'   \itemize{
+#'     \item \code{start_time}: Character string, timestamp when the analysis started.
+#'     \item \code{end_time}: Character string, timestamp when the analysis ended.
+#'     \item \code{map_c1}: SpatRaster, carbon map for time point 1.
+#'     \item \code{map_c2}: SpatRaster, carbon map for time point 2.
+#'     \item \code{map_em}: SpatRaster, emission map.
+#'     \item \code{map_sq}: SpatRaster, sequestration map.
+#'     \item \code{ques_db}: Data frame, the QUES-C database containing detailed calculations.
+#'     \item \code{p1}: Numeric, start year of the analysis period.
+#'     \item \code{p2}: Numeric, end year of the analysis period.
+#'     \item \code{inputs}: List, a record of all input file paths used.
+#'     \item \code{session_log}: Data frame, R session information.
+#'   }
+#' @importFrom LUMENSR ques_pre add_legend_to_categorical_raster
+#' @importFrom dplyr %>% rename rename_with right_join left_join mutate
+#' @importFrom terra writeRaster resample compareGeom rast classify
+#' @importFrom sf st_read st_cast st_drop_geometry
+#' @importFrom readr read_csv
+#' @export
 run_quesc_analysis <- function(lc_t1_path, lc_t2_path, admin_z_path, c_lookup_path,
                                time_points, output_dir, progress_callback = NULL) {
+  
   start_time <- Sys.time()
   cat("Started at:", format(start_time, "%Y-%m-%d %H:%M:%S"), "\n")
   
-  # read raster
-  lc_t1_input <- raster::raster(lc_t1_path)
-  lc_t2_input <- raster::raster(lc_t2_path)
-  
-  # read polygon
-  zone_sf1 <- admin_z_path %>% st_read()
-  zone_sf <- st_cast(zone_sf1, "MULTIPOLYGON")
-  zone <- zone_sf %>% 
-    rasterise_multipolygon_quesc(
-      raster_res = res(lc_t1_input), 
-      field = paste0(colnames(st_drop_geometry(zone_sf[1]))) 
-    )
-  zone_lookup_input <- data.frame(ID_PU = zone_sf[[1]], PU = zone_sf[[2]])
-
-  
   # read table
-  df_c <- read_csv(c_lookup_path)
+  c_lookup_input <- readr::read_csv(c_lookup_path)
   
-  if(nrow(df_c) == 0)
-    return()
-  if(nrow(df_c) < 2)
-    return()
-  if(!is_numeric_str(df_c[1, 1]))
-    return()
-
-  df <- data.frame("ID_LC" = as.integer((as.character(df_c[, 1]))))
-  df$LC <- df_c[, 2]
-  df$CARBON <- df_c[, 3]
-  c_lookup_input <- df
   
   if (!is.null(progress_callback)) progress_callback(0.2, "load maps")
-
+  
   lc_t1 <- lc_t1_path %>%
-    rast() %>%
-    add_legend_to_categorical_raster(
+    terra::rast() %>%
+    LUMENSR::add_legend_to_categorical_raster(
       lookup_table = c_lookup_input,
       year = as.numeric(time_points$t1)
     )
-
+  
   lc_t2 <- lc_t2_path %>%
-    rast() %>%
-    add_legend_to_categorical_raster(
+    terra::rast() %>%
+    LUMENSR::add_legend_to_categorical_raster(
       lookup_table = c_lookup_input,
       year = as.numeric(time_points$t2)
     ) %>%
     check_and_harmonise_geometry(reference_map = lc_t1)
-
+  
+  # read polygon
+  zone_sf1 <- sf::st_read(admin_z_path)
+  zone_sf <- sf::st_cast(zone_sf1, "MULTIPOLYGON")
+  zone <- zone_sf %>%
+    rasterise_multipolygon_quesc(
+      raster_res = res(lc_t1), 
+      field = paste0(colnames(sf::st_drop_geometry(zone_sf[1]))) 
+    )
+  zone_lookup_input <- data.frame(ID_PU = zone_sf[[1]], PU = zone_sf[[2]])
+  
   zone <- zone %>%
-    add_legend_to_categorical_raster(lookup_table = zone_lookup_input) %>%
     check_and_harmonise_geometry(reference_map = lc_t1)
-
-  preques <- ques_pre(lc_t1, lc_t2, zone)
+  
+  preques <- LUMENSR::ques_pre(lc_t1, lc_t2, zone)
   period_year <- as.numeric(time_points$t1) - as.numeric(time_points$t2)
   lucDummy <- generate_dummy_crosstab(c_lookup_input, zone_lookup_input)
-
+  
   if (!is.null(progress_callback)) progress_callback(0.5, "create QUES-C database")
-
+  
   # join table
   df_lucdb <- c_lookup_input %>% dplyr::rename(ID_LC1 = 1, C_T1 = 3) %>% dplyr::select(1:3) %>%
-    rename_with(.cols = 2, ~as.character(time_points$t1)) %>% right_join(lucDummy, by="ID_LC1")
+    dplyr::rename_with(.cols = 2, ~as.character(time_points$t1)) %>% dplyr::right_join(lucDummy, by="ID_LC1")
   df_lucdb <- c_lookup_input %>% dplyr::rename(ID_LC2 = 1, C_T2 = 3) %>% dplyr::select(1:3) %>%
-    rename_with(.cols = 2, ~as.character(time_points$t2)) %>% right_join(df_lucdb, by="ID_LC2")
-  df_lucdb <- zone_lookup_input %>% dplyr::rename(ID_PU = 1) %>% 
-    rename_with(.cols = 2, ~names(zone)) %>% right_join(df_lucdb, by="ID_PU") 
-  df_lucdb <- df_lucdb %>% 
-    left_join(
+    dplyr::rename_with(.cols = 2, ~as.character(time_points$t2)) %>% dplyr::right_join(df_lucdb, by="ID_LC2")
+  df_lucdb <- zone_lookup_input %>% dplyr::rename(ID_PU = 1) %>%
+    dplyr::rename_with(.cols = 2, ~names(zone)) %>% dplyr::right_join(df_lucdb, by="ID_PU") 
+  df_lucdb <- df_lucdb %>%
+    dplyr::left_join(
       preques[["landscape_level"]][["crosstab_long"]],
       by = c(names(zone), time_points$t1, time_points$t2)
     )
@@ -896,34 +1051,34 @@ run_quesc_analysis <- function(lc_t1_path, lc_t2_path, admin_z_path, c_lookup_pa
   df_lucdb <- df_lucdb %>%
     replace(is.na(df_lucdb), 0) %>%
     dplyr::rename(PU = names(zone))
-
+  
   # create new matrix reclassification
   reclassify_matrix <- as.matrix(c_lookup_input[, 1]) %>%
-    cbind(., as.matrix(c_lookup_input[, 3])) %>%
+    cbind(., as.matrix(c_lookup_input[, 3]) ) %>%
     rbind(., c(0, NA))
-
+  
   if (!is.null(progress_callback)) progress_callback(0.7, "generate carbon, emission, and sequestration maps")
-
+  
   # create all maps
-  map_carbon1 <- lc_t1 %>% classify(reclassify_matrix)
-  map_carbon2 <- lc_t2 %>% classify(reclassify_matrix)
+  map_carbon1 <- lc_t1 %>% terra::classify(reclassify_matrix)
+  map_carbon2 <- lc_t2 %>% terra::classify(reclassify_matrix)
   map_emission <- ((map_carbon1 - map_carbon2) * 3.67) * (map_carbon1 > map_carbon2)
   map_sequestration <- ((map_carbon2 - map_carbon1) * 3.67) * (map_carbon1 < map_carbon2)
-
+  
   # quescdatabase
-  df_lucdb <- df_lucdb %>% mutate(
+  df_lucdb <- df_lucdb %>% dplyr::mutate(
     EM = (C_T1 - C_T2) * (C_T1 > C_T2) * Ha * 3.67,
     SQ = (C_T2 - C_T1) * (C_T1 < C_T2) * Ha * 3.67,
-
+    
     LU_CHG = do.call(paste, c(df_lucdb[c(as.character(time_points$t1), as.character(time_points$t2))], sep = " to "))
-
+    
   )
-
+  
   end_time <- Sys.time()
   cat("Ended at:", format(end_time, "%Y-%m-%d %H:%M:%S"), "\n")
-
+  
   session_log <- format_session_info_table()
-
+  
   out <- list(
     start_time = as.character(format(start_time, "%Y-%m-%d %H:%M:%S")),
     end_time = as.character(format(end_time, "%Y-%m-%d %H:%M:%S")),
@@ -943,34 +1098,34 @@ run_quesc_analysis <- function(lc_t1_path, lc_t2_path, admin_z_path, c_lookup_pa
     ),
     session_log = session_log
   )
-
+  
   if (!is.null(progress_callback)) progress_callback(0.9, "outputs generated and saved")
   write.table(df_lucdb,
-    paste0(output_dir, "/quesc_database.csv"),
-    quote = FALSE,
-    row.names = FALSE,
-    sep = ","
+              paste0(output_dir, "/quesc_database.csv"),
+              quote = FALSE,
+              row.names = FALSE,
+              sep = ","
   )
-  writeRaster(map_carbon1,
-    paste0(output_dir, "/carbon_map_t1.tif"),
-    overwrite = T
+  terra::writeRaster(map_carbon1,
+              paste0(output_dir, "/carbon_map_t1.tif"),
+              overwrite = T
   )
-  writeRaster(map_carbon2,
-    paste0(output_dir, "/carbon_map_t2.tif"),
-    overwrite = T
+  terra::writeRaster(map_carbon2,
+              paste0(output_dir, "/carbon_map_t2.tif"),
+              overwrite = T
   )
-  writeRaster(map_emission,
-    paste0(output_dir, "/emission_map.tif"),
-    overwrite = T
+  terra::writeRaster(map_emission,
+              paste0(output_dir, "/emission_map.tif"),
+              overwrite = T
   )
-  writeRaster(map_sequestration,
-    paste0(output_dir, "/sequestration_map.tif"),
-    overwrite = T
+  terra::writeRaster(map_sequestration,
+              paste0(output_dir, "/sequestration_map.tif"),
+              overwrite = T
   )
-
+  
   if (!is.null(progress_callback)) progress_callback(1, "generate report")
   generate_quesc_report(output_quesc = out, dir = output_dir)
-
+  
   return(out)
 }
 
@@ -1016,17 +1171,17 @@ check_and_install_packages <- function(required_packages) {
       )
     }
   }
-
+  
   # If there are missing packages, ask the user if they want to install them
   if (length(missing_packages) > 0) {
     cat("\nThe following packages are missing or could not be loaded:\n")
     cat(paste0("- ", missing_packages, "\n"))
-
+    
     install_choice <- readline(prompt = "Do you want to install/reinstall these packages? (y/n): ")
-
+    
     if (tolower(install_choice) == "y") {
       for (package in missing_packages) {
-        cat(paste0("\nAttempting to install package '", package, "'...\n"))
+        cat(paste0("\nAttempting to install package '", package, "'\n"))
         tryCatch(
           {
             install.packages(package)
