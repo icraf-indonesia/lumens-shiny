@@ -839,7 +839,7 @@ multiple_lc_freq_combined <- function(lc_dir, df_lc, PU = "NO", zone = NULL, spl
     # Extract landscape numbers from filenames
     landscape_numbers <- gsub(".*landscape(\\d+)\\.tif", "\\1", names(rst_list))
     year_labels <- landscape_numbers
-    base_pattern <- "layer_0" # refer to naming format of simulated landcover raster files
+    base_pattern <- names(rst_list[[1]])
     year_data_list <- list()
     
     # Extract data for each landscape
