@@ -157,25 +157,6 @@ for(i in 1:length(scenario_modif_list)) {
   cat('\n')
 
 }
-
-# for(i in 1:length(scenario_modif_list)) {
-#   label <- scenario_modif_list[[i]]$label
-#   scenario_modif <- scenario_modif_list[[i]]$abacus_scenario$scenario$tpm
-#   
-#   cat("### ", label, "\n\n")
-#   cat(
-#       knitr::knit_child(
-#         text = c(
-#           "```{r}",
-#           "#| echo: false",
-#           "scenario_modif %>% dplyr::select(period, zone, lc1, lc2, area) %>% datatable()",
-#           "```"
-#         ), quiet = TRUE
-#       ), sep = "\n"
-#     )
-#   cat('\n')
-#   
-# }
 ```
 
 
