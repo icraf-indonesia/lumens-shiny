@@ -174,7 +174,8 @@ plot_interactive_stacked_area(lc_freq_table_export)
 
 ### Projected Land Use/Cover Area Lookup Table
 ```{r Projected LULCC Table, echo=FALSE, message=FALSE, warning=FALSE}
-datatable(lc_freq_table)
+DT::datatable(lc_freq_table) %>%
+  DT::formatRound(columns = which(sapply(lc_freq_table, is.numeric)), digits = 1)
 ```
 
 ## Land Use/Cover Change Lookup Table at the Planning Unit Level {.tabset}
@@ -208,8 +209,9 @@ src <- lapply(seq_len(nrow(zone_df)), function(i) {
     "      autoWidth = FALSE,",
     "      scrollX = TRUE,",
     "      columnDefs = list(list(width = '100%', targets = '_all'))",
-    "    ) %>%", 
-    "    formatRound(columns = sapply(lc_proj_table, is.numeric), digits = 1)",  
+    "    )",
+    "  ) %>%",
+    "  DT::formatRound(columns = which(sapply(lc_proj_table, is.numeric)), digits = 1)",
     "} else {",
     "  cat('<div style=\"text-align: center; margin: 20px; color: #666;\">No data available for this zone.</div>')",
     "}",
