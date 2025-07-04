@@ -7,7 +7,7 @@ required_packages <- c(
   "kableExtra", "htmlTable", "knitr", "magrittr", "tidyr",
   "rlang", "stats", "utils", "methods", "sf", "ggrepel",
   "viridis", "textclean", "shiny", "shinydashboard", "shinyjs",
-  "shinyFiles", "bslib", "shinyalert"
+  "shinyFiles", "bslib", "shinyalert", "writexl"
 )
 
 
