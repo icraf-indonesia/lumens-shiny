@@ -156,8 +156,8 @@ z <- zonal_statistic_database(
   period = period
 )
 
-colnames(z$data_zone_df)[colnames(z$data_zone_df) == "Carbon Avg. (Periode 1)"] <- paste("Carbon Average", params$p1)
-colnames(z$data_zone_df)[colnames(z$data_zone_df) == "Carbon Avg. (Periode 2)"] <- paste("Carbon Average", params$p2)
+colnames(z$data_zone_df)[colnames(z$data_zone_df) == "Carbon Avg. (Periode 1)"] <- paste("Carbon Average (tonne-C ha\u207B\u00B9)", params$p1)
+colnames(z$data_zone_df)[colnames(z$data_zone_df) == "Carbon Avg. (Periode 2)"] <- paste("Carbon Average (tonne-C ha\u207B\u00B9)", params$p2)
 
 datatable(z$data_zone_df)
 ```
@@ -215,14 +215,14 @@ datatable(params$ques_db)
 
 ## Carbon density map in `r params$p1`
 
-Carbon map illustrating the distribution and amount of carbon stored in land use/cover data at `r params$p1` (in tonne-C/ha).
+Carbon map illustrating the distribution and amount of carbon stored in land use/cover data at `r params$p1` (in tonne-C ha<sup>-1</sup>).
 
 ```{r carbon_map_t1, echo=FALSE, message=FALSE, warning=FALSE}
 y <- ceiling(minmax(params$map_c1)[2] / 100)
 y <- y * 100
 plot_quesc_results(
   map = params$map_c1,
-  legend = "Carbon density (tonne-C/ha)",
+  legend = expression("Carbon Density (tonne-C ha"^-1*")"),
   low = "#FFCC66",
   high = "#003300",
   # limits = c(0,y),
@@ -236,12 +236,12 @@ plot_quesc_results(
 
 ## Carbon density map in `r params$p2`
 
-Carbon map illustrating the distribution and amount of carbon stored in land use/cover data at `r params$p2` (in tonne-C/ha).
+Carbon map illustrating the distribution and amount of carbon stored in land use/cover data at `r params$p2` (in tonne-C ha<sup>-1</sup>).
 
 ```{r carbon_map_t2, echo=FALSE, message=FALSE, warning=FALSE}
 plot_quesc_results(
   map = params$map_c2,
-  legend = "Carbon density (tonne-C/ha)",
+  legend = expression("Carbon Density (tonne-C ha"^-1*")"),
   low = "#FFCC66",
   high = "#003300",
   # limits = c(0,y),
@@ -255,12 +255,12 @@ plot_quesc_results(
 
 ## Emission map in `r params$p1`-`r params$p2`
 
-Emission map illustrating a decrease in carbon stock amount (in tonne CO2-eq/ha).
+Emission map illustrating a decrease in carbon stock amount (in tonne CO<sub>2</sub>-eq ha<sup>-1</sup>).
 
 ```{r emission_map, echo=FALSE, message=FALSE, warning=FALSE}
 plot_quesc_results(
   map = params$map_em,
-  legend = "Emission (tonne CO2-eq/ha)",
+  legend = expression("Emission (tonne CO"[2]*"-eq ha"^-1*")"),
   low = "#FFCC66",
   high = "#FF0000"
 )
@@ -268,12 +268,12 @@ plot_quesc_results(
 
 ## Sequestration map in `r params$p1`-`r params$p2`
 
-Sequestration map illustrating an increase in carbon stock amount (in tonne CO2-eq/ha).
+Sequestration map illustrating an increase in carbon stock amount (in tonne CO<sub>2</sub>-eq ha<sup>-1</sup>).
 
 ```{r sequestration_map, echo=FALSE, message=FALSE, warning=FALSE}
 plot_quesc_results(
   map = params$map_sq,
-  legend = "Sequestration (tonne CO2-eq/ha)",
+  legend = expression("Sequestration (tonne CO"[2]*"-eq ha"^-1*")"),
   low = "#FFCC66",
   high = "#000033"
 )
@@ -294,7 +294,7 @@ reclassify_matrix <- as.matrix(z$data_zone[, 1]) %>%
 z_avg_c1 <- zone_rst %>% classify(reclassify_matrix)
 plot_quesc_results(
   map = z_avg_c1,
-  legend = "Carbon Density Level (tonne-C/ha)",
+  legend = expression("Carbon Density Level (tonne-C ha"^-1*")"),
   low = "#FFCC66",
   high = "#003300"
 )
@@ -309,7 +309,7 @@ reclassify_matrix <- as.matrix(z$data_zone[, 1]) %>%
 z_avg_c2 <- zone_rst %>% classify(reclassify_matrix)
 plot_quesc_results(
   map = z_avg_c2,
-  legend = "Carbon Density Level (tonne-C/ha)",
+  legend = expression("Carbon Density Level (tonne-C ha"^-1*")"),
   low = "#FFCC66",
   high = "#003300"
 )
@@ -317,7 +317,7 @@ plot_quesc_results(
 
 ## Average Carbon Emission Rates by Planning Unit
 
-The map below shows the average carbon emission rates (tonne CO2-eq/ha.yr) across planning units, representing the release of carbon from land cover changes. Darker areas indicate higher emission levels.
+The map below shows the average carbon emission rates (tonne CO<sub>2</sub>-eq ha<sup>-1</sup> yr<sup>-1</sup>) across planning units, representing the release of carbon from land cover changes. Darker areas indicate higher emission levels.
 
 ```{r avg emission rate, echo=FALSE, message=FALSE, warning=FALSE}
 reclassify_matrix <- as.matrix(z$data_zone[, 1]) %>%
@@ -327,7 +327,7 @@ reclassify_matrix <- as.matrix(z$data_zone[, 1]) %>%
 z_em_rate <- zone_rst %>% classify(reclassify_matrix)
 plot_quesc_results(
   map = z_em_rate,
-  legend = "Emission Level (Tonne CO2-eq/ha.yr)",
+  legend = expression("Emission Level (tonne CO"[2]*"-eq ha"^-1*" yr"^-1*")"),
   low = "#FFCC66",
   high = "#003300"
 )
@@ -335,7 +335,7 @@ plot_quesc_results(
 
 ## Average Carbon Sequestration Rates by Planning Unit
 
-The map below shows the average carbon sequestration rates (tonne CO2-eq/ha.yr) across planning units, indicating increases in above-ground carbon stocks due to land cover changes. Darker greens represent higher sequestration levels.
+The map below shows the average carbon sequestration rates (tonne CO<sub>2</sub>-eq ha<sup>-1</sup> yr<sup>-1</sup>) across planning units, indicating increases in above-ground carbon stocks due to land cover changes. Darker greens represent higher sequestration levels.
 
 ```{r avg sequestration rate, echo=FALSE, message=FALSE, warning=FALSE}
 reclassify_matrix <- as.matrix(z$data_zone[, 1]) %>%
@@ -344,7 +344,7 @@ reclassify_matrix <- as.matrix(z$data_zone[, 1]) %>%
 z_sq_rate <- zone_rst %>% classify(reclassify_matrix)
 plot_quesc_results(
   map = z_sq_rate,
-  legend = "Sequestration Level (Tonne CO2-eq/ha.yr)",
+  legend = expression("Sequestration Level (tonne CO"[2]*"-eq ha"^-1*" yr"^-1*")"),
   low = "#FFCC66",
   high = "#003300"
 )
