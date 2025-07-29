@@ -12,10 +12,10 @@ start_time <- Sys.time()
 data_dir <- "D:/ICRAF/Kodingan/icraf-indonesia/lumens-shiny/07_ta-profit/rscript/tests"
 
 # File paths
-map1_path <- file.path(data_dir, "data/bungo_landcover_1990r.tif")
-map2_path <- file.path(data_dir, "data/bungo_landcover_2010r.tif")
-npv_path <- file.path(data_dir, "data/profitability_table_bungo.csv")
-carbon_path <- file.path(data_dir, "data/quesc_database.csv")
+map1_path <- file.path(data_dir, "data/NTT/NTT_2000V3F.tif")
+map2_path <- file.path(data_dir, "data/NTT/NTT_2010V3F.tif")
+npv_path <- file.path(data_dir, "data/profitability_table.csv")
+carbon_path <- file.path(data_dir, "data/NTT/quesc_database.csv")
 
 # Read raster data
 map1 <- terra::rast(map1_path)
@@ -35,7 +35,7 @@ tbl_npv <- readr::read_csv(npv_path, show_col_types = FALSE) %>%
   dplyr::select(ID_LC = 1, NPV = 3)
 
 # Additional parameters
-year1 <- 1990
+year1 <- 2000
 year2 <- 2010
 period <- year2 - year1
 raster_nodata <- 0

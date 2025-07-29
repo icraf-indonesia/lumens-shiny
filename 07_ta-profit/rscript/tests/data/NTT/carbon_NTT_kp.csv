@@ -1,0 +1,30 @@
+ID,LULC,cstock
+0,NoData,0
+1,Hutan lahan kering primer,221.6
+2,Hutan lahan kering sekunder kerapatan tinggi,110.8
+3,Hutan lahan kering sekunder kerapatan rendah,71.2
+4,Hutan mangrove primer,133
+5,Hutan mangrove sekunder,103.2
+6,Hutan tanaman cemara,117.8
+7,Jati monokultur,97.2
+8,Mahoni monokultur ,180.5
+9,Kemiri monokultur ,41.4
+11,Kenari monokultur,174.5
+12,Jambu mete monokultur,47.9
+14,Kakao agroforestri,36.7
+15,Kopi agroforestri,20.9
+16,Kelapa agroforestri,95.3
+17,Pinang agroforestri,32
+18,Kebun campuran,56.9
+19,Bambu,37.6
+20,Semak belukar,22.3
+21,Padang rumput,1.5
+22,Sawah/padi,1
+23,Jagung,0.8
+24,Tebu,3.7
+25,Pertanian lahan kering lainnya,0.16
+26,Permukiman,5.1
+27,Lahan terbuka,0
+28,Tambak ,0
+29,Badan air,0
+30,Danau,0
