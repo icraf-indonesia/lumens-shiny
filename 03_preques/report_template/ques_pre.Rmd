@@ -234,11 +234,11 @@ for (i in names(ques_pre_output[["pu_level"]])) {
 ```{r}
 traj_map <- rast(params$dir_traj_map_)
 
-lookup_traj <-
-  cats(traj_map)[[1]] %>%
-  inner_join(color_landuse_trajectories(), by = "trajectory")
+# lookup_traj <-
+#   cats(traj_map)[[1]] %>%
+  # inner_join(color_landuse_trajectories(), by = "trajectory")
 
-levels(traj_map) <- lookup_traj
+# levels(traj_map) <- lookup_traj
 set.names(traj_map, "Land Use/Cover Trajectory")
 
 traj_map %>% 

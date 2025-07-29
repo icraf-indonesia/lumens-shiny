@@ -1069,7 +1069,7 @@ run_quesc_analysis <- function(lc_t1_path, lc_t2_path, admin_z_path, c_lookup_pa
   map_carbon2 <- lc_t2 %>% terra::classify(reclassify_matrix)
   map_emission <- ((map_carbon1 - map_carbon2) * 3.67) * (map_carbon1 > map_carbon2)
   map_sequestration <- ((map_carbon2 - map_carbon1) * 3.67) * (map_carbon1 < map_carbon2)
-  
+
   # quescdatabase
   df_lucdb <- df_lucdb %>% dplyr::mutate(
     EM = (C_T1 - C_T2) * (C_T1 > C_T2) * Ha * 3.67,
@@ -1105,11 +1105,9 @@ run_quesc_analysis <- function(lc_t1_path, lc_t2_path, admin_z_path, c_lookup_pa
   )
   
   if (!is.null(progress_callback)) progress_callback(0.9, "outputs generated and saved")
-  write.table(df_lucdb,
+  readr::write_csv(df_lucdb,
               paste0(output_dir, "/quesc_database.csv"),
-              quote = FALSE,
-              row.names = FALSE,
-              sep = ","
+              quote = "needed"
   )
   terra::writeRaster(map_carbon1,
               paste0(output_dir, "/carbon_map_t1.tif"),
