@@ -18,7 +18,7 @@ summary_text_en <- c(
   "Total emission (tonne CO\u2082-eq)",
   "Total sequestration (tonne CO\u2082-eq)",
   "Net emission (tonne CO\u2082-eq)",
-  "Emission rate (tonne CO\u2082-eq ha\u207B\u00B9 yr\u207B\u00B9)",
+  "Emission rate (tonne CO\u2082-eq yr\u207B\u00B9)",
   "Emission rate per-unit area (tonne CO\u2082-eq ha\u207B\u00B9 yr\u207B\u00B9)"
 )
 
@@ -29,7 +29,7 @@ summary_text_id <- c(
   "Total Emisi (Ton CO\u2082-eq)", 
   "Total Sekuestrasi (Ton CO\u2082-eq)", 
   "Emisi Bersih (Ton CO\u2082-eq)", 
-  "Laju Emisi (Ton CO\u2082-eq ha\u207B\u00B9 tahun\u207B\u00B9)",
+  "Laju Emisi (Ton CO\u2082-eq tahun\u207B\u00B9)",
   "Laju emisi per-unit area (Ton CO\u2082-eq ha\u207B\u00B9 tahun\u207B\u00B9)"
 )
 
