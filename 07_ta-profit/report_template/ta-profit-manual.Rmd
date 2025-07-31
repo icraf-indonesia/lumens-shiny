@@ -70,8 +70,7 @@ analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
 
 # Introduction
 
-This report presents the results of a Profitability Analysis based on land-use change scenarios. The analysis focuses on assessing the net present value (NPV), opportunity costs, and carbon emissions associated with different land-use changes. This method helps evaluate the financial and environmental impacts of shifting land use and identify trade-offs between profitability and sustainability.
-
+This report presents the results of a Profitability Analysis based on land-use change scenarios. The analysis focuses on assessing the net present value (NPV) associated with different land-use changes. This approach helps evaluate the financial and environmental implications of land use transitions and supports informed decision-making that balances economic viability with sustainability goals.
 
 # Analysis Results
 
@@ -81,71 +80,161 @@ The analysis workflow involves several key steps:
 2. **Land-Use Change Analysis**: The land-use change maps were processed to assess changes in NPV.
 3. **Visualization**: Maps were generated to visually represent the spatial distribution of NPV changes. 
 
-## NPV for `r params$year1` {.tabset}
-The curve visualizes the relationship between potential financial profits and the associated carbon emissions, allowing stakeholders to better understand the trade-offs involved in different land-use strategies.
+## Summary of Net Present Value (NPV)
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+params$total_table %>%
+  as.data.frame() %>%
+  dplyr::mutate(dplyr::across(where(is.numeric), scales::label_comma())) %>%
+  DT::datatable()
+```
 
-### Plot
+### NPV for `r params$year1` {.tabset}
+This section presents the ten land cover categories with the highest total Net Present Value (NPV) in `r params$year1`, which represents the cumulative economic return (in Rupiah or USD) derived from land use activities over a given area, typically measured in hectares. NPV is a key metric in land use planning as it reflects the present value of future benefits associated with different land uses in `r params$year1`.
+
+#### Plot
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 params$npv1_chart
 ```
 
-### Table
+#### Table
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 params$npv1_table %>%
   dplyr::mutate(dplyr::across(where(is.numeric), easy_to_read_numbers)) %>%
+  rename(
+    `Land Cover 1` = LC1,
+    `Total NPV (Rupiah)` = Total_NPV1,
+    `Total Area (Ha)` = Total_Ha1
+  ) %>%
   DT::datatable(rownames = FALSE)
 ```
 
-## NPV for `r params$year2` {.tabset}
-The curve visualizes the relationship between potential financial profits and the associated carbon emissions, allowing stakeholders to better understand the trade-offs involved in different land-use strategies.
+### NPV for `r params$year2` {.tabset}
+This section presents the ten land cover categories with the highest total Net Present Value (NPV) in `r params$year2`, which represents the cumulative economic return (in Rupiah or USD) derived from land use activities over a given area, typically measured in hectares. NPV is a key metric in land use planning as it reflects the present value of future benefits associated with different land uses in `r params$year2`.
 
-### Plot
+#### Plot
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 params$npv2_chart
 ```
 
-### Table
+#### Table
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 params$npv2_table %>%
   dplyr::mutate(dplyr::across(where(is.numeric), easy_to_read_numbers)) %>%
+  rename(
+    `Land Cover 2` = LC2,
+    `Total NPV (Rupiah)` = Total_NPV2,
+    `Total Area (Ha)` = Total_Ha2
+  ) %>%
   DT::datatable(rownames = FALSE)
 ```
 
 
-## Delta NPV for `r params$year1` to `r params$year2` {.tabset}
-The curve visualizes the relationship between potential financial profits and the associated carbon emissions, allowing stakeholders to better understand the trade-offs involved in different land-use strategies.
+### Delta NPV for `r params$year1` to `r params$year2` {.tabset}
+This section presents the change in Net Present Value (ΔNPV) between the years `r params$year1` and `r params$year2`. ΔNPV reflects the difference in projected economic returns from land use across the two time periods. Positive ΔNPV values indicate an increase in profitability over time, while negative values suggest a decline. 
 
-### Plot
+#### Plot
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 params$deltaNPV_chart
 ```
 
-### Table
+#### Table
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 params$deltaNPV_table %>%
   dplyr::mutate(dplyr::across(where(is.numeric), easy_to_read_numbers)) %>%
+  rename(
+    `Land Use Change` = LULCC,
+    `ΔNPV (Rupiah)` = Total_deltaNPV,
+    `|ΔNPV| (Rupiah)` = Total_abs_deltaNPV,
+    `Total Area (Ha)` = Total_Ha2
+  ) %>%
   DT::datatable(rownames = FALSE)
 ```
 
-## Net Present Value Maps
+## Net Present Value (NPV) Distribution Maps
 The NPV Maps are critical visual outputs that illustrate the financial performance of different land-use categories at two distinct points in time. These maps help in understanding how land-use changes over time impact profitability, providing valuable insights for decision-makers seeking to balance economic and environmental factors.
 
 ### NPV Map for Year `r params$year1`
 This map serves as a baseline for understanding the initial profitability of different land uses before any land-use changes occur. The map visually displays areas with varying degrees of profitability, using color gradients to indicate the range of NPV values.
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
-plot(params$npv1_map)
+npv1_map <- ggplot() +
+  tidyterra::geom_spatraster(data = params$npv1_map) +
+  scale_fill_gradient(
+    low = "yellow",
+    high = "darkgreen",
+    na.value = "white",
+    name = "NPV"
+  ) +
+  theme_bw() +
+  theme(
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    legend.title = element_text(size = 10),
+    legend.text = element_text(size = 8),
+    legend.key.height = unit(1, "cm"),
+    legend.key.width = unit(0.25, "cm"),
+    legend.position = "right",
+    legend.justification = c(0, 0.5)
+  )
+
+npv1_map
 ```
 
 ### NPV Map for Year `r params$year2`
 This map captures how the financial value of different land uses has evolved over the analysis period due to land-use changes, policy interventions, or natural factors. Like NPV Map for Year `r params$year1`, it uses color gradients to indicate the profitability of various land areas.
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
-plot(params$npv2_map)
+npv2_map <- ggplot() +
+  tidyterra::geom_spatraster(data = params$npv2_map) +
+  scale_fill_gradient(
+    low = "yellow",
+    high = "darkgreen",
+    na.value = "white",
+    name = "NPV"
+  ) +
+  theme_bw() +
+  theme(
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    legend.title = element_text(size = 10),
+    legend.text = element_text(size = 8),
+    legend.key.height = unit(1, "cm"),
+    legend.key.width = unit(0.25, "cm"),
+    legend.position = "right",
+    legend.justification = c(0, 0.5)
+  )
+
+npv2_map
 ```
 
 ### Delta NPV Map
 This map highlights the regions where significant changes in NPV occurred due to land-use changes. Areas with high profitability shifts are marked in green, while those with reduced profitability are marked in red.
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
-plot(params$deltaNPV_map)
+deltaNPV_map <- ggplot() +
+  tidyterra::geom_spatraster(data = params$deltaNPV_map) +
+  scale_fill_gradient(
+    low = "red",
+    high = "darkgreen",
+    na.value = "white",
+    name = "NPV"
+  ) +
+  theme_bw() +
+  theme(
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    legend.title = element_text(size = 10),
+    legend.text = element_text(size = 8),
+    legend.key.height = unit(1, "cm"),
+    legend.key.width = unit(0.25, "cm"),
+    legend.position = "right",
+    legend.justification = c(0, 0.5)
+  )
+
+deltaNPV_map
 ```
 
 
@@ -160,19 +249,19 @@ render_child_pu <- function(results_list, pu_name) {
       paste0("#### Total Value Table for ", pu_name),
       "```{r}",
       "#| echo: false",
-      "results_list[[pu_name]][['total_values']] %>%",
+      "as.data.frame(results_list[[pu_name]][['total_values']]) %>%",
       "  mutate_if(is.numeric, easy_to_read_numbers) %>%",
       "  kable() %>%",
       "  kable_styling(bootstrap_options = c('striped', 'hover'))",
       "```",
       "",
-      paste0("#### Top 10 NPV1 by LC1 in ", pu_name),
+      paste0("#### Top 10 NPV by LC 1 in ", pu_name),
       "```{r}",
       "#| echo: false",
       "results_list[[pu_name]][['lc1_bar']]",
       "```",
       "",
-      paste0("#### Top 10 NPV2 by LC2 in ", pu_name),
+      paste0("#### Top 10 NPV by LC 2 in ", pu_name),
       "```{r}",
       "#| echo: false",
       "results_list[[pu_name]][['lc2_bar']]",

@@ -96,7 +96,7 @@ calculate_total_values <- function(data) {
     summarise(
       Total_NPV1 = sum(NPV1, na.rm = TRUE),
       Total_NPV2 = sum(NPV2, na.rm = TRUE),
-      Total_Delta_NPV = sum(deltaNPV, na.rm = TRUE)
+      Total_Delta_NPV = sum(deltaNPV, na.rm = TRUE) 
     )
 }
 
@@ -132,6 +132,19 @@ dissolve_lulcc <- function(data, top_n = 10) {
     mutate(LULCC = paste(LC1, "to", LC2)) %>%
     arrange(desc(Total_abs_deltaNPV)) %>%
     slice_head(n = top_n)
+}
+
+all_dissolve_lulcc <- function(data) {
+  data %>%
+    group_by(LC1, LC2) %>%
+    summarise(
+      Total_deltaNPV = sum(deltaNPV, na.rm = TRUE),
+      Total_abs_deltaNPV = sum(abs(deltaNPV), na.rm = TRUE),
+      Total_Ha2 = sum(Ha, na.rm = TRUE),
+      .groups = "drop"
+    ) %>%
+    mutate(LULCC = paste(LC1, "to", LC2)) %>%
+    arrange(desc(Total_abs_deltaNPV)) 
 }
 
 # Visualization Functions
@@ -219,7 +232,15 @@ create_lulcc_bar <- function(data, title = "Top 10 LULCC by ΔNPV") {
 
 # Planning Unit Analysis
 process_pu_data <- function(pu_data, pu_name) {
-  total_values <- calculate_total_values(pu_data) %>% t() %>% as.data.frame() %>% `colnames<-`("Nilai")
+  total_values <- calculate_total_values(pu_data) %>% 
+    as.data.frame() %>% 
+    rename(
+      `Total NPV (Year 1)` = Total_NPV1,
+      `Total NPV (Year 2)` = Total_NPV2,
+      `Total ΔNPV` = Total_Delta_NPV
+    ) %>% 
+    t() %>% 
+    `colnames<-`("Nilai (Rupiah)") 
   
   dissolved_lc1 <- dissolve_lc1(pu_data, 10)
   dissolved_lc2 <- dissolve_lc2(pu_data, 10)
@@ -239,10 +260,19 @@ process_pu_data <- function(pu_data, pu_name) {
 
 # Report Generation
 generate_report_params <- function(data, maps, paths, times, output_dir, pu_outputs) {
-  main_total_values <- calculate_total_values(data$combinedRasterTable)
+  main_total_values <- calculate_total_values(data$combinedRasterTable) %>% 
+    as.data.frame() %>% 
+    rename(
+      `Total NPV (Year 1)` = Total_NPV1,
+      `Total NPV (Year 2)` = Total_NPV2,
+      `Total ΔNPV` = Total_Delta_NPV
+    ) %>% 
+    t() %>% 
+    `colnames<-`("Nilai (Rupiah)") 
   main_dissolved_lc1 <- dissolve_lc1(data$combinedRasterTable)
   main_dissolved_lc2 <- dissolve_lc2(data$combinedRasterTable)
   main_dissolved_lulcc <- dissolve_lulcc(data$combinedRasterTable)
+  all_dissolved_lulcc <- all_dissolve_lulcc(data$combinedRasterTable)
   
   # # `combinedRasterTable` is in `data`
   # pu_list <- unique(data$combinedRasterTable$PU)
@@ -260,7 +290,7 @@ generate_report_params <- function(data, maps, paths, times, output_dir, pu_outp
     total_table = main_total_values,
     npv1_table = main_dissolved_lc1,
     npv2_table = main_dissolved_lc2,
-    deltaNPV_table = main_dissolved_lulcc,
+    deltaNPV_table = all_dissolved_lulcc,
     npv1_chart = create_lc1_bar(main_dissolved_lc1),
     npv2_chart = create_lc2_bar(main_dissolved_lc2),
     deltaNPV_chart = create_lulcc_bar(main_dissolved_lulcc),
