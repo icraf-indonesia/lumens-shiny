@@ -621,6 +621,24 @@ run_sciendo_simulate_process <- function(lc_t1_path, lc_lookup_table_path, lc_lo
   start_time <- Sys.time()
   cat("Started at:", format(start_time, "%Y-%m-%d %H:%M:%S"), "\n")
   
+  # Conditional state to select tpm_path
+  files <- list.files(
+    path = tm_path,
+    full.names = TRUE,
+    ignore.case = TRUE
+  )
+  
+  xlsm_files <- files[grep("\\.xlsm$", files, ignore.case = TRUE)]
+  
+  # Conditional report
+  if (length(xlsm_files) > 0) {
+    # Convert .xlsm files into long data format
+    matrix_to_tpm(tm_path, lc_lookup_table, output_dir)
+    tm_path <- file.path(output_dir, "scenario_tpm")
+  } else {
+    message("No .xlsm files found. Using non-macro TPM")
+  }
+  
   if (!is.null(progress_callback)) progress_callback(0.3, "generate egoml: initialize simulation per region parameters")
   out_sim <- generate_egoml_simulate(lc_t1_path, lc_lookup_table, 
                                      zone_path, ers_path, n_rep,
@@ -1299,4 +1317,134 @@ abbreviate_by_column <- function(df, col_names = NULL, remove_vowels= FALSE) {
   }
   
   return(df)
+}
+
+#' Convert Macro's Format Transition Probability Matrices (TPM) to Long Data CSV Format
+#'
+#' Processes Excel (.xlsm) files containing transition probability matrices, 
+#' cleans the data, converts land cover names to IDs, and saves them as 
+#' standardized CSV files in long format.
+#'
+#' @param input_folder_path Character. Path to the folder containing .xlsm files.
+#' @param lc_lookup Data frame. Lookup table with columns `ID` (numeric) and `LC` (land cover names).
+#' @param output_dir Character. Directory where output CSV files will be saved (subfolder `/scenario_tpm` will be created).
+#'
+#' @return Invisibly returns a list of processed file paths. Side effect: Saves cleaned CSV files to `output_dir/scenario_tpm/`.
+#'
+#' @details
+#' - Skips empty datasets and files with errors (logs messages).
+#' - Removes totals (last row/column) and zero-rate transitions.
+#' - Converts land cover names to IDs using fuzzy matching (case-insensitive, whitespace-trimmed).
+#' - Output CSV columns: `From*`, `To*`, `Rate`.
+#'
+#' @examples
+#' \dontrun{
+#' lc_lookup <- data.frame(
+#'   ID = 1:3,
+#'   LC = c("Forest", "Urban", "Cropland")
+#' )
+#' matrix_to_tpm(
+#'   input_folder_path = "path/to/xlsm_files",
+#'   lc_lookup = lc_lookup,
+#'   output_dir = "output"
+#' )
+#' }
+#'
+#' @importFrom readxl read_excel
+#' @importFrom dplyr mutate rename filter
+#' @importFrom tidyr pivot_longer
+#' @importFrom tools file_path_sans_ext
+#' @export
+matrix_to_tpm <- function(input_folder_path, lc_lookup, output_dir) {
+  # Create output directory if it doesn't exist
+  tpm_dir <- file.path(output_dir, "scenario_tpm")
+  dir.create(tpm_dir, recursive = TRUE, showWarnings = FALSE)
+  
+  # Get list of files
+  xlsm_files <- list.files(
+    path = input_folder_path,
+    pattern = "\\.xlsm$",
+    full.names = TRUE,
+    ignore.case = TRUE
+  )
+  
+  # Early return if no files found
+  if (length(xlsm_files) == 0) {
+    message("No .xlsm files found in: ", input_folder_path)
+    return(invisible(NULL))
+  }
+  
+  # Function to clean and match land cover names to IDs
+  convert_to_id <- function(data, lc_lookup) {
+    clean_text <- function(x) tolower(trimws(gsub("\\s+", " ", as.character(x))))
+    
+    lc_lookup_clean <- lc_lookup %>%
+      mutate(LC_clean = clean_text(LC))
+    
+    # Get row names (first column)
+    row_names <- clean_text(data[[1]])
+    row_ids <- lc_lookup_clean$ID[match(row_names, lc_lookup_clean$LC_clean)]
+    
+    # Get column names (excluding first column)
+    col_names <- clean_text(colnames(data)[-1])
+    col_ids <- lc_lookup_clean$ID[match(col_names, lc_lookup_clean$LC_clean)]
+    
+    list(row_ids = row_ids, col_ids = col_ids)
+  }
+  
+  processed_files <- character(0)
+  
+  # Process each file
+  for (xlsm_path in xlsm_files) {
+    message("\nProcessing: ", basename(xlsm_path))
+    
+    tryCatch({
+      # Read the data
+      data <- read_excel(xlsm_path, sheet = 1, col_names = TRUE) %>% 
+        as.data.frame()
+      
+      # Skip if empty
+      if (nrow(data) == 0) {
+        message("Empty dataset in file: ", basename(xlsm_path))
+        next
+      }
+      
+      # Convert to IDs
+      ids <- convert_to_id(data, lc_lookup)
+      
+      # Replace with IDs
+      data[[1]] <- ids$row_ids
+      colnames(data)[-1] <- ids$col_ids
+      
+      # Remove last row and column (typically totals)
+      data <- data[-nrow(data), -ncol(data), drop = FALSE]
+      
+      # Convert to long format
+      long_data <- data %>%
+        pivot_longer(
+          cols = -1,
+          names_to = "To*",
+          values_to = "Rate",
+          values_transform = list(Rate = as.numeric)
+        ) %>%
+        rename("From*" = 1) %>%
+        filter(
+          `From*` != `To*`,
+          !is.na(Rate),
+          Rate != 0,
+          !is.na(`From*`),
+          !is.na(`To*`)
+        )
+      
+      clean_name <- gsub("_macros", "", basename(xlsm_path))
+      out_file <- file.path(tpm_dir, sub("\\.xlsm$", ".csv", clean_name))
+      write.csv(long_data, out_file, row.names = FALSE, quote = FALSE)
+      processed_files <- c(processed_files, out_file)
+      
+    }, error = function(e) {
+      message("Error processing ", basename(xlsm_path), ": ", e$message)
+    })
+  }
+  
+  invisible(processed_files)
 }
