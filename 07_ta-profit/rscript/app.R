@@ -2,6 +2,8 @@ source('../../helper.R')
 
 library(shiny)
 library(shinyjs)
+library(shinyalert)
+library(rmarkdown)
 library(bslib)
 library(terra)
 library(dplyr)
@@ -301,8 +303,7 @@ server <- function(input, output, session) {
     if(input$alert) {
       js$closeWindow()
       message("Return to main menu!")  
-      # Uncomment the following line if you want to stop the app after a delay
-      # shinyjs::delay(1000, stopApp())
+      shinyjs::delay(1000, stopApp())
     }
   })
   

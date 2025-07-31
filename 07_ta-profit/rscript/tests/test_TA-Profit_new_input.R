@@ -7,14 +7,14 @@ library(purrr)
 library(RColorBrewer)
  
 # INPUT ####
-pathLULCT1 <- "data/raster/bungo_landcover_1990r.tif"
-pathLULCT2 <- "data/raster/bungo_landcover_2000r.tif"
+pathLULCT1 <- "C:/users/ykarimah/Downloads/New TA/data/01Raster/lc_1990.tif"
+pathLULCT2 <- "C:/users/ykarimah/Downloads/New TA/data/01Raster/lc_2000.tif"
 valueT1 <- 1990
 valueT2 <- 2000
-pathLookupCstock <- "data/table/carbon_bungo.csv"
-pathPU <- "data/raster/bungo_zone.tif"
-pathLookupPU<- "data/table/zone_table_bungo.csv"
-pathLookupNPV<- "data/table/profitability_table_bungo.csv"
+pathLookupCstock <- "C:/users/ykarimah/Downloads/New TA/data/03Tabular/C-Stock.csv"
+pathPU <- "C:/users/ykarimah/Downloads/New TA/data/01Raster/PolaRuangSumsel_F.tif"
+pathLookupPU<- "C:/users/ykarimah/Downloads/New TA/data/03Tabular/tabel_pola_ruang.csv"
+pathLookupNPV<- "C:/users/ykarimah/Downloads/New TA/data/03Tabular/tabel_acuan_NPV_idr.csv"
 output_dir <- "C:/users/ykarimah/Downloads/New TA/Dry run LUMENS/"
 
 # Start timing
