@@ -33,11 +33,13 @@ preprocess_data <- function(pathLULCT1, pathLULCT2, pathPU,
   LULCT1 <- terra::rast(pathLULCT1)
   LookupCstock <- readr::read_csv(pathLookupCstock)
   levels(LULCT1) <- LookupCstock
+  LULCT1 <- setNames(LULCT1, "LC1")
   if (!is.null(valueT1)) terra::time(LULCT1, tstep = "years") <- as.numeric(valueT1)
   
   # Load and process LULC T2
   LULCT2 <- terra::rast(pathLULCT2)
   levels(LULCT2) <- LookupCstock
+  LULCT2 <- setNames(LULCT2, "LC2")
   if (!is.null(valueT2)) terra::time(LULCT2, tstep = "years") <- as.numeric(valueT2)
   
   # Load and process PU
@@ -133,7 +135,7 @@ dissolve_lulcc <- function(data, top_n = 10) {
 }
 
 # Visualization Functions
-create_lc1_bar <- function(data, title = "Top 10 Total NPV1 by LC1") {
+create_lc1_bar <- function(data, title = "Top 10 Total NPV by LC1") {
   plotly::plot_ly(
     data = data,
     x = ~stringr::str_wrap(LC1, width = 25),
@@ -141,8 +143,8 @@ create_lc1_bar <- function(data, title = "Top 10 Total NPV1 by LC1") {
     type = "bar",
     hoverinfo = "text",
     hovertext = ~paste(
-      "Land Cover Class (LC1):", LC1, "<br>", 
-      "Total NPV1:", format(Total_NPV1, big.mark = ",", scientific = FALSE)
+      "Land Cover Class (LC 1):", LC1, "<br>", 
+      "Total NPV:", format(Total_NPV1, big.mark = ",", scientific = FALSE)
     ),
     marker = list(
       color = ~Total_NPV1,
@@ -153,13 +155,13 @@ create_lc1_bar <- function(data, title = "Top 10 Total NPV1 by LC1") {
     plotly::layout(
       title = title,
       xaxis = list(title = "", categoryorder = "total descending", tickangle = -270),
-      yaxis = list(title = "Total NPV1", tickformat = ",.0f"),
+      yaxis = list(title = "Total NPV", tickformat = ",.0f"),
       margin = list(b = 150),
       hoverlabel = list(bgcolor = "white", font = list(color = "black"))
     )
 }
 
-create_lc2_bar <- function(data, title = "Top 10 Total NPV2 by LC2") {
+create_lc2_bar <- function(data, title = "Top 10 Total NPV by LC2") {
   plotly::plot_ly(
     data = data,
     x = ~stringr::str_wrap(LC2, width = 25),
@@ -167,8 +169,8 @@ create_lc2_bar <- function(data, title = "Top 10 Total NPV2 by LC2") {
     type = "bar",
     hoverinfo = "text",
     hovertext = ~paste(
-      "Land Cover Class (LC2):", LC2, "<br>", 
-      "Total NPV2:", format(Total_NPV2, big.mark = ",", scientific = FALSE)
+      "Land Cover Class (LC 2):", LC2, "<br>", 
+      "Total NPV:", format(Total_NPV2, big.mark = ",", scientific = FALSE)
     ),
     marker = list(
       color = ~Total_NPV2,
@@ -179,7 +181,7 @@ create_lc2_bar <- function(data, title = "Top 10 Total NPV2 by LC2") {
     plotly::layout(
       title = title,
       xaxis = list(title = "", categoryorder = "total descending", tickangle = -270),
-      yaxis = list(title = "Total NPV2", tickformat = ",.0f"),
+      yaxis = list(title = "Total NPV", tickformat = ",.0f"),
       margin = list(b = 150),
       hoverlabel = list(bgcolor = "white", font = list(color = "black"))
     )
@@ -223,8 +225,8 @@ process_pu_data <- function(pu_data, pu_name) {
   dissolved_lc2 <- dissolve_lc2(pu_data, 10)
   dissolved_lulcc <- dissolve_lulcc(pu_data, 10)
   
-  lc1_bar <- create_lc1_bar(dissolved_lc1, paste("Top 10 NPV1 by LC1 in PU:", pu_name))
-  lc2_bar <- create_lc2_bar(dissolved_lc2, paste("Top 10 NPV2 by LC2 in PU:", pu_name))
+  lc1_bar <- create_lc1_bar(dissolved_lc1, paste("Top 10 NPV by LC 1 in PU:", pu_name))
+  lc2_bar <- create_lc2_bar(dissolved_lc2, paste("Top 10 NPV by LC 2 in PU:", pu_name))
   lulcc_bar <- create_lulcc_bar(dissolved_lulcc, paste("Top 10 ΔNPV in PU:", pu_name))
   
   list(
