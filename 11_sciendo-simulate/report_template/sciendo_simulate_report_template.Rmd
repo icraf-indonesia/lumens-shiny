@@ -40,6 +40,10 @@ library(plotly)
 library(scales)
 library(ggthemes)
 library(rlang)
+library(conflicted)
+conflict_prefer("layout", "plotly") 
+conflict_prefer("filter", "dplyr")
+conflict_prefer("select", "dplyr") 
 ```
 
 <details>

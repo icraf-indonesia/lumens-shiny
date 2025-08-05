@@ -1,17 +1,27 @@
+library(conflicted)
+
+conflict_prefer("xml_find_all", "xml2")
+conflict_prefer("filter", "dplyr")
+conflict_prefer("select", "dplyr")
+conflict_prefer("extract", "tidyr")
+
 source('function_sciendo_simulate.R')
 source('../../helper.R')
+options(repos = c(CRAN = "https://cloud.r-project.org"))
 
 install_load(
   "shinyFiles", "shinyvalidate", "shinyjs", "bslib", "sf", "raster",
   "dplyr", "remotes", "rmarkdown", "XML", "splitstackshape", "shinyalert",
   "terra", "tibble", "ggplot2", "magrittr", "tidyr", "tidyterra", "DT",
-  "readr", "plotly", "scales", "ggthemes", "rlang", "xml2", "tidyverse"
+  "readr", "plotly", "scales", "ggthemes", "rlang", "xml2", "tidyverse",
+  "readxl", "openxlsx", "openxlsx2", "conflicted"
 )
 
 if (!("LUMENSR" %in% rownames(installed.packages()))) {
   install_github("icraf-indonesia/LUMENSR", force = T)
   do.call("library", list("LUMENSR"))
 }
+
 library(LUMENSR)
 
 ui <- fluidPage(
@@ -190,13 +200,13 @@ server <- function(input, output, session) {
     }
     
     # convert xml PU table into dataframe
-    xml_data <- read_xml(rv$rc_xml)
+    xml_data <- xml2::read_xml(rv$rc_xml)  
     
     pu_classes <- xml_data %>%
-      xml_find_all(".//PUClasses/Class") %>%
-      map_df(~ tibble(
-        ID = xml_attr(., "ID"),
-        PU = xml_attr(., "PU"))
+      xml2::xml_find_all(".//PUClasses/Class") %>% 
+      purrr::map_df(~ tibble(
+        ID = xml2::xml_attr(., "ID"),
+        PU = xml2::xml_attr(., "PU"))
       )
     
     rv$zone_df <- pu_classes
