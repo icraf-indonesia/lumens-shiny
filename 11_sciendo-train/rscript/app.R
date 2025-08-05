@@ -4,7 +4,7 @@ source('../../helper.R')
 install_load(
   "shinyFiles", "shinyvalidate", "shinyjs", "bslib", "sf", "raster",
   "dplyr", "remotes", "rmarkdown", "XML", "splitstackshape", "shinyalert",
-  "usdm", "corrplot"
+  "usdm", "corrplot", "tidyr", "openxlsx", "openxlsx2", "RDCOMClient", "XML", "xml2"
 )
 
 if (!("LUMENSR" %in% rownames(installed.packages()))) {

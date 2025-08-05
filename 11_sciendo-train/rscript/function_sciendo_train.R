@@ -1728,6 +1728,8 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir) {
     output_dir <- dirname(output_dir)
   }
   
+  lc_lookup_table <- read.csv(lc_lookup_path)
+  
   macro_dir <- file.path(output_dir, "baseline_tpm_macro")
   dir.create(macro_dir, recursive = TRUE, showWarnings = FALSE)
   
@@ -1762,7 +1764,7 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir) {
     
     # Pivot to wide format
     wide_df <- complete_grid %>%
-      pivot_wider(
+      tidyr::pivot_wider(
         names_from = To., 
         values_from = Rate,
         values_fill = 0
