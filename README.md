@@ -1,3 +1,6 @@
+
+<img width="5760" height="2412" alt="logo_white" src="https://github.com/user-attachments/assets/973f9221-43d8-4c4b-9b41-915e055dce98" />
+
 # LUMENS (Land Use Planning for Multiple Environmental Services)
 
 ## Overview
