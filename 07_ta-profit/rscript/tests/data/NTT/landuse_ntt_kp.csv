@@ -1,0 +1,30 @@
+ID,LULC,ID_Traj,Trajectory,color_palette
+0,NoData,0,Lainnya,#FFFFFF
+1,Hutan lahan kering primer,1,Hutan primer,#006400
+2,Hutan lahan kering sekunder kerapatan tinggi,2,Hutan sekunder,#228B22
+3,Hutan lahan kering sekunder kerapatan rendah,2,Hutan sekunder,#32CD32
+4,Hutan mangrove primer,1,Hutan primer,#008000
+5,Hutan mangrove sekunder,2,Hutan sekunder,#66CDAA
+6,Hutan tanaman cemara,10,Hutan tanaman monokultur,#8B4513
+7,Jati monokultur,3,Perkebunan berbasis-pohon monokultur,#A0522D
+8,Mahoni monokultur ,4,Perkebunan berbasis-pohon monokultur,#CD853F
+9,Kemiri monokultur ,5,Perkebunan berbasis-pohon monokultur,#DEB887
+11,Kenari monokultur,6,Perkebunan berbasis-pohon monokultur,#D2B48C
+12,Jambu mete monokultur,7,Perkebunan berbasis-pohon monokultur,#F4A460
+14,Kakao agroforestri,6,Tanaman agroforestri/kebun campur,#D2691E
+15,Kopi agroforestri,7,Tanaman agroforestri/kebun campur,#8B4513
+16,Kelapa agroforestri,8,Tanaman agroforestri/kebun campur,#A0522D
+17,Pinang agroforestri,9,Tanaman agroforestri/kebun campur,#CD853F
+18,Kebun campuran,10,Tanaman agroforestri/kebun campur,#D2B48C
+19,Bambu,9,Tanaman monokultur,#9ACD32
+20,Semak belukar,4,"Semak belukar, rerumputan, dan lahan terbuka",#DAA520
+21,Padang rumput,4,"Semak belukar, rerumputan, dan lahan terbuka",#808000
+22,Sawah/padi,5,Lahan pertanian tanaman semusim,#7CFC00
+23,Jagung,9,Tanaman monokultur,#FFD700
+24,Tebu,9,Tanaman monokultur,#FFA500
+25,Pertanian lahan kering lainnya,5,Lahan pertanian tanaman semusim,#ADFF2F
+26,Permukiman,8,Permukiman dan lahan terbangun,#FF0000
+27,Lahan terbuka,4,"Semak belukar, rerumputan, dan lahan terbuka",#D3D3D3
+28,Tambak ,7,Lainnya,#00CED1
+29,Badan air,7,Lainnya,#0000FF
+30,Danau,7,Lainnya,#1E90FF
