@@ -1,10 +1,12 @@
 source('function_sciendo_train.R')
 source('../../helper.R')
 
+options(repos = c(CRAN = "https://cloud.r-project.org"))
+
 install_load(
   "shinyFiles", "shinyvalidate", "shinyjs", "bslib", "sf", "raster",
   "dplyr", "remotes", "rmarkdown", "XML", "splitstackshape", "shinyalert",
-  "usdm", "corrplot", "tidyr", "openxlsx", "openxlsx2", "RDCOMClient", "XML", "xml2"
+  "usdm", "corrplot", "tidyr", "openxlsx", "openxlsx2", "XML", "xml2"
 )
 
 if (!("LUMENSR" %in% rownames(installed.packages()))) {

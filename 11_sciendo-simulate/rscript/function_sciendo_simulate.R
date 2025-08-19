@@ -1417,8 +1417,8 @@ matrix_to_tpm <- function(input_folder_path, lc_lookup, output_dir) {
       data[[1]] <- ids$row_ids
       colnames(data)[-1] <- ids$col_ids
       
-      # Remove last row and column (typically totals)
-      data <- data[-nrow(data), -ncol(data), drop = FALSE]
+      # Remove only the last column (typically totals column), keep all rows
+      data <- data[, -ncol(data), drop = FALSE]
       
       # Convert to long format
       long_data <- data %>%

@@ -910,7 +910,7 @@ run_sciendo_train_process <- function(lc_t1_path, lc_t2_path, zone_path, lc_look
   period <- as.numeric(time_points$t2) - as.numeric(time_points$t1)
   egoml_mtx_file <- generate_egoml_transition_matrix(lc_t1_path, lc_t2_path, zone_path, period, output_dir, egoml = "00_sciendo_baseline_tpm")
   run_dinamica_transition_matrix(dinamica_path, output_dir, egoml_mtx_file, memory_allocation)
-  
+
   # Convert TPM long format to wide format
   macro_dir <- file.path(output_dir, "baseline_tpm_macro")
   tpm_input_dir <- file.path(output_dir, "baseline_tpm")
@@ -919,24 +919,11 @@ run_sciendo_train_process <- function(lc_t1_path, lc_t2_path, zone_path, lc_look
     tpm_to_matrix_conversion(
       input_dir = tpm_input_dir,
       lc_lookup_path = lc_lookup_table_path,
-      output_dir = macro_dir
+      output_dir = macro_dir,
+      template_path = "../macro_template/macro_template.xlsm"
     )
   }, error = function(e) {
     stop("TPM conversion failed: ", e$message)
-  })
-  
-  # Embed VBA script to TPM table and export to .xlsm
-  tryCatch({
-    batch_embed_vba(macro_dir)
-  }, error = function(e) {
-    stop("VBA embedding failed: ", e$message)
-  })
-  
-  # Remove .xlsx files generated from the conversion
-  tryCatch({
-    remove_xlsx_files_silent(macro_dir)
-  }, error = function(e) {
-    warning("Failed to clean up .xlsx files: ", e$message)
   })
   
   if (!is.null(progress_callback)) progress_callback(0.2, "generate egoml: raster cube generation")
@@ -1223,471 +1210,17 @@ add_pu_classes_to_pam <- function(output_dir, pu_classes, overwrite = TRUE) {
   })
 }
 
-#' Batch embed VBA code into Excel files
-#'
-#' Processes all .xlsx files in a directory, embedding VBA code to create interactive
-#' transition probability matrices and saving them as .xlsm files.
-#'
-#' @param input_folder_path Character string specifying the directory containing input .xlsx files.
-#'
-#' @return Invisibly returns a list with two elements:
-#' \itemize{
-#'   \item `successful_files`: Character vector of successfully processed files
-#'   \item `failed_files`: Character vector of files that failed to process
-#' }
-#' 
-#' @details This function performs the following operations:
-#' \enumerate{
-#'   \item Validates the input directory exists
-#'   \item Finds all .xlsx files in the directory
-#'   \item For each file:
-#'   \itemize{
-#'     \item Creates a macro-enabled (.xlsm) version
-#'     \item Embeds VBA code for matrix manipulation
-#'     \item Adds worksheet change event handlers
-#'   }
-#'   \item Tracks and reports success/failure for each file
-#' }
-#'
-#' @section VBA Functionality:
-#' The embedded VBA code provides:
-#' \itemize{
-#'   \item Matrix initialization with backup sheet creation
-#'   \item Automatic adjustment of transition probabilities when cells are modified
-#'   \item Cell locking to preserve user modifications
-#'   \item Row sum validation to ensure probabilities sum to 1
-#'   \item Reset functionality to restore original values
-#' }
-#'
-#' @examples
-#' \dontrun{
-#' # Process all Excel files in a directory
-#' batch_embed_vba("path/to/excel/files")
-#' }
-#'
-#' @importFrom tools file_path_sans_ext
-#' @export
-batch_embed_vba <- function(input_folder_path) {
-  if (!dir.exists(input_folder_path)) {
-    stop("Input folder does not exist: ", input_folder_path)
-  }
-  
-  xlsx_files <- list.files(path = input_folder_path,
-                           pattern = "\\.xlsx$",
-                           full.names = TRUE,
-                           ignore.case = TRUE)
-  
-  if (length(xlsx_files) == 0) {
-    message("No .xlsx files found in folder: ", input_folder_path)
-    return(invisible(NULL))
-  }
-  
-  # Initialize counters
-  successful_files <- character(0)
-  failed_files <- character(0)
-  
-  # Process each file
-  for (i in seq_along(xlsx_files)) {
-    input_file <- xlsx_files[i]
-    
-    # Generate output filename (replace .xlsx with .xlsm)
-    output_file <- sub("\\.xlsx$", ".xlsm", input_file, ignore.case = TRUE)
-    
-    cat(sprintf("\n[%d/%d] Processing: %s\n", i, length(xlsx_files), basename(input_file)))
-    
-    # Process the file
-    tryCatch({
-      embed_vba_and_save(input_file, output_file)
-      successful_files <- c(successful_files, basename(input_file))
-      cat("Success: ", basename(input_file), " -> ", basename(output_file), "\n")
-    }, error = function(e) {
-      failed_files <- c(failed_files, basename(input_file))
-      cat("Failed: ", basename(input_file), " - Error: ", e$message, "\n")
-    })
-  }
-}
-
-#' Embed VBA code into a single Excel file
-#'
-#' Internal function used by `batch_embed_vba` to process individual files.
-#' Embeds comprehensive VBA code for transition probability matrix manipulation.
-#'
-#' @param input_xlsx Path to the input .xlsx file
-#' @param output_xlsm Path for the output .xlsm file
-#'
-#' @return Invisible NULL. The function's primary effect is creating the output file.
-#'
-#' @details This function:
-#' \enumerate{
-#'   \item Reads the input Excel file
-#'   \item Creates a COM connection to Excel
-#'   \item Adds VBA modules with matrix manipulation code
-#'   \item Adds worksheet change event handlers
-#'   \item Saves as macro-enabled workbook
-#' }
-#'
-#' @section COM Automation Notes:
-#' The function uses Excel COM automation which:
-#' \itemize{
-#'   \item Runs Excel invisibly in the background
-#'   \item Requires proper Excel installation
-#'   \item May trigger security warnings in some Excel configurations
-#' }
-#'
-#' @keywords internal
-embed_vba_and_save <- function(input_xlsx, output_xlsm) {
-  # Validate input file exists
-  if (!file.exists(input_xlsx)) {
-    stop("Input file does not exist: ", input_xlsx)
-  }
-  
-  # Check and install required packages
-  if (!require(RDCOMClient)) {
-    install.packages("RDCOMClient", repos = "http://www.omegahat.net/R")
-    library(RDCOMClient)
-  }
-  
-  if (!require(openxlsx2)) {
-    install.packages("openxlsx2")
-    library(openxlsx2)
-  }
-  
-  # Read xlsx input
-  tbl <- read_xlsx(input_xlsx, sheet = 1)
-  n_rows <- nrow(tbl) # rows exclude header
-  n_cols <- ncol(tbl) - 1
-  end_col <- int2col(n_cols)
-  cell_range <- paste0("B2:", end_col, n_rows)
-  
-  module_code <- paste0("
-  Option Explicit
-  
-  ' Global variables
-  Public OriginalMatrix As Variant
-  Public MatrixRange As Range
-  Public IsUpdating As Boolean
-  Public LockedCells As Collection ' Tracks user-modified cells
-  
-  ' Initialize the matrix
-  Sub InitializeLULCMatrix()
-      Dim ws As Worksheet
-      Dim lastRow As Long, lastCol As Long
-      Dim backupSheet As Worksheet
-  
-      Set ws = ActiveSheet
-      IsUpdating = False
-      Set LockedCells = New Collection
-  
-      ' Create duplicate sheet as backup
-      ws.Copy After:=ws
-      Set backupSheet = ActiveSheet
-      backupSheet.Name = ws.Name & \"_Original\"
-  
-      ' Go back to original sheet
-      ws.Activate
-  
-      ' Find matrix range (excluding headers and sum columns)
-      lastRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row - 1 ' Exclude bottom row
-      lastCol = ws.Cells(1, ws.Columns.Count).End(xlToLeft).Column - 1 ' Exclude rightmost column
-  
-      Set MatrixRange = ws.Range(ws.Cells(2, 2), ws.Cells(lastRow, lastCol))
-  
-      ' Save initial state
-      OriginalMatrix = MatrixRange.Value
-  
-      ' Clear any existing formatting
-      MatrixRange.Interior.Color = xlNone
-  
-      MsgBox \"Matrix initialized! Original sheet duplicated as '\" & backupSheet.Name & \"'. You can now edit cells. Modified cells will be locked from automatic adjustment.\"
-  End Sub
-  
-  ' Reset matrix to original state
-  Sub ResetMatrix()
-      If MsgBox(\"Reset matrix to original state?\", vbYesNo) = vbYes Then
-          IsUpdating = True
-          MatrixRange.Value = OriginalMatrix
-  
-          ' Clear locked cells collection and formatting
-          Set LockedCells = New Collection
-          MatrixRange.Interior.Color = xlNone
-  
-          IsUpdating = False
-          UpdateAllRowSums
-          MsgBox \"Matrix reset complete. All cell locks have been cleared.\"
-      End If
-  End Sub
-  
-  ' Handle cell changes
-  Sub HandleCellChange(Target As Range)
-      If IsUpdating Or Target.Cells.Count > 1 Then Exit Sub
-      If Intersect(Target, MatrixRange) Is Nothing Then Exit Sub
-  
-      Dim rowNum As Long, colNum As Long
-      rowNum = Target.Row - MatrixRange.Row + 1
-      colNum = Target.Column - MatrixRange.Column + 1
-  
-      ' Validate input
-      If Not IsNumeric(Target.Value) Or Target.Value < 0 Or Target.Value > 1 Then
-          IsUpdating = True
-          Target.Value = OriginalMatrix(rowNum, colNum)
-          IsUpdating = False
-          MsgBox \"Invalid value! Please enter a number between 0 and 1.\"
-          Exit Sub
-      End If
-  
-      Dim newValue As Double, oldValue As Double, difference As Double
-      newValue = Target.Value
-      oldValue = OriginalMatrix(rowNum, colNum)
-      difference = newValue - oldValue
-  
-      ' Check if this change would violate the locked cells constraint
-      If Not ValidateLockedCellsSum(rowNum, colNum, newValue) Then
-          IsUpdating = True
-          Target.Value = oldValue
-          IsUpdating = False
-          Exit Sub
-      End If
-  
-      ' Mark this cell as user-modified (locked)
-      AddToLockedCells rowNum, colNum
-  
-      ' Highlight locked cell
-      Target.Interior.Color = RGB(255, 255, 200) ' Light yellow
-  
-      ' Distribute difference to other cells in the row
-      IsUpdating = True
-      DistributeDifference rowNum, colNum, difference
-      UpdateRowSum rowNum
-  
-      ' Update original matrix
-      OriginalMatrix = MatrixRange.Value
-      IsUpdating = False
-  End Sub
-  
-  ' Validate that locked cells' sum doesn't exceed 1
-  Function ValidateLockedCellsSum(rowNum As Long, colNum As Long, newValue As Double) As Boolean
-      Dim i As Long
-      Dim lockedSum As Double
-      Dim cellKey As String
-  
-      ' Calculate sum of all locked cells in the row (including the new value for current cell)
-      For i = 1 To MatrixRange.Columns.Count
-          cellKey = rowNum & \",\" & i
-  
-          ' Check if this cell is locked (or will be locked — current cell)
-          If IsCellLocked(rowNum, i) Or i = colNum Then
-              If i = colNum Then
-                  lockedSum = lockedSum + newValue
-              Else
-                  lockedSum = lockedSum + MatrixRange.Cells(rowNum, i).Value
-              End If
-          End If
-      Next i
-  
-      ' Check if locked sum would exceed 1
-      If lockedSum > 1.000001 Then ' Small tolerance for floating point errors
-          Dim message As String
-          message = \"Cannot modify this cell!\" & vbCrLf & vbCrLf
-          message = message & \"The sum of locked cells in this row would be \" & Format(lockedSum, \"0.000\") & vbCrLf
-          message = message & \"which exceeds the maximum allowed value of 1.000.\" & vbCrLf & vbCrLf
-          message = message & \"Please:\" & vbCrLf
-          message = message & \"1. Enter a smaller value, OR\" & vbCrLf
-          message = message & \"2. First reduce the values of other locked cells in this row, then try again.\"
-  
-          MsgBox message, vbExclamation, \"Row Sum Constraint Violation\"
-          ValidateLockedCellsSum = False
-      Else
-          ValidateLockedCellsSum = True
-      End If
-  End Function
-  
-  ' Distribute difference proportionally across the row
-  Sub DistributeDifference(rowNum As Long, excludeCol As Long, difference As Double)
-      Dim i As Long
-      Dim totalOthers As Double
-      Dim unlocked() As Boolean
-      Dim unlockedCount As Long
-  
-      ' Initialize unlocked array and count unlocked cells
-      ReDim unlocked(1 To MatrixRange.Columns.Count)
-      unlockedCount = 0
-  
-      For i = 1 To MatrixRange.Columns.Count
-          If i <> excludeCol And Not IsCellLocked(rowNum, i) Then
-              unlocked(i) = True
-              totalOthers = totalOthers + MatrixRange.Cells(rowNum, i).Value
-              unlockedCount = unlockedCount + 1
-          End If
-      Next i
-  
-      ' If no unlocked cells or total is zero, cannot distribute
-      If unlockedCount = 0 Or totalOthers = 0 Then Exit Sub
-  
-      ' Distribute proportionally only to unlocked cells
-      Dim adjustFactor As Double
-      adjustFactor = (totalOthers - difference) / totalOthers
-  
-      ' Ensure adjustment factor doesn't make values negative
-      If adjustFactor < 0 Then adjustFactor = 0
-  
-      For i = 1 To MatrixRange.Columns.Count
-          If unlocked(i) Then
-              Dim newVal As Double
-              newVal = MatrixRange.Cells(rowNum, i).Value * adjustFactor
-              ' Ensure no negative values
-              If newVal < 0 Then newVal = 0
-              MatrixRange.Cells(rowNum, i).Value = newVal
-          End If
-      Next i
-  End Sub
-  
-  ' Update row sum in the rightmost column
-  Sub UpdateRowSum(rowNum As Long)
-      Dim rowSum As Double
-      Dim i As Long
-  
-      For i = 1 To MatrixRange.Columns.Count
-          rowSum = rowSum + MatrixRange.Cells(rowNum, i).Value
-      Next i
-  
-      ' Update sum cell
-      Cells(MatrixRange.Row + rowNum - 1, MatrixRange.Column + MatrixRange.Columns.Count).Value = rowSum
-  End Sub
-  
-  ' Update all row sums
-  Sub UpdateAllRowSums()
-      Dim i As Long
-      For i = 1 To MatrixRange.Rows.Count
-          UpdateRowSum i
-      Next i
-  End Sub
-  
-  ' Add cell to locked collection
-  Sub AddToLockedCells(rowNum As Long, colNum As Long)
-      Dim cellKey As String
-      cellKey = rowNum & \",\" & colNum
-  
-      ' Remove if already exists to avoid duplicates
-      On Error Resume Next
-      LockedCells.Remove cellKey
-      On Error GoTo 0
-  
-      ' Add to collection
-      LockedCells.Add cellKey, cellKey
-  End Sub
-  
-  ' Check if cell is locked
-  Function IsCellLocked(rowNum As Long, colNum As Long) As Boolean
-      Dim cellKey As String
-      cellKey = rowNum & \",\" & colNum
-  
-      On Error Resume Next
-      Dim temp As String
-      temp = LockedCells(cellKey)
-      IsCellLocked = (Err.Number = 0)
-      On Error GoTo 0
-  End Function
-  
-  ' Optional: Function to unlock a specific cell (for manual unlocking if needed)
-  Sub UnlockCell(Target As Range)
-      If Intersect(Target, MatrixRange) Is Nothing Then
-          MsgBox \"Please select a cell within the matrix range.\"
-          Exit Sub
-      End If
-  
-      Dim rowNum As Long, colNum As Long
-      rowNum = Target.Row - MatrixRange.Row + 1
-      colNum = Target.Column - MatrixRange.Column + 1
-  
-      Dim cellKey As String
-      cellKey = rowNum & \",\" & colNum
-  
-      ' Remove from locked collection
-      On Error Resume Next
-      LockedCells.Remove cellKey
-      On Error GoTo 0
-  
-      ' Remove highlighting
-      Target.Interior.Color = xlNone
-  
-      MsgBox \"Cell unlocked successfully.\"
-  End Sub
-  ")
-  
-  
-  # Worksheet change event code
-  worksheet_code <- paste0("
-  Private Sub Worksheet_Change(ByVal Target As Range)
-    HandleCellChange Target
-  End Sub
-  ")
-  
-  # Create Excel instance invisibly
-  xl <- tryCatch({
-    COMCreate("Excel.Application")
-  }, error = function(e) {
-    stop("Failed to create Excel instance. Is Excel installed? Error: ", e$message)
-  })
-  
-  # Configure Excel to run invisibly
-  xl[["Visible"]] <- FALSE
-  xl[["DisplayAlerts"]] <- FALSE
-  xl[["ScreenUpdating"]] <- FALSE
-  
-  tryCatch({
-    # Open workbook
-    wb <- xl[["Workbooks"]]$Open(normalizePath(input_xlsx))
-    
-    # Enable macro creation
-    xl[["AutomationSecurity"]] <- 1  # msoAutomationSecurityLow
-    
-    # Access VBA project
-    vb_project <- wb[["VBProject"]]
-    vb_components <- vb_project[["VBComponents"]]
-    
-    # Add standard module
-    std_module <- vb_components$Add(1)  # vbext_ct_StdModule
-    std_module[["Name"]] <- "PriorMatrixModule"
-    code_module <- std_module[["CodeModule"]]
-    code_module$AddFromString(module_code)
-    
-    # Add worksheet event code to Sheet1
-    sheet1_component <- vb_components$Item("Sheet1")
-    sheet1_code_module <- sheet1_component[["CodeModule"]]
-    sheet1_code_module$AddFromString(worksheet_code)
-    
-    # Enable events
-    xl[["EnableEvents"]] <- TRUE
-    
-    # Save as macro-enabled workbook
-    output_path <- normalizePath(output_xlsm, mustWork = FALSE)
-    wb$SaveAs(output_path, FileFormat = 52)
-    
-    cat("Data range configured:", cell_range, "\n")
-    
-  }, error = function(e) {
-    stop("Error during VBA embedding: ", e$message)
-  }, finally = {
-    # Cleanup Excel
-    if (exists("wb") && !is.null(wb)) {
-      wb$Close(FALSE)
-    }
-    xl[["ScreenUpdating"]] <- TRUE
-    xl$Quit()
-    rm(xl)
-    gc()
-  })
-}
 
 #' Convert Long Format Transition Probability Matrices (TPM) to Wide Format Matrix TPM
 #'
 #' This function processes Transition Probability Matrix (TPM) CSV files, converts them to properly 
-#' formatted matrices with land cover labels, and saves them as Excel files with additional 
+#' formatted matrices with land cover labels, and saves them to .xlsm template files with additional 
 #' calculations and formatting.
 #'
 #' @param input_dir Character string specifying the directory containing input CSV files.
 #' @param lc_lookup_path Character string specifying the path to the land cover lookup table CSV file.
 #' @param output_dir Character string specifying the directory where output Excel files will be saved.
+#' @param template_path Character string specifying the path to the .xlsm template file.
 #'
 #' @details The function performs the following operations:
 #' \enumerate{
@@ -1697,30 +1230,44 @@ embed_vba_and_save <- function(input_xlsx, output_xlsm) {
 #'     \item Creates a complete matrix with all possible land cover transitions
 #'     \item Calculates diagonal values (persistence probabilities) as 1 minus row sums
 #'     \item Applies land cover labels from the lookup table
+#'     \item Copies the .xlsm template file for each output
+#'     \item Writes the matrix data to the template copy
 #'     \item Adds row and column sums with formatting
 #'     \item Highlights diagonal cells (persistence probabilities)
 #'   }
-#'   \item Saves each processed matrix as an Excel file with formulas and formatting
+#'   \item Saves each processed matrix as a .xlsm file (preserving VBA macros)
 #' }
 #'
-#' @return Invisible NULL. The function primarily produces Excel files as output.
+#' @return Invisible NULL. The function primarily produces .xlsm files as output.
 #'
 #' @examples
 #' \dontrun{
 #' tpm_to_matrix_conversion(
 #'   input_dir = "path/to/input/csv/files",
 #'   lc_lookup_path = "path/to/lookup_table.csv",
-#'   output_dir = "path/to/output/directory"
+#'   output_dir = "path/to/output/directory",
+#'   template_path = "path/to/template.xlsm"
 #' )
 #' }
 #'
-#' @importFrom openxlsx createWorkbook addWorksheet writeData writeFormula 
-#' @importFrom openxlsx saveWorkbook createStyle addStyle
+#' @importFrom openxlsx2 wb_load wb_save wb_add_data wb_add_fill wb_add_font
+#' @importFrom openxlsx2 wb_add_border wb_add_numfmt
 #' @importFrom tidyr pivot_wider expand_grid
 #' @importFrom dplyr select mutate left_join arrange
 #' @importFrom tools file_path_sans_ext
 #' @export
-tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir) {
+tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, template_path) {
+  # Load required libraries
+  if (!require(openxlsx2, quietly = TRUE)) {
+    stop("openxlsx2 package is required. Please install it with: install.packages('openxlsx2')")
+  }
+  if (!require(dplyr, quietly = TRUE)) {
+    stop("dplyr package is required. Please install it with: install.packages('dplyr')")
+  }
+  if (!require(tidyr, quietly = TRUE)) {
+    stop("tidyr package is required. Please install it with: install.packages('tidyr')")
+  }
+  
   # Normalize paths to avoid issues
   output_dir <- normalizePath(output_dir, winslash = "/")
   
@@ -1729,12 +1276,17 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir) {
     output_dir <- dirname(output_dir)
   }
   
+  # Check if template file exists
+  if (!file.exists(template_path)) {
+    stop("Template file not found: ", template_path)
+  }
+  
   lc_lookup_table <- read.csv(lc_lookup_path)
   
   macro_dir <- file.path(output_dir, "baseline_tpm_macro")
   dir.create(macro_dir, recursive = TRUE, showWarnings = FALSE)
   
-  message("Macros will be saved to: ", macro_dir)  # Debugging
+  message("Macros will be saved to: ", macro_dir)
   
   tpm_dinamica <- list.files(path = input_dir, pattern = "\\.csv$", full.names = TRUE)
   
@@ -1745,8 +1297,8 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir) {
     
     # Prepare the matrix data and get all unique IDs from both From and To columns
     matrix1 <- matrix1 %>%
-      select(-X) %>%  # drop the unused column
-      mutate(
+      dplyr::select(-X) %>%  # drop the unused column
+      dplyr::mutate(
         From. = as.numeric(From.),
         To. = as.numeric(To.),
         Rate = as.numeric(Rate)
@@ -1760,8 +1312,8 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir) {
       From. = all_ids,
       To. = all_ids
     ) %>%
-      left_join(matrix1, by = c("From.", "To.")) %>%
-      mutate(Rate = ifelse(is.na(Rate), 0, Rate))
+      dplyr::left_join(matrix1, by = c("From.", "To.")) %>%
+      dplyr::mutate(Rate = ifelse(is.na(Rate), 0, Rate))
     
     # Pivot to wide format
     wide_df <- complete_grid %>%
@@ -1770,7 +1322,7 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir) {
         values_from = Rate,
         values_fill = 0
       ) %>%
-      arrange(From.)  # sort rows by From.
+      dplyr::arrange(From.)  # sort rows by From.
     
     # Reorder columns numerically
     ordered_cols <- sort(as.numeric(names(wide_df)[-1]))
@@ -1780,10 +1332,53 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir) {
     result_matrix <- as.matrix(wide_df[, -1])
     rownames(result_matrix) <- wide_df$From.
     
-    # Calculate diagonal values (1 minus sum of row)
+    # Calculate diagonal values and normalize rows
     for(i in 1:nrow(result_matrix)) {
-      row_sum <- sum(result_matrix[i, -i])  # sum of all elements except diagonal
-      result_matrix[i, i] <- max(0, 1 - row_sum)  # set diagonal and ensure non-negative
+      # First, set diagonal to 0 temporarily
+      result_matrix[i, i] <- 0
+      
+      # Calculate sum of off-diagonal elements
+      row_sum_off_diag <- sum(result_matrix[i, ])
+      
+      # If off-diagonal sum is >= 1, proportionally scale them down
+      if (row_sum_off_diag >= 1) {
+        # Scale off-diagonal elements to sum to 0.999999
+        if (row_sum_off_diag > 0) {
+          result_matrix[i, ] <- result_matrix[i, ] * (0.999999 / row_sum_off_diag)
+        }
+        result_matrix[i, i] <- 0.000001  # Small persistence probability
+      } else {
+        # Normal case: set diagonal to make row sum = 1
+        result_matrix[i, i] <- 1 - row_sum_off_diag
+      }
+      
+      # Force exact normalization to handle floating point precision
+      current_row_sum <- sum(result_matrix[i, ])
+      if (current_row_sum > 0) {
+        result_matrix[i, ] <- result_matrix[i, ] / current_row_sum
+      }
+      
+      # Final precision check - adjust the largest element if needed
+      final_sum <- sum(result_matrix[i, ])
+      if (abs(final_sum - 1) > .Machine$double.eps) {
+        # Find the largest element and adjust it
+        max_idx <- which.max(result_matrix[i, ])
+        result_matrix[i, max_idx] <- result_matrix[i, max_idx] + (1 - final_sum)
+      }
+    }
+    
+    # Verify that all rows sum to exactly 1 (for debugging)
+    row_sums <- rowSums(result_matrix)
+    max_deviation <- max(abs(row_sums - 1))
+    message("Maximum deviation from 1: ", format(max_deviation, scientific = TRUE))
+    
+    if (any(abs(row_sums - 1) > 1e-10)) {
+      warning("Some rows do not sum to exactly 1 in file: ", basename(tpm))
+      problematic_rows <- which(abs(row_sums - 1) > 1e-10)
+      for (row_idx in problematic_rows) {
+        message("Row ", row_idx, " (", rownames(result_matrix)[row_idx], ") sum: ", 
+                format(row_sums[row_idx], digits = 15))
+      }
     }
     
     # Apply land cover labels
@@ -1794,122 +1389,147 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir) {
     col_labels <- lc_lookup_table$LC[match(col_ids, lc_lookup_table$ID)]
     colnames(result_matrix) <- col_labels
     
-    # Convert matrix to data frame
+    # Convert matrix to data frame for writing
     output_df <- as.data.frame(result_matrix)
     output_df <- cbind(rownames(output_df), output_df)
     colnames(output_df)[1] <- ""
     
-    # Create a workbook
-    wb1 <- createWorkbook()
-    addWorksheet(wb1, "Sheet1")
-    writeData(wb1, sheet = 1, output_df, rowNames = FALSE)
+    # Define output file path
+    output_file <- file.path(macro_dir, paste0(base_name, "_macros.xlsm"))
     
-    # Get dimensions
-    n_rows <- nrow(output_df)
-    n_cols <- ncol(output_df)
-    row_names <- output_df[,1]
-    col_names <- colnames(output_df)[-1] 
+    # Copy template to output location first
+    file.copy(template_path, output_file, overwrite = TRUE)
+    message("Copied template to: ", output_file)
     
-    # Add row sum formulas
-    for (i in 1:n_rows) {
-      formula <- paste0("SUM(B", i+1, ":", LETTERS[n_cols], i+1, ")")
-      writeFormula(wb1, sheet = 1, x = formula, startCol = n_cols+1, startRow = i+1)
-    }
-    writeData(wb1, sheet = 1, x = "Grand Total", startCol = n_cols+1, startRow = 1)
-    
-    for (j in 2:n_cols) {  
-      formula <- paste0("SUM(", LETTERS[j], "2:", LETTERS[j], n_rows+1, ")")
-      writeFormula(wb1, sheet = 1, x = formula, startCol = j, startRow = n_rows+2)
-    }
-    writeData(wb1, sheet = 1, x = "Grand Total", startCol = 1, startRow = n_rows+2)
-    
-    # Add sum formula for the grand total (bottom-right cell)
-    grand_total_formula <- paste0("SUM(", LETTERS[n_cols+1], "2:", LETTERS[n_cols+1], n_rows+1, ")")
-    writeFormula(wb1, sheet = 1, x = grand_total_formula, startCol = n_cols+1, startRow = n_rows+2)
-    
-    sum_style <- createStyle(fontColour = "#FFFFFF", fgFill = "#4F81BD", halign = "right")
-    diagonal_style <- createStyle(fontColour = "#000000", fgFill = "#FFD700", halign = "center")
-    
-    # Apply style
-    addStyle(wb1, sheet = 1, style = sum_style, 
-             rows = 2:(n_rows+2), cols = n_cols+1, gridExpand = TRUE)
-    addStyle(wb1, sheet = 1, style = sum_style, 
-             rows = n_rows+2, cols = 1:(n_cols+1), gridExpand = TRUE)
-    
-    # Highlight diagonal cells (where row name = column name)
-    for (i in 1:n_rows) {
-      row_name <- row_names[i]
-      for (j in 2:n_cols) { 
-        col_name <- col_names[j-1]
-        if (row_name == col_name) {
-          addStyle(wb1, sheet = 1, style = diagonal_style, 
-                   rows = i+1, cols = j) 
+    # Load the workbook using
+    tryCatch({
+      wb <- wb_load(output_file)
+      message("Successfully loaded workbook")
+      
+      # Get the first sheet name
+      sheet_name <- wb$get_sheet_names()[1]
+      
+      n_rows <- nrow(output_df)
+      n_cols <- ncol(output_df)
+      row_names <- output_df[,1]
+      col_names <- colnames(output_df)[-1] 
+      
+      # Write the main data starting from A1
+      wb <- wb$add_data(
+        sheet = sheet_name,
+        x = output_df,
+        start_col = 1,
+        start_row = 1,
+        col_names = TRUE,
+        row_names = FALSE
+      )
+      
+      # Add "Grand Total" header in the last column of row 1
+      wb <- wb$add_data(
+        sheet = sheet_name,
+        x = "Grand Total",
+        start_col = n_cols + 1,
+        start_row = 1,
+        col_names = FALSE,
+        row_names = FALSE
+      )
+      
+      # Calculate and add row sums
+      for (i in 1:n_rows) {
+        # Calculate actual row sum from the matrix
+        actual_row_sum <- sum(as.numeric(output_df[i, -1]))
+        wb <- wb$add_data(
+          sheet = sheet_name,
+          x = actual_row_sum,
+          start_col = n_cols + 1,
+          start_row = i + 1,
+          col_names = FALSE,
+          row_names = FALSE
+        )
+      }
+      
+      # Add column sums in the last row
+      # col_sums <- c("Grand Total", colSums(output_df[, -1]), sum(colSums(output_df[, -1])))
+      # wb <- wb$add_data(
+      #   sheet = sheet_name,
+      #   x = t(col_sums),
+      #   start_col = 1,
+      #   start_row = n_rows + 2,
+      #   col_names = FALSE,
+      #   row_names = FALSE
+      # )
+      
+      # Apply formatting
+      # Style for sum cells (light blue background)
+      sum_fill <- wb$add_fill(fgColor = "lightblue")
+      
+      # Style for diagonal cells (yellow background)
+      diagonal_fill <- wb$add_fill(fgColor = "yellow")
+      
+      # Apply light blue background to row sum cells (column n_cols+1, rows 2 to n_rows+1)
+      wb <- wb$add_fill(
+        sheet = sheet_name,
+        dims = paste0(openxlsx2::int2col(n_cols + 1), "2:", openxlsx2::int2col(n_cols + 1), n_rows + 1),
+        color = wb_color("lightblue")
+      )
+      
+      # Apply light blue background to column sum cells (row n_rows+2, all columns)
+      wb <- wb$add_fill(
+        sheet = sheet_name,
+        dims = paste0("A", n_rows + 2, ":", openxlsx2::int2col(n_cols + 1), n_rows + 2),
+        color = wb_color("lightblue")
+      )
+      
+      # Apply yellow highlighting to diagonal cells
+      for (i in 1:n_rows) {
+        row_name <- row_names[i]
+        for (j in 2:n_cols) {
+          col_name <- col_names[j-1]
+          if (row_name == col_name) {
+            # Convert to Excel cell reference
+            cell_ref <- paste0(openxlsx2::int2col(j), i + 1)
+            wb <- wb$add_fill(
+              sheet = sheet_name,
+              dims = cell_ref,
+              color = wb_color("yellow")
+            )
+          }
         }
       }
-    }
-    
-    # Save workbook
-    output_file <- file.path(macro_dir, paste0(base_name, "_macros.xlsx"))
-    saveWorkbook(wb1, output_file, overwrite = TRUE)
-    
-    message("Processed: ", tpm, " -> Saved to: ", output_file)
+      
+      # Format numeric cells to show 3 decimal places
+      # Format the data range (excluding headers and labels)
+      data_range <- paste0("B2:", openxlsx2::int2col(n_cols), n_rows + 1)
+      wb <- wb$add_numfmt(
+        sheet = sheet_name,
+        dims = data_range,
+        numfmt = "0.000"
+      )
+      
+      # Format sum cells
+      # sum_col_range <- paste0(openxlsx2::int2col(n_cols + 1), "2:", openxlsx2::int2col(n_cols + 1), n_rows + 2)
+      # wb <- wb$add_numfmt(
+      #   sheet = sheet_name,
+      #   dims = sum_col_range,
+      #   numfmt = "0.000"
+      # )
+      
+      sum_row_range <- paste0("B", n_rows + 2, ":", openxlsx2::int2col(n_cols), n_rows + 2)
+      wb <- wb$add_numfmt(
+        sheet = sheet_name,
+        dims = sum_row_range,
+        numfmt = "0.000"
+      )
+      
+      # Save the workbook
+      wb$save(output_file)
+      message("Processed: ", tpm, " -> Saved to: ", output_file)
+      
+    }, error = function(e) {
+      message("Error processing file with openxlsx2: ", e$message)
+      message("Skipping file: ", tpm)
+    })
   }
   
   message("\nAll files processed successfully!")
-}
-
-#' Remove All .xlsx Files from a Directory
-#'
-#' This function identifies and removes all Excel files (.xlsx extension) from a specified directory
-#' without any user confirmation. Use with caution as this operation is irreversible.
-#'
-#' @param directory Character string specifying the path to the directory where .xlsx files should be removed.
-#' @param verbose Logical indicating whether to print messages about the operation. Default is FALSE.
-#'
-#' @return Invisibly returns a character vector of the removed files (or NULL if none were found).
-#'         Primarily called for its side effect of removing files.
-#'
-#' @examples
-#' \dontrun{
-#' # Remove all .xlsx files in a directory silently
-#' remove_xlsx_files_silent("C:/path/to/your/folder")
-#' }
-#'
-#' @export
-remove_xlsx_files_silent <- function(directory, verbose = FALSE) {
-  # Validate directory exists
-  if (!dir.exists(directory)) {
-    stop("The specified directory does not exist or is not accessible: ", directory)
-  }
-  
-  # List all files in the directory
-  all_files <- list.files(path = directory, full.names = TRUE, recursive = FALSE)
-  
-  # Identify .xlsx files (case insensitive)
-  xlsx_files <- all_files[grepl("\\.xlsx$", all_files, ignore.case = TRUE)]
-  
-  # Check if any .xlsx files were found
-  if (length(xlsx_files) == 0) {
-    if (verbose) message("No .xlsx files found in the directory.")
-    return(invisible(NULL))
-  }
-  
-  if (verbose) {
-    message("Removing the following .xlsx files:")
-    message(paste(xlsx_files, collapse = "\n"))
-  }
-  
-  removal_result <- file.remove(xlsx_files)
-  
-  # Check results
-  if (verbose) {
-    if (all(removal_result)) {
-      message(paste("Successfully removed", length(xlsx_files), ".xlsx file(s)"))
-    } else {
-      failed_files <- xlsx_files[!removal_result]
-      warning("Failed to remove some files: \n", paste(failed_files, collapse = "\n"))
-    }
-  }
-  
-  invisible(xlsx_files[removal_result])
 }

@@ -1,0 +1,7 @@
+Private Sub Workbook_Open()
+    ' Enable macros and create the initialize button and text box when workbook opens
+    Application.EnableEvents = True
+    
+    ' Create the initialize button on the active sheet
+    CreateInitializeButton
+End Sub
