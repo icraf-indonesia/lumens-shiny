@@ -36,10 +36,15 @@ ui <- fluidPage(
       fileInput("lulc_t2", "Land cover map at T2", accept = c("image/tiff", ".tif")),
       textInput("year2", "Year of T2", value = "2000"),
       fileInput("pu_raster", "Planning Unit Raster", accept = c("image/tiff", ".tif")),
-      fileInput("npv_table", "NPV lookup table", accept = c(".csv")),
-      fileInput("cstock_table", "Carbon Stock lookup table", accept = c(".csv")),
       fileInput("pu_table", "Planning Unit lookup table", accept = c(".csv")),
-      
+      fileInput("npv_table", "NPV lookup table", accept = c(".csv")),
+      selectInput(
+        inputId = "currency",
+        label = "Select a Currency:",
+        choices = c("IDR", "USD", "EUR", "JPY"),
+        selected = "IDR"
+      ),
+      # fileInput("cstock_table", "Carbon Stock lookup table", accept = c(".csv")),
       div(style = "display: flex; flex-direction: column; gap: 10px;",
           shinyDirButton("wd", "Select Output Directory", "Please select a directory"),
           textOutput("selected_directory"),
@@ -90,13 +95,14 @@ server <- function(input, output, session) {
     map1_file_path = NULL,
     map2_file_path = NULL,
     npv_file_path = NULL,
-    carbon_file_path = NULL,
+    # carbon_file_path = NULL,
     pu_table_path = NULL,
     npv1_map = NULL,
     npv2_map = NULL,
     deltaNPV_map = NULL,
     year1 = NULL,
-    year2 = NULL
+    year2 = NULL,
+    currency = NULL
   )
   
   #' Directory selection
@@ -143,10 +149,11 @@ server <- function(input, output, session) {
   observe({
     rv$lulc_t1 <- input$lulc_t1
     rv$lulc_t2 <- input$lulc_t2
-    rv$cstock_table <- input$cstock_table
+    # rv$cstock_table <- input$cstock_table
     rv$npv_table <- input$npv_table
     rv$pu_raster <- input$pu_raster
     rv$pu_table <- input$pu_table
+    rv$currency <- input$currency
   })
   
   # Input validation
@@ -154,10 +161,11 @@ server <- function(input, output, session) {
     validate(
       need(rv$lulc_t1, "Please upload Land Use/Cover T1 file"),
       need(rv$lulc_t2, "Please upload Land Use/Cover T2 file"),
-      need(rv$cstock_table, "Please upload Carbon Stock Lookup Table (CSV) file"),
+      # need(rv$cstock_table, "Please upload Carbon Stock Lookup Table (CSV) file"),
       need(rv$npv_table, "Please upload NPV Lookup Table (CSV) file"),
       need(rv$pu_raster, "Please upload Planning Units Raster"),
       need(rv$pu_table, "Please upload Planning Units Lookup Table (CSV) file"),
+      need(rv$currency, "Please select your currency"),
       need(rv$wd != "", "Please select an output directory")
     )
     TRUE
@@ -180,7 +188,7 @@ server <- function(input, output, session) {
           pathLULCT1 = input$lulc_t1$datapath,
           pathLULCT2 = input$lulc_t2$datapath,
           pathPU = input$pu_raster$datapath,
-          pathLookupCstock = input$cstock_table$datapath,
+          # pathLookupCstock = input$cstock_table$datapath,
           pathLookupPU = input$pu_table$datapath,
           pathLookupNPV = input$npv_table$datapath,
           valueT1 = input$year1,
@@ -193,7 +201,7 @@ server <- function(input, output, session) {
         paths <- list(
           pathLULCT1 = input$lulc_t1$datapath,
           pathLULCT2 = input$lulc_t2$datapath,
-          pathLookupCstock = input$cstock_table$datapath,
+          # pathLookupCstock = input$cstock_table$datapath,
           pathLookupNPV = input$npv_table$datapath,
           pathLookupPU = input$pu_table$datapath
         )
@@ -203,23 +211,25 @@ server <- function(input, output, session) {
         pu_outputs <- list()
         for (pu_name in pu_list) {
           pu_data <- result$combinedRasterTable %>% filter(PU == pu_name)
-          pu_outputs[[pu_name]] <- process_pu_data(pu_data, pu_name)
+          pu_outputs[[pu_name]] <- process_pu_data(pu_data, pu_name, input$currency)
         }
         
+        # And update the main chart generation:
         params <- generate_report_params(
           data = result,
           maps = result,
           paths = paths,
           times = times,
           pu_outputs = pu_outputs,
-          output_dir = rv$wd
+          output_dir = rv$wd,
+          currency = input$currency 
         )
         
         output_file <- paste0("ta-profit_report_", format(Sys.time(), "%Y-%m-%d_%H-%M-%S"), ".html")
         report_path <- file.path(rv$wd, output_file)
         
         rmarkdown::render(
-          input = "../report_template/ta-profit.Rmd",
+          input = "../report_template/ta-profit-ID.Rmd",
           output_file = report_path,
           params = params,
           envir = new.env(parent = globalenv()),
