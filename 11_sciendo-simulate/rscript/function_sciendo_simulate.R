@@ -269,18 +269,19 @@ generate_sciendo_simulate_report <- function(output, dir) {
 
 executeDINAMICA <- function(params, memory_allocation) {
   # Find DINAMICA directory if not provided
-  if (is.null(params$dinamica_path) | identical(params$dinamica_path, character(0))) {
-    program_files <- c("C:/Program Files/", "C:/Program Files (x86)/")
-    dinamica_dirs <- list.files(program_files, pattern = "^Dinamica EGO", full.names = TRUE)
-    
-    if (length(dinamica_dirs) == 0) {
-      stop("No DINAMICA EGO installation found.")
-    }
-    
-    # Sort directories to use the latest version if multiple are found
-    dinamica_path <- sort(dinamica_dirs, decreasing = TRUE)[1]
-  }
+  # if (is.null(params$dinamica_path) | identical(params$dinamica_path, character(0))) {
+  #   program_files <- c("C:/Program Files/", "C:/Program Files (x86)/")
+  #   dinamica_dirs <- list.files(program_files, pattern = "^Dinamica EGO", full.names = TRUE)
+  #   
+  #   if (length(dinamica_dirs) == 0) {
+  #     stop("No DINAMICA EGO installation found.")
+  #   }
+  #   
+  #   # Sort directories to use the latest version if multiple are found
+  #   dinamica_path <- sort(dinamica_dirs, decreasing = TRUE)[1]
+  # }
   
+  dinamica_path <- params$dinamica_path
   message(paste("Using DINAMICA EGO installation:", dinamica_path))
   
   # Check if DINAMICA directory exists

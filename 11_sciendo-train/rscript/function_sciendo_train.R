@@ -313,19 +313,20 @@ generate_sciendo_train_report <- function(output, dir) {
 
 
 executeDINAMICA <- function(params, memory_allocation) {
-  # Find DINAMICA directory if not provided
-  if (is.null(params$dinamica_path) | identical(params$dinamica_path, character(0))) {
-    program_files <- c("C:/Program Files/", "C:/Program Files (x86)/")
-    dinamica_dirs <- list.files(program_files, pattern = "^Dinamica EGO", full.names = TRUE)
-    
-    if (length(dinamica_dirs) == 0) {
-      stop("No DINAMICA EGO installation found.")
-    }
-    
-    # Sort directories to use the latest version if multiple are found
-    dinamica_path <- sort(dinamica_dirs, decreasing = TRUE)[1]
-  }
+  # # Find DINAMICA directory if not provided
+  # if (is.null(params$dinamica_path) | identical(params$dinamica_path, character(0))) {
+  #   program_files <- c("C:/Program Files/", "C:/Program Files (x86)/")
+  #   dinamica_dirs <- list.files(program_files, pattern = "^Dinamica EGO", full.names = TRUE)
+  #   
+  #   if (length(dinamica_dirs) == 0) {
+  #     stop("No DINAMICA EGO installation found.")
+  #   }
+  #   
+  #   # Sort directories to use the latest version if multiple are found
+  #   dinamica_path <- sort(dinamica_dirs, decreasing = TRUE)[1]
+  # }
   
+  dinamica_path <- params$dinamica_path
   message(paste("Using DINAMICA EGO installation:", dinamica_path))
   
   # Check if DINAMICA directory exists
@@ -1875,7 +1876,7 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir) {
 #' }
 #'
 #' @export
-remove_xlsx_files <- function(directory, verbose = FALSE) {
+remove_xlsx_files_silent <- function(directory, verbose = FALSE) {
   # Validate directory exists
   if (!dir.exists(directory)) {
     stop("The specified directory does not exist or is not accessible: ", directory)
