@@ -22,7 +22,105 @@ format_session_info_table <- function() {
   return(session_summary)
 }
 
+# Helper function for consistent number formatting
 easy_to_read_numbers <- scales::label_comma()
+
+# Fungsi untuk transformasi logaritmik dengan penanganan nilai nol/negatif
+log_transform <- function(x, base = 10, offset = 1) {
+  if (is.numeric(x)) {
+    # Handle negative values and zeros by adding offset
+    sign(x) * log(abs(x) + offset, base = base)
+  } else {
+    x
+  }
+}
+
+# Fungsi inverse log transform untuk mengembalikan ke nilai asli
+inv_log_transform <- function(x, base = 10, offset = 1) {
+  if (is.numeric(x)) {
+    sign(x) * (base^abs(x) - offset)
+  } else {
+    x
+  }
+}
+
+# Format angka dalam notasi logaritmik
+format_log_notation <- function(x, base = 10) {
+  if (is.numeric(x)) {
+    paste0("log", base, "(", easy_to_read_numbers(x), ")")
+  } else {
+    x
+  }
+}
+
+# Fungsi untuk membuat grafik logaritmik dari data
+create_log_bar_chart <- function(data, x_col, y_col, title, x_label = "", y_label = "Nilai (log scale)", n_top = 10) {
+  # Pastikan data adalah dataframe
+  if (!is.data.frame(data)) data <- as.data.frame(data)
+  
+  # Ambil top n values
+  top_data <- head(data[order(-data[[y_col]]), ], n_top)
+  
+  # Hindari nilai 0 atau negatif untuk log
+  top_data$log_value <- log10(pmax(top_data[[y_col]], 1))
+  
+  ggplot(top_data, aes(x = reorder(.data[[x_col]], .data[[y_col]]), y = log_value)) +
+    geom_bar(stat = "identity", fill = "steelblue", alpha = 0.8) +
+    coord_flip() +
+    labs(
+      title = title,
+      x = x_label,
+      y = y_label
+    ) +
+    theme_minimal() +
+    theme(
+      axis.text.y = element_text(size = 8),
+      plot.title = element_text(hjust = 0.5, size = 12),
+      axis.title.x = element_text(size = 10),
+      axis.title.y = element_text(size = 10)
+    ) +
+    scale_y_continuous(
+      labels = function(x) format(10^x, big.mark = ",", scientific = FALSE)
+    )
+}
+
+# Fungsi untuk mendeteksi jenis objek dan membuat grafik log
+create_log_chart_from_object <- function(chart_obj, data_table = NULL, x_col = NULL, y_col = NULL, title = "") {
+  # Jika objek adalah ggplot, terapkan transformasi log
+  if (inherits(chart_obj, "ggplot")) {
+    return(
+      chart_obj +
+        scale_y_continuous(
+          trans = "log10",
+          labels = scales::label_comma(),
+          breaks = scales::trans_breaks("log10", function(x) 10^x)
+        ) +
+        labs(y = paste0("Nilai (log10 scale)")) +
+        theme(axis.text.y = element_text(size = 8))
+    )
+  }
+  
+  # Jika ada data table, buat grafik dari data
+  if (!is.null(data_table) && !is.null(x_col) && !is.null(y_col)) {
+    return(
+      create_log_bar_chart(data_table, x_col, y_col, title)
+    )
+  }
+  
+  # Return NULL jika tidak bisa membuat grafik
+  return(NULL)
+}
+
+# Fungsi untuk memodifikasi chart yang sudah ada dengan skala log
+convert_to_log_scale <- function(plot_obj, y_trans = "log10") {
+  plot_obj + 
+    scale_y_continuous(
+      trans = y_trans,
+      labels = scales::label_comma(),
+      breaks = scales::trans_breaks(y_trans, function(x) 10^x)
+    ) +
+    ylab(paste0("Nilai (", y_trans, " scale)"))
+}
 
 # Data Processing Functions
 # preprocess_data <- function(pathLULCT1, pathLULCT2, pathPU, 

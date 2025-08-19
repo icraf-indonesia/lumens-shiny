@@ -41,6 +41,7 @@ library(pkgdown)
 library(ggplot2)
 library(htmlwidgets)
 library(DT)
+library(scales) 
 ```
 
 <details><summary>Klik di sini untuk Log Analisis</summary>
@@ -71,7 +72,7 @@ analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
 
 # Pendahuluan
 
-Laporan ini menyajikan hasil Analisis Profitabilitas berdasarkan skenario perubahan penggunaan lahan. Analisis berfokus pada penilaian Nilai Kini Bersih (Net Present Value - NPV) yang terkait dengan berbagai perubahan penggunaan lahan. Pendekatan ini membantu mengevaluasi implikasi keuangan dari transisi penggunaan lahan serta mendukung pengambilan keputusan yang terinformasi untuk menilai kelayakan ekonomi berbagai skenario penggunaan lahan.
+Laporan ini menyajikan hasil Analisis Profitabilitas berdasarkan skenario perubahan penggunaan lahan. Analisis berfokus pada penilaian Net Present Value (NPV) yang terkait dengan berbagai perubahan penggunaan lahan. Pendekatan ini membantu mengevaluasi implikasi keuangan dari transisi penggunaan lahan serta mendukung pengambilan keputusan yang terinformasi untuk menilai kelayakan ekonomi berbagai skenario penggunaan lahan.
 
 # Hasil Analisis
 Alur kerja analisis melibatkan beberapa langkah kunci:
@@ -89,22 +90,25 @@ params$total_table %>%
 ```
 
 ### NPV untuk Tahun `r params$year1` {.tabset}
-Bagian ini menyajikan sepuluh kategori tutupan lahan dengan total Nilai Kini Bersih (NPV) tertinggi pada tahun `r params$year1`. NPV mewakili imbal hasil ekonomi kumulatif (dalam `r params$currency`) yang diperoleh dari kegiatan penggunaan lahan di atas suatu area, biasanya diukur dalam hektar. NPV adalah metrik kunci dalam perencanaan penggunaan lahan karena mencerminkan nilai kini dari manfaat masa depan yang terkait dengan penggunaan lahan yang berbeda pada tahun `r params$year1`.
+Bagian ini menyajikan sepuluh kategori tutupan lahan dengan total NPV tertinggi pada tahun `r params$year1`. NPV mewakili imbal hasil ekonomi kumulatif (dalam `r params$currency`) yang diperoleh dari kegiatan penggunaan lahan di atas suatu area, biasanya diukur dalam hektar. NPV adalah metrik kunci dalam perencanaan penggunaan lahan karena mencerminkan nilai kini dari manfaat masa depan yang terkait dengan penggunaan lahan yang berbeda pada tahun `r params$year1`.
 
-#### Plot
+#### Grafik
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 params$npv1_chart
 ```
 
 #### Peta Distribusi
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
-npv1_map <- ggplot() +
+npv1_map_log <- ggplot() +
   tidyterra::geom_spatraster(data = params$npv1_map) +
   scale_fill_gradient(
     low = "yellow",
     high = "darkgreen",
     na.value = "white",
-    name = "NPV"
+    name = "log10(NPV)",
+    trans = "log10",
+    labels = scales::label_comma(),
+    breaks = scales::log_breaks()
   ) +
   theme_bw() +
   theme(
@@ -120,7 +124,7 @@ npv1_map <- ggplot() +
     legend.justification = c(0, 0.5)
   )
 
-npv1_map
+npv1_map_log
 ```
 
 #### Tabel
@@ -136,22 +140,25 @@ params$npv1_table %>%
 ```
 
 ### NPV untuk Tahun `r params$year2` {.tabset}
-Bagian ini menyajikan sepuluh kategori tutupan lahan dengan total Nilai Kini Bersih (NPV) tertinggi pada tahun `r params$year2`. NPV mewakili imbal hasil ekonomi kumulatif (dalam `r params$currency`) yang diperoleh dari kegiatan penggunaan lahan di atas suatu area, biasanya diukur dalam hektar. NPV adalah metrik kunci dalam perencanaan penggunaan lahan karena mencerminkan nilai kini dari manfaat masa depan yang terkait dengan penggunaan lahan yang berbeda pada tahun `r params$year2`.
+Bagian ini menyajikan sepuluh kategori tutupan lahan dengan total NPV tertinggi pada tahun `r params$year2`. NPV mewakili imbal hasil ekonomi kumulatif (dalam `r params$currency`) yang diperoleh dari kegiatan penggunaan lahan di atas suatu area, biasanya diukur dalam hektar. NPV adalah metrik kunci dalam perencanaan penggunaan lahan karena mencerminkan nilai kini dari manfaat masa depan yang terkait dengan penggunaan lahan yang berbeda pada tahun `r params$year2`.
 
-#### Plot
+#### Grafik
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 params$npv2_chart
 ```
 
 #### Peta Distribusi
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
-npv2_map <- ggplot() +
+npv2_map_log <- ggplot() +
   tidyterra::geom_spatraster(data = params$npv2_map) +
   scale_fill_gradient(
     low = "yellow",
     high = "darkgreen",
     na.value = "white",
-    name = "NPV"
+    name = "log10(NPV)",
+    trans = "log10",
+    labels = scales::label_comma(),
+    breaks = scales::log_breaks()
   ) +
   theme_bw() +
   theme(
@@ -167,7 +174,7 @@ npv2_map <- ggplot() +
     legend.justification = c(0, 0.5)
   )
 
-npv2_map
+npv2_map_log
 ```
 
 #### Table
@@ -184,22 +191,25 @@ params$npv2_table %>%
 
 
 ### Delta NPV dari Tahun `r params$year1` to `r params$year2` {.tabset}
-Bagian ini menyajikan perubahan Nilai Kini Bersih (ΔNPV) antara tahun `r params$year1` dan `r params$year2`. ΔNPV mencerminkan perbedaan dalam proyeksi imbal hasil ekonomi dari penggunaan lahan di dua periode waktu. Nilai ΔNPV positif menunjukkan peningkatan profitabilitas dari waktu ke waktu, sementara nilai negatif menunjukkan penurunan.
+Bagian ini menyajikan perubahan NPV (ΔNPV) antara tahun `r params$year1` dan `r params$year2`. ΔNPV mencerminkan perbedaan dalam proyeksi imbal hasil ekonomi dari penggunaan lahan di dua periode waktu. Nilai ΔNPV positif menunjukkan peningkatan profitabilitas dari waktu ke waktu, sementara nilai negatif menunjukkan penurunan.
 
-#### Plot
+#### Grafik
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 params$deltaNPV_chart
 ```
 
 #### Peta Distribusi
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
-deltaNPV_map <- ggplot() +
+deltaNPV_map_log <- ggplot() +
   tidyterra::geom_spatraster(data = params$deltaNPV_map) +
-  scale_fill_gradient(
+  scale_fill_gradient2(
     low = "red",
+    mid = "white",
     high = "darkgreen",
     na.value = "white",
-    name = "NPV"
+    name = "log10(|ΔNPV| + 1)",
+    trans = "pseudo_log",  # Transformasi pseudo-log untuk handle nilai negatif
+    labels = function(x) format_log_notation(inv_log_transform(x))
   ) +
   theme_bw() +
   theme(
@@ -215,7 +225,7 @@ deltaNPV_map <- ggplot() +
     legend.justification = c(0, 0.5)
   )
 
-deltaNPV_map
+deltaNPV_map_log
 ```
 
 #### Tabel
