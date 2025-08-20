@@ -1,0 +1,279 @@
+---
+title: "Laporan Modul SCIENDO-Train"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+    theme: united
+    highlight: tango
+    df_print: paged
+params:
+  start_time: NA
+  end_time: NA
+  inputs: NA
+  rc_path: NA
+  woe_report_path: NA
+  rc_egoml_path: NA
+  woe_egoml_path: NA
+  woe_list: NA
+  session_log: NA  
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load function, include=FALSE, error=TRUE, warning=TRUE, message=TRUE}
+source("../rscript/function_sciendo_train.R")
+substrRight <- function(x, n){
+  substr(x, nchar(x)-n+1, nchar(x))
+}
+```
+
+```{r load_library, include=FALSE}
+library(raster)
+library(dplyr)
+library(DT)
+library(sf)
+library(rmarkdown)
+library(kableExtra)
+library(htmltools)
+library(ggplot2)
+library(terra)
+library(tidyterra)
+library(LUMENSR)
+library(knitr)
+library(corrplot)
+library(usdm)
+```
+
+<details>
+
+<summary>Klik disini untuk membuka log analisis/summary>
+
+```{r analysis-log, echo=FALSE}
+analysis_log <- tribble(
+  ~Category,                      ~Details,
+  "Analysis Start",               params$start_time,
+  "Analysis End",                 params$end_time,
+  "Input Data and Parameters",    "",
+  "1. Landcover map at T1",       params$inputs$lc_t1_path,
+  "2. Landcover map at T2",       params$inputs$lc_t2_path,
+  "3. Planning unit",             params$inputs$zone_path,
+  "4. Year of T1",                as.character(params$inputs$year1),
+  "5. Year of T2",                as.character(params$inputs$year2),
+  "6. Land cover lookup table",   params$inputs$lc_lookup_table_path,
+  "7. Directory of factor maps ", params$inputs$factor_path,
+  "Output Workspace",             params$inputs$output_dir,
+  "1. Raster Cube",               params$rc_path,
+  "2. Directory of Weight of Evidence Report",               params$woe_report_path,
+  "3. EGOML Raster Cube",         params$rc_egoml_path,
+  "4. EGOML Weight of Evidence",  params$woe_egoml_path,
+  "Session Summary",              ""
+) %>% rbind(params$session_log)
+
+analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
+  kable_paper("hover", full_width = F )
+```
+
+</details>
+
+# Ringkasan
+
+Laporan ini menyajikan hasil analisis berdasarkan peta dan tabel referensi (lookup table) yang disediakan.
+
+```{r read period, echo=FALSE, message=FALSE, warning=FALSE}
+x <- params$inputs$zone_path
+period <- as.numeric(params$inputs$year2) - as.numeric(params$inputs$year1)
+```
+
+
+```{r read zone, echo=FALSE, message=FALSE, warning=FALSE}
+if(substrRight(x, 3) == "tif"){
+  df_pu <- read.csv(params$inputs$z_lookup_table_path) %>%
+    dplyr::rename(ID_PU = 1, PU = 2)
+  len <- nrow(df_pu)
+  zone_rst <- x %>% raster()
+  zone <- zone_rst %>% terra::rast() %>%
+    add_legend_to_categorical_raster(., lookup_table = df_pu)
+} else {
+  zone_sf <- x %>% st_read(quiet = TRUE)
+  zone <- zone_sf %>% rasterise_multipolygon(raster_res = c(100, 100), field = "IDS")
+  df_pu <- data.frame(ID_PU = zone_sf[[1]], PU = zone_sf[[2]])
+  len <- nrow(df_pu)
+  zone_rst <- zone %>% raster()
+  zone <- zone_rst %>% terra::rast() %>%
+    add_legend_to_categorical_raster(., lookup_table = df_pu)
+}
+```
+
+
+```{r read land cover, echo=FALSE, message=FALSE, warning=FALSE}
+lc_t1 <- params$inputs$lc_t1_path %>% raster() %>% spatial_sync_raster(zone_rst)
+lc_t2 <- params$inputs$lc_t2_path %>% raster() %>% spatial_sync_raster(zone_rst)
+
+df_lc <- read.csv(params$input$lc_lookup_table_path)
+
+#=Load landuse for two time periods
+lc_t1 <- lc_t1 %>% terra::rast() %>%
+  add_legend_to_categorical_raster(., lookup_table = df_lc, year = as.numeric(params$inputs$year1))
+lc_t2 <- lc_t2 %>% terra::rast() %>%
+  add_legend_to_categorical_raster(., lookup_table = df_lc, year = as.numeric(params$inputs$year2))
+```
+
+
+# Deskripsi singkat modul
+
+- Modul SCIENDO-Train secara sistematis menghimpun informasi-informasi penting yang merepresentasikan kondisi awal dan akhir penutupan lahan suatu lanskap. Informasi ini mencakup data peta faktor, yang berfungsi sebagai variabel penentu untuk memberikan konteks dan wawasan terhadap pemicu perubahan penutupan lahan yang diamati dari waktu ke waktu. Dengan melatih data-data ini, SCIENDO-Train membangun sebuah kerangka kerja komprehensif untuk memahami dinamika perubahan pentupan lahan suatu wilayah.
+
+- Raster cube adalah kumpulan peta-peta faktor terintegrasi yang menghimpun informasi geografis penting di suatu lanskap. Di antaranya peta yang menunjukkan jarak ke titik-titik objek penting, elevasi yang memengaruhi iklim dan dinamika ekosistem, serta berbagai kondisi lingkungan seperti keragaman penggunaan lahan dan tutupan vegetasi. Peta faktor ini sangat penting untuk menganalisis hubungan spasial dan memahami bagaimana berbagai elemen saling berinteraksi di dalam lanskap tersebut.
+
+- Untuk menghitung probabilitas weight of evidence, dilakukan analisis komparatif terhadap semua nilai data yang terkumpul. Proses ini melibatkan analisis hubungan dan variasi antar peta faktor serta pengaruhnya terhadap kondisi yang diamati.
+
+
+# Data yang digunakan {.tabset}
+
+## Peta Tutupan/Penggunaan Lahan {.tabset}
+
+### Peta Tutupan/Penggunaan Lahan pada `r params$inputs$year1`
+
+```{r Land-Use/Cover Map T1, echo=FALSE, message=FALSE, warning=FALSE}
+plot_categorical_raster(lc_t1)
+```
+
+### Peta Tutupan/Penggunaan Lahan pada `r params$inputs$year2`
+
+```{r Land-Use/Cover Map T2, echo=FALSE, message=FALSE, warning=FALSE}
+plot_categorical_raster(lc_t2)
+```
+
+## Peta Faktor-faktor {.tabset}
+
+```{r plot factor, echo=FALSE, fig.keep='all', results='asis'}
+factor_path <- params$inputs$factor_path 
+listFactors <- factor_path %>% list.files(full.names = TRUE, pattern = ".tif$") %>%
+  data.frame(file = ., select = 1)
+
+factors <- as.character(listFactors$file)
+nFactors <- length(factors)
+
+aliasFactor<-NULL
+for (a in 1:nFactors) {
+  temp <- substr(basename(factors[a]), 1, nchar(basename(factors[a])) - 4)
+  cat("### ", temp, "\n\n")
+  cat(
+    knitr::knit_child(
+      text = c(
+        "```{r}",
+        "#| echo: false",
+        "factors[a] %>% rast() %>% plot()",
+        "```"
+      ), quiet = TRUE
+    ), sep = "\n"
+  )
+  cat('\n')
+}
+```
+
+## Peta Unit Perencanaan
+
+```{r Planning Unit, echo=FALSE, message=FALSE, warning=FALSE}
+plot_categorical_raster(zone)
+```
+
+# Hasil
+
+## Multikolinearitas Faktor-faktor {.tabset}
+
+### Variance Inflation Factor (VIF)
+```{r vif, echo=FALSE, message=FALSE, warning=FALSE, fig.show='hide'}
+collinearity <- analyze_multicollinearity(factor_path, verbose = FALSE)
+DT::datatable(collinearity$vif_table)
+```
+
+### Matriks kolinearitas
+```{r corrplot, echo=FALSE, message=FALSE, warning=FALSE}
+collinearity$correlation_plot
+```
+
+## Laporan Weight of Evidence
+
+```{r setup_result, echo=FALSE, message=FALSE, warning=FALSE}
+# Calculate weighted means for each PU
+weighted_means_list <- list()
+woe <- params$woe_list
+pu_keys <- grep("^pu\\d{3}$", names(woe), value = TRUE)
+
+for (key in pu_keys) {
+  woe_data <- woe[[key]]$report
+  if (!is.null(woe_data) &&
+      all(c("Significant", "Weight_Coefficient", "Executed_Transitions", 
+           "Transition", "Variable.") %in% names(woe_data))) {
+    
+    weighted_means <- woe_data %>%
+      dplyr::filter(Significant == "yes") %>%
+      dplyr::group_by(Transition, Variable.) %>%
+      dplyr::summarize(
+        Weighted_Mean = round(stats::weighted.mean(
+          Weight_Coefficient,
+          Executed_Transitions,
+          na.rm = TRUE
+        ), 4),
+        .groups = "drop"
+      )
+    weighted_means_list[[key]] <- weighted_means
+  }
+}
+```
+
+```{r create expandable woe sections, echo=FALSE, results='asis'}
+pu_name_mapping <- setNames(df_pu$PU, paste0("pu", sprintf("%03d", df_pu$ID_PU)))
+
+# create expandable sections 
+src <- lapply(names(weighted_means_list), function(pu_key) {
+  descriptive_name <- pu_name_mapping[[pu_key]]
+  if (is.null(descriptive_name) || is.na(descriptive_name)) {
+    descriptive_name <- pu_key
+  }
+  
+  knitr::knit_expand(text = c(
+    "",
+    "<details style='margin-bottom: 20px; border: 1px solid #ddd; border-radius: 5px; padding: 10px;'>",
+    "<summary style='font-weight: bold; font-size: 1.1em; cursor: pointer; padding: 10px; background-color: #f8f9fa; border-radius: 3px; margin: -10px -10px 15px -10px;'>{{descriptive_name}}</summary>",
+    "",
+    "```{r {{pu_key}}_table, echo=FALSE}",
+    "current_table <- weighted_means_list[['{{pu_key}}']]",
+    "if (nrow(current_table) > 0) {",
+    "  DT::datatable(",
+    "    current_table,",
+    "    caption = htmltools::tags$caption(",
+    "      style = 'caption-side: top; text-align: center; color:black; font-size:1.2em;',",
+    "      'Rerata Bobot yang Signifikan'",
+    "    ),",
+    "    rownames = FALSE,",
+    "    filter = 'top',",
+    "    options = list(",
+    "      pageLength = 10,",
+    "      autoWidth = TRUE,",
+    "      scrollX = TRUE",
+    "    )",
+    "  )",
+    "} else {",
+    "  cat('<div style=\"text-align: center; margin: 20px; color: #666;\">No significant weights were found for this unit.</div>')",
+    "}",
+    "```",
+    "",
+    "</details>",
+    ""
+  ), pu_key = pu_key, descriptive_name = descriptive_name)
+})
+
+res <- knitr::knit_child(text = unlist(src), quiet = TRUE)
+cat(res, sep = '\n')
+```
+------------------------------------------------------------------------
+
+<!-- Mandatory closing statement for all module -->
+
+<font size="1"> LUMENS adalah perangkat lunak gratis dan disediakan TANPA GARANSI APAPUN. Pengguna bertanggung jawab penuh atas setiap produk yang dihasilkan. Hasil sangat bergantung pada kualitas data yang digunakan ("garbage in, garbage out") dan dapat bervariasi atau sensitif terhadap parameter yang digunakan. Harap laporkan setiap masalah yang ditemui saat menggunakan LUMENS sebagai [a GitHub issue](https://github.com/icraf-indonesia/lumens-shiny/issues). Umpan balik dan pertanyaan dipersilakan [Contact Us URL]. </font size>

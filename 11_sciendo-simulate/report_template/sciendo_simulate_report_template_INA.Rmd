@@ -1,0 +1,238 @@
+---
+title: "Laporan Modul SCIENDO-Simulate"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+    theme: united
+    highlight: tango
+    df_print: paged
+params:
+  start_time: NA
+  end_time: NA
+  inputs: NA
+  session_log: NA  
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load function, include=FALSE, error=TRUE, warning=TRUE, message=TRUE}
+source("../rscript/function_sciendo_simulate.R")
+```
+
+```{r load_library, include=FALSE}
+library(raster)
+library(dplyr)
+library(DT)
+library(kableExtra)
+library(htmltools)
+library(terra)
+library(tidyterra)
+library(ggplot2)
+library(LUMENSR)
+library(readr)
+library(dplyr)
+library(tidyr)
+library(plotly)
+library(scales)
+library(ggthemes)
+library(rlang)
+library(conflicted)
+conflict_prefer("layout", "plotly") 
+conflict_prefer("filter", "dplyr")
+conflict_prefer("select", "dplyr") 
+```
+
+<details>
+
+<summary>Klik disini untuk membuka log analisis</summary>
+
+```{r analysis-log, echo=FALSE}
+analysis_log <- tribble(
+  ~Category,                       ~Details,
+  "Analysis Start",                params$start_time,
+  "Analysis End",                  params$end_time,
+  "Input Data and Parameters",     "",
+  "1. Landcover map initial",      params$inputs$lc_t1_path,
+  "2. Planning unit",              params$inputs$zone_path,
+  "3. Land cover lookup table",    params$inputs$lc_lookup_table_path,
+  "4. Raster cube",                params$inputs$ers_path,
+  "5. Transition matrix directory",params$inputs$tm_path,
+  "6. WoE directory",              params$inputs$dcf_path,
+  "Output Workspace",              params$inputs$output_dir,
+  "1. Land use/cover projection maps",               paste0(params$inputs$output_dir, '/landscape.tif'),
+  "2. Land use/cover change lookup table",         paste0(params$inputs$output_dir, '/luc_projection.csv'),
+  "3. EGOML Simulation",         paste0(params$inputs$output_dir, '/03_sciendo_simulation.egoml'),
+  "Session Summary",               ""
+) %>% rbind(params$session_log)
+
+analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
+  kable_paper("hover", full_width = F )
+```
+
+</details>
+
+# Ringkasan
+
+Hasil simulasi proyeksi perubahan tutupan/penggunaan lahan didasarkan pada masukan iterasi `r params$inputs$rep` dan disimpan sebagai peta raster (GeoTIFF) dengan nama unik `landscape{n-th}.tif`.
+
+# Deskripsi singkat modul
+
+- Modul SCIENDO-Simulate memprediksi bagaimana perubahan tutupan/penggunaan lahan akan terjadi di masa depan berdasarkan kecenderungan perubahan yang diidentifikasi menggunakan SCIENDO-Train. Data yang diperlukan mencakup peta penggunaan/tutupan lahan pada T1 dan T2, matriks probabilitas transisi, serta peta faktor sebagai variabel pemicu (misalnya peta jarak, variabel iklim, dll).
+
+- Tabel acuan perubahan penggunaan/tutupan lahan memberikan gambaran komprehensif mengenai bagaimana kategori penggunaan dan tutupan lahan berubah sepanjang tahun proyeksi.
+
+# Data yang digunakan {.tabset}
+
+## Peta Tutupan/Penggunaan Lahan Awal
+
+```{r Land-Use/Cover Map T1, echo=FALSE, message=FALSE, warning=FALSE}
+df_lc <- read.csv(params$inputs$lc_lookup_table_path)
+#=Load landuse for two time periods
+lc_t1 <- params$inputs$lc_t1_path %>% rast() %>%
+  add_legend_to_categorical_raster(., lookup_table = df_lc)
+plot_categorical_raster(lc_t1)
+```
+
+## Peta Unit Perencanaan
+
+```{r planning unit, echo=FALSE, message=FALSE, warning=FALSE}
+zone <- rast(params$inputs$zone_path)
+plot(zone)
+```
+
+
+## Tabel Referensi Tutupan/Penggunaan Lahan
+
+```{r lut, echo=FALSE, message=FALSE, warning=FALSE}
+datatable(df_lc)
+
+# df_lc %>% kable() %>%
+#   kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+# Hasil
+
+## Peta Proyeksi Perubahan Tutupan/Penggunaan Lahan {.tabset}
+
+```{r lu projected maps, echo=FALSE, fig.keep='all', results='asis'}
+list_luc <- params$inputs$output_dir %>% 
+  list.files(full.names=TRUE, pattern="*.tif$")
+rst_list <- list()
+counter <- 0
+for(i in list_luc){
+  r <- i %>% rast() %>%
+    add_legend_to_categorical_raster(., lookup_table = df_lc)
+  rst_list[[i]] <- r
+  counter <- counter + 1
+  
+  cat(paste0("### Proyeksi Tutupan/Penggunaan Lahan pada T+", counter, " \n\n"))
+  cat(
+    knitr::knit_child(
+      text = c(
+        "```{r}",
+        "#| echo: false",
+        "#| message: false",
+        "#| warning: false",
+        "r %>% plot_categorical_raster()",
+        "```"
+      ), quiet = TRUE
+    ), sep = "\n"
+  )
+  
+  cat('\n')
+  
+}
+```
+
+## Proyeksi Perubahan Tutupan/Penggunaan Lahan pada Tingkat Lanskap
+
+```{r lut change, echo=FALSE, message=FALSE, warning=FALSE}
+# Calculate freq table
+lc_dir <- params$inputs$output_dir
+lc_freq_table <- multiple_lc_freq_combined(lc_dir, df_lc, PU = "NO")
+
+# Export csv
+ref_subset <- df_lc[, 1:2]
+colnames(ref_subset) <- c("ID", "Landcover")
+
+lc_freq_table_raw <- merge(ref_subset, lc_freq_table, by = "Landcover", all.y = TRUE)
+lc_freq_table_export <- lc_freq_table_raw[, c("ID", "Landcover", setdiff(names(lc_freq_table_raw), c("ID", "Landcover")))]
+lc_freq_table_export <- lc_freq_table_export[order(lc_freq_table_export$ID), ]
+
+write.table(lc_freq_table_export,
+  paste0(params$inputs$output_dir, "/luc_projection.csv"),
+  quote=FALSE,
+  row.names=FALSE,
+  sep=","
+)
+```
+
+### Grafik Luas Tutupan/Penggunaan Lahan Terproyeksi
+```{r Stacked Area Chart, echo=FALSE, message=FALSE, warning=FALSE}
+plot_interactive_stacked_area(lc_freq_table_export)
+```
+
+### Tabel Proyeksi Luas Tutupan/Penggunaan Lahan
+```{r Projected LULCC Table, echo=FALSE, message=FALSE, warning=FALSE}
+DT::datatable(lc_freq_table) %>%
+  DT::formatRound(columns = which(sapply(lc_freq_table, is.numeric)), digits = 1)
+```
+
+## Tabel Proyeksi Perubahan Tutupan/Penggunaan Lahan pada Tingkat Unit Perencanaan {.tabset}
+
+```{r child_document, echo=FALSE, message=FALSE, warning=FALSE, fig.keep='all', results='asis'}
+all_freq_pu_list <- multiple_lc_freq_combined(lc_dir, df_lc, PU = "YES", zone = zone, split = "YES")
+zone_df <- params$inputs$zone_lookup_table
+
+# create expandable sections for each zone
+src <- lapply(seq_len(nrow(zone_df)), function(i) {
+  label <- zone_df$PU[[i]]
+  
+  knitr::knit_expand(text = c(
+    "",
+    "<details style='margin-bottom: 20px; border: 1px solid #ddd; border-radius: 5px; padding: 10px;'>",
+    "<summary style='font-weight: bold; font-size: 1.1em; cursor: pointer; padding: 10px; background-color: #f8f9fa; border-radius: 3px; margin: -10px -10px 15px -10px;'>{{label}}</summary>",
+    "",
+    "```{r zone_{{i}}_table, echo=FALSE}",
+    "lc_proj_table <- all_freq_pu_list[[{{i}}]]",
+    "if (nrow(lc_proj_table) > 0) {",
+    "  DT::datatable(",
+    "    lc_proj_table,",
+    "    caption = htmltools::tags$caption(",
+    "      style = 'caption-side: top; text-align: center; color:black; font-size:1.2em;',",
+    "      'Proyeksi Tutupan/Penggunaan Lahan pada {{label}}'",
+    "    ),", 
+    "    rownames = FALSE,",
+    "    options = list(",
+    "      dom = 't',",
+    "      pageLength = nrow(lc_proj_table),",
+    "      autoWidth = FALSE,",
+    "      scrollX = TRUE,",
+    "      columnDefs = list(list(width = '100%', targets = '_all'))",
+    "    )",
+    "  ) %>%",
+    "  DT::formatRound(columns = which(sapply(lc_proj_table, is.numeric)), digits = 1)",
+    "} else {",
+    "  cat('<div style=\"text-align: center; margin: 20px; color: #666;\">No data available for this zone.</div>')",
+    "}",
+    "```",
+    "",
+    "</details>",
+    ""
+  ), i = i, label = label)
+})
+
+res <- knitr::knit_child(text = unlist(src), quiet = TRUE)
+cat(res, sep = '\n')
+```
+
+
+------------------------------------------------------------------------
+
+<!-- Mandatory closing statement for all module -->
+
+<font size="1"> LUMENS adalah perangkat lunak gratis dan disediakan TANPA GARANSI APAPUN. Pengguna bertanggung jawab penuh atas setiap produk yang dihasilkan. Hasil sangat bergantung pada kualitas data yang digunakan ("garbage in, garbage out") dan dapat bervariasi atau sensitif terhadap parameter yang digunakan. Harap laporkan setiap masalah yang ditemui saat menggunakan LUMENS sebagai [a GitHub issue](https://github.com/icraf-indonesia/lumens-shiny/issues). Umpan balik dan pertanyaan dipersilakan [Contact Us URL]. </font size>

@@ -2131,15 +2131,15 @@ generate_preques_report <- function(output_pre_ques,
   # saveRDS(output_pre_ques_def, file = file.path(temp_dir, "LUMENS_ques_pre_def_output.rds"))
 
   # Copy report template and functions to temporary directory
-  if (file.exists("../report_template/ques_pre.Rmd")){
-    ques_pre_report_path <- "../report_template/ques_pre.Rmd"
+  if (file.exists("../report_template/ques_pre_report_template_INA.Rmd")){
+    ques_pre_report_path <- "../report_template/ques_pre_report_template_INA.Rmd"
     helper_functions_path <- "../rscript/functions_ques_pre.R"
 
-  } else if (file.exists("../../03_preques/report_template/ques_pre.Rmd")){
-    ques_pre_report_path <- "../../03_preques/report_template/ques_pre.Rmd"
+  } else if (file.exists("../../03_preques/report_template/ques_pre_report_template_INA.Rmd")){
+    ques_pre_report_path <- "../../03_preques/report_template/ques_pre_report_template_INA.Rmd"
     helper_functions_path <- "../../03_preques/rscript/functions_ques_pre.R"
   } else {
-    ques_pre_report_path <- "03_preques/report_template/ques_pre.Rmd"
+    ques_pre_report_path <- "03_preques/report_template/ques_pre_report_template_INA.Rmd"
     helper_functions_path <- "03_preques/rscript/functions_ques_pre.R"
   }
 

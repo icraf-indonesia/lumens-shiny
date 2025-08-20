@@ -304,7 +304,7 @@ generate_sciendo_train_report <- function(output, dir) {
   output_file <- paste0("sciendo_train_report_", Sys.Date(), ".html")
   
   rmarkdown::render(
-    "../report_template/sciendo_train_report_template.Rmd",
+    "../report_template/sciendo_train_report_template_INA.Rmd",
     output_file = output_file,
     output_dir = dir,
     params = report_params

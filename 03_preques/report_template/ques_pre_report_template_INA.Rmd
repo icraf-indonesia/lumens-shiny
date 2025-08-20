@@ -1,0 +1,340 @@
+---
+title: "Laporan Modul Pre-QuES"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+    df_print: kable
+params:
+  dir_lc_t1_: NA
+  dir_lc_t2_: NA
+  dir_admin_: NA
+  dir_ques_pre: NA
+  cutoff_landscape: NA
+  cutoff_pu: NA
+  dir_traj_map_: NA
+  dir_def_map_: NA
+  dir_ques_pre_traj: NA
+  dir_ques_pre_def: NA
+  log_params: NA
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+library(rmarkdown)
+library(kableExtra)
+library(htmlTable)
+library(knitr)
+library(magrittr)
+library(terra)
+library(ggplot2)
+library(tidyterra)
+library(dplyr)
+```
+
+
+```{r load function, include=FALSE, error=TRUE, warning=TRUE, message=TRUE}
+if (file.exists("functions_ques_pre.R")){
+  source("functions_ques_pre.R")
+} else {
+  source("03_preques/rscript/functions_ques_pre.R")
+}
+```
+
+```{r init, include=FALSE}
+lc_t1_ <- rast(params$dir_lc_t1_)
+lc_t2_ <- rast(params$dir_lc_t2_)
+admin_ <- rast(params$dir_admin_)
+# Define period
+time_1 <- terra::time(lc_t1_)
+time_2 <- terra::time(lc_t2_)
+ques_pre_output <- readRDS(params$dir_ques_pre)
+
+traj_analysis_output <- readRDS(params$dir_ques_pre_traj)
+# def_analysis_output <- readRDS(params$dir_ques_pre_def)
+```
+
+<details><summary>Klik disini untuk membuka log analisis</summary>
+```{r analysis-log, echo=FALSE}
+
+analysis_log <- tribble(
+  ~Category,                   ~Details,
+  "Analysis Start",        params$log_params$start_time,
+  "Analysis End",          params$log_params$end_time,
+  "Input Data and Parameters", "",
+  "1. Landcover map T1",      params$dir_lc_t1_,
+  "2. Year T1", as.character(time_1),
+  "3. Landcover map T2",      params$dir_lc_t2_,
+  "4. Year T2",      as.character(time_2),
+  #"5. Landcover lookup",   params$inputs$lulc_lut_path,
+  "5. Planning unit map", params$dir_admin_,
+  "Outputs", "",
+  "Output Workspace",      params$log_params$output_dir,
+  "Session Summary", "",
+) %>% rbind(format_session_info_table())
+
+analysis_log %>% 
+  kbl(caption = "Analysis Log", escape = FALSE) %>%
+  kable_paper("hover", full_width = F )
+```
+</details>
+
+
+# Pendahuluan
+
+Pre-QuES adalah modul analisis perubahan penggunaan lahan yang memberikan informasi kunci untuk mengidentifikasi faktor pendorong perubahan penggunaan lahan:
+
+1. Menghitung jenis tutupan lahan dan perubahannya dari waktu ke waktu
+2. Mengidentifikasi trajektori perubahan penggunaan lahan, misalnya deforestasi dan degradasi
+3. Memberikan gambaran perubahan berdasarkan unit perencanaan/administrasi untuk perbandingan antar kelas wilayah
+4. Memvisualisasikan dinamika penggunaan lahan melalui peta dan diagram sankey
+
+## Cara Kerja Analisis Pre-QuES
+
+1.  **Membandingkan peta tutupan/penggunaan lahan**: Analisis dimulai dengan membandingkan peta tutupan lahan dari dua periode waktu yang berbeda. Perbandingan ini menunjukkan bagaimana penggunaan dan tutupan lahan berubah dalam suatu lanskap.
+
+2.  **Integrasi Peta Unit Perencanaan**: Analisis kemudian mengombinasikan informasi unit perencanaan. Langkah ini memungkinkan kita untuk melihat tren perubahan tutupan lahan di dalam setiap kelas unit perencanaan, sehingga memberikan pemahaman lebih detail terhadap perubahan di tingkat regional.
+
+# Data yang digunakan
+
+Berikut adalah komponen-komponen data yang digunakan dalam analisis perubahan lahan:
+
+-   **Peta Tutupan/Penggunaan Lahan**:  Peta raster kategorikal tergeoreferensi yang menunjukkan distribusi spasial jenis penggunaan/tutupan lahan di wilayah kajian.
+
+-   **Peta Unit Perencanaan Wilayah**: Peta raster kategorikal tergeoreferensi yang membatasi zona administrasi atau zona pengelolaan untuk perencanaan penggunaan lahan.
+
+-   **Tabel Acuan Kelas Tutupan/Penggunaan Lahan**: Tabel acuan yang menyediakan klasifikasi detail dan deskripsi dari kategori tutupan/penggunaan lahan yang ada dalam peta.
+
+-   **Tabel Acuan Kelas Unit Perencanaan**: Tabel atribut yang mendefinisikan skema klasifikasi dan karakteristik dari berbagai tipe unit perencanaan.
+
+## Peta Tutupan/Penggunaan Lahan {.tabset}
+
+### Tahun `r time_1` 
+
+
+```{r}
+plot_categorical_raster(lc_t1_)
+```
+
+### Tahun `r time_2`
+
+
+```{r}
+plot_categorical_raster(lc_t2_)
+```
+
+### Tabel Acuan
+
+```{r}
+kable(ques_pre_output[["input_dataviz"]][["tbl_lookup_lc_t2"]], 
+      caption = "Reference Table of The Land Use/Cover Maps") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+## Peta Unit Perencanaan {.tabset}
+
+### Peta
+
+```{r}
+plot_categorical_raster(admin_)
+```
+
+### Tabel Acuan
+
+```{r}
+kable(ques_pre_output[["input_dataviz"]][["tbl_lookup_admin"]], 
+      caption = "Reference Table of The Planning Unit Map") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+# Hasil Analisis Pre-QuES pada Tingkat Lanskap
+
+## Komposisi Tutupan/Penggunaan Lahan {.tabset}
+
+### Tabel
+
+```{r}
+ques_pre_output[["input_dataviz"]][["lc_composition_tbl"]] %>%
+  #mutate_if(is.numeric, easy_to_read_numbers) %>%
+  kable(caption = "Land Use/Cover Composition") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+### Grafik
+
+```{r echo=FALSE}
+ques_pre_output[["input_dataviz"]][["lc_composition_barplot"]]
+```
+
+## Dinamika Tutupan/Penggunaan Lahan Secara Keseluruhan
+
+```{r echo=FALSE}
+ques_pre_output[["landscape_level"]][["sankey_landscape"]]
+```
+
+*Only changes above `r params$cutoff_landscape` pixels are displayed.*
+
+## Potret Perubahan Tutupan/Penggunaan Lahan 
+
+*Without considering unchanged/stable land cover.*
+
+```{r echo=FALSE}
+ques_pre_output[["landscape_level"]][["sankey_landscape_chg_only"]]
+```
+
+*Only changes above `r params$cutoff_landscape` pixels are displayed.*
+
+## 10 Jenis Perubahan Tutupan/Penggunaan Lahan Dominan {.tabset}
+
+### Tabel
+
+```{r echo=FALSE}
+ques_pre_output[["landscape_level"]][["luc_top_10_tbl"]] %>%
+  mutate_if(is.numeric, easy_to_read_numbers) %>%
+  kable(caption = "Top 10 Types of Land Use/Cover Changes") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+### Grafik
+
+```{r echo=FALSE}
+ques_pre_output[["landscape_level"]][["luc_top_10_barplot"]]
+```
+
+# Hasil Analisis Pre-QuES pada Tingkat Unit Perencanaan
+
+```{r child_document, echo=FALSE, fig.keep='all', results='asis'}
+for (i in names(ques_pre_output[["pu_level"]])) {
+  cat("## ", i, "{.tabset} \n\n")
+  
+  cat("### 10 Jenis Perubahan Tutupan/Penggunaan Lahan Dominan di", i, "\n\n")
+  tabel_pu <- ques_pre_output[["pu_level"]][[i]][["luc_top_pu"]] %>%
+    mutate_if(is.numeric, easy_to_read_numbers) %>%
+    kable() %>% 
+    kable_styling(bootstrap_options = c("striped", "hover")) 
+  cat(sprintf(tabel_pu))
+  cat("\n\n")
+  
+  cat("### Komposisi Tutupan/Penggunaan Lahan di", i, "\n\n")
+  page <- htmltools::tagList(ques_pre_output[["pu_level"]][[i]][["sankey_pu"]])
+  cat(as.character(page))
+
+  cat("\n\n")
+}
+```
+
+
+
+# Analisis Trajektori Perubahan Tutupan/Penggunaan Lahan Pre-QuES
+
+## Hasil Analisis Trajektori Tutupan/Penggunaan Lahan pada Tingkat Lanskap
+### Peta Trajektori Perubahan Tutupan/Penggunaan Lahan
+
+```{r}
+traj_map <- rast(params$dir_traj_map_)
+
+# lookup_traj <-
+#   cats(traj_map)[[1]] %>%
+  # inner_join(color_landuse_trajectories(), by = "trajectory")
+
+# levels(traj_map) <- lookup_traj
+set.names(traj_map, "Land Use/Cover Trajectory")
+
+traj_map %>% 
+  plot_categorical_raster()
+```
+
+### Ringkasan Trajektori Perubahan Tutupan/Penggunaan Lahan Pre-QuES {.tabset}
+
+#### Tabel
+```{r}
+traj_analysis_output$landscape_level$table_traj_area %>%
+  mutate_if(is.numeric, easy_to_read_numbers) %>% 
+  kable() %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+#### Grafik
+```{r}
+traj_analysis_output$landscape_level$barplot_traj
+```
+
+
+## Hasil Analisis Trajektori Tutupan/Penggunaan Lahan pada Tingkat Unit Perencanaan
+
+```{r child_documen_traj_fao, echo=FALSE, fig.keep='all', results='asis'}
+render_child <- function(results_list, i) {
+  res = knitr::knit_child(
+   text = c(
+     "### `r i` {.tabset}",
+     "",
+     "#### Tabel Perubahan Trajektori Tutupan/Penggunaan Lahan di `r i`",
+     "```{r}",
+     "#| echo: false",
+     "results_list[[i]][['traj_tbl_pu']] %>%",
+     "mutate_if(is.numeric, easy_to_read_numbers) %>%",
+     "  kable() %>%",
+     "  kable_styling(bootstrap_options = c('striped', 'hover'))",
+     "```",
+     "",
+     "#### Perubahan Trajektori Tutupan/Penggunaan Lahan di `r i`",
+     "```{r}",
+     "#| echo: false",
+     "results_list[[i]][['plot_traj_pu']]",
+     "```"
+   ),
+   envir = rlang::env(results_list = results_list, i = i),
+   quiet = TRUE
+  )
+  cat(res, sep = '\n')
+  cat("\n")
+}
+
+for (i in names(traj_analysis_output[["pu_level"]])) {
+  render_child(results_list = traj_analysis_output[["pu_level"]], i = i)
+}
+```
+
+<!-- # Pre-QuES Land Use/Cover Trajectory Analysis (Deforestation and Degradation) -->
+
+<!-- ## Land Use/Cover Trajectory Analysis Results at the Landscape Level -->
+<!-- ### Map of Land Use/Cover Change Trajectories (Deforestation and Degradation) -->
+
+```{r eval=FALSE, include=FALSE}
+def_map <- rast(params$dir_def_map_)
+lookup_def <-
+  cats(def_map)[[1]] %>%
+  left_join(color_forest_trajectories(), by = "def")
+
+levels(def_map) <- lookup_def
+
+def_map %>% 
+  plot_categorical_raster()
+```
+
+
+<!-- ### Summary of Pre-QuES Land Use/Cover Change Trajectories (Deforestation and Degradation) -->
+```{r eval=FALSE, include=FALSE}
+def_analysis_output$landscape_level$table_traj_area %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+<!-- #### Graph -->
+```{r eval=FALSE, include=FALSE}
+def_analysis_output$landscape_level$barplot_traj
+```
+
+
+<!-- ## Pre-QuES Land Use/Cover Change Trajectories Analysis Results at the Planning Unit Level (Deforestation and Degradation) -->
+```{r child_document_traj_def, eval=FALSE, fig.keep='all', include=FALSE, results='asis'}
+for (i in names(def_analysis_output[["pu_level"]])) {
+  render_child(results_list = def_analysis_output[["pu_level"]], i = i)
+}
+```
+------------------------------------------------------------------------
+
+<!-- Mandatory closing statement for all module -->
+
+<font size="1"> LUMENS adalah perangkat lunak gratis dan disediakan TANPA GARANSI APAPUN. Pengguna bertanggung jawab penuh atas setiap produk yang dihasilkan. Hasil sangat bergantung pada kualitas data yang digunakan ("garbage in, garbage out") dan dapat bervariasi atau sensitif terhadap parameter yang digunakan. Harap laporkan setiap masalah yang ditemui saat menggunakan LUMENS sebagai [a GitHub issue](https://github.com/icraf-indonesia/lumens-shiny/issues). Umpan balik dan pertanyaan dipersilakan [Contact Us URL]. </font size>

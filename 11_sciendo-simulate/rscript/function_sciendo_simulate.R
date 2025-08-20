@@ -259,7 +259,7 @@ generate_sciendo_simulate_report <- function(output, dir) {
   )
   output_file <- paste0("sciendo_simulate_report_", Sys.Date(), ".html")
   rmarkdown::render(
-    "../report_template/sciendo_simulate_report_template.Rmd",
+    "../report_template/sciendo_simulate_report_template_INA.Rmd",
     output_file = output_file,
     output_dir = dir,
     params = report_params
