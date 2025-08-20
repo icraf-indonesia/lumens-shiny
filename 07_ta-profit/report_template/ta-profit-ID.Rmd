@@ -99,16 +99,13 @@ params$npv1_chart
 
 #### Peta Distribusi
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
-npv1_map_log <- ggplot() +
+npv1_map <- ggplot() +
   tidyterra::geom_spatraster(data = params$npv1_map) +
   scale_fill_gradient(
     low = "yellow",
     high = "darkgreen",
     na.value = "white",
-    name = "log10(NPV)",
-    trans = "log10",
-    labels = scales::label_comma(),
-    breaks = scales::log_breaks()
+    name = "NPV"
   ) +
   theme_bw() +
   theme(
@@ -124,7 +121,7 @@ npv1_map_log <- ggplot() +
     legend.justification = c(0, 0.5)
   )
 
-npv1_map_log
+npv1_map
 ```
 
 #### Tabel
@@ -149,16 +146,13 @@ params$npv2_chart
 
 #### Peta Distribusi
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
-npv2_map_log <- ggplot() +
+npv2_map <- ggplot() +
   tidyterra::geom_spatraster(data = params$npv2_map) +
   scale_fill_gradient(
     low = "yellow",
     high = "darkgreen",
     na.value = "white",
-    name = "log10(NPV)",
-    trans = "log10",
-    labels = scales::label_comma(),
-    breaks = scales::log_breaks()
+    name = "NPV"
   ) +
   theme_bw() +
   theme(
@@ -174,7 +168,7 @@ npv2_map_log <- ggplot() +
     legend.justification = c(0, 0.5)
   )
 
-npv2_map_log
+npv2_map
 ```
 
 #### Table
@@ -200,16 +194,15 @@ params$deltaNPV_chart
 
 #### Peta Distribusi
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
-deltaNPV_map_log <- ggplot() +
+deltaNPV_map <- ggplot() +
   tidyterra::geom_spatraster(data = params$deltaNPV_map) +
   scale_fill_gradient2(
     low = "red",
-    mid = "white",
+    mid = "white",    
     high = "darkgreen",
-    na.value = "white",
-    name = "log10(|ΔNPV| + 1)",
-    trans = "pseudo_log",  # Transformasi pseudo-log untuk handle nilai negatif
-    labels = function(x) format_log_notation(inv_log_transform(x))
+    midpoint = 0,     
+    na.value = "grey",
+    name = "ΔNPV"
   ) +
   theme_bw() +
   theme(
@@ -225,7 +218,7 @@ deltaNPV_map_log <- ggplot() +
     legend.justification = c(0, 0.5)
   )
 
-deltaNPV_map_log
+deltaNPV_map
 ```
 
 #### Tabel
@@ -319,12 +312,16 @@ Analisis Net Present Value (NPV) dalam laporan ini memberikan wawasan berharga m
 
 Hasil analisis menekankan pentingnya mempertimbangkan aspek keuangan dalam perencanaan penggunaan lahan. Dengan menyediakan visualisasi yang jelas dan data komparatif, analisis ini mendukung para pengambil keputusan dalam mengevaluasi investasi berbasis lahan dan menyelaraskan tujuan pembangunan dengan pertimbangan ekonomi.
 
-<font size="1"> 
+<div style="font-size: 10pt;">
+
 **Referensi**
 
-- Dewi, S., Ekadinata, A., Rahmanulloh, A., Khasanah, N., Rahayu, S., van Noordwijk, M., & Budidarsono, S. (2012). The carbon efficiency of oil palm plantations: an opportunity cost analysis. Technical Brief No. 28: palm oil series. Bogor, Indonesia: World Agroforestry Centre - ICRAF, SEA Regional Office.
-- Dewi, S., Ekadinata, A., Johana, F., Agung, P., & Galudra, G. (2011). LUWES: Land-use planning for low emission development strategies. Bogor, Indonesia: World Agroforestry Centre (ICRAF) Southeast Asia Regional Program.
-</font size>
+*   Dewi, S., Ekadinata, A., Rahmanulloh, A., Khasanah, N., Rahayu, S., van Noordwijk, M., & Budidarsono, S. (2012). *The carbon efficiency of oil palm plantations: an opportunity cost analysis* (Technical Brief No. 28). World Agroforestry Centre (ICRAF) Southeast Asia Regional Office.
+*   Suyanto, S., Ekadinata, A., Sofiyuddin, M., & Rahmanulloh, A. (2014). Opportunity Costs of Emissions Caused by Land-Use Changes. *Open Journal of Forestry*, *4*(1), 85–90. https://doi.org/10.4236/ojf.2014.41013
+*   Rahmanulloh, A., Sofiyuddin, M., & Suyanto, S. (2013). *Seri Agroforestri dan Kehutanan di Sulawesi: Profitabilitas sistem penggunaan lahan di Sulawesi Selatan dan Sulawesi Tenggara* (Working Paper No. 166). World Agroforestry Centre (ICRAF) Southeast Asia Regional Program. https://doi.org/10.5716/WP13042.PDF
+*   Sofiyuddin, M., Rahmanulloh, A., & Suyanto, S. (2012). Assessment of Profitability of Land Use Systems in Tanjung Jabung Barat District, Jambi Province, Indonesia. *Open Journal of Forestry*, *2*(4), 252–256. https://doi.org/10.4236/ojf.2012.24031
+
+</div>
 
 ------------------------------------------------------------------------
 
