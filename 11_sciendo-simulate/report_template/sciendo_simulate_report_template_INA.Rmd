@@ -1,5 +1,5 @@
 ---
-title: "SCIENDO-Simulate Report"
+title: "Laporan Modul SCIENDO-Simulate"
 output: 
   html_document:
     toc: true
@@ -48,7 +48,7 @@ conflict_prefer("select", "dplyr")
 
 <details>
 
-<summary>Click here for Analysis Log</summary>
+<summary>Klik disini untuk membuka log analisis</summary>
 
 ```{r analysis-log, echo=FALSE}
 analysis_log <- tribble(
@@ -75,19 +75,19 @@ analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
 
 </details>
 
-# Summary
+# Ringkasan
 
-Land use change simulation results are based on the `r params$inputs$rep` iteration input and save as raster map (GeoTIFF) with the unique name `landscape{n-th}.tif`.
+Hasil simulasi proyeksi perubahan tutupan/penggunaan lahan didasarkan pada masukan iterasi `r params$inputs$rep` dan disimpan sebagai peta raster (GeoTIFF) dengan nama unik `landscape{n-th}.tif`.
 
-# Module brief description
+# Deskripsi singkat modul
 
-- SCIENDO-Simulate predicts how land use will change in the future based on the training data that is done using SCIENDO-Train where land use/cover at T1 and T2, transition probability matrix and factor maps as explanatory variables like distance maps, climate variables, etc was taking into account.     
+- Modul SCIENDO-Simulate memprediksi bagaimana perubahan tutupan/penggunaan lahan akan terjadi di masa depan berdasarkan kecenderungan perubahan yang diidentifikasi menggunakan SCIENDO-Train. Data yang diperlukan mencakup peta penggunaan/tutupan lahan pada T1 dan T2, matriks probabilitas transisi, serta peta faktor sebagai variabel pemicu (misalnya peta jarak, variabel iklim, dll).
 
-- Land use/cover change lookup table provides a comprehensive overview of how land use and land cover categories have transformed across all the projected years of a study
+- Tabel acuan perubahan penggunaan/tutupan lahan memberikan gambaran komprehensif mengenai bagaimana kategori penggunaan dan tutupan lahan berubah sepanjang tahun proyeksi.
 
-# Input data {.tabset}
+# Data yang digunakan {.tabset}
 
-## Land-Use/Cover Map Initial
+## Peta Tutupan/Penggunaan Lahan Awal
 
 ```{r Land-Use/Cover Map T1, echo=FALSE, message=FALSE, warning=FALSE}
 df_lc <- read.csv(params$inputs$lc_lookup_table_path)
@@ -97,7 +97,7 @@ lc_t1 <- params$inputs$lc_t1_path %>% rast() %>%
 plot_categorical_raster(lc_t1)
 ```
 
-## Planning Unit
+## Peta Unit Perencanaan
 
 ```{r planning unit, echo=FALSE, message=FALSE, warning=FALSE}
 zone <- rast(params$inputs$zone_path)
@@ -105,7 +105,7 @@ plot(zone)
 ```
 
 
-## Land-Use/Cover Lookup Table
+## Tabel Referensi Tutupan/Penggunaan Lahan
 
 ```{r lut, echo=FALSE, message=FALSE, warning=FALSE}
 datatable(df_lc)
@@ -114,9 +114,9 @@ datatable(df_lc)
 #   kable_styling(bootstrap_options = c("striped", "hover"))
 ```
 
-# Results
+# Hasil
 
-## Land Use/Cover Change Projection Maps {.tabset}
+## Peta Proyeksi Perubahan Tutupan/Penggunaan Lahan {.tabset}
 
 ```{r lu projected maps, echo=FALSE, fig.keep='all', results='asis'}
 list_luc <- params$inputs$output_dir %>% 
@@ -129,7 +129,7 @@ for(i in list_luc){
   rst_list[[i]] <- r
   counter <- counter + 1
   
-  cat(paste0("### Projected land cover at T+", counter, " \n\n"))
+  cat(paste0("### Proyeksi Tutupan/Penggunaan Lahan pada T+", counter, " \n\n"))
   cat(
     knitr::knit_child(
       text = c(
@@ -148,7 +148,7 @@ for(i in list_luc){
 }
 ```
 
-## Projected Land Use/Cover Change at the Landscape Level
+## Proyeksi Perubahan Tutupan/Penggunaan Lahan pada Tingkat Lanskap
 
 ```{r lut change, echo=FALSE, message=FALSE, warning=FALSE}
 # Calculate freq table
@@ -171,18 +171,18 @@ write.table(lc_freq_table_export,
 )
 ```
 
-### Projected Land Use/Cover Area Chart
+### Grafik Luas Tutupan/Penggunaan Lahan Terproyeksi
 ```{r Stacked Area Chart, echo=FALSE, message=FALSE, warning=FALSE}
 plot_interactive_stacked_area(lc_freq_table_export)
 ```
 
-### Projected Land Use/Cover Area Lookup Table
+### Tabel Proyeksi Luas Tutupan/Penggunaan Lahan
 ```{r Projected LULCC Table, echo=FALSE, message=FALSE, warning=FALSE}
 DT::datatable(lc_freq_table) %>%
   DT::formatRound(columns = which(sapply(lc_freq_table, is.numeric)), digits = 1)
 ```
 
-## Land Use/Cover Change Lookup Table at the Planning Unit Level {.tabset}
+## Tabel Proyeksi Perubahan Tutupan/Penggunaan Lahan pada Tingkat Unit Perencanaan {.tabset}
 
 ```{r child_document, echo=FALSE, message=FALSE, warning=FALSE, fig.keep='all', results='asis'}
 all_freq_pu_list <- multiple_lc_freq_combined(lc_dir, df_lc, PU = "YES", zone = zone, split = "YES")
@@ -204,7 +204,7 @@ src <- lapply(seq_len(nrow(zone_df)), function(i) {
     "    lc_proj_table,",
     "    caption = htmltools::tags$caption(",
     "      style = 'caption-side: top; text-align: center; color:black; font-size:1.2em;',",
-    "      'Projected Land Use/Cover in {{label}}'",
+    "      'Proyeksi Tutupan/Penggunaan Lahan pada {{label}}'",
     "    ),", 
     "    rownames = FALSE,",
     "    options = list(",
@@ -235,4 +235,4 @@ cat(res, sep = '\n')
 
 <!-- Mandatory closing statement for all module -->
 
-<font size="1"> LUMENS is free software and comes with ABSOLUTELY NO WARRANTY. Users are responsible for the results generated. Results depend on the quality of the input data ("garbage in, garbage out") and may vary or be sensitive to the parameters used. Please report any problems encountered while using LUMENS as [a GitHub issue](https://github.com/icraf-indonesia/lumens-shiny/issues). Feedback and questions are welcome [Contact Us URL]. </font size>
+<font size="1"> LUMENS adalah perangkat lunak gratis dan disediakan TANPA GARANSI APAPUN. Pengguna bertanggung jawab penuh atas setiap produk yang dihasilkan. Hasil sangat bergantung pada kualitas data yang digunakan ("garbage in, garbage out") dan dapat bervariasi atau sensitif terhadap parameter yang digunakan. Harap laporkan setiap masalah yang ditemui saat menggunakan LUMENS sebagai [a GitHub issue](https://github.com/icraf-indonesia/lumens-shiny/issues). Umpan balik dan pertanyaan dipersilakan [Contact Us URL]. </font size>

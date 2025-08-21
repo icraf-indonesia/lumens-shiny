@@ -1,0 +1,458 @@
+Option Explicit
+
+' Global variables
+Public OriginalMatrix As Variant
+Public MatrixRange As Range
+Public IsUpdating As Boolean
+Public LockedCells As Collection ' Tracks user-modified cells
+Public InitializeButton As Shape ' Reference to the initialize button
+Public UserGuideTextBox As Shape ' Reference to the user guide text box
+
+' Initialize the matrix
+Sub InitializeLULCMatrix()
+    Dim ws As Worksheet
+    Dim lastRow As Long, lastCol As Long
+    Dim backupSheet As Worksheet
+
+    Set ws = ActiveSheet
+    IsUpdating = False
+    Set LockedCells = New Collection
+
+    ' Create duplicate sheet as backup
+    ws.Copy After:=ws
+    Set backupSheet = ActiveSheet
+    backupSheet.Name = ws.Name & "_Original"
+
+    ' Go back to original sheet
+    ws.Activate
+
+    ' Find matrix range (excluding headers and sum columns)
+    lastRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row ' Include bottom row
+    lastCol = ws.Cells(1, ws.Columns.Count).End(xlToLeft).Column - 1 ' Exclude rightmost column
+
+    Set MatrixRange = ws.Range(ws.Cells(2, 2), ws.Cells(lastRow, lastCol))
+
+    ' Save initial state
+    OriginalMatrix = MatrixRange.Value
+
+    ' Clear any existing formatting
+    MatrixRange.Interior.Color = xlNone
+
+    ' Remove the initialize button and user guide after initialization
+    RemoveInitializeButton
+    RemoveUserGuideTextBox
+
+    MsgBox "Matrix initialized! Original sheet duplicated as '" & backupSheet.Name & "'. You can now edit cells. Modified cells will be locked from automatic adjustment."
+End Sub
+
+' Reset matrix to original state
+Sub ResetMatrix()
+    If MsgBox("Reset matrix to original state?", vbYesNo) = vbYes Then
+        IsUpdating = True
+        MatrixRange.Value = OriginalMatrix
+
+        ' Clear locked cells collection and formatting
+        Set LockedCells = New Collection
+        MatrixRange.Interior.Color = xlNone
+
+        IsUpdating = False
+        UpdateAllRowSums
+        MsgBox "Matrix reset complete. All cell locks have been cleared."
+    End If
+End Sub
+
+' Handle cell changes
+Sub HandleCellChange(Target As Range)
+    If IsUpdating Or Target.Cells.Count > 1 Then Exit Sub
+    If Intersect(Target, MatrixRange) Is Nothing Then Exit Sub
+
+    Dim rowNum As Long, colNum As Long
+    rowNum = Target.Row - MatrixRange.Row + 1
+    colNum = Target.Column - MatrixRange.Column + 1
+
+    ' Validate input
+    If Not IsNumeric(Target.Value) Or Target.Value < 0 Or Target.Value > 1 Then
+        IsUpdating = True
+        Target.Value = OriginalMatrix(rowNum, colNum)
+        IsUpdating = False
+        MsgBox "Invalid value! Please enter a number between 0 and 1."
+        Exit Sub
+    End If
+
+    Dim newValue As Double
+    newValue = Target.Value
+
+    ' Check if this change would violate the locked cells constraint
+    If Not ValidateLockedCellsSum(rowNum, colNum, newValue) Then
+        IsUpdating = True
+        Target.Value = OriginalMatrix(rowNum, colNum)
+        IsUpdating = False
+        Exit Sub
+    End If
+
+    ' Mark this cell as user-modified (locked)
+    AddToLockedCells rowNum, colNum
+
+    ' Highlight locked cell
+    Target.Interior.Color = RGB(255, 255, 200) ' Light yellow
+
+    ' Adjust other cells in the row to maintain sum = 1
+    IsUpdating = True
+    AdjustRowToSum1 rowNum, colNum, newValue
+    UpdateRowSum rowNum
+
+    ' Update original matrix
+    OriginalMatrix = MatrixRange.Value
+    IsUpdating = False
+End Sub
+
+' Validate that locked cells' sum doesn't exceed 1
+Function ValidateLockedCellsSum(rowNum As Long, colNum As Long, newValue As Double) As Boolean
+    Dim i As Long
+    Dim lockedSum As Double
+    Dim cellKey As String
+
+    ' Calculate sum of all locked cells in the row (including the new value for current cell)
+    For i = 1 To MatrixRange.Columns.Count
+        cellKey = rowNum & "," & i
+
+        ' Check if this cell is locked (or will be locked — current cell)
+        If IsCellLocked(rowNum, i) Or i = colNum Then
+            If i = colNum Then
+                lockedSum = lockedSum + newValue
+            Else
+                lockedSum = lockedSum + MatrixRange.Cells(rowNum, i).Value
+            End If
+        End If
+    Next i
+
+    ' Check if locked sum would exceed 1
+    If lockedSum > 1.000001 Then ' Small tolerance for floating point errors
+        Dim message As String
+        message = "Cannot modify this cell!" & vbCrLf & vbCrLf
+        message = message & "The sum of locked cells in this row would be " & Format(lockedSum, "0.000") & vbCrLf
+        message = message & "which exceeds the maximum allowed value of 1.000." & vbCrLf & vbCrLf
+        message = message & "Please:" & vbCrLf
+        message = message & "1. Enter a smaller value, OR" & vbCrLf
+        message = message & "2. First reduce the values of other locked cells in this row, then try again."
+
+        MsgBox message, vbExclamation, "Row Sum Constraint Violation"
+        ValidateLockedCellsSum = False
+    Else
+        ValidateLockedCellsSum = True
+    End If
+End Function
+
+' Adjust row to ensure sum = 1
+Sub AdjustRowToSum1(rowNum As Long, changedCol As Long, newValue As Double)
+    Dim i As Long
+    Dim unlockedCells As Collection
+    Dim unlockedSum As Double
+    Dim lockedSum As Double
+    Dim remainingValue As Double
+    Dim totalUnlockedOriginal As Double
+    
+    ' Set the new value first
+    MatrixRange.Cells(rowNum, changedCol).Value = newValue
+    
+    ' Create collection of unlocked cells and calculate sums
+    Set unlockedCells = New Collection
+    unlockedSum = 0
+    lockedSum = 0
+    totalUnlockedOriginal = 0
+    
+    For i = 1 To MatrixRange.Columns.Count
+        If i = changedCol Then
+            lockedSum = lockedSum + newValue
+        ElseIf IsCellLocked(rowNum, i) Then
+            lockedSum = lockedSum + MatrixRange.Cells(rowNum, i).Value
+        Else
+            ' This is an unlocked cell
+            unlockedCells.Add i
+            Dim currentValue As Double
+            currentValue = MatrixRange.Cells(rowNum, i).Value
+            unlockedSum = unlockedSum + currentValue
+            totalUnlockedOriginal = totalUnlockedOriginal + currentValue
+        End If
+    Next i
+    
+    ' Calculate how much value should be distributed among unlocked cells
+    remainingValue = 1 - lockedSum
+    
+    ' If remaining value is negative or there are no unlocked cells
+    If remainingValue < -0.000001 Then
+        ' This should have been caught by ValidateLockedCellsSum, but just in case
+        MsgBox "Error: Locked cells sum exceeds 1. This should not happen.", vbCritical
+        Exit Sub
+    End If
+    
+    If unlockedCells.Count = 0 Then
+        ' All other cells are locked, nothing to adjust
+        Exit Sub
+    End If
+    
+    ' Distribute the remaining value among unlocked cells
+    If remainingValue <= 0.000001 Then
+        ' Set all unlocked cells to 0
+        For i = 1 To unlockedCells.Count
+            MatrixRange.Cells(rowNum, unlockedCells(i)).Value = 0
+        Next i
+    Else
+        ' Distribute proportionally based on original values
+        If totalUnlockedOriginal > 0.000001 Then
+            ' Proportional distribution based on original values
+            Dim runningSum As Double
+            runningSum = 0
+            
+            For i = 1 To unlockedCells.Count - 1 ' Process all but the last cell
+                Dim colIndex As Long
+                colIndex = unlockedCells(i)
+                Dim originalValue As Double
+                originalValue = MatrixRange.Cells(rowNum, colIndex).Value
+                
+                Dim proportionalValue As Double
+                proportionalValue = (originalValue / totalUnlockedOriginal) * remainingValue
+                
+                ' Ensure no negative values
+                If proportionalValue < 0 Then proportionalValue = 0
+                
+                MatrixRange.Cells(rowNum, colIndex).Value = proportionalValue
+                runningSum = runningSum + proportionalValue
+            Next i
+            
+            ' Set the last unlocked cell to ensure exact sum = 1
+            Dim lastColIndex As Long
+            lastColIndex = unlockedCells(unlockedCells.Count)
+            Dim lastCellValue As Double
+            lastCellValue = remainingValue - runningSum
+            
+            ' Ensure the last cell value is not negative
+            If lastCellValue < 0 Then lastCellValue = 0
+            
+            MatrixRange.Cells(rowNum, lastColIndex).Value = lastCellValue
+        Else
+            ' All unlocked cells were 0, distribute equally
+            Dim equalValue As Double
+            equalValue = remainingValue / unlockedCells.Count
+            
+            Dim runningSum2 As Double
+            runningSum2 = 0
+            
+            For i = 1 To unlockedCells.Count - 1
+                MatrixRange.Cells(rowNum, unlockedCells(i)).Value = equalValue
+                runningSum2 = runningSum2 + equalValue
+            Next i
+            
+            ' Set the last cell to ensure exact sum = 1
+            MatrixRange.Cells(rowNum, unlockedCells(unlockedCells.Count)).Value = remainingValue - runningSum2
+        End If
+    End If
+End Sub
+
+' Update row sum in the rightmost column
+Sub UpdateRowSum(rowNum As Long)
+    Dim rowSum As Double
+    Dim i As Long
+
+    For i = 1 To MatrixRange.Columns.Count
+        rowSum = rowSum + MatrixRange.Cells(rowNum, i).Value
+    Next i
+
+    ' Update sum cell - ensure it shows exactly 1.000 when sum is very close to 1
+    If Abs(rowSum - 1) < 0.000001 Then
+        rowSum = 1
+    End If
+    
+    Cells(MatrixRange.Row + rowNum - 1, MatrixRange.Column + MatrixRange.Columns.Count).Value = rowSum
+End Sub
+
+' Update all row sums
+Sub UpdateAllRowSums()
+    Dim i As Long
+    For i = 1 To MatrixRange.Rows.Count
+        UpdateRowSum i
+    Next i
+End Sub
+
+' Add cell to locked collection
+Sub AddToLockedCells(rowNum As Long, colNum As Long)
+    Dim cellKey As String
+    cellKey = rowNum & "," & colNum
+
+    ' Remove if already exists to avoid duplicates
+    On Error Resume Next
+    LockedCells.Remove cellKey
+    On Error GoTo 0
+
+    ' Add to collection
+    LockedCells.Add cellKey, cellKey
+End Sub
+
+' Check if cell is locked
+Function IsCellLocked(rowNum As Long, colNum As Long) As Boolean
+    Dim cellKey As String
+    cellKey = rowNum & "," & colNum
+
+    On Error Resume Next
+    Dim temp As String
+    temp = LockedCells(cellKey)
+    IsCellLocked = (Err.Number = 0)
+    On Error GoTo 0
+End Function
+
+' Optional: Function to unlock a specific cell (for manual unlocking if needed)
+Sub UnlockCell(Target As Range)
+    If Intersect(Target, MatrixRange) Is Nothing Then
+        MsgBox "Please select a cell within the matrix range."
+        Exit Sub
+    End If
+
+    Dim rowNum As Long, colNum As Long
+    rowNum = Target.Row - MatrixRange.Row + 1
+    colNum = Target.Column - MatrixRange.Column + 1
+
+    Dim cellKey As String
+    cellKey = rowNum & "," & colNum
+
+    ' Remove from locked collection
+    On Error Resume Next
+    LockedCells.Remove cellKey
+    On Error GoTo 0
+
+    ' Remove highlighting
+    Target.Interior.Color = xlNone
+    
+    ' Recalculate the row to maintain sum = 1
+    IsUpdating = True
+    AdjustRowToSum1 rowNum, colNum, Target.Value
+    UpdateRowSum rowNum
+    OriginalMatrix = MatrixRange.Value
+    IsUpdating = False
+
+    MsgBox "Cell unlocked successfully."
+End Sub
+
+' Create the Initialize button when workbook opens
+Sub CreateInitializeButton()
+    Dim ws As Worksheet
+    Dim btn As Shape
+    Dim lastRow As Long
+    Dim buttonTop As Double
+    Dim buttonLeft As Double
+    
+    Set ws = ActiveSheet
+    
+    ' Check if button already exists
+    On Error Resume Next
+    Set btn = ws.Shapes("InitializeLULCButton")
+    On Error GoTo 0
+    
+    ' If button doesn't exist, create it
+    If btn Is Nothing Then
+        ' Find the last row with data in column A
+        lastRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
+        
+        ' Position button one row below the last data in column A
+        buttonTop = ws.Cells(lastRow + 3, 1).Top
+        buttonLeft = ws.Cells(lastRow + 3, 1).Left
+        
+        ' Create a button shape at the calculated position
+        Set btn = ws.Shapes.AddShape(msoShapeRoundedRectangle, buttonLeft, buttonTop, 100, 20)
+        
+        ' Configure button properties
+        With btn
+            .Name = "InitializeLULCButton"
+            .TextFrame2.TextRange.Text = "Sunting Matriks"
+            .TextFrame2.TextRange.Font.Size = 12
+            .TextFrame2.TextRange.Font.Bold = True
+            .TextFrame2.TextRange.Font.Fill.ForeColor.RGB = RGB(0, 0, 0) ' Black text
+            .Fill.ForeColor.RGB = RGB(255, 165, 0) ' Orange background
+            .Line.ForeColor.RGB = RGB(255, 50, 0) ' Dark orange outline
+            .OnAction = "InitializeLULCMatrix"
+        End With
+        
+        ' Store reference to the button
+        Set InitializeButton = btn
+        
+        ' Create user guide text box below the button
+        CreateUserGuideTextBox lastRow + 1, buttonLeft
+        
+        MsgBox "Klik tombol 'Sunting Matriks' untuk memulai modifikasi matriks", vbInformation, "SCIENDO Scenario Builder"
+    End If
+End Sub
+
+' Create user guide text box
+Sub CreateUserGuideTextBox(buttonRow As Long, buttonLeft As Double)
+    Dim ws As Worksheet
+    Dim textBox As Shape
+    Dim guideText As String
+    Dim textBoxTop As Double
+    
+    Set ws = ActiveSheet
+    
+    ' Check if text box already exists
+    On Error Resume Next
+    Set textBox = ws.Shapes("UserGuideTextBox")
+    On Error GoTo 0
+    
+    ' If text box doesn't exist, create it
+    If textBox Is Nothing Then
+        ' Position text box below the button (with some spacing)
+        textBoxTop = ws.Cells(buttonRow, 1).Top + 60 ' 60 pixels below button
+        
+        ' Create the user guide text
+        guideText = "Informasi Penggunaan Matriks Transisi:" & vbCrLf & _
+                   "1. Klik ""Sunting Matriks"" untuk mulai memodifikasi matriks." & vbCrLf & _
+                   "2. Setiap sel menampilkan nilai probabilitas transisi tutupan/penggunaan lahan." & vbCrLf & _
+                   "3. Untuk memodifikasi probabilitas transisi, masukkan nilai dalam rentang 0–1 pada sel." & vbCrLf & _
+                   "4. Nilai pada sel lain akan otomatis menyesuaikan setiap kali Anda mengubah salah satu sel, agar total pada setiap baris tetap 1." & vbCrLf & _
+                   "5. Setelah selesai, simpan file. File tersebut kemudian dapat digunakan sebagai input ""Transition Matrix"" pada modul SCIENDO Simulate."
+        
+        ' Create a text box shape
+        Set textBox = ws.Shapes.AddTextbox(msoTextOrientationHorizontal, buttonLeft, textBoxTop, 650, 80)
+        
+        ' Configure text box properties
+        With textBox
+            .Name = "UserGuideTextBox"
+            .TextFrame2.TextRange.Text = guideText
+            .TextFrame2.TextRange.Font.Size = 10
+            .TextFrame2.TextRange.Font.Name = "Arial"
+            .TextFrame2.TextRange.Font.Fill.ForeColor.RGB = RGB(0, 0, 0) ' Black text
+            .TextFrame2.WordWrap = True
+            .TextFrame2.MarginLeft = 10
+            .TextFrame2.MarginRight = 10
+            .TextFrame2.MarginTop = 8
+            .TextFrame2.MarginBottom = 8
+            .Fill.ForeColor.RGB = RGB(255, 255, 224) ' Light yellow background
+            .Line.ForeColor.RGB = RGB(200, 200, 200) ' Light gray border
+            .Line.Weight = 1
+        End With
+        
+        ' Store reference to the text box
+        Set UserGuideTextBox = textBox
+    End If
+End Sub
+
+' Remove the Initialize button
+Sub RemoveInitializeButton()
+    Dim ws As Worksheet
+    Set ws = ActiveSheet
+    
+    On Error Resume Next
+    ws.Shapes("InitializeLULCButton").Delete
+    On Error GoTo 0
+    
+    Set InitializeButton = Nothing
+End Sub
+
+' Remove the User Guide text box
+Sub RemoveUserGuideTextBox()
+    Dim ws As Worksheet
+    Set ws = ActiveSheet
+    
+    On Error Resume Next
+    ws.Shapes("UserGuideTextBox").Delete
+    On Error GoTo 0
+    
+    Set UserGuideTextBox = Nothing
+End Sub

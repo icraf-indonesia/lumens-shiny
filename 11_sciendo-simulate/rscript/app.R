@@ -1,17 +1,27 @@
+library(conflicted)
+
+conflict_prefer("xml_find_all", "xml2")
+conflict_prefer("filter", "dplyr")
+conflict_prefer("select", "dplyr")
+conflict_prefer("extract", "tidyr")
+
 source('function_sciendo_simulate.R')
 source('../../helper.R')
+options(repos = c(CRAN = "https://cloud.r-project.org"))
 
 install_load(
   "shinyFiles", "shinyvalidate", "shinyjs", "bslib", "sf", "raster",
   "dplyr", "remotes", "rmarkdown", "XML", "splitstackshape", "shinyalert",
   "terra", "tibble", "ggplot2", "magrittr", "tidyr", "tidyterra", "DT",
-  "readr", "plotly", "scales", "ggthemes", "rlang", "xml2", "tidyverse"
+  "readr", "plotly", "scales", "ggthemes", "rlang", "xml2", "tidyverse",
+  "readxl", "openxlsx", "openxlsx2", "conflicted"
 )
 
 if (!("LUMENSR" %in% rownames(installed.packages()))) {
   install_github("icraf-indonesia/LUMENSR", force = T)
   do.call("library", list("LUMENSR"))
 }
+
 library(LUMENSR)
 
 ui <- fluidPage(
@@ -29,9 +39,6 @@ ui <- fluidPage(
       fileInput("lc_file", "Land Use/Cover Lookup Table (CSV)", accept = c(".csv")),
       fileInput("rc_file", "Raster Cube", multiple=T),
       numericInput("repetition", "Repetition", value = 2),
-      # selectInput("memory_allocation", "Choose Memory Allocation",
-      #             choices = c("Balanced" = 1, "Prefer Memory" = 0, "Prefer Disk" = 2, "Memory Only" = 3, "Aggressive" = 4)
-      # ),
       
       tags$head(
         tags$style(HTML("
@@ -68,6 +75,7 @@ ui <- fluidPage(
           shinyDirButton("wd", "Select output directory", "Please select a directory"),
           verbatimTextOutput("print_output_dir", placeholder = TRUE),
           shinyDirButton("dinamica_path", "DINAMICA EGO Path (Optional)", "(Optional)"),
+          verbatimTextOutput("print_dinamica_path", placeholder = TRUE),
           actionButton("processSimulate", "Run Analysis", 
                        style = "font-size: 18px; padding: 10px 15px; background-color: #4CAF50; color: white;"),
           hidden(
@@ -190,13 +198,13 @@ server <- function(input, output, session) {
     }
     
     # convert xml PU table into dataframe
-    xml_data <- read_xml(rv$rc_xml)
+    xml_data <- xml2::read_xml(rv$rc_xml)  
     
     pu_classes <- xml_data %>%
-      xml_find_all(".//PUClasses/Class") %>%
-      map_df(~ tibble(
-        ID = xml_attr(., "ID"),
-        PU = xml_attr(., "PU"))
+      xml2::xml_find_all(".//PUClasses/Class") %>% 
+      purrr::map_df(~ tibble(
+        ID = xml2::xml_attr(., "ID"),
+        PU = xml2::xml_attr(., "PU"))
       )
     
     rv$zone_df <- pu_classes
@@ -305,10 +313,20 @@ server <- function(input, output, session) {
   )
   
   observe({
-    if (!is.null(input$dinamica_path)) {
+    if (!is.null(input$dinamica_path) && !identical(parseDirPath(volumes, input$dinamica_path), character(0))) {
       rv$dinamica_path <- parseDirPath(volumes, input$dinamica_path)
     } else {
-      rv$dinamica_path <- NULL
+      # Find DINAMICA directory if not provided
+      program_files <- c("C:/Program Files/", "C:/Program Files (x86)/")
+      dinamica_dirs <- list.files(program_files, pattern = "^Dinamica EGO", full.names = TRUE, recursive = FALSE)
+      
+      if (length(dinamica_dirs) == 0) {
+        showNotification("No DINAMICA EGO installation found.", type = "error")
+        rv$dinamica_path <- NULL
+      } else {
+        # Sort directories to use the latest version if multiple are found
+        rv$dinamica_path <- sort(dinamica_dirs, decreasing = TRUE)[1]
+      }
     }
   })
   
@@ -317,6 +335,14 @@ server <- function(input, output, session) {
       paste0("Selected DINAMICA path: ",  rv$dinamica_path)
     } else {
       "No DINAMICA EGO path selected (Optional)"
+    }
+  })
+  
+  output$print_dinamica_path <- renderPrint({
+    if(!is.null(rv$dinamica_path)) {
+      cat(paste(rv$dinamica_path))
+    } else {
+      cat("No DINAMICA EGO path selected")
     }
   })
   

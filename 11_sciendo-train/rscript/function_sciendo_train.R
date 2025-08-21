@@ -304,7 +304,7 @@ generate_sciendo_train_report <- function(output, dir) {
   output_file <- paste0("sciendo_train_report_", Sys.Date(), ".html")
   
   rmarkdown::render(
-    "../report_template/sciendo_train_report_template.Rmd",
+    "../report_template/sciendo_train_report_template_INA.Rmd",
     output_file = output_file,
     output_dir = dir,
     params = report_params
@@ -313,19 +313,20 @@ generate_sciendo_train_report <- function(output, dir) {
 
 
 executeDINAMICA <- function(params, memory_allocation) {
-  # Find DINAMICA directory if not provided
-  if (is.null(params$dinamica_path) | identical(params$dinamica_path, character(0))) {
-    program_files <- c("C:/Program Files/", "C:/Program Files (x86)/")
-    dinamica_dirs <- list.files(program_files, pattern = "^Dinamica EGO", full.names = TRUE)
-    
-    if (length(dinamica_dirs) == 0) {
-      stop("No DINAMICA EGO installation found.")
-    }
-    
-    # Sort directories to use the latest version if multiple are found
-    dinamica_path <- sort(dinamica_dirs, decreasing = TRUE)[1]
-  }
+  # # Find DINAMICA directory if not provided
+  # if (is.null(params$dinamica_path) | identical(params$dinamica_path, character(0))) {
+  #   program_files <- c("C:/Program Files/", "C:/Program Files (x86)/")
+  #   dinamica_dirs <- list.files(program_files, pattern = "^Dinamica EGO", full.names = TRUE)
+  #   
+  #   if (length(dinamica_dirs) == 0) {
+  #     stop("No DINAMICA EGO installation found.")
+  #   }
+  #   
+  #   # Sort directories to use the latest version if multiple are found
+  #   dinamica_path <- sort(dinamica_dirs, decreasing = TRUE)[1]
+  # }
   
+  dinamica_path <- params$dinamica_path
   message(paste("Using DINAMICA EGO installation:", dinamica_path))
   
   # Check if DINAMICA directory exists
@@ -909,6 +910,21 @@ run_sciendo_train_process <- function(lc_t1_path, lc_t2_path, zone_path, lc_look
   period <- as.numeric(time_points$t2) - as.numeric(time_points$t1)
   egoml_mtx_file <- generate_egoml_transition_matrix(lc_t1_path, lc_t2_path, zone_path, period, output_dir, egoml = "00_sciendo_baseline_tpm")
   run_dinamica_transition_matrix(dinamica_path, output_dir, egoml_mtx_file, memory_allocation)
+
+  # Convert TPM long format to wide format
+  macro_dir <- file.path(output_dir, "baseline_tpm_macro")
+  tpm_input_dir <- file.path(output_dir, "baseline_tpm")
+  
+  tryCatch({
+    tpm_to_matrix_conversion(
+      input_dir = tpm_input_dir,
+      lc_lookup_path = lc_lookup_table_path,
+      output_dir = macro_dir,
+      template_path = "../macro_template/macro_template.xlsm"
+    )
+  }, error = function(e) {
+    stop("TPM conversion failed: ", e$message)
+  })
   
   if (!is.null(progress_callback)) progress_callback(0.2, "generate egoml: raster cube generation")
   out_rc <- generate_egoml_raster_cube(factor_path, output_dir, egoml = "01_sciendo_train_raster_cube")
@@ -1192,4 +1208,328 @@ add_pu_classes_to_pam <- function(output_dir, pu_classes, overwrite = TRUE) {
   }, error = function(e) {
     stop("Failed to save XML file: ", e$message)
   })
+}
+
+
+#' Convert Long Format Transition Probability Matrices (TPM) to Wide Format Matrix TPM
+#'
+#' This function processes Transition Probability Matrix (TPM) CSV files, converts them to properly 
+#' formatted matrices with land cover labels, and saves them to .xlsm template files with additional 
+#' calculations and formatting.
+#'
+#' @param input_dir Character string specifying the directory containing input CSV files.
+#' @param lc_lookup_path Character string specifying the path to the land cover lookup table CSV file.
+#' @param output_dir Character string specifying the directory where output Excel files will be saved.
+#' @param template_path Character string specifying the path to the .xlsm template file.
+#'
+#' @details The function performs the following operations:
+#' \enumerate{
+#'   \item Reads the land cover lookup table to map numeric IDs to land cover classes
+#'   \item Processes each TPM CSV file in the input directory:
+#'   \itemize{
+#'     \item Creates a complete matrix with all possible land cover transitions
+#'     \item Calculates diagonal values (persistence probabilities) as 1 minus row sums
+#'     \item Applies land cover labels from the lookup table
+#'     \item Copies the .xlsm template file for each output
+#'     \item Writes the matrix data to the template copy
+#'     \item Adds row and column sums with formatting
+#'     \item Highlights diagonal cells (persistence probabilities)
+#'   }
+#'   \item Saves each processed matrix as a .xlsm file (preserving VBA macros)
+#' }
+#'
+#' @return Invisible NULL. The function primarily produces .xlsm files as output.
+#'
+#' @examples
+#' \dontrun{
+#' tpm_to_matrix_conversion(
+#'   input_dir = "path/to/input/csv/files",
+#'   lc_lookup_path = "path/to/lookup_table.csv",
+#'   output_dir = "path/to/output/directory",
+#'   template_path = "path/to/template.xlsm"
+#' )
+#' }
+#'
+#' @importFrom openxlsx2 wb_load wb_save wb_add_data wb_add_fill wb_add_font
+#' @importFrom openxlsx2 wb_add_border wb_add_numfmt
+#' @importFrom tidyr pivot_wider expand_grid
+#' @importFrom dplyr select mutate left_join arrange
+#' @importFrom tools file_path_sans_ext
+#' @export
+tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, template_path) {
+  # Load required libraries
+  if (!require(openxlsx2, quietly = TRUE)) {
+    stop("openxlsx2 package is required. Please install it with: install.packages('openxlsx2')")
+  }
+  if (!require(dplyr, quietly = TRUE)) {
+    stop("dplyr package is required. Please install it with: install.packages('dplyr')")
+  }
+  if (!require(tidyr, quietly = TRUE)) {
+    stop("tidyr package is required. Please install it with: install.packages('tidyr')")
+  }
+  
+  # Normalize paths to avoid issues
+  output_dir <- normalizePath(output_dir, winslash = "/")
+  
+  # Ensure output_dir does not already contain "baseline_tpm_macro"
+  if (basename(output_dir) == "baseline_tpm_macro") {
+    output_dir <- dirname(output_dir)
+  }
+  
+  # Check if template file exists
+  if (!file.exists(template_path)) {
+    stop("Template file not found: ", template_path)
+  }
+  
+  lc_lookup_table <- read.csv(lc_lookup_path)
+  
+  macro_dir <- file.path(output_dir, "baseline_tpm_macro")
+  dir.create(macro_dir, recursive = TRUE, showWarnings = FALSE)
+  
+  message("Macros will be saved to: ", macro_dir)
+  
+  tpm_dinamica <- list.files(path = input_dir, pattern = "\\.csv$", full.names = TRUE)
+  
+  # Process each CSV file
+  for (tpm in tpm_dinamica) {
+    base_name <- tools::file_path_sans_ext(basename(tpm))
+    matrix1 <- read.csv(tpm)
+    
+    # Prepare the matrix data and get all unique IDs from both From and To columns
+    matrix1 <- matrix1 %>%
+      dplyr::select(-X) %>%  # drop the unused column
+      dplyr::mutate(
+        From. = as.numeric(From.),
+        To. = as.numeric(To.),
+        Rate = as.numeric(Rate)
+      )
+    
+    # Get all unique IDs present in matrix1 (from both From and To columns)
+    all_ids <- sort(unique(c(matrix1$From., matrix1$To.)))
+    
+    # Create a complete grid of all possible combinations
+    complete_grid <- expand.grid(
+      From. = all_ids,
+      To. = all_ids
+    ) %>%
+      dplyr::left_join(matrix1, by = c("From.", "To.")) %>%
+      dplyr::mutate(Rate = ifelse(is.na(Rate), 0, Rate))
+    
+    # Pivot to wide format
+    wide_df <- complete_grid %>%
+      tidyr::pivot_wider(
+        names_from = To., 
+        values_from = Rate,
+        values_fill = 0
+      ) %>%
+      dplyr::arrange(From.)  # sort rows by From.
+    
+    # Reorder columns numerically
+    ordered_cols <- sort(as.numeric(names(wide_df)[-1]))
+    wide_df <- wide_df[, c("From.", as.character(ordered_cols))]
+    
+    # Convert to matrix
+    result_matrix <- as.matrix(wide_df[, -1])
+    rownames(result_matrix) <- wide_df$From.
+    
+    # Calculate diagonal values and normalize rows
+    for(i in 1:nrow(result_matrix)) {
+      # First, set diagonal to 0 temporarily
+      result_matrix[i, i] <- 0
+      
+      # Calculate sum of off-diagonal elements
+      row_sum_off_diag <- sum(result_matrix[i, ])
+      
+      # If off-diagonal sum is >= 1, proportionally scale them down
+      if (row_sum_off_diag >= 1) {
+        # Scale off-diagonal elements to sum to 0.999999
+        if (row_sum_off_diag > 0) {
+          result_matrix[i, ] <- result_matrix[i, ] * (0.999999 / row_sum_off_diag)
+        }
+        result_matrix[i, i] <- 0.000001  # Small persistence probability
+      } else {
+        # Normal case: set diagonal to make row sum = 1
+        result_matrix[i, i] <- 1 - row_sum_off_diag
+      }
+      
+      # Force exact normalization to handle floating point precision
+      current_row_sum <- sum(result_matrix[i, ])
+      if (current_row_sum > 0) {
+        result_matrix[i, ] <- result_matrix[i, ] / current_row_sum
+      }
+      
+      # Final precision check - adjust the largest element if needed
+      final_sum <- sum(result_matrix[i, ])
+      if (abs(final_sum - 1) > .Machine$double.eps) {
+        # Find the largest element and adjust it
+        max_idx <- which.max(result_matrix[i, ])
+        result_matrix[i, max_idx] <- result_matrix[i, max_idx] + (1 - final_sum)
+      }
+    }
+    
+    # Verify that all rows sum to exactly 1 (for debugging)
+    row_sums <- rowSums(result_matrix)
+    max_deviation <- max(abs(row_sums - 1))
+    message("Maximum deviation from 1: ", format(max_deviation, scientific = TRUE))
+    
+    if (any(abs(row_sums - 1) > 1e-10)) {
+      warning("Some rows do not sum to exactly 1 in file: ", basename(tpm))
+      problematic_rows <- which(abs(row_sums - 1) > 1e-10)
+      for (row_idx in problematic_rows) {
+        message("Row ", row_idx, " (", rownames(result_matrix)[row_idx], ") sum: ", 
+                format(row_sums[row_idx], digits = 15))
+      }
+    }
+    
+    # Apply land cover labels
+    row_ids <- as.numeric(rownames(result_matrix))
+    row_labels <- lc_lookup_table$LC[match(row_ids, lc_lookup_table$ID)]
+    rownames(result_matrix) <- row_labels
+    col_ids <- as.numeric(colnames(result_matrix))
+    col_labels <- lc_lookup_table$LC[match(col_ids, lc_lookup_table$ID)]
+    colnames(result_matrix) <- col_labels
+    
+    # Convert matrix to data frame for writing
+    output_df <- as.data.frame(result_matrix)
+    output_df <- cbind(rownames(output_df), output_df)
+    colnames(output_df)[1] <- ""
+    
+    # Define output file path
+    output_file <- file.path(macro_dir, paste0(base_name, "_macros.xlsm"))
+    
+    # Copy template to output location first
+    file.copy(template_path, output_file, overwrite = TRUE)
+    message("Copied template to: ", output_file)
+    
+    # Load the workbook using
+    tryCatch({
+      wb <- wb_load(output_file)
+      message("Successfully loaded workbook")
+      
+      # Get the first sheet name
+      sheet_name <- wb$get_sheet_names()[1]
+      
+      n_rows <- nrow(output_df)
+      n_cols <- ncol(output_df)
+      row_names <- output_df[,1]
+      col_names <- colnames(output_df)[-1] 
+      
+      # Write the main data starting from A1
+      wb <- wb$add_data(
+        sheet = sheet_name,
+        x = output_df,
+        start_col = 1,
+        start_row = 1,
+        col_names = TRUE,
+        row_names = FALSE
+      )
+      
+      # Add "Grand Total" header in the last column of row 1
+      wb <- wb$add_data(
+        sheet = sheet_name,
+        x = "Grand Total",
+        start_col = n_cols + 1,
+        start_row = 1,
+        col_names = FALSE,
+        row_names = FALSE
+      )
+      
+      # Calculate and add row sums
+      for (i in 1:n_rows) {
+        # Calculate actual row sum from the matrix
+        actual_row_sum <- sum(as.numeric(output_df[i, -1]))
+        wb <- wb$add_data(
+          sheet = sheet_name,
+          x = actual_row_sum,
+          start_col = n_cols + 1,
+          start_row = i + 1,
+          col_names = FALSE,
+          row_names = FALSE
+        )
+      }
+      
+      # Add column sums in the last row
+      # col_sums <- c("Grand Total", colSums(output_df[, -1]), sum(colSums(output_df[, -1])))
+      # wb <- wb$add_data(
+      #   sheet = sheet_name,
+      #   x = t(col_sums),
+      #   start_col = 1,
+      #   start_row = n_rows + 2,
+      #   col_names = FALSE,
+      #   row_names = FALSE
+      # )
+      
+      # Apply formatting
+      # Style for sum cells (light blue background)
+      sum_fill <- wb$add_fill(fgColor = "lightblue")
+      
+      # Style for diagonal cells (yellow background)
+      diagonal_fill <- wb$add_fill(fgColor = "yellow")
+      
+      # Apply light blue background to row sum cells (column n_cols+1, rows 2 to n_rows+1)
+      wb <- wb$add_fill(
+        sheet = sheet_name,
+        dims = paste0(openxlsx2::int2col(n_cols + 1), "2:", openxlsx2::int2col(n_cols + 1), n_rows + 1),
+        color = wb_color("lightblue")
+      )
+      
+      # Apply light blue background to column sum cells (row n_rows+2, all columns)
+      wb <- wb$add_fill(
+        sheet = sheet_name,
+        dims = paste0("A", n_rows + 2, ":", openxlsx2::int2col(n_cols + 1), n_rows + 2),
+        color = wb_color("lightblue")
+      )
+      
+      # Apply yellow highlighting to diagonal cells
+      for (i in 1:n_rows) {
+        row_name <- row_names[i]
+        for (j in 2:n_cols) {
+          col_name <- col_names[j-1]
+          if (row_name == col_name) {
+            # Convert to Excel cell reference
+            cell_ref <- paste0(openxlsx2::int2col(j), i + 1)
+            wb <- wb$add_fill(
+              sheet = sheet_name,
+              dims = cell_ref,
+              color = wb_color("yellow")
+            )
+          }
+        }
+      }
+      
+      # Format numeric cells to show 3 decimal places
+      # Format the data range (excluding headers and labels)
+      data_range <- paste0("B2:", openxlsx2::int2col(n_cols), n_rows + 1)
+      wb <- wb$add_numfmt(
+        sheet = sheet_name,
+        dims = data_range,
+        numfmt = "0.000"
+      )
+      
+      # Format sum cells
+      # sum_col_range <- paste0(openxlsx2::int2col(n_cols + 1), "2:", openxlsx2::int2col(n_cols + 1), n_rows + 2)
+      # wb <- wb$add_numfmt(
+      #   sheet = sheet_name,
+      #   dims = sum_col_range,
+      #   numfmt = "0.000"
+      # )
+      
+      sum_row_range <- paste0("B", n_rows + 2, ":", openxlsx2::int2col(n_cols), n_rows + 2)
+      wb <- wb$add_numfmt(
+        sheet = sheet_name,
+        dims = sum_row_range,
+        numfmt = "0.000"
+      )
+      
+      # Save the workbook
+      wb$save(output_file)
+      message("Processed: ", tpm, " -> Saved to: ", output_file)
+      
+    }, error = function(e) {
+      message("Error processing file with openxlsx2: ", e$message)
+      message("Skipping file: ", tpm)
+    })
+  }
+  
+  message("\nAll files processed successfully!")
 }

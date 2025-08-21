@@ -1,0 +1,396 @@
+---
+title: "Laporan Modul QuES-C"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+    theme: united
+    highlight: tango
+    df_print: kable
+params:
+  start_time: NA
+  end_time: NA
+  map_c1: NA
+  map_c2: NA
+  map_em: NA
+  map_sq: NA
+  ques_db: NA
+  p1: NA
+  p2: NA
+  inputs: NA
+  session_log: NA  
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load function, include=FALSE, error=TRUE, warning=TRUE, message=TRUE}
+if (file.exists("function_ques_c.R")){
+  source("function_ques_c.R")
+} else {
+  source("04_quesc/rscript/function_ques_c.R")
+}
+```
+
+```{r load_library, include=FALSE}
+install_load(
+  "raster",
+  "ggplot2",
+  "dplyr",
+  "reshape",
+  "lattice",
+  "rasterVis",
+  "DT",
+  "kableExtra",
+  "tidyterra",
+  "htmltools",
+  "plotly"
+)
+if (!("LUMENSR" %in% rownames(installed.packages()))) {
+  install_github("icraf-indonesia/LUMENSR", force = T)
+  do.call("library", list("LUMENSR"))
+}
+library(LUMENSR)
+```
+
+<details>
+
+<summary>Klik disini untuk membuka log analisis</summary>
+
+```{r analysis-log, echo=FALSE}
+analysis_log <- tribble(
+  ~Category,                      ~Details,
+  "Analysis Start",               params$start_time,
+  "Analysis End",                 params$end_time,
+  "Input Data and Parameters",    "",
+  "1. Landcover map at T1",       params$inputs$lc_t1_path,
+  "2. Landcover map at T2",       params$inputs$lc_t2_path,
+  "3. Planning unit",             params$inputs$admin_z_path,
+  "4. Year of T1",                as.character(params$p1),
+  "5. Year of T2",                as.character(params$p2),
+  "6. Carbon stock lookup table", params$inputs$c_lookup_path,
+  "Output Workspace",             params$inputs$output_dir,
+  "1. Carbon Map at T1",          paste0(params$inputs$output_dir, "/carbon_map_t1.tif"),
+  "2. Carbon Map at T2",          paste0(params$inputs$output_dir, "/carbon_map_t2.tif"),
+  "3. Emission Map",              paste0(params$inputs$output_dir, "/emission_map.tif"),
+  "4. Sequestration Map",         paste0(params$inputs$output_dir, "/sequestration_map.tif"),
+  "5. QUES-C Database",           paste0(params$inputs$output_dir, "/quesc_database.csv"),
+  "Session Summary",              ""
+) %>% rbind(params$session_log)
+
+analysis_log %>%
+  kbl(caption = "Analysis Log", escape = FALSE) %>%
+  kable_paper("hover", full_width = F)
+```
+
+</details>
+
+# Ringkasan
+
+```{r input-data, echo=FALSE, message=FALSE, warning=FALSE}
+period <- as.numeric(params$p2) - as.numeric(params$p1)
+df_c <- read.csv(params$inputs$c_lookup_path)
+
+# =Load landuse for two time periods
+lc_t1 <- params$inputs$lc_t1_path %>%
+  rast() %>%
+  add_legend_to_categorical_raster(., lookup_table = df_c, year = as.numeric(params$p1))
+lc_t2 <- params$inputs$lc_t2_path %>%
+  rast() %>%
+  add_legend_to_categorical_raster(., lookup_table = df_c, year = as.numeric(params$p2))
+
+# Determine if the planning unit input is a shapefile or raster
+admin_z_path <- params$inputs$admin_z_path
+
+if (grepl("\\.shp$", admin_z_path, ignore.case = TRUE)) {
+  # If input is a shapefile
+  zone_sf <- sf::st_read(admin_z_path, quiet = TRUE)
+  zone_sf <- sf::st_cast(zone_sf, "MULTIPOLYGON")
+  # Use the first column as ID, second as name (adjust if needed)
+  zone_rst <- zone_sf %>%
+    rasterise_multipolygon_quesc(
+      raster_res = res(lc_t1), 
+      field = paste0(colnames(st_drop_geometry(zone_sf[1]))) 
+    ) %>% 
+    check_and_harmonise_geometry(reference_map = lc_t1)
+  
+} else if (grepl("\\.tif$", admin_z_path, ignore.case = TRUE)) {
+  # If input is a raster
+  zone_rst <- terra::rast(admin_z_path) %>%
+    check_and_harmonise_geometry(reference_map = lc_t1)
+} else {
+  stop("Unsupported planning unit file format: must be .shp or .tif")
+}
+```
+Laporan ini menyajikan hasil analisis berdasarkan peta dan tabel acuan yang disediakan.
+
+## Ringkasan Perhitungan Emisi GRK
+
+```{r summary_emission, echo=FALSE, message=FALSE, warning=FALSE}
+s <- summary_of_emission_calculation(
+  quescdb = params$ques_db,
+  period = list(p1 = params$p1, p2 = params$p2)
+)
+
+datatable(s$summary_df)
+```
+
+## Ringkasan Perhitungan Emisi GRK Berdasarkan Unit Perencanaan
+
+
+### Ringkasan Emisi dan Sekuestrasi GRK berdasarkan Unit Perencanaan
+
+```{r summary_emission_by_pu_e, echo=FALSE, message=FALSE, warning=FALSE}
+datatable(s$zone_carbon)
+# s$zone_carbon %>% kbl(caption = "Summary of Emissions and Sequestration by Planning Unit", escape = F) %>%
+#   kable_paper("hover", full_width = F)
+```
+
+### Ringkasan Cadangan Karbon dan Emisi GRK Bersih antar Periode berdasarkan Unit Perencanaan
+
+```{r summary_emission_by_pu_c, echo=FALSE, message=FALSE, warning=FALSE}
+z <- zonal_statistic_database(
+  quescdb = params$ques_db,
+  period = period
+)
+
+colnames(z$data_zone_df)[colnames(z$data_zone_df) == "Carbon Avg. (Periode 1)"] <- paste("Carbon Average (tonne-C ha\u207B\u00B9)", params$p1)
+colnames(z$data_zone_df)[colnames(z$data_zone_df) == "Carbon Avg. (Periode 2)"] <- paste("Carbon Average (tonne-C ha\u207B\u00B9)", params$p2)
+
+datatable(z$data_zone_df)
+```
+
+# Deskripsi singkat modul
+
+-	QuES-C menggambarkan estimasi cadangan karbon untuk berbagai tipe penggunaan lahan di suatu wilayah menggunakan metode Stock Difference, di mana dinamika cadangan karbon didasarkan pada jumlah cadangan karbon pada dua titik waktu yang berbeda.
+
+-	Emisi GRK diperoleh dari penurunan cadangan karbon di suatu lahan akibat perubahan penggunaan lahan dari tipe penggunaan lahan dengan cadangan karbon tinggi ke tipe penggunaan lahan dengan cadangan karbon rendah.
+
+-	Sekuestrasi GRK diperoleh dari peningkatan cadangan karbon di suatu lahan akibat perubahan penggunaan lahan dari tipe penggunaan lahan dengan cadangan karbon rendah ke tipe penggunaan lahan dengan cadangan karbon tinggi.
+
+# Data yang digunakan {.tabset}
+
+## LPeta Tutupan/Penggunaan Lahan pada `r params$p1`
+
+```{r Land-Use/Cover Map T1, echo=FALSE, message=FALSE, warning=FALSE}
+plot_categorical_raster(lc_t1)
+```
+
+## Peta Tutupan/Penggunaan Lahan pada `r params$p2`
+
+```{r Land-Use/Cover Map T2, echo=FALSE, message=FALSE, warning=FALSE}
+plot_categorical_raster(lc_t2)
+```
+
+## Peta Unit Perencanaan
+
+```{r Planning Unit, echo=FALSE, message=FALSE, warning=FALSE}
+plot_categorical_raster(zone_rst)
+```
+
+## Tabel Acuan Cadangan Karbon
+
+Cadangan karbon yang digunakan adalah cadangan karbon rata-rata sepanjang waktu di atas permukaan tanah.
+
+
+```{r Carbon Stock Lookup Table, echo=FALSE, message=FALSE, warning=FALSE}
+datatable(
+  read.csv(params$inputs$c_lookup_path)
+)
+```
+
+# Hasil
+
+## Basis Data QuES-C
+
+Basis data QuES-C berisi informasi transisi tutupan lahan antara `r params$p1` dan `r params$p2` pada setiap unit perencanaan dan dilengkapi dengan nilai cadangan karbon, emisi, dan sekuestrasi.
+
+Ringkasan statistik tabel berisi `r nrow(params$ques_db)` baris dan `r names(params$ques_db)` kolom.
+
+```{r load_quesdb, echo=FALSE, message=FALSE, warning=FALSE}
+datatable(params$ques_db)
+```
+
+## Peta Kerapatan Karbon pada `r params$p1`
+
+Peta kerapatan karbon menggambarkan distribusi dan jumlah karbon yang tersimpan dalam data tutupan/penggunaan lahan pada `r params$p1` (dalam ton-C ha<sup>-1</sup>).
+
+```{r carbon_map_t1, echo=FALSE, message=FALSE, warning=FALSE}
+y <- ceiling(minmax(params$map_c1)[2] / 100)
+y <- y * 100
+plot_quesc_results(
+  map = params$map_c1,
+  legend = expression("Carbon Density (tonne-C ha"^-1*")"),
+  low = "#FFCC66",
+  high = "#003300",
+  # limits = c(0,y),
+  # breaks = c(0,10,20,50,100,200,300),
+  # title_size = 8,
+  # text_size = 7,
+  # height = 1.5,
+  # width = 0.375
+)
+```
+
+## Peta Kerapatan Karbon pada `r params$p2`
+
+Peta kerapatan karbon menggambarkan distribusi dan jumlah karbon yang tersimpan dalam data tutupan/penggunaan lahan pada `r params$p2` (dalam ton-C ha<sup>-1</sup>).
+
+```{r carbon_map_t2, echo=FALSE, message=FALSE, warning=FALSE}
+plot_quesc_results(
+  map = params$map_c2,
+  legend = expression("Carbon Density (tonne-C ha"^-1*")"),
+  low = "#FFCC66",
+  high = "#003300",
+  # limits = c(0,y),
+  # breaks = c(0,10,20,50,100,200,300),
+  # title_size = 8,
+  # text_size = 7,
+  # height = 1.5,
+  # width = 0.375
+)
+```
+
+## Peta Emisi GRK pada `r params$p1`-`r params$p2`
+
+Peta emisi GRK menggambarkan penurunan jumlah cadangan karbon (dalam ton CO<sub>2</sub>-eq ha<sup>-1</sup>).
+
+```{r emission_map, echo=FALSE, message=FALSE, warning=FALSE}
+plot_quesc_results(
+  map = params$map_em,
+  legend = expression("Emission (tonne CO"[2]*"-eq ha"^-1*")"),
+  low = "#FFCC66",
+  high = "#FF0000"
+)
+```
+
+## Peta Sekuestrasi GRK pada `r params$p1`-`r params$p2`
+
+Peta sekuestrasi GRK menggambarkan peningkatan jumlah cadangan karbon (dalam ton CO<sub>2</sub>-eq ha<sup>-1</sup>).
+
+```{r sequestration_map, echo=FALSE, message=FALSE, warning=FALSE}
+plot_quesc_results(
+  map = params$map_sq,
+  legend = expression("Sequestration (tonne CO"[2]*"-eq ha"^-1*")"),
+  low = "#FFCC66",
+  high = "#000033"
+)
+```
+
+## Rata-rata Laju Emisi GRK Bersih
+
+```{r avg_net_em_rate, echo=FALSE, message=FALSE, warning=FALSE}
+s$plot_zone_carbon
+```
+
+## Rata-rata Kerapatan Karbon pada `r params$p1`
+
+```{r avg carbon density 1, echo=FALSE, message=FALSE, warning=FALSE}
+reclassify_matrix <- as.matrix(z$data_zone[, 1]) %>%
+  cbind(., as.matrix(z$data_zone[, 4])) %>%
+  rbind(., c(0, NA))
+z_avg_c1 <- zone_rst %>% classify(reclassify_matrix)
+plot_quesc_results(
+  map = z_avg_c1,
+  legend = expression("Carbon Density Level (tonne-C ha"^-1*")"),
+  low = "#FFCC66",
+  high = "#003300"
+)
+```
+
+## Rata-rata Kerapatan Karbon pada `r params$p2`
+
+```{r avg carbon density 2, echo=FALSE, message=FALSE, warning=FALSE}
+reclassify_matrix <- as.matrix(z$data_zone[, 1]) %>%
+  cbind(., as.matrix(z$data_zone[, 5])) %>%
+  rbind(., c(0, NA))
+z_avg_c2 <- zone_rst %>% classify(reclassify_matrix)
+plot_quesc_results(
+  map = z_avg_c2,
+  legend = expression("Carbon Density Level (tonne-C ha"^-1*")"),
+  low = "#FFCC66",
+  high = "#003300"
+)
+```
+
+## Rata-rata Laju Emisi GRK berdasarkan Unit Perencanaan
+
+Peta berikut menunjukkan rata-rata laju emisi karbon (ton CO<sub>2</sub>-eq ha<sup>-1</sup> yr<sup>-1</sup>) di antara kelas unit-unit perencanaan, yang merepresentasikan pelepasan karbon akibat perubahan tutupan lahan. Area yang lebih gelap menunjukkan tingkat emisi GRK yang lebih tinggi.
+
+```{r avg emission rate, echo=FALSE, message=FALSE, warning=FALSE}
+reclassify_matrix <- as.matrix(z$data_zone[, 1]) %>%
+  cbind(., as.matrix(z$data_zone[, 6])) %>%
+  rbind(., c(0, NA))
+
+z_em_rate <- zone_rst %>% classify(reclassify_matrix)
+plot_quesc_results(
+  map = z_em_rate,
+  legend = expression("Emission Level (tonne CO"[2]*"-eq ha"^-1*" yr"^-1*")"),
+  low = "#FFCC66",
+  high = "#003300"
+)
+```
+
+## Rata-rata Laju Sekuestrasi GRK berdasarkan Unit Perencanaan
+
+Peta berikut menunjukkan rata-rata laju sekuestrasi karbon (ton CO<sub>2</sub>-eq ha<sup>-1</sup> yr<sup>-1</sup>) di antara kelas unit-unit perencanaan, yang menunjukkan peningkatan cadangan karbon atas permukaan akibat perubahan tutupan lahan. Area yang lebih gelap menunjukkan tingkat sekuestrasi yang lebih tinggi.
+
+```{r avg sequestration rate, echo=FALSE, message=FALSE, warning=FALSE}
+reclassify_matrix <- as.matrix(z$data_zone[, 1]) %>%
+  cbind(., as.matrix(z$data_zone[, 7])) %>%
+  rbind(., c(0, NA))
+z_sq_rate <- zone_rst %>% classify(reclassify_matrix)
+plot_quesc_results(
+  map = z_sq_rate,
+  legend = expression("Sequestration Level (tonne CO"[2]*"-eq ha"^-1*" yr"^-1*")"),
+  low = "#FFCC66",
+  high = "#003300"
+)
+```
+
+## Sumber Emisi GRK Terbesar {.tabset}
+
+### Diagram
+
+```{r plot_largest_em, echo=FALSE, message=FALSE, warning=FALSE}
+z$largest_emission
+```
+
+### Tabel
+
+
+```{r tbl_largest_em, echo=FALSE, message=FALSE, warning=FALSE}
+tbl_largest_em <- z$tb_em_total_10_summary
+tbl_largest_em <- tbl_largest_em[-1]
+
+datatable(tbl_largest_em)
+# z$tb_em_total_10_summary %>% kbl(caption = "The Largest Source of Emission", escape = F) %>%
+#   kable_paper("hover", full_width = F)
+```
+
+## Sumber Sekuestrasi GRK Terbesar {.tabset}
+
+### Diagram
+
+```{r plot_largest_sq, echo=FALSE, message=FALSE, warning=FALSE}
+z$largest_sequestration
+```
+
+### Tabel
+
+```{r tbl_largest_sq, echo=FALSE, message=FALSE, warning=FALSE}
+tbl_largest_sq <- z$tb_sq_total_10_summary
+tbl_largest_sq <- tbl_largest_sq[-1]
+
+datatable(tbl_largest_sq)
+# z$tb_sq_total_10_summary %>% kbl(caption = "The Largest Source of Sequestration", escape = F) %>%
+#   kable_paper("hover", full_width = F)
+```
+
+------------------------------------------------------------------------
+
+<!-- Mandatory closing statement for all module -->
+
+<font size="1"> LUMENS adalah perangkat lunak gratis dan disediakan TANPA GARANSI APAPUN. Pengguna bertanggung jawab penuh atas setiap produk yang dihasilkan. Hasil sangat bergantung pada kualitas data yang digunakan ("garbage in, garbage out") dan dapat bervariasi atau sensitif terhadap parameter yang digunakan. Harap laporkan setiap masalah yang ditemui saat menggunakan LUMENS sebagai [a GitHub issue](https://github.com/icraf-indonesia/lumens-shiny/issues). Umpan balik dan pertanyaan dipersilakan [Contact Us URL]. </font size>

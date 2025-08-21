@@ -1,10 +1,12 @@
 source('function_sciendo_train.R')
 source('../../helper.R')
 
+options(repos = c(CRAN = "https://cloud.r-project.org"))
+
 install_load(
   "shinyFiles", "shinyvalidate", "shinyjs", "bslib", "sf", "raster",
   "dplyr", "remotes", "rmarkdown", "XML", "splitstackshape", "shinyalert",
-  "usdm", "corrplot"
+  "usdm", "corrplot", "tidyr", "openxlsx", "openxlsx2", "XML", "xml2"
 )
 
 if (!("LUMENSR" %in% rownames(installed.packages()))) {
@@ -43,11 +45,7 @@ ui <- fluidPage(
         fileInput("mapz_file", "Planning Unit", accept = c("image/tiff"))
       ),
       fileInput("z_file", "Planning Unit Lookup Table (CSV)", accept = c(".csv")),
-      
-      # selectInput("memory_allocation", "Choose Memory Allocation",
-      #   choices = c("Balanced" = 1, "Prefer Memory" = 0, "Prefer Disk" = 2, "Memory Only" = 3, "Aggressive" = 4)
-      # ),
-      
+
       tags$head(
         tags$style(HTML("
       .selectize-dropdown-content .option {
@@ -81,6 +79,7 @@ ui <- fluidPage(
           shinyDirButton("wd", "Select output directory", "Please select a directory"),
           verbatimTextOutput("print_output_dir", placeholder = TRUE),
           shinyDirButton("dinamica_path", "DINAMICA EGO Path (Optional)", "(Optional)"),
+          verbatimTextOutput("print_dinamica_path", placeholder = TRUE),
           actionButton("processTrain", "Run Analysis", 
                        style = "font-size: 18px; padding: 10px 15px; background-color: #4CAF50; color: white;"),
           hidden(
@@ -296,10 +295,20 @@ server <- function(input, output, session) {
   )
   
   observe({
-    if (!is.null(input$dinamica_path)) {
+    if (!is.null(input$dinamica_path) && !identical(parseDirPath(volumes, input$dinamica_path), character(0))) {
       rv$dinamica_path <- parseDirPath(volumes, input$dinamica_path)
     } else {
-      rv$dinamica_path <- NULL
+      # Find DINAMICA directory if not provided
+      program_files <- c("C:/Program Files/", "C:/Program Files (x86)/")
+      dinamica_dirs <- list.files(program_files, pattern = "^Dinamica EGO", full.names = TRUE, recursive = FALSE)
+      
+      if (length(dinamica_dirs) == 0) {
+        showNotification("No DINAMICA EGO installation found.", type = "error")
+        rv$dinamica_path <- NULL
+      } else {
+        # Sort directories to use the latest version if multiple are found
+        rv$dinamica_path <- sort(dinamica_dirs, decreasing = TRUE)[1]
+      }
     }
   })
   
@@ -308,6 +317,14 @@ server <- function(input, output, session) {
       paste0("Selected DINAMICA path: ",  rv$dinamica_path)
     } else {
       "No DINAMICA EGO path selected (Optional)"
+    }
+  })
+  
+  output$print_dinamica_path <- renderPrint({
+    if(!is.null(rv$dinamica_path)) {
+      cat(paste(rv$dinamica_path))
+    } else {
+      cat("No DINAMICA EGO path selected")
     }
   })
   

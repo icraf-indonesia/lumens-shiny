@@ -898,7 +898,7 @@ generate_quesc_report <- function(output_quesc, dir) {
   )
   output_file <- paste0("quesc_report_", Sys.Date(), ".html")
   
-  #template_path <- here::here("04_quesc", "report_template", "quesc_report_template.Rmd")
+  #template_path <- here::here("04_quesc", "report_template", "quesc_report_template_INA.Rmd")
   
   #if (!file.exists(template_path)) {
   #  stop(paste("Template file not found at:", template_path))}
@@ -909,19 +909,19 @@ generate_quesc_report <- function(output_quesc, dir) {
   temp_dir <- tempdir()
   
   # Copy report template and functions to temporary directory
-  if (file.exists("../report_template/quesc_report_template.Rmd")){
-    quesc_report_path <- "../report_template/quesc_report_template.Rmd"
+  if (file.exists("../report_template/quesc_report_template_INA.Rmd")){
+    quesc_report_path <- "../report_template/quesc_report_template_INA.Rmd"
     helper_functions_path <- "../rscript/function_ques_c.R"
-  } else if (file.exists("../../04_quesc/report_template/quesc_report_template.Rmd")){
-    quesc_report_path <- "../../04_quesc/report_template/quesc_report_template.Rmd"
+  } else if (file.exists("../../04_quesc/report_template/quesc_report_template_INA.Rmd")){
+    quesc_report_path <- "../../04_quesc/report_template/quesc_report_template_INA.Rmd"
     helper_functions_path <- "../../04_quesc/rscript/function_ques_c.R"
   } else {
-    quesc_report_path <- "04_quesc/report_template/quesc_report_template.Rmd"
+    quesc_report_path <- "04_quesc/report_template/quesc_report_template_INA.Rmd"
     helper_functions_path <- "04_quesc/rscript/function_ques_c.R"
   }
   
   file.copy(quesc_report_path,
-            to = file.path(temp_dir, "quesc_report_template.Rmd"), overwrite = TRUE)
+            to = file.path(temp_dir, "quesc_report_template_INA.Rmd"), overwrite = TRUE)
   file.copy(helper_functions_path,
             to = file.path(temp_dir, "function_ques_c.R"), overwrite = TRUE)
   
@@ -931,8 +931,8 @@ generate_quesc_report <- function(output_quesc, dir) {
   }
   
   rmarkdown::render(
-    input = file.path(temp_dir, "quesc_report_template.Rmd"),
-    # "../report_template/quesc_report_template.Rmd",
+    input = file.path(temp_dir, "quesc_report_template_INA.Rmd"),
+    # "../report_template/quesc_report_template_INA.Rmd",
     output_file = output_file,
     output_dir = dir,
     params = report_params
