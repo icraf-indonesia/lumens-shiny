@@ -1,0 +1,315 @@
+---
+title: "Profitability Analysis Report"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+    df_print: kable
+params:
+  session_log: NA
+  start_time: NA
+  end_time: NA
+  total_table : NA
+  npv1_table : NA
+  npv2_table : NA
+  deltaNPV_table : NA
+  npv1_chart : NA
+  npv2_chart : NA
+  deltaNPV_chart : NA
+  npv1_map: NA
+  npv2_map: NA
+  deltaNPV_map: NA
+  map1_file_path: NULL
+  map2_file_path: NULL
+  npv_file_path: NULL
+  carbon_file_path: NULL
+  pu_table_path: NULL
+  year1: NULL
+  year2: NULL
+  pu_outputs: NULL
+  currency: NULL
+  output_dir: NULL
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(knitr)
+library(kableExtra)
+library(tidyr)
+library(pkgdown)
+library(ggplot2)
+library(htmlwidgets)
+library(DT)
+```
+
+<details><summary>Click here for Analysis Log</summary>
+
+```{r analysis-log, echo=FALSE}
+
+analysis_log <- tribble(
+  ~Category,                   ~Details,
+  "Analysis Start",        params$start_time,
+  "Analysis End",          params$end_time,
+  "Input Data and Parameters", "",
+  "Land Cover (t1)",      params$map1_file_path,
+  "Land Cover (t2)",   params$map2_file_path,
+  "Profitability data",   params$npv_file_path,
+  "Carbon stock data",   params$carbon_file_path,
+  "Year 1", as.character(params$year1),
+  "Year 2", as.character(params$year2),
+  "NoData land-cover class", as.character(params$raster_nodata),
+  "Output Files", "",
+  "Output Workspace",      paste0(getwd(), " | ", params$output_dir),
+  "Session Summary", "",
+) %>% rbind(format_session_info_table())
+
+analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
+  kable_paper("hover", full_width = F )
+```
+</details>
+
+# Introduction
+
+This report presents the results of a Profitability Analysis based on land-use change scenarios. The analysis focuses on assessing the net present value (NPV) associated with different land-use changes. This approach helps evaluate the financial and environmental implications of land use transitions and supports informed decision-making that balances economic viability with sustainability goals.
+
+# Analysis Results
+
+The analysis workflow involves several key steps:
+
+1. **NPV and Carbon Data Processing**: NPV and carbon data were combined to create a comprehensive lookup table.
+2. **Land-Use Change Analysis**: The land-use change maps were processed to assess changes in NPV.
+3. **Visualization**: Maps were generated to visually represent the spatial distribution of NPV changes. 
+
+## Summary of Net Present Value (NPV)
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+params$total_table %>%
+  as.data.frame() %>%
+  dplyr::mutate(dplyr::across(where(is.numeric), scales::label_comma())) %>%
+  DT::datatable()
+```
+
+### NPV for `r params$year1` {.tabset}
+This section presents the ten land cover categories with the highest total Net Present Value (NPV) in `r params$year1`, which represents the cumulative economic return (in `r params$currency`) derived from land use activities over a given area, typically measured in hectares. NPV is a key metric in land use planning as it reflects the present value of future benefits associated with different land uses in `r params$year1`.
+
+#### Plot
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+params$npv1_chart
+```
+
+#### Peta Distribusi
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+npv1_map <- ggplot() +
+  tidyterra::geom_spatraster(data = params$npv1_map) +
+  scale_fill_gradient(
+    low = "yellow",
+    high = "darkgreen",
+    na.value = "white",
+    name = "NPV"
+  ) +
+  theme_bw() +
+  theme(
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    legend.title = element_text(size = 10),
+    legend.text = element_text(size = 8),
+    legend.key.height = unit(1, "cm"),
+    legend.key.width = unit(0.25, "cm"),
+    legend.position = "right",
+    legend.justification = c(0, 0.5)
+  )
+
+npv1_map
+```
+
+#### Table
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+params$npv1_table %>%
+  dplyr::mutate(dplyr::across(where(is.numeric), easy_to_read_numbers)) %>%
+  rename(
+    `Land Cover 1` = LC1,
+    !!glue::glue("Total NPV ({params$currency})") := Total_NPV1,
+    `Total Area (Ha)` = Total_Ha1
+  ) %>%
+  DT::datatable(rownames = FALSE)
+```
+
+### NPV for `r params$year2` {.tabset}
+This section presents the ten land cover categories with the highest total Net Present Value (NPV) in `r params$year2`, which represents the cumulative economic return (in `r params$currency`) derived from land use activities over a given area, typically measured in hectares. NPV is a key metric in land use planning as it reflects the present value of future benefits associated with different land uses in `r params$year2`.
+
+#### Plot
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+params$npv2_chart
+```
+
+#### Peta Distribusi
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+npv2_map <- ggplot() +
+  tidyterra::geom_spatraster(data = params$npv2_map) +
+  scale_fill_gradient(
+    low = "yellow",
+    high = "darkgreen",
+    na.value = "white",
+    name = "NPV"
+  ) +
+  theme_bw() +
+  theme(
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    legend.title = element_text(size = 10),
+    legend.text = element_text(size = 8),
+    legend.key.height = unit(1, "cm"),
+    legend.key.width = unit(0.25, "cm"),
+    legend.position = "right",
+    legend.justification = c(0, 0.5)
+  )
+
+npv2_map
+```
+
+#### Table
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+params$npv2_table %>%
+  dplyr::mutate(dplyr::across(where(is.numeric), easy_to_read_numbers)) %>%
+  rename(
+    `Land Cover 2` = LC2,
+    !!glue::glue("Total NPV ({params$currency})") := Total_NPV2,
+    `Total Area (Ha)` = Total_Ha2
+  ) %>%
+  DT::datatable(rownames = FALSE)
+```
+
+
+### Delta NPV for `r params$year1` to `r params$year2` {.tabset}
+This section presents the change in Net Present Value (ΔNPV) between the years `r params$year1` and `r params$year2`. ΔNPV reflects the difference in projected economic returns from land use across the two time periods. Positive ΔNPV values indicate an increase in profitability over time, while negative values suggest a decline. 
+
+#### Plot
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+params$deltaNPV_chart
+```
+
+#### Peta Distribusi
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+deltaNPV_map <- ggplot() +
+  tidyterra::geom_spatraster(data = params$deltaNPV_map) +
+  scale_fill_gradient(
+    low = "red",
+    high = "darkgreen",
+    na.value = "white",
+    name = "NPV"
+  ) +
+  theme_bw() +
+  theme(
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    legend.title = element_text(size = 10),
+    legend.text = element_text(size = 8),
+    legend.key.height = unit(1, "cm"),
+    legend.key.width = unit(0.25, "cm"),
+    legend.position = "right",
+    legend.justification = c(0, 0.5)
+  )
+
+deltaNPV_map
+```
+
+#### Table
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+params$deltaNPV_table %>%
+  dplyr::mutate(dplyr::across(where(is.numeric), easy_to_read_numbers)) %>%
+  rename(
+    `Land Use Change` = LULCC,
+    !!rlang::sym(glue::glue("ΔNPV ({params$currency})")) := Total_deltaNPV,
+    !!rlang::sym(glue::glue("|ΔNPV| ({params$currency})")) := Total_abs_deltaNPV,
+    `Total Area (Ha)` = Total_Ha2
+  ) %>%
+  DT::datatable(rownames = FALSE)
+```
+
+## NPV Results at the Planning Unit Level
+
+```{r child_documen_traj_fao, echo=FALSE, fig.keep='all', results='asis'}
+render_child_pu <- function(results_list, pu_name, currency) {
+  # Create a temporary environment to store the variables
+  env <- new.env()
+  env$results_list <- results_list
+  env$pu_name <- pu_name
+  env$currency <- currency
+  env$easy_to_read_numbers <- easy_to_read_numbers
+  
+  # Create the child document content
+  child_content <- c(
+    paste0("### ", pu_name, " {.tabset}"),
+    "",
+    paste0("#### Top 10 ΔNPV in ", pu_name),
+    "```{r}",
+    "#| echo: false",
+    "results_list[[pu_name]][['lulcc_bar']]",
+    "```",
+    "",
+    paste0("#### Total Value Table for ", pu_name),
+    "```{r}",
+    "#| echo: false",
+    "as.data.frame(results_list[[pu_name]][['total_values']]) %>%",
+    "  mutate_if(is.numeric, easy_to_read_numbers) %>%",
+    "  kable() %>%",
+    "  kable_styling(bootstrap_options = c('striped', 'hover'))",
+    "```",
+    "",
+    paste0("#### Top 10 NPV by LC 1 in ", pu_name),
+    "```{r}",
+    "#| echo: false",
+    "results_list[[pu_name]][['lc1_bar']]",
+    "```",
+    "",
+    paste0("#### Top 10 NPV by LC 2 in ", pu_name),
+    "```{r}",
+    "#| echo: false",
+    "results_list[[pu_name]][['lc2_bar']]",
+    "```",
+    "",
+    paste0("#### All LULCC Transitions in ", pu_name),
+    "```{r}",
+    "#| echo: false",
+    "results_list[[pu_name]][['all_dissolved_lulcc_pu']] %>%",
+    "  dplyr::mutate(dplyr::across(where(is.numeric), easy_to_read_numbers)) %>%",
+    "  dplyr::rename(",
+    "    `Land Use Change` = LULCC,",
+    sprintf("    `ΔNPV (%s)` = Total_deltaNPV,", currency),
+    sprintf("    `|ΔNPV| (%s)` = Total_abs_deltaNPV,", currency),
+    "    `Total Area (Ha)` = Total_Ha2",
+    "  ) %>%",
+    "  DT::datatable(rownames = FALSE)",
+    "```"
+  )
+  
+  # Knit the child document
+  res <- knitr::knit_child(
+    text = child_content,
+    envir = env,
+    quiet = TRUE
+  )
+  
+  cat(res, sep = "\n")
+}
+
+for (pu_name in names(params$pu_outputs)) {
+  render_child_pu(params$pu_outputs, pu_name, params$currency)
+}
+
+```
+
+# Conclusion
+The Net Present Value (NPV) analysis in this report offers valuable insights into the financial performance of different land-use types and transitions. By quantifying economic returns over time, the analysis helps identify which land uses provide the greatest profitability under various scenarios. 
+
+The results emphasize the importance of integrating financial considerations into land-use planning while recognizing the broader environmental context. By providing clear visualizations and comparative data, this analysis supports decision-makers in evaluating land-based investments and aligning development goals with long-term sustainability.
+
+------------------------------------------------------------------------
+
+<font size="1"> LUMENS is free software and comes with ABSOLUTELY NO WARRANTY. Users are responsible for the results generated. Results depend on the quality of the input data ("garbage in, garbage out") and may vary or be sensitive to the parameters used. Please report any problems encountered while using LUMENS as [a GitHub issue](https://github.com/icraf-indonesia/lumens-shiny/issues). Feedback and questions are welcome [Contact Us URL]. </font size>

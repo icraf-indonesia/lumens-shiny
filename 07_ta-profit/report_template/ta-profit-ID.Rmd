@@ -1,0 +1,328 @@
+---
+title: "Profitability Analysis Report"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+    df_print: kable
+params:
+  session_log: NA
+  start_time: NA
+  end_time: NA
+  total_table : NA
+  npv1_table : NA
+  npv2_table : NA
+  deltaNPV_table : NA
+  npv1_chart : NA
+  npv2_chart : NA
+  deltaNPV_chart : NA
+  npv1_map: NA
+  npv2_map: NA
+  deltaNPV_map: NA
+  map1_file_path: NULL
+  map2_file_path: NULL
+  npv_file_path: NULL
+  carbon_file_path: NULL
+  pu_table_path: NULL
+  year1: NULL
+  year2: NULL
+  pu_outputs: NULL
+  currency: NULL
+  output_dir: NULL
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(knitr)
+library(kableExtra)
+library(tidyr)
+library(pkgdown)
+library(ggplot2)
+library(htmlwidgets)
+library(DT)
+library(scales) 
+```
+
+<details><summary>Klik di sini untuk Log Analisis</summary>
+
+```{r analysis-log, echo=FALSE}
+
+analysis_log <- tribble(
+  ~Category,                   ~Details,
+  "Analysis Start",        params$start_time,
+  "Analysis End",          params$end_time,
+  "Input Data and Parameters", "",
+  "Land Cover (t1)",      params$map1_file_path,
+  "Land Cover (t2)",   params$map2_file_path,
+  "Profitability data",   params$npv_file_path,
+  "Carbon stock data",   params$carbon_file_path,
+  "Year 1", as.character(params$year1),
+  "Year 2", as.character(params$year2),
+  "NoData land-cover class", as.character(params$raster_nodata),
+  "Output Files", "",
+  "Output Workspace",      paste0(getwd(), " | ", params$output_dir),
+  "Session Summary", "",
+) %>% rbind(format_session_info_table())
+
+analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
+  kable_paper("hover", full_width = F )
+```
+</details>
+
+# Pendahuluan
+
+Laporan ini menyajikan hasil Analisis Profitabilitas berdasarkan skenario perubahan penggunaan lahan. Analisis berfokus pada penilaian Net Present Value (NPV) yang terkait dengan berbagai perubahan penggunaan lahan. Pendekatan ini membantu mengevaluasi implikasi keuangan dari transisi penggunaan lahan serta mendukung pengambilan keputusan yang terinformasi untuk menilai kelayakan ekonomi berbagai skenario penggunaan lahan.
+
+# Hasil Analisis
+Alur kerja analisis melibatkan beberapa langkah kunci:
+
+1. **Pemrosesan Data NPV**: Data NPV diproses untuk membuat tabel referensi yang komprehensif.
+2. **Analisis Perubahan Penggunaan Lahan**: Peta perubahan penggunaan lahan diproses untuk menilai perubahan dalam NPV.
+3. **Visualisasi**: Peta dihasilkan untuk merepresentasikan secara visual sebaran spasial dari perubahan NPV.
+
+## Ringkasan Net Present Value (NPV)
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+params$total_table %>%
+  as.data.frame() %>%
+  dplyr::mutate(dplyr::across(where(is.numeric), scales::label_comma())) %>%
+  DT::datatable()
+```
+
+### NPV untuk Tahun `r params$year1` {.tabset}
+Bagian ini menyajikan sepuluh kategori tutupan lahan dengan total NPV tertinggi pada tahun `r params$year1`. NPV mewakili imbal hasil ekonomi kumulatif (dalam `r params$currency`) yang diperoleh dari kegiatan penggunaan lahan di atas suatu area, biasanya diukur dalam hektar. NPV adalah metrik kunci dalam perencanaan penggunaan lahan karena mencerminkan nilai kini dari manfaat masa depan yang terkait dengan penggunaan lahan yang berbeda pada tahun `r params$year1`.
+
+#### Grafik
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+params$npv1_chart
+```
+
+#### Peta Distribusi
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+npv1_map <- ggplot() +
+  tidyterra::geom_spatraster(data = params$npv1_map) +
+  scale_fill_gradient(
+    low = "yellow",
+    high = "darkgreen",
+    na.value = "white",
+    name = "NPV"
+  ) +
+  theme_bw() +
+  theme(
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    legend.title = element_text(size = 10),
+    legend.text = element_text(size = 8),
+    legend.key.height = unit(1, "cm"),
+    legend.key.width = unit(0.25, "cm"),
+    legend.position = "right",
+    legend.justification = c(0, 0.5)
+  )
+
+npv1_map
+```
+
+#### Tabel
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+params$npv1_table %>%
+  dplyr::mutate(dplyr::across(where(is.numeric), easy_to_read_numbers)) %>%
+  rename(
+    `Tutupan Lahan 1` = LC1,
+    !!glue::glue("Total NPV ({params$currency})") := Total_NPV1,
+    `Total Luas (Ha)` = Total_Ha1
+  ) %>%
+  DT::datatable(rownames = FALSE)
+```
+
+### NPV untuk Tahun `r params$year2` {.tabset}
+Bagian ini menyajikan sepuluh kategori tutupan lahan dengan total NPV tertinggi pada tahun `r params$year2`. NPV mewakili imbal hasil ekonomi kumulatif (dalam `r params$currency`) yang diperoleh dari kegiatan penggunaan lahan di atas suatu area, biasanya diukur dalam hektar. NPV adalah metrik kunci dalam perencanaan penggunaan lahan karena mencerminkan nilai kini dari manfaat masa depan yang terkait dengan penggunaan lahan yang berbeda pada tahun `r params$year2`.
+
+#### Grafik
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+params$npv2_chart
+```
+
+#### Peta Distribusi
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+npv2_map <- ggplot() +
+  tidyterra::geom_spatraster(data = params$npv2_map) +
+  scale_fill_gradient(
+    low = "yellow",
+    high = "darkgreen",
+    na.value = "white",
+    name = "NPV"
+  ) +
+  theme_bw() +
+  theme(
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    legend.title = element_text(size = 10),
+    legend.text = element_text(size = 8),
+    legend.key.height = unit(1, "cm"),
+    legend.key.width = unit(0.25, "cm"),
+    legend.position = "right",
+    legend.justification = c(0, 0.5)
+  )
+
+npv2_map
+```
+
+#### Table
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+params$npv2_table %>%
+  dplyr::mutate(dplyr::across(where(is.numeric), easy_to_read_numbers)) %>%
+  rename(
+    `Tutupan Lahan 2` = LC2,
+    !!glue::glue("Total NPV ({params$currency})") := Total_NPV2,
+    `Total Luas (Ha)` = Total_Ha2
+  ) %>%
+  DT::datatable(rownames = FALSE)
+```
+
+
+### Delta NPV dari Tahun `r params$year1` to `r params$year2` {.tabset}
+Bagian ini menyajikan perubahan NPV (ΔNPV) antara tahun `r params$year1` dan `r params$year2`. ΔNPV mencerminkan perbedaan dalam proyeksi imbal hasil ekonomi dari penggunaan lahan di dua periode waktu. Nilai ΔNPV positif menunjukkan peningkatan profitabilitas dari waktu ke waktu, sementara nilai negatif menunjukkan penurunan.
+
+#### Grafik
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+params$deltaNPV_chart
+```
+
+#### Peta Distribusi
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+deltaNPV_map <- ggplot() +
+  tidyterra::geom_spatraster(data = params$deltaNPV_map) +
+  scale_fill_gradient2(
+    low = "red",
+    mid = "white",    
+    high = "darkgreen",
+    midpoint = 0,     
+    na.value = "grey",
+    name = "ΔNPV"
+  ) +
+  theme_bw() +
+  theme(
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    legend.title = element_text(size = 10),
+    legend.text = element_text(size = 8),
+    legend.key.height = unit(1, "cm"),
+    legend.key.width = unit(0.25, "cm"),
+    legend.position = "right",
+    legend.justification = c(0, 0.5)
+  )
+
+deltaNPV_map
+```
+
+#### Tabel
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+params$deltaNPV_table %>%
+  dplyr::mutate(dplyr::across(where(is.numeric), easy_to_read_numbers)) %>%
+  rename(
+    `Perubahan Penggunaan Lahan` = LULCC,
+    !!rlang::sym(glue::glue("ΔNPV ({params$currency})")) := Total_deltaNPV,
+    !!rlang::sym(glue::glue("|ΔNPV| ({params$currency})")) := Total_abs_deltaNPV,
+    `Total Luas (Ha)` = Total_Ha2
+  ) %>%
+  DT::datatable(rownames = FALSE)
+```
+
+## Hasil NPV pada Tingkat Unit Perencanaan
+
+```{r child_documen_traj_fao, echo=FALSE, fig.keep='all', results='asis'}
+render_child_pu <- function(results_list, pu_name, currency) {
+  # Create a temporary environment to store the variables
+  env <- new.env()
+  env$results_list <- results_list
+  env$pu_name <- pu_name
+  env$currency <- currency
+  env$easy_to_read_numbers <- easy_to_read_numbers
+  
+  # Create the child document content
+  child_content <- c(
+    paste0("### ", pu_name, " {.tabset}"),
+    "",
+    paste0("#### Top 10 ΔNPV di ", pu_name),
+    "```{r}",
+    "#| echo: false",
+    "results_list[[pu_name]][['lulcc_bar']]",
+    "```",
+    "",
+    paste0("#### Tabel Nilai Total untuk ", pu_name),
+    "```{r}",
+    "#| echo: false",
+    "as.data.frame(results_list[[pu_name]][['total_values']]) %>%",
+    "  mutate_if(is.numeric, easy_to_read_numbers) %>%",
+    "  kable() %>%",
+    "  kable_styling(bootstrap_options = c('striped', 'hover'))",
+    "```",
+    "",
+    paste0("#### Top 10 NPV berdasarkan Tutupan Lahan 1 di ", pu_name),
+    "```{r}",
+    "#| echo: false",
+    "results_list[[pu_name]][['lc1_bar']]",
+    "```",
+    "",
+    paste0("#### Top 10 NPV berdasarkan Tutupan Lahan 2 di ", pu_name),
+    "```{r}",
+    "#| echo: false",
+    "results_list[[pu_name]][['lc2_bar']]",
+    "```",
+    "",
+    paste0("#### Seluruh Transisi LULCC di ", pu_name),
+    "```{r}",
+    "#| echo: false",
+    "results_list[[pu_name]][['all_dissolved_lulcc_pu']] %>%",
+    "  dplyr::mutate(dplyr::across(where(is.numeric), easy_to_read_numbers)) %>%",
+    "  dplyr::rename(",
+    "    `Perubahan Penggunaan Lahan` = LULCC,",
+    sprintf("    `ΔNPV (%s)` = Total_deltaNPV,", currency),
+    sprintf("    `|ΔNPV| (%s)` = Total_abs_deltaNPV,", currency),
+    "    `Total Luas (Ha)` = Total_Ha2",
+    "  ) %>%",
+    "  DT::datatable(rownames = FALSE)",
+    "```"
+  )
+  
+  # Knit the child document
+  res <- knitr::knit_child(
+    text = child_content,
+    envir = env,
+    quiet = TRUE
+  )
+  
+  cat(res, sep = "\n")
+}
+
+for (pu_name in names(params$pu_outputs)) {
+  render_child_pu(params$pu_outputs, pu_name, params$currency)
+}
+
+```
+
+# Kesimpulan
+Analisis Net Present Value (NPV) dalam laporan ini memberikan wawasan berharga mengenai kinerja keuangan dari berbagai jenis dan transisi penggunaan lahan. Dengan mengkuantifikasi imbal hasil ekonomi dari waktu ke waktu, analisis ini membantu mengidentifikasi penggunaan lahan mana yang memberikan profitabilitas terbesar di bawah berbagai skenario.
+
+Hasil analisis menekankan pentingnya mempertimbangkan aspek keuangan dalam perencanaan penggunaan lahan. Dengan menyediakan visualisasi yang jelas dan data komparatif, analisis ini mendukung para pengambil keputusan dalam mengevaluasi investasi berbasis lahan dan menyelaraskan tujuan pembangunan dengan pertimbangan ekonomi.
+
+<div style="font-size: 10pt;">
+
+**Referensi**
+
+*   Dewi, S., Ekadinata, A., Rahmanulloh, A., Khasanah, N., Rahayu, S., van Noordwijk, M., & Budidarsono, S. (2012). *The carbon efficiency of oil palm plantations: an opportunity cost analysis* (Technical Brief No. 28). World Agroforestry Centre (ICRAF) Southeast Asia Regional Office.
+*   Suyanto, S., Ekadinata, A., Sofiyuddin, M., & Rahmanulloh, A. (2014). Opportunity Costs of Emissions Caused by Land-Use Changes. *Open Journal of Forestry*, *4*(1), 85–90. https://doi.org/10.4236/ojf.2014.41013
+*   Rahmanulloh, A., Sofiyuddin, M., & Suyanto, S. (2013). *Seri Agroforestri dan Kehutanan di Sulawesi: Profitabilitas sistem penggunaan lahan di Sulawesi Selatan dan Sulawesi Tenggara* (Working Paper No. 166). World Agroforestry Centre (ICRAF) Southeast Asia Regional Program. https://doi.org/10.5716/WP13042.PDF
+*   Sofiyuddin, M., Rahmanulloh, A., & Suyanto, S. (2012). Assessment of Profitability of Land Use Systems in Tanjung Jabung Barat District, Jambi Province, Indonesia. *Open Journal of Forestry*, *2*(4), 252–256. https://doi.org/10.4236/ojf.2012.24031
+
+</div>
+
+------------------------------------------------------------------------
+
+<font size="1"> LUMENS adalah perangkat lunak gratis dan disediakan TANPA JAMINAN APA PUN. Pengguna bertanggung jawab atas hasil yang dibuat. Hasil bergantung pada kualitas data input ("garbage in, garbage out") dan dapat bervariasi atau sensitif terhadap parameter yang digunakan. Laporkan masalah yang ditemui saat menggunakan LUMENS sebagai [a GitHub issue](https://github.com/icraf-indonesia/lumens-shiny/issues). Umpan balik dan pertanyaan dipersilakan [Contact Us URL]. </font size>
