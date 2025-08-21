@@ -50,7 +50,7 @@ library(usdm)
 
 <details>
 
-<summary>Klik disini untuk membuka log analisis/summary>
+<summary>Klik disini untuk membuka log analisis</summary>
 
 ```{r analysis-log, echo=FALSE}
 analysis_log <- tribble(
