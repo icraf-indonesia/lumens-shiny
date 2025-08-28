@@ -14,7 +14,7 @@ install_load(
   "dplyr", "remotes", "rmarkdown", "XML", "splitstackshape", "shinyalert",
   "terra", "tibble", "ggplot2", "magrittr", "tidyr", "tidyterra", "DT",
   "readr", "plotly", "scales", "ggthemes", "rlang", "xml2", "tidyverse",
-  "readxl", "openxlsx", "openxlsx2", "conflicted"
+  "readxl", "openxlsx", "openxlsx2", "conflicted", "stringr"
 )
 
 if (!("LUMENSR" %in% rownames(installed.packages()))) {
