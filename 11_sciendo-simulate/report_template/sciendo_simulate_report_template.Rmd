@@ -100,8 +100,11 @@ plot_categorical_raster(lc_t1)
 ## Planning Unit
 
 ```{r planning unit, echo=FALSE, message=FALSE, warning=FALSE}
-zone <- rast(params$inputs$zone_path)
-plot(zone)
+zone_rast <- rast(params$inputs$zone_path)
+
+zone <- add_legend_to_categorical_raster(zone_rast, lookup_table = params$inputs$zone_lookup_table)
+
+plot_categorical_raster(zone)
 ```
 
 
@@ -120,16 +123,24 @@ datatable(df_lc)
 
 ```{r lu projected maps, echo=FALSE, fig.keep='all', results='asis'}
 list_luc <- params$inputs$output_dir %>% 
-  list.files(full.names=TRUE, pattern="*.tif$")
+  list.files(full.names = TRUE, pattern = "^landscape\\d+\\.tif$")
+
+# Sort files numerically by their year number
+list_luc <- list_luc[order(as.numeric(stringr::str_extract(basename(list_luc), "\\d+")))]
+
 rst_list <- list()
 counter <- 0
+
 for(i in list_luc){
   r <- i %>% rast() %>%
     add_legend_to_categorical_raster(., lookup_table = df_lc)
   rst_list[[i]] <- r
   counter <- counter + 1
   
-  cat(paste0("### Projected land cover at T+", counter, " \n\n"))
+  # Extract year from filename (pattern: landscapeYYYY.tif)
+  year <- stringr::str_extract(basename(i), "\\d{4}")
+  
+  cat(paste0("### Projected land cover in ", year, " \n\n"))
   cat(
     knitr::knit_child(
       text = c(
@@ -200,11 +211,19 @@ src <- lapply(seq_len(nrow(zone_df)), function(i) {
     "```{r zone_{{i}}_table, echo=FALSE}",
     "lc_proj_table <- all_freq_pu_list[[{{i}}]]",
     "if (nrow(lc_proj_table) > 0) {",
+    "  year_columns <- colnames(lc_proj_table)[-1]",
+    "  ",
+    "  if (length(year_columns) > 0) {",
+    "    years_text <- paste('for years', paste(year_columns, collapse = ', '))",
+    "  } else {",
+    "    years_text <- ''",
+    "  }",
+    "  ",
     "  DT::datatable(",
     "    lc_proj_table,",
     "    caption = htmltools::tags$caption(",
     "      style = 'caption-side: top; text-align: center; color:black; font-size:1.2em;',",
-    "      'Projected Land Use/Cover in {{label}}'",
+    "      paste('Projected Land Use/Cover in {{label}}', years_text)",
     "    ),", 
     "    rownames = FALSE,",
     "    options = list(",

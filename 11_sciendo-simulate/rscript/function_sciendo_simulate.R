@@ -617,7 +617,7 @@ run_dinamica_simulation <- function(dinamica_path = NULL, output_dir, egoml, mem
   }
 }
 
-run_sciendo_simulate_process <- function(lc_t1_path, lc_lookup_table_path, lc_lookup_table, zone_lookup_table, zone_path, ers_path, 
+run_sciendo_simulate_process <- function(lc_t1_path, initial_year, period_value, lc_lookup_table_path, lc_lookup_table, zone_lookup_table, zone_path, ers_path, 
                                          n_rep, tm_path, dcf_path, dinamica_path = NULL, output_dir, memory_allocation, progress_callback = NULL) {
   start_time <- Sys.time()
   cat("Started at:", format(start_time, "%Y-%m-%d %H:%M:%S"), "\n")
@@ -649,7 +649,8 @@ run_sciendo_simulate_process <- function(lc_t1_path, lc_lookup_table_path, lc_lo
   if (!is.null(progress_callback)) progress_callback(0.7, "run dinamica simulation per region")
   run_dinamica_simulation(dinamica_path, output_dir, out_sim$egoml_sim_file, memory_allocation)
   
-  
+  # rename projected landscape files
+  rename_landscape(output_dir, initial_year, period_value)
   
   end_time <- Sys.time()
   cat("Ended at:", format(end_time, "%Y-%m-%d %H:%M:%S"), "\n")
@@ -776,23 +777,26 @@ plot_interactive_stacked_area <- function(luc_data_wide,
 #' time points and automatically converts pixel counts to hectares when appropriate.
 #'
 #' @param lc_dir Character. Path to directory containing land cover raster files (TIFF format).
+#' @param df_lc Data frame. Lookup table for land cover classes with legends.
 #' @param PU Character. Whether to calculate by planning units ("YES") or for entire landscape ("NO"). 
 #'           Default is "NO" (case-insensitive).
 #' @param zone SpatRaster or NULL. Planning unit raster (required when PU = "YES"). 
 #'             Should have the same extent and resolution as land cover rasters.
+#' @param split Character. Whether to split results by planning unit when PU="YES" ("YES" or "NO"). 
+#'              Default is "NO" (case-insensitive). Only applicable when PU="YES".
 #'
 #' @return A tibble containing land cover frequencies:
 #' \itemize{
-#'   \item When PU = "NO": Returns tibble with columns Landcover, T+1, T+2, etc. showing frequencies
-#'   \item When PU = "YES": Returns tibble with columns PU, Landcover, T+1, T+2, etc. showing frequencies per PU
+#'   \item When PU = "NO": Returns tibble with columns Landcover, Year1, Year2, etc. showing frequencies
+#'   \item When PU = "YES": Returns tibble with columns PU, Landcover, Year1, Year2, etc. showing frequencies per PU
 #' }
 #' Values represent either pixel counts or area in hectares (when CRS units are meters).
 #'
 #' @details 
 #' The function:
 #' \itemize{
-#'   \item Automatically reads all TIFF files in \code{lc_dir}
-#'   \item Processes each time point sequentially (T+1, T+2, etc. based on filenames)
+#'   \item Automatically reads all TIFF files in \code{lc_dir} matching pattern "landscape\\d{4}\\.tif$"
+#'   \item Processes each time point by year (extracted from filenames)
 #'   \item For PU calculations, requires zone raster with PU IDs
 #'   \item Converts pixel counts to hectares when CRS uses meter units
 #'   \item Returns results in tidy tibble format
@@ -801,17 +805,17 @@ plot_interactive_stacked_area <- function(luc_data_wide,
 #' @note 
 #' \itemize{
 #'   \item Land cover rasters should be categorical with proper legends
-#'   \item Files should follow naming convention that includes landscape numbers (e.g., "landscape1.tif")
+#'   \item Files should follow naming convention "landscapeYYYY.tif" (e.g., "landscape2025.tif")
 #'   \item When PU="YES", zone raster must have PU IDs in its attribute table
 #' }
 #'
 #' @examples
 #' \dontrun{
 #' # For entire landscape
-#' lc_freq <- multiple_lc_freq_combined("path/to/landcover/files")
+#' lc_freq <- multiple_lc_freq_combined("path/to/landcover/files", df_lc)
 #' 
 #' # For planning units
-#' pu_freq <- multiple_lc_freq_combined("path/to/landcover/files", 
+#' pu_freq <- multiple_lc_freq_combined("path/to/landcover/files", df_lc,
 #'                                    PU = "YES", 
 #'                                    zone = pu_raster)
 #' }
@@ -820,22 +824,24 @@ plot_interactive_stacked_area <- function(luc_data_wide,
 #' @importFrom dplyr arrange mutate across select everything rename relocate
 #' @importFrom tidyr pivot_longer pivot_wider
 #' @importFrom tibble as_tibble
+#' @importFrom stringr str_extract
 #' @export
-#' 
-#' @param split Character. Whether to split results by planning unit when PU="YES" ("YES" or "NO"). 
-#'              Default is "NO" (case-insensitive). Only applicable when PU="YES".
-#'              
 multiple_lc_freq_combined <- function(lc_dir, df_lc, PU = "NO", zone = NULL, split = "NO") {
   
-  # Read raster data
-  list_luc <- lc_dir %>% list.files(full.names=TRUE, pattern="*.tif$")
-  rst_list <- list()
-  counter <- 0
+  # Read raster data 
+  list_luc <- lc_dir %>% 
+    list.files(full.names = TRUE, pattern = "^landscape\\d{4}\\.tif$")
   
-  for(i in list_luc){
-    r <- i %>% rast() %>% add_legend_to_categorical_raster(., lookup_table = df_lc)
+  # Sort files by year (extracted from filename)
+  list_luc <- list_luc[order(as.numeric(stringr::str_extract(basename(list_luc), "\\d{4}")))]
+  
+  rst_list <- list()
+  years <- stringr::str_extract(basename(list_luc), "\\d{4}")
+  
+  for(i in seq_along(list_luc)){
+    r <- list_luc[i] %>% rast() %>% add_legend_to_categorical_raster(., lookup_table = df_lc)
+    names(r) <- paste0("landscape_", years[i])
     rst_list[[i]] <- r
-    counter <- counter + 1
     r %>% plot_categorical_raster()
   }
   
@@ -845,60 +851,29 @@ multiple_lc_freq_combined <- function(lc_dir, df_lc, PU = "NO", zone = NULL, spl
       stop("Zone parameter must be provided when PU = YES")
     }
     
-    # Count freq for each planning unit
-    all_freq_pu <- lapply(seq_along(rst_list), function(i) {
-      result <- terra::crosstab(c(rst_list[[i]], zone))
-      names(result) <- names(rst_list)[i]
-      return(result)
-    })
-    
-    df <- as.data.frame(all_freq_pu)
-    pu_names <- names(zone)
-    
-    # Extract landscape numbers from filenames
-    landscape_numbers <- gsub(".*landscape(\\d+)\\.tif", "\\1", names(rst_list))
-    year_labels <- landscape_numbers
-    base_pattern <- names(rst_list[[1]])
+    # Process each year separately and combine
     year_data_list <- list()
     
-    # Extract data for each landscape
-    for (i in seq_along(landscape_numbers)) {
-      landscape_num <- landscape_numbers[i]
-      year_label <- year_labels[i]
+    for (i in seq_along(rst_list)) {
+      year <- years[i]
+      raster_obj <- rst_list[[i]]
       
-      # Determine the corresponding columns in the data frame
-      if (i == 1) {
-        # For first landscape
-        landcover_col <- base_pattern 
-        pu_col <- pu_names           
-        freq_col <- "Freq"        
-      } else {
-        # For subsequent landscapes
-        landcover_col <- paste0(base_pattern, ".", i-1)  
-        pu_col <- paste0(pu_names, ".", i-1)           
-        freq_col <- paste0("Freq.", i-1)  
-      }
+      freq_table <- terra::crosstab(c(raster_obj, zone))
       
-      # Check if columns exist in the data frame
-      required_cols <- c(landcover_col, pu_col, freq_col)
-      missing_cols <- setdiff(required_cols, names(df))
-      if (length(missing_cols) > 0) {
-        stop("Columns not found in data frame: ", paste(missing_cols, collapse = ", "),
-             "\nAvailable columns: ", paste(names(df), collapse = ", "))
-      }
+      freq_df <- as.data.frame(freq_table)
+      colnames(freq_df) <- c("landcover", "PU", "value")
+      freq_df$year <- year
       
-      # Extract the data for this landscape
-      temp_data <- df[, c(landcover_col, pu_col, freq_col)]
-      names(temp_data) <- c("landcover", "PU", "value")
-      temp_data$year <- year_label
-      
-      year_data_list[[year_label]] <- temp_data
+      year_data_list[[year]] <- freq_df
     }
     
     combined_data <- do.call(rbind, year_data_list)
+    
+    # Pivot to wide format
     final_data <- tidyr::pivot_wider(combined_data,
                                      names_from = year, 
-                                     values_from = value) %>%
+                                     values_from = value,
+                                     values_fill = 0) %>%
       dplyr::arrange(PU, landcover) %>%
       dplyr::select(PU, landcover, dplyr::everything())
     
@@ -910,8 +885,6 @@ multiple_lc_freq_combined <- function(lc_dir, df_lc, PU = "NO", zone = NULL, spl
     } else {
       cat("Frequency is shown in number of pixels instead of hectares")
     }
-    
-    colnames(final_data) <- c("PU", "Landcover", paste0("T+", 1:(ncol(final_data)-1)))
     
     # Split the data by PU and convert to list of tibbles
     if (toupper(split) == "YES") {
@@ -929,27 +902,25 @@ multiple_lc_freq_combined <- function(lc_dir, df_lc, PU = "NO", zone = NULL, spl
     
   } else {
     
-    # Count freq
-    freq_data <- calc_lc_freq(raster_list = rst_list) #%>%
-      # rename("Land Cover/Types" = 2) %>% 
-      # abbreviate_by_column("Land Cover/Types", remove_vowels = FALSE)
+    # Count freq for entire landscape
+    freq_data <- calc_lc_freq(raster_list = rst_list)
     
-    # Convert to long format
-    landscape_numbers <- gsub(".*landscape(\\d+)\\.tif", "\\1", names(rst_list))
-    time_points <- paste0("T+", seq_along(landscape_numbers))
-    colnames(freq_data) <- c("Landcover", time_points)
+    # Use actual years for column names
+    if (ncol(freq_data) == length(years) + 1) {
+      colnames(freq_data) <- c("Landcover", years)
+    }
     
     # Convert to tibble
     freq_tbl <- freq_data %>%
       tibble::as_tibble() %>%
       tidyr::pivot_longer(
         cols = -Landcover,
-        names_to = "Time",
+        names_to = "Year",
         values_to = "value"
       ) %>%
-      dplyr::arrange(Landcover, Time) %>%
+      dplyr::arrange(Landcover, Year) %>%
       tidyr::pivot_wider(
-        names_from = Time,
+        names_from = Year,
         values_from = value
       )
     
@@ -1448,4 +1419,117 @@ matrix_to_tpm <- function(input_folder_path, lc_lookup, output_dir) {
   }
   
   invisible(processed_files)
+}
+
+#' Rename landscape raster files with year-based naming convention
+#'
+#' This function automates the renaming of landscape raster files from a numeric
+#' sequence pattern (landscape01.tif, landscape02.tif, etc.) to a year-based
+#' naming convention using an initial year and period value. It also removes
+#' any .tif files that don't match the expected landscape pattern.
+#'
+#' @param folder_path Character string. The path to the directory containing
+#'   the raster files to be renamed.
+#' @param initial_year Integer. The base year from which to calculate target years.
+#'   For example, if initial_year = 2020, landscape01.tif will correspond to 2025
+#'   when period_value = 5.
+#' @param period_value Integer. The number of years between each landscape raster.
+#'   This value is multiplied by the file number to calculate the target year.
+#'
+#' @return Invisible NULL. The function primarily produces side effects by renaming
+#'   files and updating raster properties. Progress messages are printed to the console.
+#'
+#' @details
+#' The function performs the following operations:
+#' \itemize{
+#'   \item Finds all .tif files matching the pattern "landscape\\d+.tif"
+#'   \item Identifies and removes any .tif files that don't match the expected pattern
+#'   \item Sorts files numerically by their embedded number
+#'   \item Calculates target years using: target_year = initial_year + (file_number * period_value)
+#'   \item Renames both the physical filename and the layer name property of the SpatRaster
+#'   \item Saves the modified rasters and removes the original files
+#' }
+#'
+#' @note
+#' The function will overwrite existing files if the target filename already exists.
+#' Make sure to backup your data before running this function.
+#'
+#' @examples
+#' \dontrun{
+#' # Rename landscape rasters starting from 2020 with 5-year intervals
+#' rename_landscape_rasters("path/to/raster/folder", 2020, 5)
+#'
+#' # Example output:
+#' # landscape01.tif -> landscape2025.tif (layer name: landscape_2025)
+#' # landscape02.tif -> landscape2030.tif (layer name: landscape_2030)
+#' # landscape03.tif -> landscape2035.tif (layer name: landscape_2035)
+#' # Removed: other_file.tif (does not match landscape pattern)
+#' }
+#'
+#' @export
+#' @importFrom terra rast writeRaster
+#' @importFrom stringr str_extract
+rename_landscape <- function(folder_path, initial_year, period_value) {
+  # List all .tif files in the directory
+  all_tif_files <- list.files(folder_path, pattern = "\\.tif$", full.names = TRUE)
+  
+  if (length(all_tif_files) == 0) {
+    stop("No .tif files found in the specified directory.")
+  }
+  
+  # Identify files that match the landscape pattern 
+  landscape_files <- all_tif_files[grepl("^landscape\\d{2}\\.tif$", basename(all_tif_files))]
+  
+  # Identify files that don't match the pattern
+  non_landscape_files <- all_tif_files[!grepl("^landscape\\d{2}\\.tif$", basename(all_tif_files))]
+  
+  # Remove non-matching files
+  if (length(non_landscape_files) > 0) {
+    cat("Removing files that don't match landscape pattern:\n")
+    for (file in non_landscape_files) {
+      file.remove(file)
+      cat(sprintf("  Removed: %s\n", basename(file)))
+    }
+    cat(sprintf("Removed %d non-matching file(s).\n\n", length(non_landscape_files)))
+  }
+  
+  if (length(landscape_files) == 0) {
+    stop("No landscape raster files found matching the pattern 'landscapeXX.tif'.")
+  }
+  
+  # Extract the numeric part from filenames and sort them
+  file_numbers <- as.numeric(stringr::str_extract(basename(landscape_files), "\\d+"))
+  sorted_indices <- order(file_numbers)
+  landscape_files <- landscape_files[sorted_indices]
+  file_numbers <- file_numbers[sorted_indices]
+  
+  # Process each raster file
+  for (i in seq_along(landscape_files)) {
+    file_path <- landscape_files[i]
+    file_number <- file_numbers[i]
+    
+    # Calculate the corresponding year
+    target_year <- initial_year + (file_number * period_value)
+    
+    # Create new filename
+    new_filename <- paste0("landscape", target_year, ".tif")
+    new_file_path <- file.path(folder_path, new_filename)
+    
+    # Read the raster
+    raster_obj <- terra::rast(file_path)
+    
+    # Rename the layer name (names property)
+    names(raster_obj) <- target_year
+    
+    # Write the raster with new filename and layer name
+    terra::writeRaster(raster_obj, filename = new_file_path, overwrite = TRUE)
+    
+    # Remove the original file
+    file.remove(file_path)
+    
+    cat(sprintf("Renamed: %s -> %s (layer name: %s)\n", 
+                basename(file_path), new_filename, names(raster_obj)))
+  }
+  
+  cat(sprintf("\nSuccessfully renamed %d raster files.\n", length(landscape_files)))
 }
