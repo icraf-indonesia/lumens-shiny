@@ -1457,7 +1457,7 @@ matrix_to_tpm <- function(input_folder_path, lc_lookup, output_dir) {
 #' @examples
 #' \dontrun{
 #' # Rename landscape rasters starting from 2020 with 5-year intervals
-#' rename_landscape_rasters("path/to/raster/folder", 2020, 5)
+#' rename_landscape("path/to/raster/folder", 2020, 5)
 #'
 #' # Example output:
 #' # landscape01.tif -> landscape2025.tif (layer name: landscape_2025)
@@ -1479,6 +1479,21 @@ rename_landscape <- function(folder_path, initial_year, period_value) {
   
   # Identify files that match the landscape pattern 
   landscape_files <- all_tif_files[grepl("^landscape\\d{2}\\.tif$", basename(all_tif_files))]
+  
+  # List all .xml files in the directory (if any exist)
+  xml_files <- list.files(folder_path, pattern = "\\.xml$", full.names = TRUE)
+  
+  # Remove all .xml files (if any exist)
+  if (length(xml_files) > 0) {
+    cat("Removing .xml files:\n")
+    for (file in xml_files) {
+      file.remove(file)
+      cat(sprintf("  Removed: %s\n", basename(file)))
+    }
+    cat(sprintf("Removed %d .xml file(s).\n\n", length(xml_files)))
+  } else {
+    cat("No .xml files found to remove.\n\n")
+  }
   
   # Identify files that don't match the pattern
   non_landscape_files <- all_tif_files[!grepl("^landscape\\d{2}\\.tif$", basename(all_tif_files))]
