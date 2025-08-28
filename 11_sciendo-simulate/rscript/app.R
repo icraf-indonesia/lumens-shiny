@@ -34,7 +34,8 @@ ui <- fluidPage(
   titlePanel("SCIENDO Simulate"),
   sidebarLayout(
     sidebarPanel(
-      fileInput("map1_file", "Land cover map initial", accept = c("image/tiff")),
+      fileInput("map1_file", "Initial Land Cover/Use Map", accept = c("image/tiff")),
+      numericInput("init_year", "Initial Year", value = 2025),
       fileInput("mapz_file", "Planning Unit", accept = c("image/tiff")),
       fileInput("lc_file", "Land Use/Cover Lookup Table (CSV)", accept = c(".csv")),
       fileInput("rc_file", "Raster Cube", multiple=T),
@@ -122,6 +123,7 @@ server <- function(input, output, session) {
     lc_path = NULL,
     lc_df = NULL,
     zone_df = NULL,
+    period_value = NULL,
     memory_allocation = NULL,
     rc = NULL,
     rc_xml = NULL
@@ -197,9 +199,10 @@ server <- function(input, output, session) {
       rv$rc_xml <- NULL 
     }
     
-    # convert xml PU table into dataframe
+    # convert xml PU table and period into dataframes
     xml_data <- xml2::read_xml(rv$rc_xml)  
     
+    # Extract PU classes
     pu_classes <- xml_data %>%
       xml2::xml_find_all(".//PUClasses/Class") %>% 
       purrr::map_df(~ tibble(
@@ -207,7 +210,15 @@ server <- function(input, output, session) {
         PU = xml2::xml_attr(., "PU"))
       )
     
+    # Extract period value
+    period_value <- xml_data %>%
+      xml2::xml_find_first(".//Period/Value") %>%
+      xml2::xml_text() %>%
+      as.numeric()
+    
+    # Store both in reactive values
     rv$zone_df <- pu_classes
+    rv$period_value <- period_value
     
     setwd(prev_wd)
   })
@@ -383,6 +394,8 @@ server <- function(input, output, session) {
       tryCatch({
         result <- run_sciendo_simulate_process(
           lc_t1_path = rv$map1_file,
+          initial_year = input$init_year,
+          period_value = rv$period_value,
           lc_lookup_table_path = rv$lc_path,
           lc_lookup_table = rv$lc_df,
           zone_lookup_table = rv$zone_df,
