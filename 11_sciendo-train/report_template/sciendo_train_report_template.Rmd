@@ -91,7 +91,7 @@ period <- as.numeric(params$inputs$year2) - as.numeric(params$inputs$year1)
 
 ```{r read zone, echo=FALSE, message=FALSE, warning=FALSE}
 if(substrRight(x, 3) == "tif"){
-  df_pu <- read.csv(params$inputs$z_lookup_table_path) %>%
+  df_pu <- params$inputs$z_lookup_table %>%
     dplyr::rename(ID_PU = 1, PU = 2)
   len <- nrow(df_pu)
   zone_rst <- x %>% raster()
@@ -256,7 +256,13 @@ src <- lapply(names(weighted_means_list), function(pu_key) {
     "    options = list(",
     "      pageLength = 10,",
     "      autoWidth = TRUE,",
-    "      scrollX = TRUE",
+    "      scrollX = TRUE,",
+    "      dom = 'Bfrtip',",
+    "       buttons = list(",
+    "        list(extend = 'copy', className = 'btn btn-light btn-sm'),",
+    "        list(extend = 'csv',  className = 'btn btn-light btn-sm'),",
+    "        list(extend = 'excel',className = 'btn btn-light btn-sm')",
+    "       )",
     "    )",
     "  )",
     "} else {",

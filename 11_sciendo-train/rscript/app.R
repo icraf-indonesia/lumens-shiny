@@ -279,15 +279,19 @@ server <- function(input, output, session) {
   
   #### Read zone lookup table ####
   observeEvent(input$z_file, {
+    if (input$zone_type != "raster") {
+      return()
+    }
+    
     f <- input$z_file
     rv$z_path <- rename_uploaded_file(f)
-    df_z <- read.csv(rv$z_path)
+    rv$mapz_df <- read.csv(rv$z_path)
     
-    if(nrow(df_z) == 0)
+    if(nrow(rv$mapz_df) == 0)
       return()
-    if(nrow(df_z) < 2)
+    if(nrow(rv$mapz_df) < 2)
       return()
-    if(!is_numeric_str(df_z[1, 1]))
+    if(!is_numeric_str(rv$mapz_df[1, 1]))
       return()
   })
   
@@ -403,7 +407,7 @@ server <- function(input, output, session) {
     return(new_path)
   }
   
-  # Input validation
+  # Input validation - create validators but don't enable them initially
   iv <- InputValidator$new()
   iv$add_rule("map1_file", sv_required(message = "Please upload land cover map at T1"))
   iv$add_rule("map2_file", sv_required(message = "Please upload land cover map at T2"))
@@ -414,51 +418,81 @@ server <- function(input, output, session) {
   iv$add_rule("factors_path", sv_required(message = "Please select a directory of factors"))
   iv$add_rule("wd", sv_required(message = "Please select an output directory"))
   
-  # Conditional validation for planning unit input
-  observe({
+  # Zone-specific validator (initially disabled)
+  zone_validator <- reactiveVal(NULL)
+  
+  # Track if we've shown validation errors before
+  validation_triggered <- reactiveVal(FALSE)
+  
+  # Reactive validation for zone-specific inputs
+  observeEvent(input$zone_type, {
     zone_type <- input$zone_type
     
+    # Remove any existing zone-specific validator
+    if (!is.null(zone_validator())) {
+      zone_validator()$disable()
+    }
+    
+    # Create new validator based on zone type (but don't enable it yet)
     if (zone_type == "raster") {
-      if (!"mapz_file" %in% names(iv$rules)) {
-        iv$add_rule("mapz_file", sv_required(message = "Please upload planning unit raster"))
-      }
-      if (!"z_file" %in% names(iv$rules)) {
-        iv$add_rule("z_file", sv_required(message = "Please upload planning unit lookup table"))
-      }
+      new_validator <- InputValidator$new()
+      new_validator$add_rule("mapz_file", sv_required(message = "Please upload planning unit raster"))
+      new_validator$add_rule("z_file", sv_required(message = "Please upload planning unit lookup table"))
+      zone_validator(new_validator)
     } else {
-
-      if (!"mapz_file" %in% names(iv$rules)) {
-        iv$add_rule("mapz_file", function(value) {
-          if (is.null(value)) return("Please upload planning unit shapefile")
-          
-          has_shp <- any(grepl("\\.shp$", value$name, ignore.case = TRUE))
-          has_shx <- any(grepl("\\.shx$", value$name, ignore.case = TRUE))
-          has_dbf <- any(grepl("\\.dbf$", value$name, ignore.case = TRUE))
-          has_prj <- any(grepl("\\.prj$", value$name, ignore.case = TRUE))
-          
-          if (!has_shp || !has_shx || !has_dbf || !has_prj) {
-            return("Please upload all shapefile components (.shp, .shx, .dbf, .prj)")
-          }
-          
-          NULL
-        })
-      }
-      if ("z_file" %in% names(iv$rules)) {
-        iv$rules$z_file <- NULL
-      }
+      new_validator <- InputValidator$new()
+      new_validator$add_rule("mapz_file", function(value) {
+        if (is.null(value)) return("Please upload planning unit shapefile")
+        
+        has_shp <- any(grepl("\\.shp$", value$name, ignore.case = TRUE))
+        has_shx <- any(grepl("\\.shx$", value$name, ignore.case = TRUE))
+        has_dbf <- any(grepl("\\.dbf$", value$name, ignore.case = TRUE))
+        has_prj <- any(grepl("\\.prj$", value$name, ignore.case = TRUE))
+        
+        if (!has_shp || !has_shx || !has_dbf || !has_prj) {
+          return("Please upload all shapefile components (.shp, .shx, .dbf, .prj)")
+        }
+        
+        NULL
+      })
+      zone_validator(new_validator)
     }
   })
   
-  #### Do the calculation and store it to the markdown content ####
+  # Run process
   observeEvent(input$processTrain, {
-    if(!iv$is_valid()) {
-      iv$enable()
+    # Enable validators for validation check
+    iv$enable()
+    if (!is.null(zone_validator())) {
+      zone_validator()$enable()
+    }
+    
+    # Set flag that validation has been triggered
+    validation_triggered(TRUE)
+    
+    # Check main validation
+    if (!iv$is_valid()) {
+      iv$validate()
       showNotification(
-        "Please correct the errors in the form and try again",
-        id = "submit_message", type = "error")
+        "Please correct the errors in the form and try again.",
+        type = "error",
+        duration = 5
+      )
       return()
     }
     
+    # Check zone-specific validation
+    if (!is.null(zone_validator()) && !zone_validator()$is_valid()) {
+      zone_validator()$validate()
+      showNotification(
+        "Please correct the zone-specific errors in the form and try again.",
+        type = "error",
+        duration = 5
+      )
+      return()
+    }
+    
+    # If both validations pass, proceed with processing
     showNotification("Analysis is running. Please wait...", type = "message", duration = NULL, id = "running_notification")
     
     if(input$zone_type == "raster") {
@@ -476,7 +510,7 @@ server <- function(input, output, session) {
           zone_path = zone_path,
           lc_lookup_table_path = rv$lc_path,
           lc_lookup_table = rv$lc_df,
-          z_lookup_table_path = rv$z_path,
+          z_lookup_table = rv$mapz_df,
           factor_path = rv$factors_path,
           time_points = list(t1 = rv$map1_year, t2 = rv$map2_year),
           dinamica_path = rv$dinamica_path,
@@ -502,7 +536,21 @@ server <- function(input, output, session) {
         showNotification("Error in analysis. Please check the error messages.", type = "error")
       })
     })
-    
+  })
+  
+  # Only enable validation display after the first run attempt
+  observe({
+    if (validation_triggered()) {
+      iv$enable()
+      if (!is.null(zone_validator())) {
+        zone_validator()$enable()
+      }
+    } else {
+      iv$disable()
+      if (!is.null(zone_validator())) {
+        zone_validator()$disable()
+      }
+    }
   })
   
   observeEvent(input$openReport, {
