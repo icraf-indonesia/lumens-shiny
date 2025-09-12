@@ -42,9 +42,9 @@ ui <- fluidPage(
       ),
       conditionalPanel(
         condition = "input.zone_type == 'raster'",
-        fileInput("mapz_file", "Planning Unit", accept = c("image/tiff"))
+        fileInput("mapz_file", "Planning Unit", accept = c("image/tiff")),
+        fileInput("z_file", "Planning Unit Lookup Table (CSV)", accept = c(".csv"))
       ),
-      fileInput("z_file", "Planning Unit Lookup Table (CSV)", accept = c(".csv")),
 
       tags$head(
         tags$style(HTML("
@@ -127,6 +127,7 @@ server <- function(input, output, session) {
     lc_path = NULL,
     lc_df = NULL,
     z_path = NULL,
+    zone_type = NULL,
     period_year = NULL,
     memory_allocation = NULL
   )
@@ -156,7 +157,9 @@ server <- function(input, output, session) {
     })
   })
   
+  # Prepare planning unit data
   observeEvent(input$mapz_file, {
+    rv$zone_type <- input$zone_type
     mapz <- input$mapz_file
     if(is.null(mapz))
       return()
@@ -164,6 +167,32 @@ server <- function(input, output, session) {
     if(input$zone_type == "raster") {
       rv$mapz_file <- rename_uploaded_file(mapz)
     } else {
+      
+      # check if all shapefile components are present
+      has_shp <- any(grepl("\\.shp$", mapz$name, ignore.case = TRUE))
+      has_shx <- any(grepl("\\.shx$", mapz$name, ignore.case = TRUE))
+      has_dbf <- any(grepl("\\.dbf$", mapz$name, ignore.case = TRUE))
+      has_prj <- any(grepl("\\.prj$", mapz$name, ignore.case = TRUE))
+      
+      if (!has_shp || !has_shx || !has_dbf || !has_prj) {
+        showNotification(
+          "Please upload all shapefile components (.shp, .shx, .dbf, .prj)",
+          type = "error",
+          duration = 8
+        )
+        return() 
+      }
+      
+      # Check if map1_file is uploaded first
+      if (is.null(rv$map1_file)) {
+        showNotification(
+          "Please upload land cover map at T1 first to determine raster resolution.",
+          type = "error",
+          duration = 10
+        )
+        return()
+      }
+      
       shp <- mapz
       prev_wd <- getwd()
       uploaded_dir <- dirname(shp$datapath[1])
@@ -176,13 +205,49 @@ server <- function(input, output, session) {
       rv$mapz_file <- paste(uploaded_dir, shp$name[grep(pattern="*.shp$", shp$name)], sep = "/")
       
       zone_sf <- rv$mapz_file %>% st_read()
-      zone <- zone_sf %>% 
-        rasterise_multipolygon(
-          raster_res = c(100, 100), 
-          field = "IDS" 
+      
+      # Check if the shapefile has appropriate columns for rasterization
+      numeric_cols <- sapply(zone_sf, function(x) is.numeric(x) || is.factor(x) || is.character(x))
+      
+      if (sum(numeric_cols) == 0) {
+        showNotification(
+          "Shapefile must contain at least one numeric, factor, or character column for rasterization.",
+          type = "error",
+          duration = 10
         )
-      rv$mapz_df <- data.frame(ID_PU = zone_sf[[1]], PU = zone_sf[[2]])
-      rv$mapz_rast <- zone %>% raster()
+        return()
+      }
+      
+      id_field <- names(zone_sf)[numeric_cols][1]
+      
+      # Create a unique numeric ID if no suitable column exists
+      if (is.null(id_field) || length(id_field) == 0) {
+        zone_sf$IDS <- seq_len(nrow(zone_sf))
+        id_field <- "IDS"
+      }
+      
+      tryCatch({
+        map1_raster <- raster(rv$map1_file)
+        raster_res <- res(map1_raster)  
+        
+        zone <- zone_sf %>% 
+          rasterise_multipolygon(
+            raster_res = raster_res,
+            field = id_field
+          )
+        
+        # Store the lookup table with ID and name
+        name_field <- if (ncol(zone_sf) > 1) names(zone_sf)[2] else id_field
+        rv$mapz_df <- data.frame(ID_PU = zone_sf[[id_field]], PU = zone_sf[[name_field]])
+        rv$mapz_rast <- zone %>% raster()
+        
+      }, error = function(e) {
+        showNotification(
+          paste("Error processing raster resolution:", e$message),
+          type = "error",
+          duration = 10
+        )
+      })
     }
   })
   
@@ -342,14 +407,47 @@ server <- function(input, output, session) {
   iv <- InputValidator$new()
   iv$add_rule("map1_file", sv_required(message = "Please upload land cover map at T1"))
   iv$add_rule("map2_file", sv_required(message = "Please upload land cover map at T2"))
-  iv$add_rule("mapz_file", sv_required(message = "Please upload planning unit"))
   iv$add_rule("map1_year", sv_required(message = "Please define the year of T1"))
   iv$add_rule("map2_year", sv_required(message = "Please define the year of T2"))
   iv$add_rule("lc_file", sv_required(message = "Please upload land cover lookup table"))
-  iv$add_rule("z_file", sv_required(message = "Please upload planning unit lookup table"))
+  iv$add_rule("memory_allocation", sv_required(message = "Please select memory allocation option"))
   iv$add_rule("factors_path", sv_required(message = "Please select a directory of factors"))
   iv$add_rule("wd", sv_required(message = "Please select an output directory"))
-  iv$add_rule("memory_allocation", sv_required(message = "Please select memory allocation option"))
+  
+  # Conditional validation for planning unit input
+  observe({
+    zone_type <- input$zone_type
+    
+    if (zone_type == "raster") {
+      if (!"mapz_file" %in% names(iv$rules)) {
+        iv$add_rule("mapz_file", sv_required(message = "Please upload planning unit raster"))
+      }
+      if (!"z_file" %in% names(iv$rules)) {
+        iv$add_rule("z_file", sv_required(message = "Please upload planning unit lookup table"))
+      }
+    } else {
+
+      if (!"mapz_file" %in% names(iv$rules)) {
+        iv$add_rule("mapz_file", function(value) {
+          if (is.null(value)) return("Please upload planning unit shapefile")
+          
+          has_shp <- any(grepl("\\.shp$", value$name, ignore.case = TRUE))
+          has_shx <- any(grepl("\\.shx$", value$name, ignore.case = TRUE))
+          has_dbf <- any(grepl("\\.dbf$", value$name, ignore.case = TRUE))
+          has_prj <- any(grepl("\\.prj$", value$name, ignore.case = TRUE))
+          
+          if (!has_shp || !has_shx || !has_dbf || !has_prj) {
+            return("Please upload all shapefile components (.shp, .shx, .dbf, .prj)")
+          }
+          
+          NULL
+        })
+      }
+      if ("z_file" %in% names(iv$rules)) {
+        iv$rules$z_file <- NULL
+      }
+    }
+  })
   
   #### Do the calculation and store it to the markdown content ####
   observeEvent(input$processTrain, {
