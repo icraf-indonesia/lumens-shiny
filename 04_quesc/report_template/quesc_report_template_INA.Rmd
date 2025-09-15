@@ -241,7 +241,7 @@ Peta emisi GRK menggambarkan penurunan jumlah cadangan karbon (dalam ton CO<sub>
 
 map_em <- params$map_em
 terra::time(map_em) <- NULL
-html_caption_em <- "Sekuestrasi (tonne CO<sub>2</sub>-eq ha<sup>-1</sup>)"
+html_caption_em <- "Emisi (tonne CO<sub>2</sub>-eq ha<sup>-1</sup>)"
 
 plot_continuous_raster(
   raster_data = map_em,
