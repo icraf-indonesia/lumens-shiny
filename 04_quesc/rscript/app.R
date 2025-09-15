@@ -22,7 +22,10 @@ install_load(
   "bslib",
   "shinyalert",
   "plotly",
-  "stringr"
+  "stringr",
+  "mapview",
+  "leaflet",
+  "readr"
 )
 
 if (!("LUMENSR" %in% rownames(installed.packages()))) {
@@ -38,7 +41,7 @@ ui <- fluidPage(
   tags$head(
     tags$link(rel = "shortcut icon", href = "favicon.ico")  
   ),
-  titlePanel("QUES-C Analysis"),
+  titlePanel("QuES-C Analysis"),
   sidebarLayout(
     sidebarPanel(
       fileInput("map1_file", "Land cover map at T1", accept = c("image/tiff")),

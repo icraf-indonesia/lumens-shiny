@@ -5,6 +5,8 @@ output:
     toc: true
     toc_float: true
     number_sections: true
+    theme: united
+    highlight: tango
     df_print: kable
 params:
   dir_lc_t1_: NA
@@ -17,6 +19,7 @@ params:
   dir_def_map_: NA
   dir_ques_pre_traj: NA
   dir_ques_pre_def: NA
+  output_pre_ques_traj: NA
   log_params: NA
 ---
 
@@ -31,6 +34,7 @@ library(terra)
 library(ggplot2)
 library(tidyterra)
 library(dplyr)
+library(readr)
 ```
 
 
@@ -113,39 +117,48 @@ Berikut adalah komponen-komponen data yang digunakan dalam analisis perubahan la
 ### Tahun `r time_1` 
 
 
-```{r}
-plot_categorical_raster(lc_t1_)
+```{r lc_1_map}
+plot_categorical_raster(lc_t1_, filename = paste0("Land Cover-Use ", time_1, ".png"))
 ```
 
 ### Tahun `r time_2`
 
 
-```{r}
-plot_categorical_raster(lc_t2_)
+```{r lc_2_map}
+plot_categorical_raster(lc_t2_, filename = paste0("Land Cover-Use ", time_2, ".png"))
 ```
 
 ### Tabel Acuan
 
-```{r}
-kable(ques_pre_output[["input_dataviz"]][["tbl_lookup_lc_t2"]], 
-      caption = "Reference Table of The Land Use/Cover Maps") %>%
-  kable_styling(bootstrap_options = c("striped", "hover"))
+```{r lc_tbl}
+# kable(ques_pre_output[["input_dataviz"]][["tbl_lookup_lc_t2"]], 
+#       caption = "Reference Table of The Land Use/Cover Maps") %>%
+#   kable_styling(bootstrap_options = c("striped", "hover"))
+
+render_dt_table(
+  ques_pre_output[["input_dataviz"]][["tbl_lookup_lc_t2"]],
+  "Reference Table of The Land Use/Cover Maps")
 ```
 
 ## Peta Unit Perencanaan {.tabset}
 
 ### Peta
 
-```{r}
-plot_categorical_raster(admin_)
+```{r zone_map}
+plot_categorical_raster(admin_, "Peta Unit Perencanaan.png")
 ```
 
 ### Tabel Acuan
 
-```{r}
-kable(ques_pre_output[["input_dataviz"]][["tbl_lookup_admin"]], 
-      caption = "Reference Table of The Planning Unit Map") %>%
-  kable_styling(bootstrap_options = c("striped", "hover"))
+```{r zone_tbl}
+# kable(ques_pre_output[["input_dataviz"]][["tbl_lookup_admin"]], 
+#       caption = "Reference Table of The Planning Unit Map") %>%
+#   kable_styling(bootstrap_options = c("striped", "hover"))
+
+render_dt_table(
+  ques_pre_output[["input_dataviz"]][["tbl_lookup_admin"]],
+  "Reference Table of The Planning Unit Map"
+)
 ```
 
 # Hasil Analisis Pre-QuES pada Tingkat Lanskap
@@ -154,22 +167,27 @@ kable(ques_pre_output[["input_dataviz"]][["tbl_lookup_admin"]],
 
 ### Tabel
 
-```{r}
-ques_pre_output[["input_dataviz"]][["lc_composition_tbl"]] %>%
-  #mutate_if(is.numeric, easy_to_read_numbers) %>%
-  kable(caption = "Land Use/Cover Composition") %>%
-  kable_styling(bootstrap_options = c("striped", "hover"))
+```{r composition_tbl}
+# ques_pre_output[["input_dataviz"]][["lc_composition_tbl"]] %>%
+#   #mutate_if(is.numeric, easy_to_read_numbers) %>%
+#   kable(caption = "Land Use/Cover Composition") %>%
+#   kable_styling(bootstrap_options = c("striped", "hover"))
+
+render_dt_table(
+  ques_pre_output[["input_dataviz"]][["lc_composition_tbl"]],
+  "Land Use/Cover Composition"
+)  
 ```
 
 ### Grafik
 
-```{r echo=FALSE}
+```{r composition_graph, echo=FALSE}
 ques_pre_output[["input_dataviz"]][["lc_composition_barplot"]]
 ```
 
 ## Dinamika Tutupan/Penggunaan Lahan Secara Keseluruhan
 
-```{r echo=FALSE}
+```{r sankey_all, echo=FALSE}
 ques_pre_output[["landscape_level"]][["sankey_landscape"]]
 ```
 
@@ -179,7 +197,7 @@ ques_pre_output[["landscape_level"]][["sankey_landscape"]]
 
 *Without considering unchanged/stable land cover.*
 
-```{r echo=FALSE}
+```{r sankey_chg, echo=FALSE}
 ques_pre_output[["landscape_level"]][["sankey_landscape_chg_only"]]
 ```
 
@@ -189,41 +207,47 @@ ques_pre_output[["landscape_level"]][["sankey_landscape_chg_only"]]
 
 ### Tabel
 
-```{r echo=FALSE}
-ques_pre_output[["landscape_level"]][["luc_top_10_tbl"]] %>%
-  mutate_if(is.numeric, easy_to_read_numbers) %>%
-  kable(caption = "Top 10 Types of Land Use/Cover Changes") %>%
-  kable_styling(bootstrap_options = c("striped", "hover"))
+```{r top10_chg_tbl, echo=FALSE}
+# ques_pre_output[["landscape_level"]][["luc_top_10_tbl"]] %>%
+#   mutate_if(is.numeric, easy_to_read_numbers) %>%
+#   kable(caption = "Top 10 Types of Land Use/Cover Changes") %>%
+#   kable_styling(bootstrap_options = c("striped", "hover"))
+
+render_dt_table(
+  ques_pre_output[["landscape_level"]][["luc_top_10_tbl"]],
+  "Top 10 Types of Land Use/Cover Changes"
+) 
 ```
 
 ### Grafik
 
-```{r echo=FALSE}
+```{r top10_chg_graph, echo=FALSE}
 ques_pre_output[["landscape_level"]][["luc_top_10_barplot"]]
 ```
 
 # Hasil Analisis Pre-QuES pada Tingkat Unit Perencanaan
 
-```{r child_document, echo=FALSE, fig.keep='all', results='asis'}
+```{r composition_pu_child_document, echo=FALSE, fig.keep='all', results='asis'}
 for (i in names(ques_pre_output[["pu_level"]])) {
   cat("## ", i, "{.tabset} \n\n")
   
   cat("### 10 Jenis Perubahan Tutupan/Penggunaan Lahan Dominan di", i, "\n\n")
-  tabel_pu <- ques_pre_output[["pu_level"]][[i]][["luc_top_pu"]] %>%
-    mutate_if(is.numeric, easy_to_read_numbers) %>%
-    kable() %>% 
-    kable_styling(bootstrap_options = c("striped", "hover")) 
-  cat(sprintf(tabel_pu))
+  print(
+    render_dt_table(
+      ques_pre_output[["pu_level"]][[i]][["luc_top_pu"]]
+    )
+  )
   cat("\n\n")
   
   cat("### Komposisi Tutupan/Penggunaan Lahan di", i, "\n\n")
-  page <- htmltools::tagList(ques_pre_output[["pu_level"]][[i]][["sankey_pu"]])
-  cat(as.character(page))
-
+  print(
+    htmltools::tagList(
+      ques_pre_output[["pu_level"]][[i]][["sankey_pu"]]
+    )
+  )
   cat("\n\n")
 }
 ```
-
 
 
 # Analisis Trajektori Perubahan Tutupan/Penggunaan Lahan Pre-QuES
@@ -231,32 +255,36 @@ for (i in names(ques_pre_output[["pu_level"]])) {
 ## Hasil Analisis Trajektori Tutupan/Penggunaan Lahan pada Tingkat Lanskap
 ### Peta Trajektori Perubahan Tutupan/Penggunaan Lahan
 
-```{r}
+```{r traj_map, echo=FALSE, message=FALSE, warning=FALSE, out.width='100%', out.height='500px'}
 traj_map <- rast(params$dir_traj_map_)
+lookup_traj <- read_csv(paste0(params$log_params$output_dir, "/PreQuES_ChangeTrajectory_lookup.csv"))
 
 # lookup_traj <-
 #   cats(traj_map)[[1]] %>%
-  # inner_join(color_landuse_trajectories(), by = "trajectory")
+# inner_join(color_landuse_trajectories(), by = "trajectory")
 
 # levels(traj_map) <- lookup_traj
-set.names(traj_map, "Land Use/Cover Trajectory")
+# set.names(traj_map, "Land Use/Cover Trajectory")
 
-traj_map %>% 
-  plot_categorical_raster()
+plot_categorical_rst_mapview(traj_map, lookup_traj, paste0("Land Use-Cover Trajectory in ", time_1, "-", time_2))
 ```
 
 ### Ringkasan Trajektori Perubahan Tutupan/Penggunaan Lahan Pre-QuES {.tabset}
 
 #### Tabel
-```{r}
-traj_analysis_output$landscape_level$table_traj_area %>%
-  mutate_if(is.numeric, easy_to_read_numbers) %>% 
-  kable() %>%
-  kable_styling(bootstrap_options = c("striped", "hover"))
+```{r traj_tbl}
+# traj_analysis_output$landscape_level$table_traj_area %>%
+#   mutate_if(is.numeric, easy_to_read_numbers) %>% 
+#   kable() %>%
+#   kable_styling(bootstrap_options = c("striped", "hover"))
+
+render_dt_table(
+  traj_analysis_output$landscape_level$table_traj_area
+  )
 ```
 
 #### Grafik
-```{r}
+```{r traj_graph}
 traj_analysis_output$landscape_level$barplot_traj
 ```
 
@@ -272,10 +300,10 @@ render_child <- function(results_list, i) {
      "#### Tabel Perubahan Trajektori Tutupan/Penggunaan Lahan di `r i`",
      "```{r}",
      "#| echo: false",
-     "results_list[[i]][['traj_tbl_pu']] %>%",
-     "mutate_if(is.numeric, easy_to_read_numbers) %>%",
-     "  kable() %>%",
-     "  kable_styling(bootstrap_options = c('striped', 'hover'))",
+     "render_dt_table(results_list[[i]][['traj_tbl_pu']])",
+     # "mutate_if(is.numeric, easy_to_read_numbers)",
+     # "  kable() %>%",
+     # "  kable_styling(bootstrap_options = c('striped', 'hover'))",
      "```",
      "",
      "#### Perubahan Trajektori Tutupan/Penggunaan Lahan di `r i`",
@@ -316,9 +344,11 @@ def_map %>%
 
 <!-- ### Summary of Pre-QuES Land Use/Cover Change Trajectories (Deforestation and Degradation) -->
 ```{r eval=FALSE, include=FALSE}
-def_analysis_output$landscape_level$table_traj_area %>%
-  kable() %>%
-  kable_styling(bootstrap_options = c("striped", "hover"))
+# def_analysis_output$landscape_level$table_traj_area %>%
+#   kable() %>%
+#   kable_styling(bootstrap_options = c("striped", "hover"))
+
+render_dt_table(def_analysis_output$landscape_level$table_traj_area)
 ```
 
 <!-- #### Graph -->

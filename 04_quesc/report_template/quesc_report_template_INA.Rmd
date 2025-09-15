@@ -36,17 +36,30 @@ if (file.exists("function_ques_c.R")){
 
 ```{r load_library, include=FALSE}
 install_load(
+  "terra",
+  "shiny",
+  "shinyFiles",
   "raster",
+  "splitstackshape",
   "ggplot2",
+  "foreign",
+  "reshape2",
   "dplyr",
   "reshape",
-  "lattice",
-  "rasterVis",
-  "DT",
-  "kableExtra",
-  "tidyterra",
-  "htmltools",
-  "plotly"
+  "purrr",
+  "plotly",
+  "sf",
+  "shinyvalidate",
+  "remotes",
+  "shinyjs",
+  "rmarkdown",
+  "bslib",
+  "shinyalert",
+  "plotly",
+  "stringr",
+  "mapview",
+  "leaflet",
+  "readr"
 )
 if (!("LUMENSR" %in% rownames(installed.packages()))) {
   install_github("icraf-indonesia/LUMENSR", force = T)
@@ -134,16 +147,22 @@ s <- summary_of_emission_calculation(
   period = list(p1 = params$p1, p2 = params$p2)
 )
 
-datatable(s$summary_df)
+render_dt_table(
+  s$summary_df,
+  "Tabel Ringkasan Perhitungan Emisi & Sekuestrasi GRK"
+  )
 ```
 
-## Ringkasan Perhitungan Emisi GRK Berdasarkan Unit Perencanaan
+## Ringkasan Perhitungan Emisi GRK Berdasarkan Unit Perencanaan {.tabset}
 
 
 ### Ringkasan Emisi dan Sekuestrasi GRK berdasarkan Unit Perencanaan
 
 ```{r summary_emission_by_pu_e, echo=FALSE, message=FALSE, warning=FALSE}
-datatable(s$zone_carbon)
+render_dt_table(
+  s$zone_carbon,
+  caption = "Tabel Ringkasan Perhitungan Emisi & Sekuestrasi GRK di Tingkat Unit Perencanaaan"
+  )
 # s$zone_carbon %>% kbl(caption = "Summary of Emissions and Sequestration by Planning Unit", escape = F) %>%
 #   kable_paper("hover", full_width = F)
 ```
@@ -159,7 +178,10 @@ z <- zonal_statistic_database(
 colnames(z$data_zone_df)[colnames(z$data_zone_df) == "Carbon Avg. (Periode 1)"] <- paste("Carbon Average (tonne-C ha\u207B\u00B9)", params$p1)
 colnames(z$data_zone_df)[colnames(z$data_zone_df) == "Carbon Avg. (Periode 2)"] <- paste("Carbon Average (tonne-C ha\u207B\u00B9)", params$p2)
 
-datatable(z$data_zone_df)
+render_dt_table(
+  z$data_zone_df,
+  "Tabel Ringkasan Perhitungan Emisi & Sekuestrasi GRK Antar Periode di Tingkat Unit Perencanaaan"
+  )
 ```
 
 # Deskripsi singkat modul
@@ -172,22 +194,22 @@ datatable(z$data_zone_df)
 
 # Data yang digunakan {.tabset}
 
-## LPeta Tutupan/Penggunaan Lahan pada `r params$p1`
+## Peta Tutupan/Penggunaan Lahan pada `r params$p1`
 
 ```{r Land-Use/Cover Map T1, echo=FALSE, message=FALSE, warning=FALSE}
-plot_categorical_raster(lc_t1)
+plot_categorical_raster(lc_t1, filename = paste0("Land Cover-Use ", params$p1, ".png"))
 ```
 
 ## Peta Tutupan/Penggunaan Lahan pada `r params$p2`
 
 ```{r Land-Use/Cover Map T2, echo=FALSE, message=FALSE, warning=FALSE}
-plot_categorical_raster(lc_t2)
+plot_categorical_raster(lc_t2, filename = paste0("Land Cover-Use ", params$p2, ".png"))
 ```
 
 ## Peta Unit Perencanaan
 
 ```{r Planning Unit, echo=FALSE, message=FALSE, warning=FALSE}
-plot_categorical_raster(zone_rst)
+plot_categorical_raster(zone_rst, "Peta Unit Perencanaan.png")
 ```
 
 ## Tabel Acuan Cadangan Karbon
@@ -196,126 +218,74 @@ Cadangan karbon yang digunakan adalah cadangan karbon rata-rata sepanjang waktu 
 
 
 ```{r Carbon Stock Lookup Table, echo=FALSE, message=FALSE, warning=FALSE}
-datatable(
+render_dt_table(
   read.csv(params$inputs$c_lookup_path)
 )
 ```
 
 # Hasil
 
-## Basis Data QuES-C
+## Estimasi Emisi dan Sekuestrasi {.tabset}
 
-Basis data QuES-C berisi informasi transisi tutupan lahan antara `r params$p1` dan `r params$p2` pada setiap unit perencanaan dan dilengkapi dengan nilai cadangan karbon, emisi, dan sekuestrasi.
-
-Ringkasan statistik tabel berisi `r nrow(params$ques_db)` baris dan `r names(params$ques_db)` kolom.
-
-```{r load_quesdb, echo=FALSE, message=FALSE, warning=FALSE}
-datatable(params$ques_db)
-```
-
-## Peta Kerapatan Karbon pada `r params$p1`
-
-Peta kerapatan karbon menggambarkan distribusi dan jumlah karbon yang tersimpan dalam data tutupan/penggunaan lahan pada `r params$p1` (dalam ton-C ha<sup>-1</sup>).
-
-```{r carbon_map_t1, echo=FALSE, message=FALSE, warning=FALSE}
-y <- ceiling(minmax(params$map_c1)[2] / 100)
-y <- y * 100
-plot_quesc_results(
-  map = params$map_c1,
-  legend = expression("Carbon Density (tonne-C ha"^-1*")"),
-  low = "#FFCC66",
-  high = "#003300",
-  # limits = c(0,y),
-  # breaks = c(0,10,20,50,100,200,300),
-  # title_size = 8,
-  # text_size = 7,
-  # height = 1.5,
-  # width = 0.375
-)
-```
-
-## Peta Kerapatan Karbon pada `r params$p2`
-
-Peta kerapatan karbon menggambarkan distribusi dan jumlah karbon yang tersimpan dalam data tutupan/penggunaan lahan pada `r params$p2` (dalam ton-C ha<sup>-1</sup>).
-
-```{r carbon_map_t2, echo=FALSE, message=FALSE, warning=FALSE}
-plot_quesc_results(
-  map = params$map_c2,
-  legend = expression("Carbon Density (tonne-C ha"^-1*")"),
-  low = "#FFCC66",
-  high = "#003300",
-  # limits = c(0,y),
-  # breaks = c(0,10,20,50,100,200,300),
-  # title_size = 8,
-  # text_size = 7,
-  # height = 1.5,
-  # width = 0.375
-)
-```
-
-## Peta Emisi GRK pada `r params$p1`-`r params$p2`
+### Peta Emisi GRK pada `r params$p1`-`r params$p2`
 
 Peta emisi GRK menggambarkan penurunan jumlah cadangan karbon (dalam ton CO<sub>2</sub>-eq ha<sup>-1</sup>).
 
-```{r emission_map, echo=FALSE, message=FALSE, warning=FALSE}
-plot_quesc_results(
-  map = params$map_em,
-  legend = expression("Emission (tonne CO"[2]*"-eq ha"^-1*")"),
-  low = "#FFCC66",
-  high = "#FF0000"
+```{r emission_map, echo=FALSE, message=FALSE, warning=FALSE, out.width='100%', out.height='500px'}
+# plot_quesc_results(
+#   map = params$map_em,
+#   legend = expression("Emission (tonne CO"[2]*"-eq ha"^-1*")"),
+#   low = "#FFCC66",
+#   high = "#FF0000"
+# )
+
+map_em <- params$map_em
+terra::time(map_em) <- NULL
+html_caption_em <- "Sekuestrasi (tonne CO<sub>2</sub>-eq ha<sup>-1</sup>)"
+
+plot_continuous_raster(
+  raster_data = map_em,
+  low_color = "#FFCC66",
+  high_color = "#FF0000",
+  caption = html_caption_em,
+  raster_layer = "Sebaran Emisi GRK"
 )
 ```
 
-## Peta Sekuestrasi GRK pada `r params$p1`-`r params$p2`
+### Peta Sekuestrasi GRK pada `r params$p1`-`r params$p2`
 
 Peta sekuestrasi GRK menggambarkan peningkatan jumlah cadangan karbon (dalam ton CO<sub>2</sub>-eq ha<sup>-1</sup>).
 
-```{r sequestration_map, echo=FALSE, message=FALSE, warning=FALSE}
-plot_quesc_results(
-  map = params$map_sq,
-  legend = expression("Sequestration (tonne CO"[2]*"-eq ha"^-1*")"),
-  low = "#FFCC66",
-  high = "#000033"
+```{r sequestration_map, echo=FALSE, message=FALSE, warning=FALSE, out.width='100%', out.height='500px'}
+# plot_quesc_results(
+#   map = params$map_sq,
+#   legend = expression("Sequestration (tonne CO"[2]*"-eq ha"^-1*")"),
+#   low = "#FFCC66",
+#   high = "#000033"
+# )
+
+map_sq <- params$map_sq
+terra::time(map_sq) <- NULL
+html_caption_sq <- "Sekuestrasi (tonne CO<sub>2</sub>-eq ha<sup>-1</sup>)"
+
+plot_continuous_raster(
+  raster_data = map_sq,
+  low_color = "#FFCC66",
+  high_color = "#000033",
+  caption = html_caption_sq,
+  raster_layer = "Sebaran Sekuestrasi GRK"
 )
 ```
 
-## Rata-rata Laju Emisi GRK Bersih
+### Laju Emisi dan Sekuestrasi {.tabset}
+
+#### Rata-rata Laju Emisi GRK Bersih
 
 ```{r avg_net_em_rate, echo=FALSE, message=FALSE, warning=FALSE}
 s$plot_zone_carbon
 ```
 
-## Rata-rata Kerapatan Karbon pada `r params$p1`
-
-```{r avg carbon density 1, echo=FALSE, message=FALSE, warning=FALSE}
-reclassify_matrix <- as.matrix(z$data_zone[, 1]) %>%
-  cbind(., as.matrix(z$data_zone[, 4])) %>%
-  rbind(., c(0, NA))
-z_avg_c1 <- zone_rst %>% classify(reclassify_matrix)
-plot_quesc_results(
-  map = z_avg_c1,
-  legend = expression("Carbon Density Level (tonne-C ha"^-1*")"),
-  low = "#FFCC66",
-  high = "#003300"
-)
-```
-
-## Rata-rata Kerapatan Karbon pada `r params$p2`
-
-```{r avg carbon density 2, echo=FALSE, message=FALSE, warning=FALSE}
-reclassify_matrix <- as.matrix(z$data_zone[, 1]) %>%
-  cbind(., as.matrix(z$data_zone[, 5])) %>%
-  rbind(., c(0, NA))
-z_avg_c2 <- zone_rst %>% classify(reclassify_matrix)
-plot_quesc_results(
-  map = z_avg_c2,
-  legend = expression("Carbon Density Level (tonne-C ha"^-1*")"),
-  low = "#FFCC66",
-  high = "#003300"
-)
-```
-
-## Rata-rata Laju Emisi GRK berdasarkan Unit Perencanaan
+#### Rata-rata Laju Emisi GRK berdasarkan Unit Perencanaan
 
 Peta berikut menunjukkan rata-rata laju emisi karbon (ton CO<sub>2</sub>-eq ha<sup>-1</sup> yr<sup>-1</sup>) di antara kelas unit-unit perencanaan, yang merepresentasikan pelepasan karbon akibat perubahan tutupan lahan. Area yang lebih gelap menunjukkan tingkat emisi GRK yang lebih tinggi.
 
@@ -333,7 +303,7 @@ plot_quesc_results(
 )
 ```
 
-## Rata-rata Laju Sekuestrasi GRK berdasarkan Unit Perencanaan
+#### Rata-rata Laju Sekuestrasi GRK berdasarkan Unit Perencanaan
 
 Peta berikut menunjukkan rata-rata laju sekuestrasi karbon (ton CO<sub>2</sub>-eq ha<sup>-1</sup> yr<sup>-1</sup>) di antara kelas unit-unit perencanaan, yang menunjukkan peningkatan cadangan karbon atas permukaan akibat perubahan tutupan lahan. Area yang lebih gelap menunjukkan tingkat sekuestrasi yang lebih tinggi.
 
@@ -350,43 +320,137 @@ plot_quesc_results(
 )
 ```
 
-## Sumber Emisi GRK Terbesar {.tabset}
+### Basis Data QuES-C
 
-### Diagram
+Basis data QuES-C berisi informasi transisi tutupan lahan antara `r params$p1` dan `r params$p2` pada setiap unit perencanaan dan dilengkapi dengan nilai cadangan karbon, emisi, dan sekuestrasi.
+
+Ringkasan statistik tabel berisi `r nrow(params$ques_db)` baris dan `r names(params$ques_db)` kolom.
+
+```{r load_quesdb, echo=FALSE, message=FALSE, warning=FALSE}
+datatable(
+  params$ques_db,
+  extensions = c('Buttons', 'Responsive'),
+  options = list(
+    dom = 'Blfrtip',
+    buttons = list(
+      list(extend = "copy", className = "btn btn-light btn-sm"),
+      list(extend = "csv",  className = "btn btn-light btn-sm"),
+      list(extend = "excel",className = "btn btn-light btn-sm")
+    ))
+  )
+```
+
+## Sumber Emisi & Sekuestrasi {.tabset}
+
+### Sumber Emisi GRK Terbesar {.tabset}
+
+#### Diagram
 
 ```{r plot_largest_em, echo=FALSE, message=FALSE, warning=FALSE}
 z$largest_emission
 ```
 
-### Tabel
+#### Tabel
 
 
 ```{r tbl_largest_em, echo=FALSE, message=FALSE, warning=FALSE}
 tbl_largest_em <- z$tb_em_total_10_summary
 tbl_largest_em <- tbl_largest_em[-1]
 
-datatable(tbl_largest_em)
+render_dt_table(tbl_largest_em)
 # z$tb_em_total_10_summary %>% kbl(caption = "The Largest Source of Emission", escape = F) %>%
 #   kable_paper("hover", full_width = F)
 ```
 
-## Sumber Sekuestrasi GRK Terbesar {.tabset}
+### Sumber Sekuestrasi GRK Terbesar {.tabset}
 
-### Diagram
+#### Diagram
 
 ```{r plot_largest_sq, echo=FALSE, message=FALSE, warning=FALSE}
 z$largest_sequestration
 ```
 
-### Tabel
+#### Tabel
 
 ```{r tbl_largest_sq, echo=FALSE, message=FALSE, warning=FALSE}
 tbl_largest_sq <- z$tb_sq_total_10_summary
 tbl_largest_sq <- tbl_largest_sq[-1]
 
-datatable(tbl_largest_sq)
+render_dt_table(tbl_largest_sq)
 # z$tb_sq_total_10_summary %>% kbl(caption = "The Largest Source of Sequestration", escape = F) %>%
 #   kable_paper("hover", full_width = F)
+```
+
+## Estimasi Stok Karbon {.tabset}
+
+### Peta Kerapatan Karbon pada `r params$p1`
+
+Peta kerapatan karbon menggambarkan distribusi dan jumlah karbon yang tersimpan dalam data tutupan/penggunaan lahan pada `r params$p1` (dalam ton-C ha<sup>-1</sup>).
+
+```{r carbon_map_t1, echo=FALSE, message=FALSE, warning=FALSE}
+y <- ceiling(minmax(params$map_c1)[2] / 100)
+y <- y * 100
+plot_quesc_results(
+  map = params$map_c1,
+  legend = expression("Carbon Density (tonne-C ha"^-1*")"),
+  low = "#FFCC66",
+  high = "#003300"
+  # limits = c(0,y),
+  # breaks = c(0,10,20,50,100,200,300),
+  # title_size = 8,
+  # text_size = 7,
+  # height = 1.5,
+  # width = 0.375
+)
+```
+
+### Peta Kerapatan Karbon pada `r params$p2`
+
+Peta kerapatan karbon menggambarkan distribusi dan jumlah karbon yang tersimpan dalam data tutupan/penggunaan lahan pada `r params$p2` (dalam ton-C ha<sup>-1</sup>).
+
+```{r carbon_map_t2, echo=FALSE, message=FALSE, warning=FALSE}
+plot_quesc_results(
+  map = params$map_c2,
+  legend = expression("Carbon Density (tonne-C ha"^-1*")"),
+  low = "#FFCC66",
+  high = "#003300"
+  # limits = c(0,y),
+  # breaks = c(0,10,20,50,100,200,300),
+  # title_size = 8,
+  # text_size = 7,
+  # height = 1.5,
+  # width = 0.375
+)
+```
+
+### Rata-rata Kerapatan Karbon pada `r params$p1`
+
+```{r avg carbon density 1, echo=FALSE, message=FALSE, warning=FALSE}
+reclassify_matrix <- as.matrix(z$data_zone[, 1]) %>%
+  cbind(., as.matrix(z$data_zone[, 4])) %>%
+  rbind(., c(0, NA))
+z_avg_c1 <- zone_rst %>% classify(reclassify_matrix)
+plot_quesc_results(
+  map = z_avg_c1,
+  legend = expression("Carbon Density Level (tonne-C ha"^-1*")"),
+  low = "#FFCC66",
+  high = "#003300"
+)
+```
+
+### Rata-rata Kerapatan Karbon pada `r params$p2`
+
+```{r avg carbon density 2, echo=FALSE, message=FALSE, warning=FALSE}
+reclassify_matrix <- as.matrix(z$data_zone[, 1]) %>%
+  cbind(., as.matrix(z$data_zone[, 5])) %>%
+  rbind(., c(0, NA))
+z_avg_c2 <- zone_rst %>% classify(reclassify_matrix)
+plot_quesc_results(
+  map = z_avg_c2,
+  legend = expression("Carbon Density Level (tonne-C ha"^-1*")"),
+  low = "#FFCC66",
+  high = "#003300"
+)
 ```
 
 ------------------------------------------------------------------------

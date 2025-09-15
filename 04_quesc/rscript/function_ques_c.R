@@ -174,24 +174,25 @@ print_rate <- function(x) {
 }
 
 
-#' Plot QUES-C Results
+#' Plot QUES-C Results with Download Option
 #'
-#' This function creates a ggplot for a SpatRaster object with a gradient fill.
+#' This function creates a ggplot for a SpatRaster object with a gradient fill
+#' and, when rendered to HTML, adds a download button for the figure (PNG).
 #'
 #' @param map A SpatRaster object to plot.
 #' @param legend A character string for the legend title.
 #' @param low A character string for the low end of the color gradient.
 #' @param high A character string for the high end of the color gradient.
 #' @param na_color A character string for the color of NA values. Default is "white".
-#' @return A ggplot object.
-#' @importFrom ggplot2 ggplot theme_bw labs theme scale_fill_gradient element_text unit element_blank
+#'
+#' @return A ggplot object (PDF/Word) or an HTML block (HTML output).
+#' @importFrom ggplot2 ggplot theme_bw labs theme scale_fill_gradient element_text unit element_blank ggsave
 #' @importFrom tidyterra geom_spatraster
+#' @importFrom htmltools tags browsable tagList
+#' @importFrom knitr is_html_output
+#' @importFrom base64enc base64encode
 #' @export
 plot_quesc_results <- function(map, legend, low, high, na_color = "white") {
-  # Determine plot title
-  # plot_title <- if (!is.na(time(map))) time(map) else names(map)
-  
-  # Generate the plot
   plot_lc <- ggplot() +
     tidyterra::geom_spatraster(data = map) +
     ggplot2::scale_fill_gradient(
@@ -201,7 +202,6 @@ plot_quesc_results <- function(map, legend, low, high, na_color = "white") {
       name = if (!is.null(legend)) legend else NULL
     ) +
     ggplot2::theme_bw() +
-    # labs(title = plot_title) +
     ggplot2::theme(
       axis.title.x = ggplot2::element_blank(),
       axis.title.y = ggplot2::element_blank(),
@@ -210,13 +210,47 @@ plot_quesc_results <- function(map, legend, low, high, na_color = "white") {
       legend.title = ggplot2::element_text(size = 10),
       legend.text = ggplot2::element_text(size = 8),
       legend.key.height = ggplot2::unit(1, "cm"),
-      legend.key.width = ggplot2::unit(0.25, "cm"), 
+      legend.key.width = ggplot2::unit(0.25, "cm"),
       legend.position = "right",
       legend.justification = c(0, 0.5)
     )
   
-  return(plot_lc)
+  if (!knitr::is_html_output()) {
+    return(plot_lc)
+  }
+  
+  # Save temporary PNG
+  tmp_png <- tempfile(fileext = ".png")
+  ggplot2::ggsave(tmp_png, plot_lc, width = 7, height = 5, dpi = 150)
+  
+  # Encode to base64 for embedding
+  img_b64 <- base64enc::base64encode(tmp_png)
+  
+  # HTML image + download button
+  html_out <- htmltools::tags$div(
+    style = "margin-bottom:10px;",
+    htmltools::tags$img(
+      src = paste0("data:image/png;base64,", img_b64),
+      style = "max-width:100%; height:auto; display:block; margin-bottom:5px;"
+    ),
+    htmltools::tags$a(
+      href = paste0("data:image/png;base64,", img_b64),
+      download = "figure.png",
+      "Download PNG",
+      style = paste(
+        "padding:4px 8px;",
+        "background:#007BFF;",
+        "color:white;",
+        "text-decoration:none;",
+        "border-radius:4px;",
+        "font-size:0.9em;"
+      )
+    )
+  )
+  
+  return(htmltools::browsable(html_out))
 }
+
 
 #' Summarize Emission Calculation
 #'
@@ -816,13 +850,22 @@ generate_dummy_crosstab <- function(landcover, zone) {
 #' @importFrom ggplot2 ggplot theme_bw labs theme scale_fill_manual element_text unit element_blank guides guide_legend
 #' @importFrom tidyterra geom_spatraster
 #' @export
-plot_categorical_raster <- function(raster_object) {
-  # Check if raster_object has a color_pallete column and it contains hex color codes
-  if ("color_palette" %in% names(terra::cats(raster_object)[[1]]) && all(grepl("^#[0-9A-Fa-f]{6}$", terra::cats(raster_object)$color_pallete))) {
-    fill_scale <- ggplot2::scale_fill_manual(values = terra::cats(raster_object)[[1]]$color_palette, na.value = "white")
+#' Plot a categorical raster map with download option
+#'
+#' Works in HTML output (adds a download button). In non-HTML formats,
+#' it will just return a ggplot object.
+#'
+#' @param raster_object A raster object.
+#' @param filename Filename for downloaded plot.
+#' @return Either a ggplot object (PDF/Word) or HTML tagList (HTML output).
+#' @export
+plot_categorical_raster <- function(raster_object, filename = "raster_plot.png") {
+  # Color palette
+  if ("color_palette" %in% names(cats(raster_object)[[1]]) &&
+      all(grepl("^#[0-9A-Fa-f]{6}$", cats(raster_object)$color_pallete))) {
+    fill_scale <- scale_fill_manual(values = cats(raster_object)[[1]]$color_palette, na.value = "white")
   } else {
-    # fill_scale <- ggplot2::scale_fill_manual(values = c("#4E79A7", "#F28E2B", "#E15759", "#76B7B2", "#59A14F", "#EDC948", "#B07AA1", "#FF9DA7", "#9C755F","#BAB0AC"), na.value = "white")
-    fill_scale <- ggplot2::scale_fill_manual(values = c(
+    fill_scale <- scale_fill_manual(values = c(
       "#4E79A7", "#F28E2B", "#E15759", "#76B7B2", "#59A14F",
       "#EDC948", "#B07AA1", "#FF9DA7", "#9C755F", "#BAB0AC",
       "#86BCB6", "#FFB84D", "#A5C1DC", "#D37295", "#C4AD66",
@@ -835,32 +878,66 @@ plot_categorical_raster <- function(raster_object) {
       "#D9D9D9", "#BC80BD", "#CCEBC5", "#FFED6F", "#E41A1C"
     ), na.value = "white")
   }
-  if (!is.na(terra::time(raster_object))) {
-    plot_title <- terra::time(raster_object)
+  
+  # Title
+  if (!is.na(time(raster_object))) {
+    plot_title <- time(raster_object)
   } else {
     plot_title <- names(raster_object)
   }
+  
   # Generate the plot
-  plot_lc <- ggplot2::ggplot() +
+  plot_lc <- ggplot() +
     tidyterra::geom_spatraster(data = raster_object) +
     fill_scale +
-    ggplot2::theme_bw() +
-    ggplot2::labs(title = plot_title, fill = NULL) +
-    ggplot2::guides(fill = ggplot2::guide_legend(title.position = "top", ncol = 3)) +
-    ggplot2::theme(
-      axis.title.x = ggplot2::element_blank(),
-      axis.title.y = ggplot2::element_blank(),
-      panel.grid.major = ggplot2::element_blank(),
-      panel.grid.minor = ggplot2::element_blank(),
-      legend.title = ggplot2::element_text(size = 10),
-      legend.text = ggplot2::element_text(size = 8),
-      legend.key.height = ggplot2::unit(0.25, "cm"),
-      legend.key.width = ggplot2::unit(0.25, "cm"),
+    theme_bw() +
+    labs(title = plot_title, fill = NULL) +
+    guides(fill = guide_legend(title.position = "top", ncol = 3)) +
+    theme(
+      axis.title.x = element_blank(),
+      axis.title.y = element_blank(),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      legend.title = element_text(size = 12),
+      legend.text = element_text(size = 10),
+      legend.key.height = unit(0.25, "cm"),
+      legend.key.width = unit(0.25, "cm"),
       legend.position = "bottom",
-      legend.justification = c(0, 0.5)
+      legend.justification = c(0, 0.8)
     )
-  return(plot_lc)
+  
+  # If knitting to non-HTML formats, just return ggplot
+  if (!knitr::is_html_output()) {
+    return(plot_lc)
+  }
+  
+  tf <- tempfile(fileext = ".png")
+  ggsave(tf, plot_lc, width = 6, height = 5, dpi = 150)
+  img_data <- base64enc::dataURI(file = tf, mime = "image/png")
+  
+  # Wrap in HTML with download button
+  htmltools::tagList(
+    tags$div(
+      style = "margin-bottom:10px;",
+      tags$img(src = img_data, style = "max-width:100%; height:auto; display:block; margin-bottom:5px;"),
+      tags$button(
+        "Download PNG",
+        onclick = sprintf(
+          "var link = document.createElement('a');
+           link.download = '%s';
+           link.href = this.previousElementSibling.src;
+           link.click();",
+          filename
+        ),
+        style = "padding:4px 8px; font-size:0.9em; 
+                 background:#007BFF; border-radius:4px; 
+                 color:white; text-decoration:none;
+                 border: none; outline: none;"
+      )
+    )
+  )
 }
+
 
 #' Generate QUES-C Report
 #'
@@ -1202,4 +1279,198 @@ check_and_install_packages <- function(required_packages) {
   } else {
     cat("\nAll required packages are installed and loaded.\n")
   }
+}
+
+#' Render a DataTable with Enhanced Features
+#'
+#' Creates an interactive DT::datatable with common extensions and styling options
+#' pre-configured for ease of use. Includes export buttons, responsive design,
+#' and professional styling.
+#'
+#' @param data A data frame or matrix containing the data to be displayed.
+#' @param caption Character string specifying the table caption (optional).
+#'
+#' @return A DT::datatable object with enhanced features and styling.
+#'
+#' @details
+#' This function provides a convenient wrapper for creating DataTables with
+#' commonly used features:
+#' \itemize{
+#'   \item \strong{Extensions}: Buttons (export functionality) and Responsive (mobile-friendly)
+#'   \item \strong{Options}: Pagination, search, fixed columns, auto-width, ordering
+#'   \item \strong{Styling}: Display class with stripe and hover effects
+#'   \item \strong{Export}: Copy, CSV, and Excel export buttons
+#' }
+#'
+#' The DOM layout includes Buttons (B), length menu (l), filter (f), 
+#' processing (r), table (t), information (i), and pagination (p).
+#'
+#' @examples
+#' \dontrun{
+#' # Basic usage
+#' render_dt_table(mtcars, caption = "Motor Trend Car Road Tests")
+#'
+#' # Without caption
+#' render_dt_table(iris)
+#'
+#' # Use in R Markdown
+#' ```{r}
+#' library(DT)
+#' render_dt_table(mtcars, "Sample Data Table")
+#' ```
+#' }
+#'
+#' @seealso
+#' \code{\link[DT]{datatable}}, \code{\link[DT]{DTOutput}}
+#'
+#' @export
+render_dt_table <- function(data, caption = NULL) {
+  css_fix <- htmltools::tags$style(htmltools::HTML("
+    div.dt-button-info {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 10000;
+      background: white;
+      padding: 20px;
+      border: 2px solid #999;
+      border-radius: 5px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.3);
+    }
+  "))
+  
+  dt <- DT::datatable(
+    data,
+    extensions = c('Buttons', 'Responsive'),
+    options = list(
+      paging = TRUE,
+      searching = TRUE,
+      fixedColumns = TRUE,
+      autoWidth = TRUE,
+      ordering = TRUE,
+      dom = 'Blfrtip',
+      buttons = list(
+        list(extend = "copy", className = "btn btn-light btn-sm"),
+        list(extend = "csv",  className = "btn btn-light btn-sm"),
+        list(extend = "excel",className = "btn btn-light btn-sm")
+      )
+    ),
+    class = "display stripe hover",
+    caption = caption
+  )
+  
+  htmltools::tagList(css_fix, dt)
+}
+
+#' Create an interactive map of a continuous raster with custom color gradient
+#'
+#' This function generates an interactive map using mapview and leaflet to visualize
+#' a continuous raster dataset with a custom color gradient. It creates a smooth
+#' color transition between the specified low and high colors and adds a custom
+#' legend with HTML formatting support.
+#'
+#' @param raster_data A SpatRaster object (from terra package) containing the
+#'   continuous data to be visualized.
+#' @param low_color Character string specifying the color for low values.
+#'   Can be a color name (e.g., "blue", "red") or hexadecimal color code.
+#' @param high_color Character string specifying the color for high values.
+#'   Can be a color name (e.g., "blue", "red") or hexadecimal color code.
+#' @param caption Character string for the legend title. Supports HTML formatting
+#'   for subscripts and superscripts (e.g., "Emission (tonne CO<sub>2</sub>-eq ha<sup>-1</sup>)").
+#' @param raster_layer Character string specifying the layer name to display
+#'   in the map controls (should be a simple name without special characters).
+#'
+#' @return A mapview object with an interactive map displaying the raster data
+#'   with the specified color gradient and a custom legend.
+#'
+#' @details
+#' The function uses mapview for the base map rendering and leaflet for adding
+#' a custom legend. The built-in mapview legend is disabled to allow for the
+#' custom HTML-formatted legend title.
+#'
+#' @note
+#' Requires the following packages: terra, mapview, leaflet
+#' The function will stop with an error message if any required package is not installed.
+#'
+#' @examples
+#' \dontrun{
+#' # Load required packages
+#' library(terra)
+#' 
+#' # Create a sample raster
+#' r <- rast(ncols = 100, nrows = 100)
+#' values(r) <- runif(ncell(r)) * 100
+#' 
+#' # Plot with custom colors and HTML-formatted caption
+#' plot_continuous_raster(
+#'   raster_data = r,
+#'   low_color = "blue",
+#'   high_color = "red",
+#'   caption = "Value (units<sup>-1</sup>)",
+#'   raster_layer = "Sample Data"
+#' )
+#' 
+#' # Plot with different colors and simpler caption
+#' plot_continuous_raster(
+#'   raster_data = r,
+#'   low_color = "green",
+#'   high_color = "purple",
+#'   caption = "Temperature (°C)",
+#'   raster_layer = "Temperature"
+#' )
+#' }
+#'
+#' @export
+#' @importFrom grDevices colorRampPalette
+#' @importFrom terra values
+#' @importFrom mapview mapview
+#' @importFrom leaflet addLegend colorNumeric labelFormat
+plot_continuous_raster <- function(raster_data, low_color, high_color, caption, raster_layer) {
+  
+  # Check if required packages are installed
+  if (!requireNamespace("terra", quietly = TRUE)) {
+    stop("Package 'terra' is required but not installed.")
+  }
+  if (!requireNamespace("mapview", quietly = TRUE)) {
+    stop("Package 'mapview' is required but not installed.")
+  }
+  if (!requireNamespace("leaflet", quietly = TRUE)) {
+    stop("Package 'leaflet' is required but not installed.")
+  }
+  
+  # Create a color ramp function from the specified low and high colors
+  color_palette <- grDevices::colorRampPalette(c(low_color, high_color))(255)
+  
+  # Create mapview without legend
+  map_result <- mapview::mapview(
+    raster_data,
+    col.regions = color_palette,
+    layer.name = raster_layer,
+    na.color = "transparent",
+    legend = FALSE
+  )
+  
+  # Get raster values for legend
+  raster_values <- terra::values(raster_data)
+  raster_values <- raster_values[!is.na(raster_values)]
+  min_val <- min(raster_values, na.rm = TRUE)
+  max_val <- max(raster_values, na.rm = TRUE)
+  
+  # Create custom legend using leaflet with continuous gradient
+  map_result@map <- map_result@map %>%
+    leaflet::addLegend(
+      position = "bottomright",
+      pal = leaflet::colorNumeric(
+        palette = color_palette,
+        domain = c(min_val, max_val),
+        na.color = "transparent"
+      ),
+      values = c(min_val, max_val),
+      title = caption,
+      labFormat = leaflet::labelFormat(),
+      opacity = 1
+    )
+  
+  return(map_result)
 }
