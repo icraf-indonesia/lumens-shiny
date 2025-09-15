@@ -187,12 +187,18 @@ plot_categorical_raster(zone)
 ## Multikolinearitas Faktor-faktor {.tabset}
 
 ### Variance Inflation Factor (VIF)
+
+Variance Inflation Factor (VIF) adalah metode untuk mengukur sejauh mana variabel-variabel dalam model saling memengaruhi dan menambah ketidakpastian hasil prediksi. Nilai VIF dihitung dengan meregresikan satu variabel terhadap variabel lain. Sebagai acuan: VIF di bawah 5 umumnya aman, antara 5–10 perlu diwaspadai, dan di atas 10 menandakan adanya masalah serius sehingga mungkin perlu menghapus atau mengubah variabel.
+
 ```{r vif, echo=FALSE, message=FALSE, warning=FALSE, fig.show='hide'}
 collinearity <- analyze_multicollinearity(factor_path, verbose = FALSE)
 render_dt_table(collinearity$vif_table, caption = "Tabel Cadagan Karbon")
 ```
 
 ### Matriks kolinearitas
+
+Multikolinearitas terjadi ketika variabel independen saling berkorelasi tinggi sehingga sulit membedakan pengaruhnya masing-masing terhadap variabel dependen, membuat model menjadi tidak stabil dan hasilnya kurang akurat. Matriks Kolinearitas digunakan untuk mengidentifikasi isu tersebut dengan menunjukkan hubungan antarvariabel; nilai mendekati 1 atau -1 menandakan korelasi kuat, sedangkan nilai dekat 0 menandakan korelasi lemah.
+
 ```{r corrplot, echo=FALSE, message=FALSE, warning=FALSE}
 collinearity$correlation_plot
 ```

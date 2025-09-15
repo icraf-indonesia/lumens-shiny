@@ -1548,3 +1548,220 @@ rename_landscape <- function(folder_path, initial_year, period_value) {
   
   cat(sprintf("\nSuccessfully renamed %d raster files.\n", length(landscape_files)))
 }
+
+#' Render a DataTable with Enhanced Features
+#'
+#' Creates an interactive DT::datatable with common extensions and styling options
+#' pre-configured for ease of use. Includes export buttons, responsive design,
+#' and professional styling.
+#'
+#' @param data A data frame or matrix containing the data to be displayed.
+#' @param caption Character string specifying the table caption (optional).
+#'
+#' @return A DT::datatable object with enhanced features and styling.
+#'
+#' @details
+#' This function provides a convenient wrapper for creating DataTables with
+#' commonly used features:
+#' \itemize{
+#'   \item \strong{Extensions}: Buttons (export functionality) and Responsive (mobile-friendly)
+#'   \item \strong{Options}: Pagination, search, fixed columns, auto-width, ordering
+#'   \item \strong{Styling}: Display class with stripe and hover effects
+#'   \item \strong{Export}: Copy, CSV, and Excel export buttons
+#' }
+#'
+#' The DOM layout includes Buttons (B), length menu (l), filter (f), 
+#' processing (r), table (t), information (i), and pagination (p).
+#'
+#' @examples
+#' \dontrun{
+#' # Basic usage
+#' render_dt_table(mtcars, caption = "Motor Trend Car Road Tests")
+#'
+#' # Without caption
+#' render_dt_table(iris)
+#'
+#' # Use in R Markdown
+#' ```{r}
+#' library(DT)
+#' render_dt_table(mtcars, "Sample Data Table")
+#' ```
+#' }
+#'
+#' @seealso
+#' \code{\link[DT]{datatable}}, \code{\link[DT]{DTOutput}}
+#'
+#' @export
+render_dt_table <- function(data, caption = NULL) {
+  css_fix <- htmltools::tags$style(htmltools::HTML("
+    div.dt-button-info {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 10000;
+      background: white;
+      padding: 20px;
+      border: 2px solid #999;
+      border-radius: 5px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.3);
+    }
+  "))
+  
+  dt <- DT::datatable(
+    data,
+    extensions = c('Buttons', 'Responsive'),
+    options = list(
+      paging = TRUE,
+      searching = TRUE,
+      fixedColumns = TRUE,
+      autoWidth = TRUE,
+      ordering = TRUE,
+      dom = 'Blfrtip',
+      buttons = list(
+        list(extend = "copy", className = "btn btn-light btn-sm"),
+        list(extend = "csv",  className = "btn btn-light btn-sm"),
+        list(extend = "excel",className = "btn btn-light btn-sm")
+      )
+    ),
+    class = "display stripe hover",
+    caption = caption
+  )
+  
+  htmltools::tagList(css_fix, dt)
+}
+
+
+#' Plot Categorical Raster Map with Interactive Visualization
+#'
+#' Creates a generic interactive map for any classified raster data using
+#' mapview, with proper classification, coloring, and legend.
+#'
+#' @param cat_raster A SpatRaster object (from terra package) containing
+#'   classification values. The raster should contain integer values
+#'   corresponding to different categories.
+#' @param cat_table A data frame containing the classification scheme.
+#'   The **first column** must be the numeric codes (ID) and the
+#'   **second column** must be the category names. It may optionally
+#'   include a column named 'color_palette' with hex color codes for custom colors.
+#' @param yr Character or numeric value representing the year or time period
+#'   for the map. Used in the layer name and legend title.
+#' @param layer_title A character string for the layer name prefix in the legend
+#'   and layer control. Defaults to "Layer".
+#'
+#' @return A mapview object containing an interactive leaflet map with the
+#'   categorical data displayed using the specified colors and including a legend.
+#'
+#' @details This function performs the following steps:
+#' \enumerate{
+#'   \item Filters the category table to include only classes present in the raster.
+#'   \item Reclassifies raster values to a sequential index for consistent coloring.
+#'   \item Converts the raster to a categorical factor with proper labels.
+#'   \item Applies a color palette. If a 'color_palette' column exists in `cat_table`,
+#'         it will be used. Otherwise, a predefined color set is applied.
+#'   \item Creates an interactive map with mapview.
+#'   \item Adds a custom legend with category names and colors.
+#' }
+#'
+#' @note The function requires the following packages: terra, mapview, leaflet,
+#'   and dplyr (for the pipe operator).
+#'
+#' @examples
+#' \dontrun{
+#' # Load required packages
+#' library(terra)
+#' library(mapview)
+#'
+#' # Create example data
+#' class_raster <- rast(nrows = 100, ncols = 100, vals = sample(1:3, 10000, replace = TRUE))
+#'
+#' # Create a table with custom colors
+#' class_table <- data.frame(
+#'   CODE = 1:3,
+#'   CLASS_NAME = c("Class A", "Class B", "Class C"),
+#'   color_palette = c("#228B22", "#FF0000", "#FFFF00")
+#' )
+#'
+#' # Create the interactive map
+#' cat_map <- plot_categorical_rst_mapview(class_raster, class_table, yr = 2025, layer_title = "Classification")
+#' cat_map # Display the map
+#' }
+#'
+#' @importFrom terra values classify as.factor levels<- activeCat coltab ncell
+#' @importFrom mapview mapview
+#' @importFrom leaflet colorFactor addLegend
+#' @importFrom dplyr %>%
+#' @export
+plot_categorical_rst_mapview <- function(cat_raster, cat_table, layer_title = "Layer") {
+  names(cat_table)[1] <- "ID"
+  names(cat_table)[2] <- "Category"
+  
+  cat_table$ID <- as.numeric(cat_table$ID)
+  unique_values <- unique(values(cat_raster, na.rm = TRUE))
+  cat_tbl_filtered <- cat_table[cat_table$ID %in% unique_values, ]
+  
+  reclass_from <- cat_tbl_filtered$ID
+  reclass_to <- seq_along(cat_tbl_filtered$ID)
+  reclass_matrix <- cbind(reclass_from, reclass_to)
+  cat_reclass <- classify(cat_raster, reclass_matrix, others = NA)
+  cat_factor <- as.factor(cat_reclass)
+  
+  levels_df <- data.frame(
+    ID = reclass_to,
+    Category = factor(cat_tbl_filtered$Category, levels = cat_tbl_filtered$Category)
+  )
+  
+  levels(cat_factor) <- levels_df
+  activeCat(cat_factor) <- "Category"
+  
+  predefined_colors <- c(
+    "#3cb44b", "#ffe119", "#4363d8", "#f58231", "#911eb4", "#46f0f0", "#f032e6", "#e6194B",
+    "#bcf60c", "#fabebe", "#008080", "#e6beff", "#9A6324", "#fffac8", "#800000", "#aaffc3",
+    "#808000", "#ffd8b1", "#000075", "#808080", "#1F77B4", "#FF7F0E", "#40E0D0", "#6B8E23",
+    "#2CA02C", "#D62728", "#9467BD", "#8C564B", "#E377C2", "#7F7F7F", "#CD5C5C", "#7B68EE",
+    "#17BECF", "#BCBD22", "#FF9896", "#C5B0D5", "#C49C94", "#9C9EDE", "#AEC7E8", "#FFBB78",
+    "#98DF8A", "#FF7F50", "#FFD700", "#8B0000", "#20B2AA", "#DA70D6", "#B22222", "#5F9EA0",
+    "#ffffff", "#000000"
+  )
+  
+  # Conditionally select color palette
+  if ("color_palette" %in% names(cat_tbl_filtered)) {
+    map_colors <- cat_tbl_filtered$color_palette
+  } else {
+    if (nrow(cat_tbl_filtered) > length(predefined_colors)) {
+      warning("Not enough predefined colors for all categories. Colors will be recycled.")
+    }
+    map_colors <- predefined_colors[1:nrow(cat_tbl_filtered)]
+  }
+  
+  color_table <- data.frame(
+    value = reclass_to,
+    color = map_colors
+  )
+  
+  coltab(cat_factor) <- color_table
+  
+  map_result <- mapview(
+    cat_factor,
+    zcol = "Category",
+    maxpixels = ncell(cat_factor),
+    layer.name = paste(layer_title),
+    na.color = "transparent",
+    legend = FALSE
+  )
+  
+  pal <- colorFactor(
+    palette = color_table$color,
+    domain = levels_df$Category
+  )
+  
+  map_result@map <- map_result@map %>%
+    addLegend(
+      position = "topright",
+      pal = pal,
+      values = levels_df$Category,
+      title = paste(layer_title)
+    )
+  
+  return(map_result)
+}
