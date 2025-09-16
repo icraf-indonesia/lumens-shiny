@@ -34,7 +34,7 @@ Before using the Profitability Analysis tool, prepare the following:
 
 3. **NPV Lookup Table**: A CSV file containing numerical data that outlines the revenue stream and cost structure for each land use type. This table provides the Net Present Value (NPV) of various land uses.
 
-4. **QUES-C Lookup Table**: A CSV file with numerical data on carbon stocks. This database includes carbon values (CO2eq) associated with different land use types.
+<!-- 4. **QUES-C Lookup Table**: A CSV file with numerical data on carbon stocks. This database includes carbon values (CO2eq) associated with different land use types. -->
 
 ## Using the Profitability Analysis Module
 
