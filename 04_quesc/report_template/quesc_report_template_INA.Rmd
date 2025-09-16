@@ -59,7 +59,8 @@ install_load(
   "stringr",
   "mapview",
   "leaflet",
-  "readr"
+  "readr",
+  "DT"
 )
 if (!("LUMENSR" %in% rownames(installed.packages()))) {
   install_github("icraf-indonesia/LUMENSR", force = T)
@@ -327,7 +328,7 @@ Basis data QuES-C berisi informasi transisi tutupan lahan antara `r params$p1` d
 Ringkasan statistik tabel berisi `r nrow(params$ques_db)` baris dan `r names(params$ques_db)` kolom.
 
 ```{r load_quesdb, echo=FALSE, message=FALSE, warning=FALSE}
-datatable(
+DT::datatable(
   params$ques_db,
   extensions = c('Buttons', 'Responsive'),
   options = list(
