@@ -131,8 +131,8 @@ server <- function(input, output, session) {
   
   output$user_guide <- renderUI({
     guide_paths <- c(
-      "07_ta-profit/helpfile/ta-profit_quick_user_guide.Rmd",
-      "../helpfile/ta-profit_quick_user_guide.Rmd"
+      "07_ta-profit/helpfile/ta-profit_quick_user_guide_ID.Rmd",
+      "../helpfile/ta-profit_quick_user_guide_ID.Rmd"
     )
     
     for (path in guide_paths) {

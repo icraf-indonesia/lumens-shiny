@@ -44,6 +44,7 @@ library(DT)
 library(scales)
 library(leaflet)
 library(mapview)
+library(dplyr)
 ```
 
 <details><summary>Klik di sini untuk Log Analisis</summary>
@@ -394,4 +395,4 @@ Hasil analisis menekankan pentingnya mempertimbangkan aspek keuangan dalam peren
 
 ------------------------------------------------------------------------
 
-<font size="1"> LUMENS adalah perangkat lunak gratis dan disediakan TANPA JAMINAN APA PUN. Pengguna bertanggung jawab atas hasil yang dibuat. Hasil bergantung pada kualitas data input ("garbage in, garbage out") dan dapat bervariasi atau sensitif terhadap parameter yang digunakan. Laporkan masalah yang ditemui saat menggunakan LUMENS sebagai [a GitHub issue](https://github.com/icraf-indonesia/lumens-shiny/issues). Umpan balik dan pertanyaan dipersilakan [Contact Us URL]. </font size>
+<font size="1"> LUMENS adalah perangkat lunak gratis dan disediakan TANPA JAMINAN APA PUN. Pengguna bertanggung jawab atas hasil yang dibuat. Hasil bergantung pada kualitas data input ("garbage in, garbage out") dan dapat bervariasi atau sensitif terhadap parameter yang digunakan. Laporkan masalah yang ditemui saat menggunakan LUMENS sebagai [a GitHub issue](https://github.com/icraf-indonesia/lumens-shiny/issues). Umpan balik dan pertanyaan dipersilakan [Contact Us](mailto:lumens@cifor-icraf.org). </font size>
