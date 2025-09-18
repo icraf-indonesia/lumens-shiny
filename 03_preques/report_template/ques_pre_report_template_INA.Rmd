@@ -36,6 +36,7 @@ library(tidyterra)
 library(dplyr)
 library(readr)
 library(scales)
+library(rlang)
 ```
 
 
@@ -83,10 +84,12 @@ analysis_log %>%
   kbl(caption = "Analysis Log", escape = FALSE) %>%
   kable_paper("hover", full_width = F )
 ```
+
 </details>
 
+# Pendahuluan {.tabset}
 
-# Pendahuluan
+## Deskripsi Modul
 
 Pre-QuES adalah modul analisis perubahan penggunaan lahan yang memberikan informasi kunci untuk mengidentifikasi faktor pendorong perubahan penggunaan lahan:
 
@@ -101,7 +104,7 @@ Pre-QuES adalah modul analisis perubahan penggunaan lahan yang memberikan inform
 
 2.  **Integrasi Peta Unit Perencanaan**: Analisis kemudian mengombinasikan informasi unit perencanaan. Langkah ini memungkinkan kita untuk melihat tren perubahan tutupan lahan di dalam setiap kelas unit perencanaan, sehingga memberikan pemahaman lebih detail terhadap perubahan di tingkat regional.
 
-# Data yang digunakan
+# Data yang Digunakan
 
 Berikut adalah komponen-komponen data yang digunakan dalam analisis perubahan lahan:
 
@@ -168,23 +171,30 @@ render_dt_table(
 
 ### Tabel
 
-```{r composition_tbl}
+```{r composition_tbl, echo=FALSE}
 # ques_pre_output[["input_dataviz"]][["lc_composition_tbl"]] %>%
 #   #mutate_if(is.numeric, easy_to_read_numbers) %>%
 #   kable(caption = "Land Use/Cover Composition") %>%
 #   kable_styling(bootstrap_options = c("striped", "hover"))
 
-comp_tbl <- ques_pre_output[["input_dataviz"]][["lc_composition_tbl"]] #%>%
-  # mutate(
-  #   !!paste0("% T1") := round((.[[2]] / sum(.[[2]], na.rm = TRUE)) * 100, 2),
-  #   !!paste0("% T2") := round((.[[3]] / sum(.[[3]], na.rm = TRUE)) * 100, 2)
-  # ) %>%
-  # select(1, 2, 4, 3, 5)
+comp_tbl <- ques_pre_output[["input_dataviz"]][["lc_composition_tbl"]] %>%
+  mutate(
+    !!paste0("% ", as.character(time_1)) := as.numeric(round((.data[[as.character(time_1)]] / sum(.data[[as.character(time_1)]], na.rm = TRUE)) * 100, 2)),
+    !!paste0("% ", as.character(time_2)) := as.numeric(round((.data[[as.character(time_2)]] / sum(.data[[as.character(time_2)]], na.rm = TRUE)) * 100, 2))
+  ) %>%
+  select(
+    `Land-use/cover types`,
+    all_of(as.character(time_1)), !!sym(paste0("% ", as.character(time_1))),
+    all_of(as.character(time_2)), !!sym(paste0("% ", as.character(time_2)))
+  )
 
-render_dt_table(
-  comp_tbl,
-  "Land Use/Cover Composition"
-)  
+sum_t1 <- sum(comp_tbl[[2]], na.rm = TRUE)
+```
+
+Luas lanskap yang dianalisis pada laporan ini adalah `r scales::label_comma()(as.numeric(sum_t1))` hektare.
+
+```{r composition_tbl_plot, echo=FALSE, warning=FALSE}
+render_dt_table(comp_tbl, "Land Use/Cover Composition", digits = 2)  
 ```
 
 ### Grafik
