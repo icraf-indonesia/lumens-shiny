@@ -60,7 +60,8 @@ install_load(
   "mapview",
   "leaflet",
   "readr",
-  "DT"
+  "DT",
+  "kableExtra"
 )
 if (!("LUMENSR" %in% rownames(installed.packages()))) {
   install_github("icraf-indonesia/LUMENSR", force = T)

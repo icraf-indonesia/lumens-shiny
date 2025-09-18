@@ -14,33 +14,34 @@ is_numeric_str <- function(s) {
 #' English text for summary table
 summary_text_en <- c(
   "Period",
-  "Total area (ha)",
-  "Total emission (tonne CO\u2082-eq)",
-  "Total sequestration (tonne CO\u2082-eq)",
-  "Net emission (tonne CO\u2082-eq)",
-  "Emission rate (tonne CO\u2082-eq yr\u207B\u00B9)",
-  "Emission rate per-unit area (tonne CO\u2082-eq ha\u207B\u00B9 yr\u207B\u00B9)"
+  "Total Area (ha)",
+  "Total Emission (tonne CO\u2082-eq)",
+  "Total Sequestration (tonne CO\u2082-eq)",
+  "Net Emission (tonne CO\u2082-eq)",
+  "Emission Rate (tonne CO\u2082-eq yr\u207B\u00B9)",
+  "Emission Rate Per-unit Area (tonne CO\u2082-eq ha\u207B\u00B9 yr\u207B\u00B9)"
 )
 
 #' Indonesian text for summary table
 summary_text_id <- c(
   "Periode", 
-  "Total area (ha)", 
+  "Total Area (ha)", 
   "Total Emisi (Ton CO\u2082-eq)", 
   "Total Sekuestrasi (Ton CO\u2082-eq)", 
   "Emisi Bersih (Ton CO\u2082-eq)", 
   "Laju Emisi (Ton CO\u2082-eq tahun\u207B\u00B9)",
-  "Laju emisi per-unit area (Ton CO\u2082-eq ha\u207B\u00B9 tahun\u207B\u00B9)"
+  "Laju Emisi Per-unit Area (Ton CO\u2082-eq ha\u207B\u00B9 tahun\u207B\u00B9)"
 )
 
 #' English text for zonal summary table
-summary_zonal_text_en <- list(ID = 1,
-                              "Planning Unit" = 2, 
-                              "Area (Ha)" = 3, 
-                              "Carbon Avg. (Periode 1)" = 4, 
-                              "Carbon Avg. (Periode 2)" = 5, 
-                              "Net Emission (tonne CO\u2082-eq)" = 6, 
-                              "Emission Rate (tonne CO\u2082-eq ha\u207B\u00B9 yr\u207B\u00B9)" = 7
+summary_zonal_text_en <- list(
+  ID = 1,
+  "Planning Unit" = 2, 
+  "Area (Ha)" = 3, 
+  "Carbon Avg. (Periode 1)" = 4, 
+  "Carbon Avg. (Periode 2)" = 5, 
+  "Emission Rate (tonne CO\u2082-eq ha\u207B\u00B9 yr\u207B\u00B9)" = 6, 
+  "Sequestration Rate (tonne CO\u2082-eq ha\u207B\u00B9 yr\u207B\u00B9)" = 7
 )
 
 #' Indonesian text for zonal summary table
@@ -50,16 +51,17 @@ summary_zonal_text_id <- list(
   "Luas (Ha)" = 3,
   "Rerata Karbon Periode 1" = 4,
   "Rerata Karbon Periode 2" = 5,
-  "Emisi Bersih (Ton CO\u2082-eq)" = 6,
-  "Laju Emisi (Ton CO\u2082-eq ha\u207B\u00B9 tahun\u207B\u00B9)" = 7
+  "Laju Emisi (Ton CO\u2082-eq ha\u207B\u00B9 tahun\u207B\u00B9)" = 6,
+  "Laju Sekuestrasi (Ton CO\u2082-eq ha\u207B\u00B9 tahun\u207B\u00B9)" = 7
 )
+
 #' English text for zonal carbon summary table
 summary_zona_carbon_text_en <- list(
   ID = 1,
   "Planning Unit" = 2,
   "Area (ha)" = 3,
-  "Total emission (tonne CO\u2082-eq)" = 4,
-  "Total sequestration (tonne CO\u2082-eq)" = 5,
+  "Total Emission (tonne CO\u2082-eq)" = 4,
+  "Total Sequestration (tonne CO\u2082-eq)" = 5,
   "Net Emission (tonne CO\u2082-eq)" = 6,
   "Emission Rate (tonne CO\u2082-eq ha\u207B\u00B9 yr\u207B\u00B9)" = 7
 )
@@ -67,12 +69,12 @@ summary_zona_carbon_text_en <- list(
 #' Indonesian text for zonal carbon summary table
 summary_zona_carbon_text_id <- list(
   ID = 1,
-  "Unit perencanaan" = 2,
+  "Unit Perencanaan" = 2,
   "Luas (ha)" = 3,
-  "Total emisi (ton CO\u2082-eq)" = 4,
-  "Total sekuestrasi (ton CO\u2082-eq)" = 5,
-  "Emisi bersih (ton CO\u2082-eq)" = 6,
-  "Laju emisi (ton CO\u2082-eq ha\u207B\u00B9 tahun\u207B\u00B9)" = 7
+  "Total Emisi (ton CO\u2082-eq)" = 4,
+  "Total Sekuestrasi (ton CO\u2082-eq)" = 5,
+  "Emisi Bersih (ton CO\u2082-eq)" = 6,
+  "Laju Emisi (ton CO\u2082-eq ha\u207B\u00B9 tahun\u207B\u00B9)" = 7
 )
 
 #' Format Session Information
@@ -328,7 +330,7 @@ summary_of_emission_calculation <- function(quescdb, period) {
     mutate(PU_wrapped = str_wrap(PU, width = 10))
   
   # Create interactive plot
-  # Prepare data for plotting (moved outside the function for separation of concerns)
+  # Prepare data for plotting 
   zc_plot <- plotly::plot_ly(
     data = zc,
     x = ~reorder(stringr::str_wrap(PU, width = 40), -NET_EM_RATE),
@@ -384,12 +386,12 @@ summary_of_emission_calculation <- function(quescdb, period) {
     mutate(Ha = format(round(Ha, 2), nsmall = 2, big.mark = ",", decimal.mark = ".")) %>% 
     mutate_if(is.numeric, print_rate)
   
-  names(zc_final)[1:length(summary_zona_carbon_text_en)] <- names(summary_zona_carbon_text_en)
+  names(zc_final)[1:length(summary_zona_carbon_text_id)] <- names(summary_zona_carbon_text_id)
   
   # Create summary data frame
   summary_df <- data.frame(
     ID = 1:7,
-    Category = summary_text_en,
+    Category = summary_text_id,
     Summary = as.character(
       c(
         paste0(period$p1, "-", period$p2),
@@ -504,7 +506,7 @@ zonal_statistic_database <- function(quescdb, period) {
     mutate(Ha = format(round(Ha, 2), nsmall = 2, big.mark = ",", decimal.mark = ".")) %>%
     mutate_if(is.numeric, print_rate) %>%
     dplyr::rename(
-      unlist(summary_zonal_text_en)
+      unlist(summary_zonal_text_id)
     )
   
   # data_merge_sel <- quescdb[ which((quescdb$EM + quescdb$SQ) > 0), ]

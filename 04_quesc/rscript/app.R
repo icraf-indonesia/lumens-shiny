@@ -25,7 +25,8 @@ install_load(
   "stringr",
   "mapview",
   "leaflet",
-  "readr"
+  "readr",
+  "kableExtra"
 )
 
 if (!("LUMENSR" %in% rownames(installed.packages()))) {
