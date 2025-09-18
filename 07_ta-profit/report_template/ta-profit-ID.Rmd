@@ -1,5 +1,5 @@
 ---
-title: "Profitability Analysis Report"
+title: "Laporan Modul Analisis Profitabilitas"
 output: 
   html_document:
     toc: true
