@@ -94,7 +94,12 @@ ui <- fluidPage(
     ),
     mainPanel(
       tabsetPanel(
-        tabPanel("User Guide", includeMarkdown("../helpfile/sciendo_simulate_quick_user_guide.md")),
+        tabPanel("User Guide", 
+                 div(
+                   style = "height: 800px; overflow-y: auto; padding: 15px; border: 1px solid #ddd; border-radius: 5px; background-color: #fff;",
+                   includeMarkdown("../helpfile/sciendo_simulate_quick_user_guide_ID.md")
+                 )
+        ),
         tabPanel("Log",
                  textOutput("selected_directory"),
                  textOutput("dinamica_path"),

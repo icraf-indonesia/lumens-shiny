@@ -26,9 +26,9 @@ ui <- fluidPage(
   sidebarLayout(
     sidebarPanel(
       fileInput("map1_file", "Land cover map at T1", accept = c("image/tiff")),
-      textInput("map1_year", "Year of T1"),
+      numericInput("map1_year", "Year of T1", value = 2015),
       fileInput("map2_file", "Land cover map at T2", accept = c("image/tiff")),
-      textInput("map2_year", "Year of T2"),
+      numericInput("map2_year", "Year of T2", value = 2020),
       fileInput("lc_file", "Land Use/Cover Lookup Table (CSV)", accept = c(".csv")),
       radioButtons("zone_type", "Planning Unit Input Type", 
                    choices = c("Raster" = "raster", "Shapefiles" = "shapefile"), inline = T),
@@ -96,7 +96,13 @@ ui <- fluidPage(
     ),
     mainPanel(
       tabsetPanel(
-        tabPanel("User Guide", includeMarkdown("../helpfile/sciendo_train_quick_user_guide.md")),
+        tabPanel("User Guide", 
+                 div(
+                   style = "height: 800px; overflow-y: auto; padding: 15px; border: 1px solid #ddd; border-radius: 5px; background-color: #fff;",
+                   includeMarkdown("../helpfile/sciendo_train_quick_user_guide_ID.md"),
+                   uiOutput("dynamic_guide", inline = TRUE)
+                 )
+        ),
         tabPanel("Log",
                  textOutput("selected_directory"),
                  textOutput("dinamica_path"),
