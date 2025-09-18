@@ -269,7 +269,7 @@ create_lc1_bar <- function(data, title = "Top 10 Total NPV by LC1", currency = "
     plotly::layout(
       title = title,
       xaxis = list(title = "", categoryorder = "total descending", tickangle = -270),
-      yaxis = list(title = paste("Total NPV (", currency, ")"), tickformat = ",.0f"),
+      yaxis = list(title = paste("Total NPV (", currency, ")"), type="log"),
       margin = list(b = 150),
       hoverlabel = list(bgcolor = "white", font = list(color = "black"))
     )
@@ -295,7 +295,7 @@ create_lc2_bar <- function(data, title = "Top 10 Total NPV by LC2", currency = "
     plotly::layout(
       title = title,
       xaxis = list(title = "", categoryorder = "total descending", tickangle = -270),
-      yaxis = list(title = paste("Total NPV (", currency, ")"), tickformat = ",.0f"),
+      yaxis = list(title = paste("Total NPV (", currency, ")"), type="log"),
       margin = list(b = 150),
       hoverlabel = list(bgcolor = "white", font = list(color = "black"))
     )
@@ -304,28 +304,20 @@ create_lc2_bar <- function(data, title = "Top 10 Total NPV by LC2", currency = "
 create_lulcc_bar <- function(data, title = "Top 10 LULCC by ΔNPV", currency = "IDR") {
   data <- data %>%
     arrange(desc(Total_abs_deltaNPV)) %>%
-    mutate(LULCC = factor(LULCC, levels = unique(LULCC)))
+    mutate(LULCC = factor(LULCC, levels = unique(LULCC)),
+           positive = ifelse(Total_deltaNPV > 0, Total_deltaNPV, 0),
+           negative = ifelse(Total_deltaNPV < 0, Total_deltaNPV, 0))
   
-  color_palette <- RColorBrewer::brewer.pal(n = 10, name = "Set3")
-  
-  plotly::plot_ly(
-    data = data,
-    x = ~Total_deltaNPV,
-    y = ~LULCC,
-    type = "bar",
-    orientation = "h",
-    marker = list(color = color_palette),
-    hoverinfo = "text",
-    hovertext = ~paste(
-      "LULCC:", LULCC, "<br>",
-      "ΔNPV:", format(Total_deltaNPV, big.mark = ",", scientific = FALSE), " ", currency
-    ),
-    showlegend = FALSE
-  ) %>%
-    plotly::layout(
+  plotly::plot_ly(data = data) %>%
+    add_bars(x = ~positive, y = ~LULCC, name = "Positive ΔNPV", 
+             marker = list(color = "lightgreen"), orientation = "h") %>%
+    add_bars(x = ~negative, y = ~LULCC, name = "Negative ΔNPV", 
+             marker = list(color = "red"), orientation = "h") %>%
+    layout(
       title = title,
-      xaxis = list(title = paste("ΔNPV (", currency, ")"), tickformat = ",.0f"),
+      xaxis = list(title = paste("ΔNPV (", currency, ")")),
       yaxis = list(title = "", categoryorder = "array", categoryarray = rev(levels(data$LULCC))),
+      barmode = "relative",
       margin = list(l = 150),
       hoverlabel = list(bgcolor = "white", font = list(color = "black"))
     )

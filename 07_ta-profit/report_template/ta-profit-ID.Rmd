@@ -41,7 +41,10 @@ library(pkgdown)
 library(ggplot2)
 library(htmlwidgets)
 library(DT)
-library(scales) 
+library(scales)
+library(leaflet)
+library(mapview)
+library(dplyr)
 ```
 
 <details><summary>Klik di sini untuk Log Analisis</summary>
@@ -99,29 +102,38 @@ params$npv1_chart
 
 #### Peta Distribusi
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
-npv1_map <- ggplot() +
-  tidyterra::geom_spatraster(data = params$npv1_map) +
-  scale_fill_gradient(
-    low = "yellow",
-    high = "darkgreen",
-    na.value = "white",
-    name = "NPV"
-  ) +
-  theme_bw() +
-  theme(
-    axis.title.x = element_blank(),
-    axis.title.y = element_blank(),
-    panel.grid.major = element_blank(),
-    panel.grid.minor = element_blank(),
-    legend.title = element_text(size = 10),
-    legend.text = element_text(size = 8),
-    legend.key.height = unit(1, "cm"),
-    legend.key.width = unit(0.25, "cm"),
-    legend.position = "right",
-    legend.justification = c(0, 0.5)
-  )
+npv1_map <- params$npv1_map  
 
-npv1_map
+mapview(
+  npv1_map,
+  maxpixels = ncell(npv1_map),
+  na.color = "transparent",
+  layer.name = "NPV T1",
+  col.regions = colorRampPalette(c("lightgrey", "darkgreen"))
+)
+
+# vals <- values(npv1_map)
+# vals <- vals[!is.na(vals)]
+# 
+# # define log10 breaks, symmetric around 0
+# max_val <- max(abs(vals))
+# log_breaks <- unique(c(
+#   0,
+#   10^(0:floor(log10(max_val)))
+# ))
+# 
+# log_breaks <- c(0, 10^(0:floor(log10(max_val))))
+# log_breaks <- sort(unique(c(log_breaks, log_breaks * 5)))  # add n× values
+# log_breaks <- log_breaks[log_breaks <= max_val]
+# 
+# mapview(
+#   npv1_map,
+#   maxpixels = ncell(npv1_map),
+#   na.color = "transparent",
+#   layer.name = "NPV",
+#   col.regions = colorRampPalette(c("white","yellow","orange","darkgreen")),
+#   at = log_breaks
+# )
 ```
 
 #### Tabel
@@ -133,7 +145,24 @@ params$npv1_table %>%
     !!glue::glue("Total NPV ({params$currency})") := Total_NPV1,
     `Total Luas (Ha)` = Total_Ha1
   ) %>%
-  DT::datatable(rownames = FALSE)
+  DT::datatable(
+    rownames = FALSE,
+    extensions = c('Buttons', 'Responsive'),
+    options = list(
+      paging = TRUE,
+      searching = TRUE,
+      fixedColumns = TRUE,
+      autoWidth = TRUE,
+      ordering = TRUE,
+      dom = 'Blfrtip',
+      buttons = list(
+        list(extend = "copy", className = "btn btn-light btn-sm"),
+        list(extend = "csv",  className = "btn btn-light btn-sm"),
+        list(extend = "excel",className = "btn btn-light btn-sm")
+        )
+    ),
+    class = "display stripe hover"
+    )
 ```
 
 ### NPV untuk Tahun `r params$year2` {.tabset}
@@ -146,29 +175,15 @@ params$npv2_chart
 
 #### Peta Distribusi
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
-npv2_map <- ggplot() +
-  tidyterra::geom_spatraster(data = params$npv2_map) +
-  scale_fill_gradient(
-    low = "yellow",
-    high = "darkgreen",
-    na.value = "white",
-    name = "NPV"
-  ) +
-  theme_bw() +
-  theme(
-    axis.title.x = element_blank(),
-    axis.title.y = element_blank(),
-    panel.grid.major = element_blank(),
-    panel.grid.minor = element_blank(),
-    legend.title = element_text(size = 10),
-    legend.text = element_text(size = 8),
-    legend.key.height = unit(1, "cm"),
-    legend.key.width = unit(0.25, "cm"),
-    legend.position = "right",
-    legend.justification = c(0, 0.5)
-  )
+npv2_map <- params$npv2_map  
 
-npv2_map
+mapview(
+  npv2_map,
+  maxpixels = ncell(npv2_map),
+  na.color = "transparent",
+  layer.name = "NPV 2",
+  col.regions = colorRampPalette(c("lightgrey", "darkgreen"))
+)
 ```
 
 #### Table
@@ -180,7 +195,24 @@ params$npv2_table %>%
     !!glue::glue("Total NPV ({params$currency})") := Total_NPV2,
     `Total Luas (Ha)` = Total_Ha2
   ) %>%
-  DT::datatable(rownames = FALSE)
+  DT::datatable(
+    rownames = FALSE,
+    extensions = c('Buttons', 'Responsive'),
+    options = list(
+      paging = TRUE,
+      searching = TRUE,
+      fixedColumns = TRUE,
+      autoWidth = TRUE,
+      ordering = TRUE,
+      dom = 'Blfrtip',
+      buttons = list(
+        list(extend = "copy", className = "btn btn-light btn-sm"),
+        list(extend = "csv",  className = "btn btn-light btn-sm"),
+        list(extend = "excel",className = "btn btn-light btn-sm")
+        )
+    ),
+    class = "display stripe hover"
+    )
 ```
 
 
@@ -194,31 +226,35 @@ params$deltaNPV_chart
 
 #### Peta Distribusi
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
-deltaNPV_map <- ggplot() +
-  tidyterra::geom_spatraster(data = params$deltaNPV_map) +
-  scale_fill_gradient2(
-    low = "red",
-    mid = "white",    
-    high = "darkgreen",
-    midpoint = 0,     
-    na.value = "grey",
-    name = "ΔNPV"
-  ) +
-  theme_bw() +
-  theme(
-    axis.title.x = element_blank(),
-    axis.title.y = element_blank(),
-    panel.grid.major = element_blank(),
-    panel.grid.minor = element_blank(),
-    legend.title = element_text(size = 10),
-    legend.text = element_text(size = 8),
-    legend.key.height = unit(1, "cm"),
-    legend.key.width = unit(0.25, "cm"),
-    legend.position = "right",
-    legend.justification = c(0, 0.5)
-  )
+deltaNPV_map <- params$deltaNPV_map  
 
-deltaNPV_map
+# mapview(
+#   deltaNPV_map,
+#   maxpixels = ncell(deltaNPV_map),
+#   na.color = "transparent",
+#   layer.name = "ΔNPV"
+# )
+
+# Get the range of values to set appropriate breakpoints
+vals <- values(deltaNPV_map)
+vals <- vals[!is.na(vals)]  # Remove NA values
+min_val <- min(vals)
+max_val <- max(vals)
+
+# Create breakpoints that include 0 in the middle
+breaks <- c(min_val, -1e-10, 1e-10, max_val)  # Using small values around 0
+
+# Define colors with white at 0
+colors <- c("red", "lightgrey", "green")  # Negative values: red, 0: white, Positive values: blue
+
+mapview(
+  deltaNPV_map,
+  maxpixels = ncell(deltaNPV_map),
+  na.color = "transparent",
+  layer.name = "ΔNPV",
+  at = breaks,
+  col.regions = colors
+)
 ```
 
 #### Tabel
@@ -231,7 +267,24 @@ params$deltaNPV_table %>%
     !!rlang::sym(glue::glue("|ΔNPV| ({params$currency})")) := Total_abs_deltaNPV,
     `Total Luas (Ha)` = Total_Ha2
   ) %>%
-  DT::datatable(rownames = FALSE)
+  DT::datatable(
+    rownames = FALSE,
+    extensions = c('Buttons', 'Responsive'),
+    options = list(
+      paging = TRUE,
+      searching = TRUE,
+      fixedColumns = TRUE,
+      autoWidth = TRUE,
+      ordering = TRUE,
+      dom = 'Blfrtip',
+      buttons = list(
+        list(extend = "copy", className = "btn btn-light btn-sm"),
+        list(extend = "csv",  className = "btn btn-light btn-sm"),
+        list(extend = "excel",className = "btn btn-light btn-sm")
+        )
+    ),
+    class = "display stripe hover"
+    )
 ```
 
 ## Hasil NPV pada Tingkat Unit Perencanaan
@@ -287,7 +340,24 @@ render_child_pu <- function(results_list, pu_name, currency) {
     sprintf("    `|ΔNPV| (%s)` = Total_abs_deltaNPV,", currency),
     "    `Total Luas (Ha)` = Total_Ha2",
     "  ) %>%",
-    "  DT::datatable(rownames = FALSE)",
+    "  DT::datatable(",
+    "    rownames = FALSE,",
+    "    extensions = c('Buttons', 'Responsive'),",
+    "    options = list(",
+    "      paging = TRUE,",
+    "      searching = TRUE,",
+    "      fixedColumns = TRUE,",
+    "      autoWidth = TRUE,",
+    "      ordering = TRUE,",
+    "      dom = 'Blfrtip',",
+    "      buttons = list(",
+    "        list(extend = 'copy', className = 'btn btn-light btn-sm'),",
+    "        list(extend = 'csv',  className = 'btn btn-light btn-sm'),",
+    "        list(extend = 'excel', className = 'btn btn-light btn-sm')",
+    "      )",
+    "    ),",
+    "    class = 'display stripe hover'",
+    "  )",
     "```"
   )
   
@@ -325,4 +395,4 @@ Hasil analisis menekankan pentingnya mempertimbangkan aspek keuangan dalam peren
 
 ------------------------------------------------------------------------
 
-<font size="1"> LUMENS adalah perangkat lunak gratis dan disediakan TANPA JAMINAN APA PUN. Pengguna bertanggung jawab atas hasil yang dibuat. Hasil bergantung pada kualitas data input ("garbage in, garbage out") dan dapat bervariasi atau sensitif terhadap parameter yang digunakan. Laporkan masalah yang ditemui saat menggunakan LUMENS sebagai [a GitHub issue](https://github.com/icraf-indonesia/lumens-shiny/issues). Umpan balik dan pertanyaan dipersilakan [Contact Us URL]. </font size>
+<font size="1"> LUMENS adalah perangkat lunak gratis dan disediakan TANPA JAMINAN APA PUN. Pengguna bertanggung jawab atas hasil yang dibuat. Hasil bergantung pada kualitas data input ("garbage in, garbage out") dan dapat bervariasi atau sensitif terhadap parameter yang digunakan. Laporkan masalah yang ditemui saat menggunakan LUMENS sebagai [a GitHub issue](https://github.com/icraf-indonesia/lumens-shiny/issues). Umpan balik dan pertanyaan dipersilakan [Contact Us](mailto:lumens@cifor-icraf.org). </font size>
