@@ -22,6 +22,52 @@ format_session_info_table <- function() {
   return(session_summary)
 }
 
+plot_categorical_raster <- function(raster_object) {
+  # Check if raster_object has a color_pallete column and it contains hex color codes
+  if ("color_palette" %in% names(terra::cats(raster_object)[[1]]) && all(grepl("^#[0-9A-Fa-f]{6}$", terra::cats(raster_object)$color_pallete))) {
+    fill_scale <- ggplot2::scale_fill_manual(values = terra::cats(raster_object)[[1]]$color_palette, na.value = "white")
+  } else {
+    # fill_scale <- ggplot2::scale_fill_manual(values = c("#4E79A7", "#F28E2B", "#E15759", "#76B7B2", "#59A14F", "#EDC948", "#B07AA1", "#FF9DA7", "#9C755F","#BAB0AC"), na.value = "white")
+    fill_scale <- ggplot2::scale_fill_manual(values = c(
+      "#4E79A7", "#F28E2B", "#E15759", "#76B7B2", "#59A14F",
+      "#EDC948", "#B07AA1", "#FF9DA7", "#9C755F", "#BAB0AC",
+      "#86BCB6", "#FFB84D", "#A5C1DC", "#D37295", "#C4AD66",
+      "#7B8D8E", "#B17B62", "#8CD17D", "#DE9D9C", "#5A5A5A",
+      "#A0A0A0", "#D7B5A6", "#6D9EEB", "#E69F00", "#56B4E9",
+      "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7",
+      "#999999", "#E51E10", "#FF7F00", "#FFFF33", "#A65628",
+      "#F781BF", "#999933", "#8DD3C7", "#FFFFB3", "#BEBADA",
+      "#FB8072", "#80B1D3", "#FDB462", "#B3DE69", "#FCCDE5",
+      "#D9D9D9", "#BC80BD", "#CCEBC5", "#FFED6F", "#E41A1C"
+    ), na.value = "white")
+  }
+  if (!is.na(terra::time(raster_object))) {
+    plot_title <- terra::time(raster_object)
+  } else {
+    plot_title <- names(raster_object)
+  }
+  # Generate the plot
+  plot_lc <- ggplot2::ggplot() +
+    tidyterra::geom_spatraster(data = raster_object) +
+    fill_scale +
+    ggplot2::theme_bw() +
+    ggplot2::labs(title = plot_title, fill = NULL) +
+    ggplot2::guides(fill = ggplot2::guide_legend(title.position = "top", ncol = 3)) +
+    ggplot2::theme(
+      axis.title.x = ggplot2::element_blank(),
+      axis.title.y = ggplot2::element_blank(),
+      panel.grid.major = ggplot2::element_blank(),
+      panel.grid.minor = ggplot2::element_blank(),
+      legend.title = ggplot2::element_text(size = 10),
+      legend.text = ggplot2::element_text(size = 8),
+      legend.key.height = ggplot2::unit(0.25, "cm"),
+      legend.key.width = ggplot2::unit(0.25, "cm"),
+      legend.position = "bottom",
+      legend.justification = c(0, 0.5)
+    )
+  return(plot_lc)
+}
+
 # Helper function for consistent number formatting
 easy_to_read_numbers <- scales::label_comma()
 
@@ -33,93 +79,6 @@ log_transform <- function(x, base = 10, offset = 1) {
   } else {
     x
   }
-}
-
-# Fungsi inverse log transform untuk mengembalikan ke nilai asli
-inv_log_transform <- function(x, base = 10, offset = 1) {
-  if (is.numeric(x)) {
-    sign(x) * (base^abs(x) - offset)
-  } else {
-    x
-  }
-}
-
-# Format angka dalam notasi logaritmik
-format_log_notation <- function(x, base = 10) {
-  if (is.numeric(x)) {
-    paste0("log", base, "(", easy_to_read_numbers(x), ")")
-  } else {
-    x
-  }
-}
-
-# Fungsi untuk membuat grafik logaritmik dari data
-create_log_bar_chart <- function(data, x_col, y_col, title, x_label = "", y_label = "Nilai (log scale)", n_top = 10) {
-  # Pastikan data adalah dataframe
-  if (!is.data.frame(data)) data <- as.data.frame(data)
-  
-  # Ambil top n values
-  top_data <- head(data[order(-data[[y_col]]), ], n_top)
-  
-  # Hindari nilai 0 atau negatif untuk log
-  top_data$log_value <- log10(pmax(top_data[[y_col]], 1))
-  
-  ggplot(top_data, aes(x = reorder(.data[[x_col]], .data[[y_col]]), y = log_value)) +
-    geom_bar(stat = "identity", fill = "steelblue", alpha = 0.8) +
-    coord_flip() +
-    labs(
-      title = title,
-      x = x_label,
-      y = y_label
-    ) +
-    theme_minimal() +
-    theme(
-      axis.text.y = element_text(size = 8),
-      plot.title = element_text(hjust = 0.5, size = 12),
-      axis.title.x = element_text(size = 10),
-      axis.title.y = element_text(size = 10)
-    ) +
-    scale_y_continuous(
-      labels = function(x) format(10^x, big.mark = ",", scientific = FALSE)
-    )
-}
-
-# Fungsi untuk mendeteksi jenis objek dan membuat grafik log
-create_log_chart_from_object <- function(chart_obj, data_table = NULL, x_col = NULL, y_col = NULL, title = "") {
-  # Jika objek adalah ggplot, terapkan transformasi log
-  if (inherits(chart_obj, "ggplot")) {
-    return(
-      chart_obj +
-        scale_y_continuous(
-          trans = "log10",
-          labels = scales::label_comma(),
-          breaks = scales::trans_breaks("log10", function(x) 10^x)
-        ) +
-        labs(y = paste0("Nilai (log10 scale)")) +
-        theme(axis.text.y = element_text(size = 8))
-    )
-  }
-  
-  # Jika ada data table, buat grafik dari data
-  if (!is.null(data_table) && !is.null(x_col) && !is.null(y_col)) {
-    return(
-      create_log_bar_chart(data_table, x_col, y_col, title)
-    )
-  }
-  
-  # Return NULL jika tidak bisa membuat grafik
-  return(NULL)
-}
-
-# Fungsi untuk memodifikasi chart yang sudah ada dengan skala log
-convert_to_log_scale <- function(plot_obj, y_trans = "log10") {
-  plot_obj + 
-    scale_y_continuous(
-      trans = y_trans,
-      labels = scales::label_comma(),
-      breaks = scales::trans_breaks(y_trans, function(x) 10^x)
-    ) +
-    ylab(paste0("Nilai (", y_trans, " scale)"))
 }
 
 # Data Processing Functions
@@ -187,7 +146,10 @@ preprocess_data <- function(pathLULCT1, pathLULCT2, pathPU,
     combinedRasterTable = combinedRasterTable,
     npv1_map = npv1_map,
     npv2_map = npv2_map,
-    deltaNPV_map = deltaNPV_map
+    deltaNPV_map = deltaNPV_map,
+    LULCT1 = LULCT1,
+    LULCT2 = LULCT2,
+    PU = PU
   ))
 }
 
@@ -392,8 +354,12 @@ generate_report_params <- function(data, maps, paths, times, output_dir, pu_outp
     npv1_chart = create_lc1_bar(main_dissolved_lc1, currency = currency),
     npv2_chart = create_lc2_bar(main_dissolved_lc2, currency = currency),
     deltaNPV_chart = create_lulcc_bar(main_dissolved_lulcc, currency = currency),
+    LULCT1 = maps$LULCT1,
+    LULCT2 = maps$LULCT2,
+    PU = maps$PU,
     map1_file_path = paths$pathLULCT1,
     map2_file_path = paths$pathLULCT2,
+    pu_file_path = paths$pathPU,
     npv_file_path = paths$pathLookupNPV,
     pu_table_path = paths$pathLookupPU,
     npv1_map = maps$npv1_map,

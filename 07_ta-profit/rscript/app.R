@@ -201,6 +201,7 @@ server <- function(input, output, session) {
         paths <- list(
           pathLULCT1 = input$lulc_t1$datapath,
           pathLULCT2 = input$lulc_t2$datapath,
+          pathPU = input$pu_raster$datapath,
           # pathLookupCstock = input$cstock_table$datapath,
           pathLookupNPV = input$npv_table$datapath,
           pathLookupPU = input$pu_table$datapath

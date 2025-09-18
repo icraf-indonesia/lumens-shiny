@@ -140,9 +140,6 @@ npv2_map <- terra::classify(LULCT2, npv_matrix)
 
 deltaNPV_map <- npv2_map - npv1_map
 
-mapview(npv1_map, maxpixels = ncell(npv1_map))
-mapview(npv2_map, maxpixels = ncell(npv2_map))
-mapview(deltaNPV_map, maxpixels = ncell(deltaNPV_map))
 # MAIN OUTPUT FUNCTIONS ####
 calculate_total_values <- function(data) {
   data %>%
