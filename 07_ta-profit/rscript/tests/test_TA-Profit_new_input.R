@@ -8,14 +8,14 @@ library(RColorBrewer)
  
 # INPUT ####
 pathLULCT1 <- "C:/users/ykarimah/Downloads/Download/New TA/data/01Raster/lc_1990.tif"
-pathLULCT2 <- "C:/users/ykarimah/Downloads/Download/New TA/data/01Raster/lc_2000.tif"
+pathLULCT2 <- "C:/users/ykarimah/Downloads/Download/New TA/data/01Raster/lc_2010.tif"
 valueT1 <- 1990
-valueT2 <- 2000
-pathLookupCstock <- "C:/users/ykarimah/Downloads/Download/New TA/data/03Tabular/C-Stock.csv"
+valueT2 <- 2010
+pathLookupCstock <- "C:/users/ykarimah/Downloads/Download/New TA/data/03Tabular/tabel_acuan_NPV_idr.csv"
 pathPU <- "C:/users/ykarimah/Downloads/Download/New TA/data/01Raster/PolaRuangSumsel_F.tif"
 pathLookupPU<- "C:/users/ykarimah/Downloads/Download/New TA/data/03Tabular/tabel_pola_ruang.csv"
 pathLookupNPV<- "C:/users/ykarimah/Downloads/Download/New TA/data/03Tabular/tabel_acuan_NPV_idr.csv"
-output_dir <- "C:/users/ykarimah/Downloads/Download/New TA/Dry run LUMENS/"
+output_dir <- "C:/users/ykarimah/Downloads/Dry Run Sulsel/"
 
 # Start timing
 start_time <- Sys.time()
@@ -140,6 +140,9 @@ npv2_map <- terra::classify(LULCT2, npv_matrix)
 
 deltaNPV_map <- npv2_map - npv1_map
 
+mapview(npv1_map, maxpixels = ncell(npv1_map))
+mapview(npv2_map, maxpixels = ncell(npv2_map))
+mapview(deltaNPV_map, maxpixels = ncell(deltaNPV_map))
 # MAIN OUTPUT FUNCTIONS ####
 calculate_total_values <- function(data) {
   data %>%
@@ -218,7 +221,7 @@ create_lc1_bar <- function(data, title = "Top 10 Total NPV by LC1") {
     plotly::layout(
       title = title,
       xaxis = list(title = "", categoryorder = "total descending", tickangle = -270),
-      yaxis = list(title = "Total NPV", tickformat = ",.0f"),
+      yaxis = list(title = "Total NPV", type="log"),
       margin = list(b = 150),
       hoverlabel = list(bgcolor = "white", font = list(color = "black"))
     )
@@ -244,37 +247,59 @@ create_lc2_bar <- function(data, title = "Top 10 Total NPV by LC2") {
     plotly::layout(
       title = title,
       xaxis = list(title = "", categoryorder = "total descending", tickangle = -270),
-      yaxis = list(title = "Total NPV", tickformat = ",.0f"),
+      yaxis = list(title = "Total NPV", type="log"),
       margin = list(b = 150),
       hoverlabel = list(bgcolor = "white", font = list(color = "black"))
     )
 }
 
-create_lulcc_bar <- function(data, title = "Top 10 LULCC by ΔNPV") {
+# create_lulcc_bar <- function(data, title = "Top 10 LULCC by ΔNPV") {
+#   data <- data %>%
+#     arrange(desc(Total_abs_deltaNPV)) %>%
+#     mutate(LULCC = factor(LULCC, levels = unique(LULCC)))
+#   
+#   color_palette <- RColorBrewer::brewer.pal(n = 10, name = "Set3")
+#   
+#   plotly::plot_ly(
+#     data = data,
+#     x = ~Total_deltaNPV,
+#     y = ~LULCC,
+#     type = "bar",
+#     orientation = "h",
+#     marker = list(color = color_palette),
+#     hoverinfo = "text",
+#     hovertext = ~paste(
+#       "LULCC:", LULCC, "<br>",
+#       "ΔNPV:", format(Total_deltaNPV, big.mark = ",", scientific = FALSE), " IDR"
+#     ),
+#     showlegend = FALSE
+#   ) %>%
+#     plotly::layout(
+#       title = title,
+#       xaxis = list(title = "ΔNPV (IDR)", type="log"),
+#       yaxis = list(title = "", categoryorder = "array", categoryarray = rev(levels(data$LULCC))),
+#       margin = list(l = 150),
+#       hoverlabel = list(bgcolor = "white", font = list(color = "black"))
+#     )
+# }
+
+create_lulcc_bar <- function(data, title = "Top 10 LULCC by ΔNPV", currency = "IDR") {
   data <- data %>%
     arrange(desc(Total_abs_deltaNPV)) %>%
-    mutate(LULCC = factor(LULCC, levels = unique(LULCC)))
+    mutate(LULCC = factor(LULCC, levels = unique(LULCC)),
+           positive = ifelse(Total_deltaNPV > 0, Total_deltaNPV, 0),
+           negative = ifelse(Total_deltaNPV < 0, Total_deltaNPV, 0))
   
-  color_palette <- RColorBrewer::brewer.pal(n = 10, name = "Set3")
-  
-  plotly::plot_ly(
-    data = data,
-    x = ~Total_deltaNPV,
-    y = ~LULCC,
-    type = "bar",
-    orientation = "h",
-    marker = list(color = color_palette),
-    hoverinfo = "text",
-    hovertext = ~paste(
-      "LULCC:", LULCC, "<br>",
-      "ΔNPV:", format(Total_deltaNPV, big.mark = ",", scientific = FALSE), " IDR"
-    ),
-    showlegend = FALSE
-  ) %>%
-    plotly::layout(
+  plotly::plot_ly(data = data) %>%
+    add_bars(x = ~positive, y = ~LULCC, name = "Positive ΔNPV", 
+             marker = list(color = "lightgreen"), orientation = "h") %>%
+    add_bars(x = ~negative, y = ~LULCC, name = "Negative ΔNPV", 
+             marker = list(color = "red"), orientation = "h") %>%
+    layout(
       title = title,
-      xaxis = list(title = "ΔNPV (IDR)", tickformat = ",.0f"),
+      xaxis = list(title = paste("ΔNPV (", currency, ")")),
       yaxis = list(title = "", categoryorder = "array", categoryarray = rev(levels(data$LULCC))),
+      barmode = "relative",
       margin = list(l = 150),
       hoverlabel = list(bgcolor = "white", font = list(color = "black"))
     )
