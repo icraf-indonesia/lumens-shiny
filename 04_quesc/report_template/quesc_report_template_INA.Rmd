@@ -107,7 +107,6 @@ analysis_log %>%
 period <- as.numeric(params$p2) - as.numeric(params$p1)
 df_c <- read.csv(params$inputs$c_lookup_path)
 
-# =Load landuse for two time periods
 lc_t1 <- params$inputs$lc_t1_path %>%
   rast() %>%
   add_legend_to_categorical_raster(., lookup_table = df_c, year = as.numeric(params$p1))
@@ -115,14 +114,11 @@ lc_t2 <- params$inputs$lc_t2_path %>%
   rast() %>%
   add_legend_to_categorical_raster(., lookup_table = df_c, year = as.numeric(params$p2))
 
-# Determine if the planning unit input is a shapefile or raster
 admin_z_path <- params$inputs$admin_z_path
 
 if (grepl("\\.shp$", admin_z_path, ignore.case = TRUE)) {
-  # If input is a shapefile
   zone_sf <- sf::st_read(admin_z_path, quiet = TRUE)
   zone_sf <- sf::st_cast(zone_sf, "MULTIPOLYGON")
-  # Use the first column as ID, second as name (adjust if needed)
   zone_rst <- zone_sf %>%
     rasterise_multipolygon_quesc(
       raster_res = res(lc_t1), 
@@ -131,7 +127,6 @@ if (grepl("\\.shp$", admin_z_path, ignore.case = TRUE)) {
     check_and_harmonise_geometry(reference_map = lc_t1)
   
 } else if (grepl("\\.tif$", admin_z_path, ignore.case = TRUE)) {
-  # If input is a raster
   zone_rst <- terra::rast(admin_z_path) %>%
     check_and_harmonise_geometry(reference_map = lc_t1)
 } else {
@@ -233,7 +228,7 @@ render_dt_table(
 Peta emisi GRK menggambarkan penurunan jumlah cadangan karbon (dalam ton CO<sub>2</sub>-eq ha<sup>-1</sup>).
 
 ```{r emission_map, echo=FALSE, message=FALSE, warning=FALSE, out.width='100%', out.height='500px'}
-# plot_quesc_results(
+# plot_continuous_raster(
 #   map = params$map_em,
 #   legend = expression("Emission (tonne CO"[2]*"-eq ha"^-1*")"),
 #   low = "#FFCC66",
@@ -244,7 +239,7 @@ map_em <- params$map_em
 terra::time(map_em) <- NULL
 html_caption_em <- "Emisi (tonne CO<sub>2</sub>-eq ha<sup>-1</sup>)"
 
-plot_continuous_raster(
+plot_continuous_raster_mapview(
   raster_data = map_em,
   low_color = "#FFCC66",
   high_color = "#FF0000",
@@ -258,7 +253,7 @@ plot_continuous_raster(
 Peta sekuestrasi GRK menggambarkan peningkatan jumlah cadangan karbon (dalam ton CO<sub>2</sub>-eq ha<sup>-1</sup>).
 
 ```{r sequestration_map, echo=FALSE, message=FALSE, warning=FALSE, out.width='100%', out.height='500px'}
-# plot_quesc_results(
+# plot_continuous_raster(
 #   map = params$map_sq,
 #   legend = expression("Sequestration (tonne CO"[2]*"-eq ha"^-1*")"),
 #   low = "#FFCC66",
@@ -269,7 +264,7 @@ map_sq <- params$map_sq
 terra::time(map_sq) <- NULL
 html_caption_sq <- "Sekuestrasi (tonne CO<sub>2</sub>-eq ha<sup>-1</sup>)"
 
-plot_continuous_raster(
+plot_continuous_raster_mapview(
   raster_data = map_sq,
   low_color = "#FFCC66",
   high_color = "#000033",
@@ -296,7 +291,7 @@ reclassify_matrix <- as.matrix(z$data_zone[, 1]) %>%
   rbind(., c(0, NA))
 
 z_em_rate <- zone_rst %>% classify(reclassify_matrix)
-plot_quesc_results(
+plot_continuous_raster(
   map = z_em_rate,
   legend = expression("Emission Level (tonne CO"[2]*"-eq ha"^-1*" yr"^-1*")"),
   low = "#FFCC66",
@@ -313,7 +308,7 @@ reclassify_matrix <- as.matrix(z$data_zone[, 1]) %>%
   cbind(., as.matrix(z$data_zone[, 7])) %>%
   rbind(., c(0, NA))
 z_sq_rate <- zone_rst %>% classify(reclassify_matrix)
-plot_quesc_results(
+plot_continuous_raster(
   map = z_sq_rate,
   legend = expression("Sequestration Level (tonne CO"[2]*"-eq ha"^-1*" yr"^-1*")"),
   low = "#FFCC66",
@@ -391,7 +386,7 @@ Peta kerapatan karbon menggambarkan distribusi dan jumlah karbon yang tersimpan 
 ```{r carbon_map_t1, echo=FALSE, message=FALSE, warning=FALSE}
 y <- ceiling(minmax(params$map_c1)[2] / 100)
 y <- y * 100
-plot_quesc_results(
+plot_continuous_raster(
   map = params$map_c1,
   legend = expression("Carbon Density (tonne-C ha"^-1*")"),
   low = "#FFCC66",
@@ -410,7 +405,7 @@ plot_quesc_results(
 Peta kerapatan karbon menggambarkan distribusi dan jumlah karbon yang tersimpan dalam data tutupan/penggunaan lahan pada `r params$p2` (dalam ton-C ha<sup>-1</sup>).
 
 ```{r carbon_map_t2, echo=FALSE, message=FALSE, warning=FALSE}
-plot_quesc_results(
+plot_continuous_raster(
   map = params$map_c2,
   legend = expression("Carbon Density (tonne-C ha"^-1*")"),
   low = "#FFCC66",
@@ -431,7 +426,7 @@ reclassify_matrix <- as.matrix(z$data_zone[, 1]) %>%
   cbind(., as.matrix(z$data_zone[, 4])) %>%
   rbind(., c(0, NA))
 z_avg_c1 <- zone_rst %>% classify(reclassify_matrix)
-plot_quesc_results(
+plot_continuous_raster(
   map = z_avg_c1,
   legend = expression("Carbon Density Level (tonne-C ha"^-1*")"),
   low = "#FFCC66",
@@ -446,7 +441,7 @@ reclassify_matrix <- as.matrix(z$data_zone[, 1]) %>%
   cbind(., as.matrix(z$data_zone[, 5])) %>%
   rbind(., c(0, NA))
 z_avg_c2 <- zone_rst %>% classify(reclassify_matrix)
-plot_quesc_results(
+plot_continuous_raster(
   map = z_avg_c2,
   legend = expression("Carbon Density Level (tonne-C ha"^-1*")"),
   low = "#FFCC66",

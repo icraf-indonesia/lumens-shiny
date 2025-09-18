@@ -35,6 +35,7 @@ library(ggplot2)
 library(tidyterra)
 library(dplyr)
 library(readr)
+library(scales)
 ```
 
 
@@ -173,8 +174,15 @@ render_dt_table(
 #   kable(caption = "Land Use/Cover Composition") %>%
 #   kable_styling(bootstrap_options = c("striped", "hover"))
 
+comp_tbl <- ques_pre_output[["input_dataviz"]][["lc_composition_tbl"]] #%>%
+  # mutate(
+  #   !!paste0("% T1") := round((.[[2]] / sum(.[[2]], na.rm = TRUE)) * 100, 2),
+  #   !!paste0("% T2") := round((.[[3]] / sum(.[[3]], na.rm = TRUE)) * 100, 2)
+  # ) %>%
+  # select(1, 2, 4, 3, 5)
+
 render_dt_table(
-  ques_pre_output[["input_dataviz"]][["lc_composition_tbl"]],
+  comp_tbl,
   "Land Use/Cover Composition"
 )  
 ```
@@ -213,8 +221,13 @@ ques_pre_output[["landscape_level"]][["sankey_landscape_chg_only"]]
 #   kable(caption = "Top 10 Types of Land Use/Cover Changes") %>%
 #   kable_styling(bootstrap_options = c("striped", "hover"))
 
+top10_tbl <- ques_pre_output[["landscape_level"]][["luc_top_10_tbl"]] %>% 
+  mutate(
+    !!paste0("%") := round((.[[4]] / sum(.[[4]], na.rm = TRUE)) * 100, 2)
+  )
+
 render_dt_table(
-  ques_pre_output[["landscape_level"]][["luc_top_10_tbl"]],
+  top10_tbl,
   "Top 10 Types of Land Use/Cover Changes"
 ) 
 ```
@@ -229,13 +242,16 @@ ques_pre_output[["landscape_level"]][["luc_top_10_barplot"]]
 
 ```{r composition_pu_child_document, echo=FALSE, fig.keep='all', results='asis'}
 for (i in names(ques_pre_output[["pu_level"]])) {
-  cat("## ", i, "{.tabset} \n\n")
+  # add percentage column
+  top10_pu_tbl <- ques_pre_output[["pu_level"]][[i]][["luc_top_pu"]] %>% 
+      mutate(
+        !!paste0("%") := round((.[[4]] / sum(.[[4]], na.rm = TRUE)) * 100, 2)
+      )
   
+  cat("## ", i, "{.tabset} \n\n")
   cat("### 10 Jenis Perubahan Tutupan/Penggunaan Lahan Dominan di", i, "\n\n")
   print(
-    render_dt_table(
-      ques_pre_output[["pu_level"]][[i]][["luc_top_pu"]]
-    )
+    render_dt_table(top10_pu_tbl)
   )
   cat("\n\n")
   
@@ -266,7 +282,7 @@ lookup_traj <- read_csv(paste0(params$log_params$output_dir, "/PreQuES_ChangeTra
 # levels(traj_map) <- lookup_traj
 # set.names(traj_map, "Land Use/Cover Trajectory")
 
-plot_categorical_rst_mapview(traj_map, lookup_traj, paste0("Land Use-Cover Trajectory in ", time_1, "-", time_2))
+plot_categorical_raster_mapview(traj_map, lookup_traj, paste0("Land Use-Cover Trajectory in ", time_1, "-", time_2))
 ```
 
 ### Ringkasan Trajektori Perubahan Tutupan/Penggunaan Lahan Pre-QuES {.tabset}
@@ -278,9 +294,12 @@ plot_categorical_rst_mapview(traj_map, lookup_traj, paste0("Land Use-Cover Traje
 #   kable() %>%
 #   kable_styling(bootstrap_options = c("striped", "hover"))
 
-render_dt_table(
-  traj_analysis_output$landscape_level$table_traj_area
+traj_tbl <- traj_analysis_output$landscape_level$table_traj_area %>% 
+  mutate(
+    !!paste0("%") := round((.[[3]] / sum(.[[3]], na.rm = TRUE)) * 100, 2)
   )
+
+render_dt_table(traj_tbl)
 ```
 
 #### Grafik
@@ -293,6 +312,12 @@ traj_analysis_output$landscape_level$barplot_traj
 
 ```{r child_documen_traj_fao, echo=FALSE, fig.keep='all', results='asis'}
 render_child <- function(results_list, i) {
+  # add percentage column
+  traj_tbl_pu <- results_list[[i]][['traj_tbl_pu']] %>% 
+  mutate(
+    !!paste0("%") := round((.[[3]] / sum(.[[3]], na.rm = TRUE)) * 100, 2)
+  )
+  
   res = knitr::knit_child(
    text = c(
      "### `r i` {.tabset}",
@@ -300,7 +325,7 @@ render_child <- function(results_list, i) {
      "#### Tabel Perubahan Trajektori Tutupan/Penggunaan Lahan di `r i`",
      "```{r}",
      "#| echo: false",
-     "render_dt_table(results_list[[i]][['traj_tbl_pu']])",
+     "render_dt_table(traj_tbl_pu)",
      # "mutate_if(is.numeric, easy_to_read_numbers)",
      # "  kable() %>%",
      # "  kable_styling(bootstrap_options = c('striped', 'hover'))",

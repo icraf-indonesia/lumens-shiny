@@ -41,7 +41,7 @@ ui <- fluidPage(
   tags$head(
     tags$link(rel = "shortcut icon", href = "favicon.ico")  
   ),
-  titlePanel("QuES-C Analysis"),
+  titlePanel("QuES-C Module"),
   sidebarLayout(
     sidebarPanel(
       fileInput("map1_file", "Land cover map at T1", accept = c("image/tiff")),
@@ -57,7 +57,7 @@ ui <- fluidPage(
       div(style = "display: flex; flex-direction: column; gap: 10px;",
           shinyDirButton("wd", "Select output directory", "Please select a directory"),
           verbatimTextOutput("print_output_dir", placeholder = TRUE),
-          actionButton("processQUESC", "Run", 
+          actionButton("processQUESC", "Run QuES-C Analysis", 
                        style = "font-size: 18px; padding: 10px 15px; background-color: #4CAF50; color: white;"),
           hidden(
             actionButton("openReport", "Open Report",

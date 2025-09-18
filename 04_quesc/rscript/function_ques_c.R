@@ -162,6 +162,7 @@ rasterise_multipolygon_quesc <- function(sf_object, raster_res, field = "ID") {
 print_area <- function(x) {
   format(x, digits = 15, big.mark = ",")
 }
+
 #' Format Rate Values
 #'
 #' Formats a numeric value representing a rate with a big mark separator for thousands and two decimal places.
@@ -174,25 +175,32 @@ print_rate <- function(x) {
 }
 
 
-#' Plot QUES-C Results with Download Option
+#' Plot Continuous Raster Map with Download Option
 #'
-#' This function creates a ggplot for a SpatRaster object with a gradient fill
-#' and, when rendered to HTML, adds a download button for the figure (PNG).
+#' This function creates a continuous raster map using **ggplot2** and **tidyterra**.
+#' In HTML outputs (e.g., R Markdown HTML reports), the plot is rendered as an inline
+#' image with a **Download PNG** button. In non-HTML outputs (e.g., PDF, Word),
+#' only the `ggplot` object is returned.
 #'
-#' @param map A SpatRaster object to plot.
-#' @param legend A character string for the legend title.
-#' @param low A character string for the low end of the color gradient.
-#' @param high A character string for the high end of the color gradient.
-#' @param na_color A character string for the color of NA values. Default is "white".
+#' @param map A [`SpatRaster`][terra::SpatRaster] object to plot.
+#' @param legend A character string giving the legend title. If `NULL`, no legend title is shown.
+#' @param low A character string specifying the color for the low end of the gradient.
+#' @param high A character string specifying the color for the high end of the gradient.
+#' @param na_color A character string for the color of `NA` values. Defaults to `"white"`.
+#' @param filename A string giving the default filename (with extension) for the downloaded
+#'   PNG in HTML output. Defaults to `"continuous_raster.png"`.
+#' @param dpi An integer giving the resolution (dots per inch) for the saved PNG image
+#'   in HTML output. Defaults to `300`.
 #'
-#' @return A ggplot object (PDF/Word) or an HTML block (HTML output).
-#' @importFrom ggplot2 ggplot theme_bw labs theme scale_fill_gradient element_text unit element_blank ggsave
-#' @importFrom tidyterra geom_spatraster
-#' @importFrom htmltools tags browsable tagList
-#' @importFrom knitr is_html_output
-#' @importFrom base64enc base64encode
+#' @return 
+#' - If the output format is **HTML**: an [htmltools::tagList] containing the 
+#'   rendered raster plot and a styled download button.
+#' - If the output format is **non-HTML** (PDF, Word, etc.): a `ggplot` object
+#'   that can be further modified or printed.
+#'
 #' @export
-plot_quesc_results <- function(map, legend, low, high, na_color = "white") {
+plot_continuous_raster <- function(map, legend, low, high, na_color = "white",
+    filename = "continuous_raster.png", dpi = 300) {
   plot_lc <- ggplot() +
     tidyterra::geom_spatraster(data = map) +
     ggplot2::scale_fill_gradient(
@@ -202,55 +210,56 @@ plot_quesc_results <- function(map, legend, low, high, na_color = "white") {
       name = if (!is.null(legend)) legend else NULL
     ) +
     ggplot2::theme_bw() +
+    ggplot2::labs(fill = NULL) +
+    ggplot2::guides(fill = ggplot2::guide_colorbar(
+      title.position = "top",
+      barwidth = unit(5, "cm"),
+      barheight = unit(0.3, "cm")
+    )) +
     ggplot2::theme(
       axis.title.x = ggplot2::element_blank(),
       axis.title.y = ggplot2::element_blank(),
       panel.grid.major = ggplot2::element_blank(),
       panel.grid.minor = ggplot2::element_blank(),
-      legend.title = ggplot2::element_text(size = 10),
-      legend.text = ggplot2::element_text(size = 8),
-      legend.key.height = ggplot2::unit(1, "cm"),
-      legend.key.width = ggplot2::unit(0.25, "cm"),
-      legend.position = "right",
-      legend.justification = c(0, 0.5)
+      legend.title = ggplot2::element_text(size = 12),
+      legend.text = ggplot2::element_text(size = 10),
+      legend.position = "bottom",
+      legend.justification = c(0, 0.8)
     )
   
+  # If non-HTML output, return ggplot
   if (!knitr::is_html_output()) {
     return(plot_lc)
   }
   
-  # Save temporary PNG
-  tmp_png <- tempfile(fileext = ".png")
-  ggplot2::ggsave(tmp_png, plot_lc, width = 7, height = 5, dpi = 150)
-  
-  # Encode to base64 for embedding
-  img_b64 <- base64enc::base64encode(tmp_png)
+  # Save PNG with custom dpi
+  tf <- tempfile(fileext = ".png")
+  ggplot2::ggsave(tf, plot_lc, width = 7, height = 5, dpi = dpi)
+  img_data <- base64enc::dataURI(file = tf, mime = "image/png")
   
   # HTML image + download button
-  html_out <- htmltools::tags$div(
-    style = "margin-bottom:10px;",
-    htmltools::tags$img(
-      src = paste0("data:image/png;base64,", img_b64),
-      style = "max-width:100%; height:auto; display:block; margin-bottom:5px;"
-    ),
-    htmltools::tags$a(
-      href = paste0("data:image/png;base64,", img_b64),
-      download = "figure.png",
-      "Download PNG",
-      style = paste(
-        "padding:4px 8px;",
-        "background:#007BFF;",
-        "color:white;",
-        "text-decoration:none;",
-        "border-radius:4px;",
-        "font-size:0.9em;"
+  htmltools::tagList(
+    htmltools::tags$div(
+      style = "margin-bottom:10px;",
+      htmltools::tags$img(
+        src = img_data,
+        style = "max-width:100%; height:auto; display:block; margin-bottom:5px;"
+      ),
+      htmltools::tags$button(
+        "Download PNG",
+        onclick = sprintf(
+          "var link = document.createElement('a'); link.download = '%s';
+          link.href = this.previousElementSibling.src; link.click();",
+          filename
+        ),
+        style = "padding:4px 8px; font-size:0.9em; 
+                 background:#d3d3d3; border-radius:4px; 
+                 color:#333333; text-decoration:none;
+                 border: none; outline: none;"
       )
     )
   )
-  
-  return(htmltools::browsable(html_out))
 }
-
 
 #' Summarize Emission Calculation
 #'
@@ -823,43 +832,46 @@ generate_dummy_crosstab <- function(landcover, zone) {
   return(tibble::tibble(lucDummy))
 }
 
-#' Plot a categorical raster map
+#' Plot a categorical raster with an optional download button
 #'
-#' This function takes a raster object as input and produces a ggplot. If the raster
-#' object includes a "color_pallete" column with hex color codes, these colors are
-#' used for the fill scale. Otherwise, the default `scale_fill_hypso_d()` fill scale
-#' from the tidyterra package is used.
+#' This function creates a categorical map from a raster object using
+#' **ggplot2** and **tidyterra**. In HTML outputs (e.g., R Markdown HTML reports),
+#' the plot is rendered as an inline image with a **Download PNG** button.
+#' In non-HTML outputs (e.g., PDF, Word), only the `ggplot` object is returned.
 #'
-#' @param raster_object A raster object.
+#' If the raster's category table contains a `color_palette` column with valid
+#' hex codes, those colors are used for plotting. Otherwise, a default palette
+#' is applied. The plot legend is automatically formatted for readability.
 #'
-#' @return A ggplot object.
-#' @importFrom terra cats
-#' @importFrom ggplot2 ggplot theme_bw labs theme scale_fill_manual element_text unit element_blank guides guide_legend
-#' @importFrom tidyterra geom_spatraster scale_fill_hypso_d
+#' @param raster_object A [`SpatRaster`][terra::SpatRaster] object containing
+#'   categorical data. Should include category labels, and optionally a
+#'   `color_palette` column in `cats(raster_object)`.
+#' @param filename A string giving the default filename (with extension) for
+#'   the downloaded PNG in HTML output. Defaults to `"raster_plot.png"`.
+#' @param dpi An integer giving the resolution (dots per inch) for the saved
+#'   PNG image in HTML output. Defaults to `300`.
+#'
+#' @return 
+#' - If the output format is **HTML**: an [htmltools::tagList] containing the 
+#'   rendered raster plot and a styled download button.
+#' - If the output format is **non-HTML** (PDF, Word, etc.): a `ggplot` object
+#'   that can be further modified or printed.
+#'
+#' @examples
+#' \dontrun{
+#' library(terra)
+#' r <- rast(matrix(sample(1:3, 100, TRUE), 10, 10))
+#' cats(r) <- data.frame(ID = 1:3, class = c("Forest", "Agriculture", "Urban"))
+#'
+#' # Returns ggplot in non-HTML output
+#' plot_categorical_raster(r)
+#'
+#' # In HTML output, adds download button
+#' plot_categorical_raster(r, filename = "landcover_map.png", dpi = 200)
+#' }
+#'
 #' @export
-#' Plot a categorical raster map
-#'
-#' This function takes a raster object as input and produces a ggplot. If the raster
-#' object includes a "color_pallete" column with hex color codes, these colors are
-#' used for the fill scale. Otherwise, a default color palette is used.
-#'
-#' @param raster_object A SpatRaster object with categorical data.
-#'
-#' @return A ggplot object.
-#' @importFrom terra cats time
-#' @importFrom ggplot2 ggplot theme_bw labs theme scale_fill_manual element_text unit element_blank guides guide_legend
-#' @importFrom tidyterra geom_spatraster
-#' @export
-#' Plot a categorical raster map with download option
-#'
-#' Works in HTML output (adds a download button). In non-HTML formats,
-#' it will just return a ggplot object.
-#'
-#' @param raster_object A raster object.
-#' @param filename Filename for downloaded plot.
-#' @return Either a ggplot object (PDF/Word) or HTML tagList (HTML output).
-#' @export
-plot_categorical_raster <- function(raster_object, filename = "raster_plot.png") {
+plot_categorical_raster <- function(raster_object, filename = "raster_plot.png", dpi = 300) {
   # Color palette
   if ("color_palette" %in% names(cats(raster_object)[[1]]) &&
       all(grepl("^#[0-9A-Fa-f]{6}$", cats(raster_object)$color_pallete))) {
@@ -879,7 +891,6 @@ plot_categorical_raster <- function(raster_object, filename = "raster_plot.png")
     ), na.value = "white")
   }
   
-  # Title
   if (!is.na(time(raster_object))) {
     plot_title <- time(raster_object)
   } else {
@@ -892,7 +903,7 @@ plot_categorical_raster <- function(raster_object, filename = "raster_plot.png")
     fill_scale +
     theme_bw() +
     labs(title = plot_title, fill = NULL) +
-    guides(fill = guide_legend(title.position = "top", ncol = 3)) +
+    guides(fill = guide_legend(title.position = "top", ncol = 2)) +
     theme(
       axis.title.x = element_blank(),
       axis.title.y = element_blank(),
@@ -906,32 +917,33 @@ plot_categorical_raster <- function(raster_object, filename = "raster_plot.png")
       legend.justification = c(0, 0.8)
     )
   
-  # If knitting to non-HTML formats, just return ggplot
   if (!knitr::is_html_output()) {
     return(plot_lc)
   }
   
+  # Save PNG with custom dpi
   tf <- tempfile(fileext = ".png")
-  ggsave(tf, plot_lc, width = 6, height = 5, dpi = 150)
+  ggsave(tf, plot_lc, width = 7, height = 5, dpi = dpi)
   img_data <- base64enc::dataURI(file = tf, mime = "image/png")
   
-  # Wrap in HTML with download button
+  # download button
   htmltools::tagList(
     tags$div(
       style = "margin-bottom:10px;",
-      tags$img(src = img_data, style = "max-width:100%; height:auto; display:block; margin-bottom:5px;"),
+      tags$img(
+        src = img_data, 
+        style = "max-width:100%; height:auto; display:block; margin-bottom:5px;"
+      ),
       tags$button(
         "Download PNG",
         onclick = sprintf(
-          "var link = document.createElement('a');
-           link.download = '%s';
-           link.href = this.previousElementSibling.src;
-           link.click();",
+          "var link = document.createElement('a'); link.download = '%s';
+          link.href = this.previousElementSibling.src; link.click();",
           filename
         ),
         style = "padding:4px 8px; font-size:0.9em; 
-                 background:#007BFF; border-radius:4px; 
-                 color:white; text-decoration:none;
+                 background:#d3d3d3; border-radius:4px; 
+                 color:#333333; text-decoration:none;
                  border: none; outline: none;"
       )
     )
@@ -1081,7 +1093,7 @@ run_quesc_analysis <- function(lc_t1_path, lc_t2_path, admin_z_path, c_lookup_pa
   c_lookup_input <- readr::read_csv(c_lookup_path)
   
   
-  if (!is.null(progress_callback)) progress_callback(0.2, "load maps")
+  if (!is.null(progress_callback)) progress_callback(0.1, "Preparing land cover/use")
   
   lc_t1 <- lc_t1_path %>%
     terra::rast() %>%
@@ -1098,6 +1110,8 @@ run_quesc_analysis <- function(lc_t1_path, lc_t2_path, admin_z_path, c_lookup_pa
     ) %>%
     check_and_harmonise_geometry(reference_map = lc_t1)
   
+  if (!is.null(progress_callback)) progress_callback(0.2, "Preparing planning unit")
+  
   # read polygon
   zone_sf1 <- sf::st_read(admin_z_path)
   zone_sf <- sf::st_cast(zone_sf1, "MULTIPOLYGON")
@@ -1111,11 +1125,13 @@ run_quesc_analysis <- function(lc_t1_path, lc_t2_path, admin_z_path, c_lookup_pa
   zone <- zone %>%
     check_and_harmonise_geometry(reference_map = lc_t1)
   
+  if (!is.null(progress_callback)) progress_callback(0.4, "Running land cover/use change analysis")
+  
   preques <- LUMENSR::ques_pre(lc_t1, lc_t2, zone)
   period_year <- as.numeric(time_points$t1) - as.numeric(time_points$t2)
   lucDummy <- generate_dummy_crosstab(c_lookup_input, zone_lookup_input)
   
-  if (!is.null(progress_callback)) progress_callback(0.5, "create QUES-C database")
+  if (!is.null(progress_callback)) progress_callback(0.5, "Generating QuES-C database")
   
   # join table
   df_lucdb <- c_lookup_input %>% dplyr::rename(ID_LC1 = 1, C_T1 = 3) %>% dplyr::select(1:3) %>%
@@ -1139,7 +1155,7 @@ run_quesc_analysis <- function(lc_t1_path, lc_t2_path, admin_z_path, c_lookup_pa
     cbind(., as.matrix(c_lookup_input[, 3]) ) %>%
     rbind(., c(0, NA))
   
-  if (!is.null(progress_callback)) progress_callback(0.7, "generate carbon, emission, and sequestration maps")
+  if (!is.null(progress_callback)) progress_callback(0.6, "Generating carbon, emission, and sequestration maps")
   
   # create all maps
   map_carbon1 <- lc_t1 %>% terra::classify(reclassify_matrix)
@@ -1181,7 +1197,7 @@ run_quesc_analysis <- function(lc_t1_path, lc_t2_path, admin_z_path, c_lookup_pa
     session_log = session_log
   )
   
-  if (!is.null(progress_callback)) progress_callback(0.9, "outputs generated and saved")
+  if (!is.null(progress_callback)) progress_callback(0.7, "Exporting outputs")
   readr::write_csv(df_lucdb,
               paste0(output_dir, "/quesc_database.csv"),
               quote = "needed"
@@ -1203,9 +1219,10 @@ run_quesc_analysis <- function(lc_t1_path, lc_t2_path, admin_z_path, c_lookup_pa
               overwrite = T
   )
   
-  if (!is.null(progress_callback)) progress_callback(1, "generate report")
+  if (!is.null(progress_callback)) progress_callback(0.9, "Generating QuES-C report")
   generate_quesc_report(output_quesc = out, dir = output_dir)
   
+  if (!is.null(progress_callback)) progress_callback(1, "Analysis is done!")
   return(out)
 }
 
@@ -1285,10 +1302,13 @@ check_and_install_packages <- function(required_packages) {
 #'
 #' Creates an interactive DT::datatable with common extensions and styling options
 #' pre-configured for ease of use. Includes export buttons, responsive design,
-#' and professional styling.
+#' professional styling, and automatic numeric formatting.
 #'
 #' @param data A data frame or matrix containing the data to be displayed.
 #' @param caption Character string specifying the table caption (optional).
+#' @param digits Integer specifying the number of decimal places for percentages (default = 2).
+#' @param area_digits Integer specifying the number of decimal places for area values (default = 0).
+#' @param notification_timeout Time in milliseconds for the copy notification to auto-dismiss (default = 3000 = 3 seconds).
 #'
 #' @return A DT::datatable object with enhanced features and styling.
 #'
@@ -1300,6 +1320,8 @@ check_and_install_packages <- function(required_packages) {
 #'   \item \strong{Options}: Pagination, search, fixed columns, auto-width, ordering
 #'   \item \strong{Styling}: Display class with stripe and hover effects
 #'   \item \strong{Export}: Copy, CSV, and Excel export buttons
+#'   \item \strong{Formatting}: Automatic numeric formatting with thousands separators
+#'   \item \strong{Notification}: Auto-dismissing copy notifications
 #' }
 #'
 #' The DOM layout includes Buttons (B), length menu (l), filter (f), 
@@ -1313,6 +1335,9 @@ check_and_install_packages <- function(required_packages) {
 #' # Without caption
 #' render_dt_table(iris)
 #'
+#' # Custom decimal places
+#' render_dt_table(mtcars, digits = 0)
+#'
 #' # Use in R Markdown
 #' ```{r}
 #' library(DT)
@@ -1324,24 +1349,68 @@ check_and_install_packages <- function(required_packages) {
 #' \code{\link[DT]{datatable}}, \code{\link[DT]{DTOutput}}
 #'
 #' @export
-render_dt_table <- function(data, caption = NULL) {
-  css_fix <- htmltools::tags$style(htmltools::HTML("
+render_dt_table <- function(data, caption = NULL, digits = 2, area_digits = 0, notification_timeout = 1000) {
+  css_fix <- htmltools::tags$style(htmltools::HTML(sprintf("
     div.dt-button-info {
       position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
+      top: 50%%;
+      left: 50%%;
+      transform: translate(-50%%, -50%%);
       z-index: 10000;
       background: white;
       padding: 20px;
       border: 2px solid #999;
       border-radius: 5px;
       box-shadow: 0 0 10px rgba(0,0,0,0.3);
+      animation: fadeOut %dms ease-in %dms forwards;
     }
-  "))
+    
+    @keyframes fadeOut {
+      from { opacity: 1; }
+      to { opacity: 0; visibility: hidden; }
+    }
+  ", notification_timeout, notification_timeout)))
+  
+  formatted_data <- data
+  numeric_cols <- which(sapply(data, function(x) {
+    is.numeric(x) || (inherits(x, "units") && is.numeric(as.numeric(x)))
+  }))
+  
+  # Apply formatting to numeric columns
+  if (length(numeric_cols) > 0) {
+    for (col in numeric_cols) {
+      col_data <- data[[col]]
+      col_name <- names(data)[col]
+      is_percentage_col <- grepl("^%|Percent|Percentage|% T1|% T2", col_name, ignore.case = TRUE)
+      if (inherits(col_data, "units")) {
+        numeric_values <- as.numeric(col_data)
+        units_attr <- attributes(col_data)
+        is_integer_col <- all(numeric_values == floor(numeric_values), na.rm = TRUE)
+        if (is_integer_col) {
+          formatted_values <- format(numeric_values, big.mark = ",", scientific = FALSE, trim = TRUE)
+        } else {
+          formatted_values <- format(round(numeric_values, area_digits), big.mark = ",", scientific = FALSE, nsmall = area_digits, trim = TRUE)
+        }
+        if (!is.null(units_attr$units)) {
+          formatted_data[[col]] <- paste(formatted_values, units_attr$units)
+        } else {
+          formatted_data[[col]] <- formatted_values
+        }
+      } else {
+        is_integer_col <- all(col_data == floor(col_data), na.rm = TRUE)
+        if (is_percentage_col) {
+          formatted_data[[col]] <- format(round(col_data, digits), nsmall = digits, trim = TRUE)
+        } else if (is_integer_col) {
+          formatted_data[[col]] <- format(col_data, big.mark = ",", scientific = FALSE, trim = TRUE)
+        } else {
+          formatted_data[[col]] <- format(round(col_data, area_digits), big.mark = ",", scientific = FALSE, nsmall = area_digits, trim = TRUE)
+        }
+      }
+    }
+  }
   
   dt <- DT::datatable(
-    data,
+    formatted_data,
     extensions = c('Buttons', 'Responsive'),
     options = list(
       paging = TRUE,
@@ -1351,13 +1420,21 @@ render_dt_table <- function(data, caption = NULL) {
       ordering = TRUE,
       dom = 'Blfrtip',
       buttons = list(
-        list(extend = "copy", className = "btn btn-light btn-sm"),
-        list(extend = "csv",  className = "btn btn-light btn-sm"),
-        list(extend = "excel",className = "btn btn-light btn-sm")
+        list(extend = "copy", 
+             className = "btn btn-light btn-sm",
+             text = "Copy",
+             title = caption),
+        list(extend = "csv",  
+             className = "btn btn-light btn-sm",
+             title = caption),
+        list(extend = "excel", 
+             className = "btn btn-light btn-sm",
+             title = caption)
       )
     ),
     class = "display stripe hover",
-    caption = caption
+    caption = caption,
+    rownames = FALSE
   )
   
   htmltools::tagList(css_fix, dt)
@@ -1403,7 +1480,7 @@ render_dt_table <- function(data, caption = NULL) {
 #' values(r) <- runif(ncell(r)) * 100
 #' 
 #' # Plot with custom colors and HTML-formatted caption
-#' plot_continuous_raster(
+#' plot_continuous_raster_mapview(
 #'   raster_data = r,
 #'   low_color = "blue",
 #'   high_color = "red",
@@ -1412,7 +1489,7 @@ render_dt_table <- function(data, caption = NULL) {
 #' )
 #' 
 #' # Plot with different colors and simpler caption
-#' plot_continuous_raster(
+#' plot_continuous_raster_mapview(
 #'   raster_data = r,
 #'   low_color = "green",
 #'   high_color = "purple",
@@ -1426,7 +1503,7 @@ render_dt_table <- function(data, caption = NULL) {
 #' @importFrom terra values
 #' @importFrom mapview mapview
 #' @importFrom leaflet addLegend colorNumeric labelFormat
-plot_continuous_raster <- function(raster_data, low_color, high_color, caption, raster_layer) {
+plot_continuous_raster_mapview <- function(raster_data, low_color, high_color, caption, raster_layer) {
   
   # Check if required packages are installed
   if (!requireNamespace("terra", quietly = TRUE)) {
