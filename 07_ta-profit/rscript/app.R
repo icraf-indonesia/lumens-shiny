@@ -13,6 +13,7 @@ library(stringr)
 library(RColorBrewer)
 library(kableExtra)
 library(shinyFiles)
+library(pkgdown)
 
 # Source the functions
 source("functions_ta_profit.R")
