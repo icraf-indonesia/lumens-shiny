@@ -18,8 +18,8 @@ summary_text_en <- c(
   "Total Emission (tonne CO\u2082-eq)",
   "Total Sequestration (tonne CO\u2082-eq)",
   "Net Emission (tonne CO\u2082-eq)",
-  "Emission Rate (tonne CO\u2082-eq yr\u207B\u00B9)",
-  "Emission Rate Per-unit Area (tonne CO\u2082-eq ha\u207B\u00B9 yr\u207B\u00B9)"
+  "Net Emission Rate (tonne CO\u2082-eq yr\u207B\u00B9)",
+  "Net Emission Rate Per-unit Area (tonne CO\u2082-eq ha\u207B\u00B9 yr\u207B\u00B9)"
 )
 
 #' Indonesian text for summary table
@@ -29,8 +29,8 @@ summary_text_id <- c(
   "Total Emisi (Ton CO\u2082-eq)", 
   "Total Sekuestrasi (Ton CO\u2082-eq)", 
   "Emisi Bersih (Ton CO\u2082-eq)", 
-  "Laju Emisi (Ton CO\u2082-eq tahun\u207B\u00B9)",
-  "Laju Emisi Per-unit Area (Ton CO\u2082-eq ha\u207B\u00B9 tahun\u207B\u00B9)"
+  "Laju Emisi Bersih (Ton CO\u2082-eq tahun\u207B\u00B9)",
+  "Laju Emisi Bersih Per-unit Area (Ton CO\u2082-eq ha\u207B\u00B9 tahun\u207B\u00B9)"
 )
 
 #' English text for zonal summary table
@@ -40,8 +40,8 @@ summary_zonal_text_en <- list(
   "Area (Ha)" = 3, 
   "Carbon Avg. (Periode 1)" = 4, 
   "Carbon Avg. (Periode 2)" = 5, 
-  "Emission Rate (tonne CO\u2082-eq ha\u207B\u00B9 yr\u207B\u00B9)" = 6, 
-  "Sequestration Rate (tonne CO\u2082-eq ha\u207B\u00B9 yr\u207B\u00B9)" = 7
+  "Gross Emission Rate (tonne CO\u2082-eq ha\u207B\u00B9 yr\u207B\u00B9)" = 6, 
+  "Gross Sequestration Rate (tonne CO\u2082-eq ha\u207B\u00B9 yr\u207B\u00B9)" = 7
 )
 
 #' Indonesian text for zonal summary table
@@ -51,8 +51,8 @@ summary_zonal_text_id <- list(
   "Luas (Ha)" = 3,
   "Rerata Karbon Periode 1" = 4,
   "Rerata Karbon Periode 2" = 5,
-  "Laju Emisi (Ton CO\u2082-eq ha\u207B\u00B9 tahun\u207B\u00B9)" = 6,
-  "Laju Sekuestrasi (Ton CO\u2082-eq ha\u207B\u00B9 tahun\u207B\u00B9)" = 7
+  "Laju Emisi Kotor (Ton CO\u2082-eq ha\u207B\u00B9 tahun\u207B\u00B9)" = 6,
+  "Laju Sekuestrasi Kotor (Ton CO\u2082-eq ha\u207B\u00B9 tahun\u207B\u00B9)" = 7
 )
 
 #' English text for zonal carbon summary table
@@ -63,7 +63,7 @@ summary_zona_carbon_text_en <- list(
   "Total Emission (tonne CO\u2082-eq)" = 4,
   "Total Sequestration (tonne CO\u2082-eq)" = 5,
   "Net Emission (tonne CO\u2082-eq)" = 6,
-  "Emission Rate (tonne CO\u2082-eq ha\u207B\u00B9 yr\u207B\u00B9)" = 7
+  "Net Emission Rate (tonne CO\u2082-eq ha\u207B\u00B9 yr\u207B\u00B9)" = 7
 )
 
 #' Indonesian text for zonal carbon summary table
@@ -74,7 +74,7 @@ summary_zona_carbon_text_id <- list(
   "Total Emisi (ton CO\u2082-eq)" = 4,
   "Total Sekuestrasi (ton CO\u2082-eq)" = 5,
   "Emisi Bersih (ton CO\u2082-eq)" = 6,
-  "Laju Emisi (ton CO\u2082-eq ha\u207B\u00B9 tahun\u207B\u00B9)" = 7
+  "Laju Emisi Bersih (ton CO\u2082-eq ha\u207B\u00B9 tahun\u207B\u00B9)" = 7
 )
 
 #' Format Session Information
