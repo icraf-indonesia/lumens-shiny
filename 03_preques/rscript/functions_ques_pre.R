@@ -85,8 +85,9 @@ ques_pre <- function(lc_t1, lc_t2, admin_, cutoff_landscape = 5000, cutoff_pu = 
   } else {
     cat("Frequency is shown in number of pixels isntead of hectares in the lc_freq_table")
   }
-
-  lc_composition_tbl <- lc_freq_table
+  
+  # add percentage column
+  lc_composition_tbl <- lc_freq_table 
 
   # Plot land cover composition
   lc_composition_barplot <- lc_freq_table %>% 
@@ -146,7 +147,11 @@ ques_pre <- function(lc_t1, lc_t2, admin_, cutoff_landscape = 5000, cutoff_pu = 
     create_sankey(area_cutoff = cutoff_landscape, change_only = TRUE)
   
   # Compute 10 dominant land use changes
-  luc_top_10 <- crosstab_landscape %>% calc_top_lcc(n_rows = 10)
+  luc_top_10 <- crosstab_landscape %>% 
+    mutate(
+      !!paste0("%") := round((.[[4]] / sum(.[[4]], na.rm = TRUE)) * 100, 2)
+    ) %>% 
+    calc_top_lcc(n_rows = 10)
   
   # Tabulate and plot 10 dominant land use changes
   luc_top_10_barplot <- luc_top_10 %>%
@@ -218,12 +223,12 @@ ques_pre_trajectory <- function(lc_t1_,
   crosstab_traj <- create_crosstab(land_cover = luc_trajectory_map, zone = admin_)[["crosstab_long"]]
   names(crosstab_traj)[1]<- trajectory_column_name
   
-  # Create a frequency table of the trajectory map
+  # Create a frequency table of the trajectory map and add percentage column
   table_traj_area <- luc_trajectory_map |>
     terra::freq() |>
     dplyr::group_by(value) |>
-    summarise(count=sum(count)) |>
-    rename("Trajectory" = 1, "Freq"= 2)
+    dplyr::summarise(count = sum(count), .groups = "drop") |>
+    dplyr::rename(Trajectory = value, Freq = count)
 
   # Convert pixel counts to hectares if convert_to_Ha is TRUE
   if(convert_to_Ha == TRUE) {
@@ -231,7 +236,10 @@ ques_pre_trajectory <- function(lc_t1_,
     crosstab_traj <- mutate(crosstab_traj, Ha = Freq*SpatRes)
     table_traj_area <- mutate(table_traj_area, Ha = Freq*SpatRes) %>% 
       arrange(-Ha) |>
-      tidyr::drop_na()
+      tidyr::drop_na() |>
+      dplyr::mutate(
+        `%` = round((Ha / sum(Ha, na.rm = TRUE)) * 100, 2)
+      )
   }
   
   # Create a bar plot of the trajectory data
@@ -443,7 +451,10 @@ lcc_trajectory_by_pu <- function(crosstab_tbl, pu_column, pu_name){
   # Filter the crosstab table based on planning unit and remove the planning unit column
   traj_tbl_pu <- crosstab_tbl %>%
     dplyr::filter(!!sym(pu_column) %in% pu_name) %>%
-    dplyr::select(-!!sym(pu_column))
+    dplyr::select(-!!sym(pu_column)) %>%
+    dplyr::mutate(
+      `%` = round((.[[2]] / sum(.[[2]], na.rm = TRUE)) * 100, 2)
+    )
   
   plot_traj_pu <- plot_bar_trajectory(traj_tbl_pu)
   
@@ -1257,7 +1268,10 @@ lcc_summary_by_pu <- function(crosstab_tbl, pu_column, pu_name, sankey_area_cuto
       create_sankey(area_cutoff = sankey_area_cutoff, change_only = FALSE)
   }
   # Calculate the top land cover changes based on the filtered crosstab table
-  luc_top_pu <- filter_crosstab |>
+  luc_top_pu <- filter_crosstab %>% 
+    mutate(
+      !!paste0("%") := round((.[[4]] / sum(.[[4]], na.rm = TRUE)) * 100, 2)
+    ) %>% 
     calc_top_lcc(n_rows = n_top_lcc)
   
   crosstab_xtab <- filter_crosstab |> dplyr::select(1,2,3)

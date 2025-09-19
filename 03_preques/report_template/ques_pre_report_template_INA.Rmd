@@ -178,15 +178,15 @@ render_dt_table(
 #   kable_styling(bootstrap_options = c("striped", "hover"))
 
 comp_tbl <- ques_pre_output[["input_dataviz"]][["lc_composition_tbl"]] %>%
-  mutate(
-    !!paste0("% ", as.character(time_1)) := as.numeric(round((.data[[as.character(time_1)]] / sum(.data[[as.character(time_1)]], na.rm = TRUE)) * 100, 2)),
-    !!paste0("% ", as.character(time_2)) := as.numeric(round((.data[[as.character(time_2)]] / sum(.data[[as.character(time_2)]], na.rm = TRUE)) * 100, 2))
-  ) %>%
-  select(
-    `Land-use/cover types`,
-    all_of(as.character(time_1)), !!sym(paste0("% ", as.character(time_1))),
-    all_of(as.character(time_2)), !!sym(paste0("% ", as.character(time_2)))
-  )
+    mutate(
+      !!paste0("% ", as.character(time_1)) := as.numeric(round((.data[[as.character(time_1)]] / sum(.data[[as.character(time_1)]], na.rm = TRUE)) * 100, 2)),
+      !!paste0("% ", as.character(time_2)) := as.numeric(round((.data[[as.character(time_2)]] / sum(.data[[as.character(time_2)]], na.rm = TRUE)) * 100, 2))
+    ) %>%
+    select(
+      `Land-use/cover types`,
+      all_of(as.character(time_1)), !!sym(paste0("% ", as.character(time_1))),
+      all_of(as.character(time_2)), !!sym(paste0("% ", as.character(time_2)))
+    )
 
 sum_t1 <- sum(comp_tbl[[2]], na.rm = TRUE)
 ```
@@ -231,10 +231,7 @@ ques_pre_output[["landscape_level"]][["sankey_landscape_chg_only"]]
 #   kable(caption = "Top 10 Types of Land Use/Cover Changes") %>%
 #   kable_styling(bootstrap_options = c("striped", "hover"))
 
-top10_tbl <- ques_pre_output[["landscape_level"]][["luc_top_10_tbl"]] %>% 
-  mutate(
-    !!paste0("%") := round((.[[4]] / sum(.[[4]], na.rm = TRUE)) * 100, 2)
-  )
+top10_tbl <- ques_pre_output[["landscape_level"]][["luc_top_10_tbl"]]
 
 render_dt_table(
   top10_tbl,
@@ -253,11 +250,7 @@ ques_pre_output[["landscape_level"]][["luc_top_10_barplot"]]
 ```{r composition_pu_child_document, echo=FALSE, fig.keep='all', results='asis'}
 for (i in names(ques_pre_output[["pu_level"]])) {
   # add percentage column
-  top10_pu_tbl <- ques_pre_output[["pu_level"]][[i]][["luc_top_pu"]] %>% 
-      mutate(
-        !!paste0("%") := round((.[[4]] / sum(.[[4]], na.rm = TRUE)) * 100, 2)
-      )
-  
+  top10_pu_tbl <- ques_pre_output[["pu_level"]][[i]][["luc_top_pu"]]
   cat("## ", i, "{.tabset} \n\n")
   cat("### 10 Jenis Perubahan Tutupan/Penggunaan Lahan Dominan di", i, "\n\n")
   print(
@@ -304,11 +297,7 @@ plot_categorical_raster_mapview(traj_map, lookup_traj, paste0("Land Use-Cover Tr
 #   kable() %>%
 #   kable_styling(bootstrap_options = c("striped", "hover"))
 
-traj_tbl <- traj_analysis_output$landscape_level$table_traj_area %>% 
-  mutate(
-    !!paste0("%") := round((.[[3]] / sum(.[[3]], na.rm = TRUE)) * 100, 2)
-  )
-
+traj_tbl <- traj_analysis_output$landscape_level$table_traj_area
 render_dt_table(traj_tbl)
 ```
 
@@ -323,11 +312,7 @@ traj_analysis_output$landscape_level$barplot_traj
 ```{r child_documen_traj_fao, echo=FALSE, fig.keep='all', results='asis'}
 render_child <- function(results_list, i) {
   # add percentage column
-  traj_tbl_pu <- results_list[[i]][['traj_tbl_pu']] %>% 
-  mutate(
-    !!paste0("%") := round((.[[3]] / sum(.[[3]], na.rm = TRUE)) * 100, 2)
-  )
-  
+  traj_tbl_pu <- results_list[[i]][['traj_tbl_pu']]
   res = knitr::knit_child(
    text = c(
      "### `r i` {.tabset}",
