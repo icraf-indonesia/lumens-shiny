@@ -91,7 +91,7 @@ period <- as.numeric(params$inputs$year2) - as.numeric(params$inputs$year1)
 
 ```{r read zone, echo=FALSE, message=FALSE, warning=FALSE}
 if(substrRight(x, 3) == "tif"){
-  df_pu <- read.csv(params$inputs$z_lookup_table_path) %>%
+  df_pu <- params$inputs$z_lookup_table %>%
     dplyr::rename(ID_PU = 1, PU = 2)
   len <- nrow(df_pu)
   zone_rst <- x %>% raster()
@@ -187,12 +187,18 @@ plot_categorical_raster(zone)
 ## Multikolinearitas Faktor-faktor {.tabset}
 
 ### Variance Inflation Factor (VIF)
+
+Variance Inflation Factor (VIF) adalah metode untuk mengukur sejauh mana variabel-variabel dalam model saling memengaruhi dan menambah ketidakpastian hasil prediksi. Nilai VIF dihitung dengan meregresikan satu variabel terhadap variabel lain. Sebagai acuan: VIF di bawah 5 umumnya aman, antara 5–10 perlu diwaspadai, dan di atas 10 menandakan adanya masalah serius sehingga mungkin perlu menghapus atau mengubah variabel.
+
 ```{r vif, echo=FALSE, message=FALSE, warning=FALSE, fig.show='hide'}
 collinearity <- analyze_multicollinearity(factor_path, verbose = FALSE)
-DT::datatable(collinearity$vif_table)
+render_dt_table(collinearity$vif_table, caption = "Tabel Cadagan Karbon")
 ```
 
 ### Matriks kolinearitas
+
+Multikolinearitas terjadi ketika variabel independen saling berkorelasi tinggi sehingga sulit membedakan pengaruhnya masing-masing terhadap variabel dependen, membuat model menjadi tidak stabil dan hasilnya kurang akurat. Matriks Kolinearitas digunakan untuk mengidentifikasi isu tersebut dengan menunjukkan hubungan antarvariabel; nilai mendekati 1 atau -1 menandakan korelasi kuat, sedangkan nilai dekat 0 menandakan korelasi lemah.
+
 ```{r corrplot, echo=FALSE, message=FALSE, warning=FALSE}
 collinearity$correlation_plot
 ```
@@ -247,6 +253,7 @@ src <- lapply(names(weighted_means_list), function(pu_key) {
     "if (nrow(current_table) > 0) {",
     "  DT::datatable(",
     "    current_table,",
+    "    extensions = c('Buttons', 'Responsive'),",
     "    caption = htmltools::tags$caption(",
     "      style = 'caption-side: top; text-align: center; color:black; font-size:1.2em;',",
     "      'Rerata Bobot yang Signifikan'",
@@ -256,7 +263,13 @@ src <- lapply(names(weighted_means_list), function(pu_key) {
     "    options = list(",
     "      pageLength = 10,",
     "      autoWidth = TRUE,",
-    "      scrollX = TRUE",
+    "      scrollX = TRUE,",
+    "      dom = 'Bfrtip',",
+    "       buttons = list(",
+    "        list(extend = 'copy', className = 'btn btn-light btn-sm'),",
+    "        list(extend = 'csv',  className = 'btn btn-light btn-sm'),",
+    "        list(extend = 'excel',className = 'btn btn-light btn-sm')",
+    "       )",
     "    )",
     "  )",
     "} else {",

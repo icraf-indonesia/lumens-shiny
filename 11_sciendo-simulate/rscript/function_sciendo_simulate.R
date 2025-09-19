@@ -617,7 +617,7 @@ run_dinamica_simulation <- function(dinamica_path = NULL, output_dir, egoml, mem
   }
 }
 
-run_sciendo_simulate_process <- function(lc_t1_path, lc_lookup_table_path, lc_lookup_table, zone_lookup_table, zone_path, ers_path, 
+run_sciendo_simulate_process <- function(lc_t1_path, initial_year, period_value, lc_lookup_table_path, lc_lookup_table, zone_lookup_table, zone_path, ers_path, 
                                          n_rep, tm_path, dcf_path, dinamica_path = NULL, output_dir, memory_allocation, progress_callback = NULL) {
   start_time <- Sys.time()
   cat("Started at:", format(start_time, "%Y-%m-%d %H:%M:%S"), "\n")
@@ -649,7 +649,8 @@ run_sciendo_simulate_process <- function(lc_t1_path, lc_lookup_table_path, lc_lo
   if (!is.null(progress_callback)) progress_callback(0.7, "run dinamica simulation per region")
   run_dinamica_simulation(dinamica_path, output_dir, out_sim$egoml_sim_file, memory_allocation)
   
-  
+  # rename projected landscape files
+  rename_landscape(output_dir, initial_year, period_value)
   
   end_time <- Sys.time()
   cat("Ended at:", format(end_time, "%Y-%m-%d %H:%M:%S"), "\n")
@@ -776,23 +777,26 @@ plot_interactive_stacked_area <- function(luc_data_wide,
 #' time points and automatically converts pixel counts to hectares when appropriate.
 #'
 #' @param lc_dir Character. Path to directory containing land cover raster files (TIFF format).
+#' @param df_lc Data frame. Lookup table for land cover classes with legends.
 #' @param PU Character. Whether to calculate by planning units ("YES") or for entire landscape ("NO"). 
 #'           Default is "NO" (case-insensitive).
 #' @param zone SpatRaster or NULL. Planning unit raster (required when PU = "YES"). 
 #'             Should have the same extent and resolution as land cover rasters.
+#' @param split Character. Whether to split results by planning unit when PU="YES" ("YES" or "NO"). 
+#'              Default is "NO" (case-insensitive). Only applicable when PU="YES".
 #'
 #' @return A tibble containing land cover frequencies:
 #' \itemize{
-#'   \item When PU = "NO": Returns tibble with columns Landcover, T+1, T+2, etc. showing frequencies
-#'   \item When PU = "YES": Returns tibble with columns PU, Landcover, T+1, T+2, etc. showing frequencies per PU
+#'   \item When PU = "NO": Returns tibble with columns Landcover, Year1, Year2, etc. showing frequencies
+#'   \item When PU = "YES": Returns tibble with columns PU, Landcover, Year1, Year2, etc. showing frequencies per PU
 #' }
 #' Values represent either pixel counts or area in hectares (when CRS units are meters).
 #'
 #' @details 
 #' The function:
 #' \itemize{
-#'   \item Automatically reads all TIFF files in \code{lc_dir}
-#'   \item Processes each time point sequentially (T+1, T+2, etc. based on filenames)
+#'   \item Automatically reads all TIFF files in \code{lc_dir} matching pattern "landscape\\d{4}\\.tif$"
+#'   \item Processes each time point by year (extracted from filenames)
 #'   \item For PU calculations, requires zone raster with PU IDs
 #'   \item Converts pixel counts to hectares when CRS uses meter units
 #'   \item Returns results in tidy tibble format
@@ -801,17 +805,17 @@ plot_interactive_stacked_area <- function(luc_data_wide,
 #' @note 
 #' \itemize{
 #'   \item Land cover rasters should be categorical with proper legends
-#'   \item Files should follow naming convention that includes landscape numbers (e.g., "landscape1.tif")
+#'   \item Files should follow naming convention "landscapeYYYY.tif" (e.g., "landscape2025.tif")
 #'   \item When PU="YES", zone raster must have PU IDs in its attribute table
 #' }
 #'
 #' @examples
 #' \dontrun{
 #' # For entire landscape
-#' lc_freq <- multiple_lc_freq_combined("path/to/landcover/files")
+#' lc_freq <- multiple_lc_freq_combined("path/to/landcover/files", df_lc)
 #' 
 #' # For planning units
-#' pu_freq <- multiple_lc_freq_combined("path/to/landcover/files", 
+#' pu_freq <- multiple_lc_freq_combined("path/to/landcover/files", df_lc,
 #'                                    PU = "YES", 
 #'                                    zone = pu_raster)
 #' }
@@ -820,22 +824,24 @@ plot_interactive_stacked_area <- function(luc_data_wide,
 #' @importFrom dplyr arrange mutate across select everything rename relocate
 #' @importFrom tidyr pivot_longer pivot_wider
 #' @importFrom tibble as_tibble
+#' @importFrom stringr str_extract
 #' @export
-#' 
-#' @param split Character. Whether to split results by planning unit when PU="YES" ("YES" or "NO"). 
-#'              Default is "NO" (case-insensitive). Only applicable when PU="YES".
-#'              
 multiple_lc_freq_combined <- function(lc_dir, df_lc, PU = "NO", zone = NULL, split = "NO") {
   
-  # Read raster data
-  list_luc <- lc_dir %>% list.files(full.names=TRUE, pattern="*.tif$")
-  rst_list <- list()
-  counter <- 0
+  # Read raster data 
+  list_luc <- lc_dir %>% 
+    list.files(full.names = TRUE, pattern = "^landscape\\d{4}\\.tif$")
   
-  for(i in list_luc){
-    r <- i %>% rast() %>% add_legend_to_categorical_raster(., lookup_table = df_lc)
+  # Sort files by year (extracted from filename)
+  list_luc <- list_luc[order(as.numeric(stringr::str_extract(basename(list_luc), "\\d{4}")))]
+  
+  rst_list <- list()
+  years <- stringr::str_extract(basename(list_luc), "\\d{4}")
+  
+  for(i in seq_along(list_luc)){
+    r <- list_luc[i] %>% rast() %>% add_legend_to_categorical_raster(., lookup_table = df_lc)
+    names(r) <- paste0("landscape_", years[i])
     rst_list[[i]] <- r
-    counter <- counter + 1
     r %>% plot_categorical_raster()
   }
   
@@ -845,60 +851,29 @@ multiple_lc_freq_combined <- function(lc_dir, df_lc, PU = "NO", zone = NULL, spl
       stop("Zone parameter must be provided when PU = YES")
     }
     
-    # Count freq for each planning unit
-    all_freq_pu <- lapply(seq_along(rst_list), function(i) {
-      result <- terra::crosstab(c(rst_list[[i]], zone))
-      names(result) <- names(rst_list)[i]
-      return(result)
-    })
-    
-    df <- as.data.frame(all_freq_pu)
-    pu_names <- names(zone)
-    
-    # Extract landscape numbers from filenames
-    landscape_numbers <- gsub(".*landscape(\\d+)\\.tif", "\\1", names(rst_list))
-    year_labels <- landscape_numbers
-    base_pattern <- names(rst_list[[1]])
+    # Process each year separately and combine
     year_data_list <- list()
     
-    # Extract data for each landscape
-    for (i in seq_along(landscape_numbers)) {
-      landscape_num <- landscape_numbers[i]
-      year_label <- year_labels[i]
+    for (i in seq_along(rst_list)) {
+      year <- years[i]
+      raster_obj <- rst_list[[i]]
       
-      # Determine the corresponding columns in the data frame
-      if (i == 1) {
-        # For first landscape
-        landcover_col <- base_pattern 
-        pu_col <- pu_names           
-        freq_col <- "Freq"        
-      } else {
-        # For subsequent landscapes
-        landcover_col <- paste0(base_pattern, ".", i-1)  
-        pu_col <- paste0(pu_names, ".", i-1)           
-        freq_col <- paste0("Freq.", i-1)  
-      }
+      freq_table <- terra::crosstab(c(raster_obj, zone))
       
-      # Check if columns exist in the data frame
-      required_cols <- c(landcover_col, pu_col, freq_col)
-      missing_cols <- setdiff(required_cols, names(df))
-      if (length(missing_cols) > 0) {
-        stop("Columns not found in data frame: ", paste(missing_cols, collapse = ", "),
-             "\nAvailable columns: ", paste(names(df), collapse = ", "))
-      }
+      freq_df <- as.data.frame(freq_table)
+      colnames(freq_df) <- c("landcover", "PU", "value")
+      freq_df$year <- year
       
-      # Extract the data for this landscape
-      temp_data <- df[, c(landcover_col, pu_col, freq_col)]
-      names(temp_data) <- c("landcover", "PU", "value")
-      temp_data$year <- year_label
-      
-      year_data_list[[year_label]] <- temp_data
+      year_data_list[[year]] <- freq_df
     }
     
     combined_data <- do.call(rbind, year_data_list)
+    
+    # Pivot to wide format
     final_data <- tidyr::pivot_wider(combined_data,
                                      names_from = year, 
-                                     values_from = value) %>%
+                                     values_from = value,
+                                     values_fill = 0) %>%
       dplyr::arrange(PU, landcover) %>%
       dplyr::select(PU, landcover, dplyr::everything())
     
@@ -910,8 +885,6 @@ multiple_lc_freq_combined <- function(lc_dir, df_lc, PU = "NO", zone = NULL, spl
     } else {
       cat("Frequency is shown in number of pixels instead of hectares")
     }
-    
-    colnames(final_data) <- c("PU", "Landcover", paste0("T+", 1:(ncol(final_data)-1)))
     
     # Split the data by PU and convert to list of tibbles
     if (toupper(split) == "YES") {
@@ -929,27 +902,25 @@ multiple_lc_freq_combined <- function(lc_dir, df_lc, PU = "NO", zone = NULL, spl
     
   } else {
     
-    # Count freq
-    freq_data <- calc_lc_freq(raster_list = rst_list) #%>%
-      # rename("Land Cover/Types" = 2) %>% 
-      # abbreviate_by_column("Land Cover/Types", remove_vowels = FALSE)
+    # Count freq for entire landscape
+    freq_data <- calc_lc_freq(raster_list = rst_list)
     
-    # Convert to long format
-    landscape_numbers <- gsub(".*landscape(\\d+)\\.tif", "\\1", names(rst_list))
-    time_points <- paste0("T+", seq_along(landscape_numbers))
-    colnames(freq_data) <- c("Landcover", time_points)
+    # Use actual years for column names
+    if (ncol(freq_data) == length(years) + 1) {
+      colnames(freq_data) <- c("Landcover", years)
+    }
     
     # Convert to tibble
     freq_tbl <- freq_data %>%
       tibble::as_tibble() %>%
       tidyr::pivot_longer(
         cols = -Landcover,
-        names_to = "Time",
+        names_to = "Year",
         values_to = "value"
       ) %>%
-      dplyr::arrange(Landcover, Time) %>%
+      dplyr::arrange(Landcover, Year) %>%
       tidyr::pivot_wider(
-        names_from = Time,
+        names_from = Year,
         values_from = value
       )
     
@@ -1448,4 +1419,349 @@ matrix_to_tpm <- function(input_folder_path, lc_lookup, output_dir) {
   }
   
   invisible(processed_files)
+}
+
+#' Rename landscape raster files with year-based naming convention
+#'
+#' This function automates the renaming of landscape raster files from a numeric
+#' sequence pattern (landscape01.tif, landscape02.tif, etc.) to a year-based
+#' naming convention using an initial year and period value. It also removes
+#' any .tif files that don't match the expected landscape pattern.
+#'
+#' @param folder_path Character string. The path to the directory containing
+#'   the raster files to be renamed.
+#' @param initial_year Integer. The base year from which to calculate target years.
+#'   For example, if initial_year = 2020, landscape01.tif will correspond to 2025
+#'   when period_value = 5.
+#' @param period_value Integer. The number of years between each landscape raster.
+#'   This value is multiplied by the file number to calculate the target year.
+#'
+#' @return Invisible NULL. The function primarily produces side effects by renaming
+#'   files and updating raster properties. Progress messages are printed to the console.
+#'
+#' @details
+#' The function performs the following operations:
+#' \itemize{
+#'   \item Finds all .tif files matching the pattern "landscape\\d+.tif"
+#'   \item Identifies and removes any .tif files that don't match the expected pattern
+#'   \item Sorts files numerically by their embedded number
+#'   \item Calculates target years using: target_year = initial_year + (file_number * period_value)
+#'   \item Renames both the physical filename and the layer name property of the SpatRaster
+#'   \item Saves the modified rasters and removes the original files
+#' }
+#'
+#' @note
+#' The function will overwrite existing files if the target filename already exists.
+#' Make sure to backup your data before running this function.
+#'
+#' @examples
+#' \dontrun{
+#' # Rename landscape rasters starting from 2020 with 5-year intervals
+#' rename_landscape("path/to/raster/folder", 2020, 5)
+#'
+#' # Example output:
+#' # landscape01.tif -> landscape2025.tif (layer name: landscape_2025)
+#' # landscape02.tif -> landscape2030.tif (layer name: landscape_2030)
+#' # landscape03.tif -> landscape2035.tif (layer name: landscape_2035)
+#' # Removed: other_file.tif (does not match landscape pattern)
+#' }
+#'
+#' @export
+#' @importFrom terra rast writeRaster
+#' @importFrom stringr str_extract
+rename_landscape <- function(folder_path, initial_year, period_value) {
+  # List all .tif files in the directory
+  all_tif_files <- list.files(folder_path, pattern = "\\.tif$", full.names = TRUE)
+  
+  if (length(all_tif_files) == 0) {
+    stop("No .tif files found in the specified directory.")
+  }
+  
+  # Identify files that match the landscape pattern 
+  landscape_files <- all_tif_files[grepl("^landscape\\d{2}\\.tif$", basename(all_tif_files))]
+  
+  # List all .xml files in the directory (if any exist)
+  xml_files <- list.files(folder_path, pattern = "\\.xml$", full.names = TRUE)
+  
+  # Remove all .xml files (if any exist)
+  if (length(xml_files) > 0) {
+    cat("Removing .xml files:\n")
+    for (file in xml_files) {
+      file.remove(file)
+      cat(sprintf("  Removed: %s\n", basename(file)))
+    }
+    cat(sprintf("Removed %d .xml file(s).\n\n", length(xml_files)))
+  } else {
+    cat("No .xml files found to remove.\n\n")
+  }
+  
+  # Identify files that don't match the pattern
+  non_landscape_files <- all_tif_files[!grepl("^landscape\\d{2}\\.tif$", basename(all_tif_files))]
+  
+  # Remove non-matching files
+  if (length(non_landscape_files) > 0) {
+    cat("Removing files that don't match landscape pattern:\n")
+    for (file in non_landscape_files) {
+      file.remove(file)
+      cat(sprintf("  Removed: %s\n", basename(file)))
+    }
+    cat(sprintf("Removed %d non-matching file(s).\n\n", length(non_landscape_files)))
+  }
+  
+  if (length(landscape_files) == 0) {
+    stop("No landscape raster files found matching the pattern 'landscapeXX.tif'.")
+  }
+  
+  # Extract the numeric part from filenames and sort them
+  file_numbers <- as.numeric(stringr::str_extract(basename(landscape_files), "\\d+"))
+  sorted_indices <- order(file_numbers)
+  landscape_files <- landscape_files[sorted_indices]
+  file_numbers <- file_numbers[sorted_indices]
+  
+  # Process each raster file
+  for (i in seq_along(landscape_files)) {
+    file_path <- landscape_files[i]
+    file_number <- file_numbers[i]
+    
+    # Calculate the corresponding year
+    target_year <- initial_year + (file_number * period_value)
+    
+    # Create new filename
+    new_filename <- paste0("landscape", target_year, ".tif")
+    new_file_path <- file.path(folder_path, new_filename)
+    
+    # Read the raster
+    raster_obj <- terra::rast(file_path)
+    
+    # Rename the layer name (names property)
+    names(raster_obj) <- target_year
+    
+    # Write the raster with new filename and layer name
+    terra::writeRaster(raster_obj, filename = new_file_path, overwrite = TRUE)
+    
+    # Remove the original file
+    file.remove(file_path)
+    
+    cat(sprintf("Renamed: %s -> %s (layer name: %s)\n", 
+                basename(file_path), new_filename, names(raster_obj)))
+  }
+  
+  cat(sprintf("\nSuccessfully renamed %d raster files.\n", length(landscape_files)))
+}
+
+#' Render a DataTable with Enhanced Features
+#'
+#' Creates an interactive DT::datatable with common extensions and styling options
+#' pre-configured for ease of use. Includes export buttons, responsive design,
+#' and professional styling.
+#'
+#' @param data A data frame or matrix containing the data to be displayed.
+#' @param caption Character string specifying the table caption (optional).
+#'
+#' @return A DT::datatable object with enhanced features and styling.
+#'
+#' @details
+#' This function provides a convenient wrapper for creating DataTables with
+#' commonly used features:
+#' \itemize{
+#'   \item \strong{Extensions}: Buttons (export functionality) and Responsive (mobile-friendly)
+#'   \item \strong{Options}: Pagination, search, fixed columns, auto-width, ordering
+#'   \item \strong{Styling}: Display class with stripe and hover effects
+#'   \item \strong{Export}: Copy, CSV, and Excel export buttons
+#' }
+#'
+#' The DOM layout includes Buttons (B), length menu (l), filter (f), 
+#' processing (r), table (t), information (i), and pagination (p).
+#'
+#' @examples
+#' \dontrun{
+#' # Basic usage
+#' render_dt_table(mtcars, caption = "Motor Trend Car Road Tests")
+#'
+#' # Without caption
+#' render_dt_table(iris)
+#'
+#' # Use in R Markdown
+#' ```{r}
+#' library(DT)
+#' render_dt_table(mtcars, "Sample Data Table")
+#' ```
+#' }
+#'
+#' @seealso
+#' \code{\link[DT]{datatable}}, \code{\link[DT]{DTOutput}}
+#'
+#' @export
+render_dt_table <- function(data, caption = NULL) {
+  css_fix <- htmltools::tags$style(htmltools::HTML("
+    div.dt-button-info {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 10000;
+      background: white;
+      padding: 20px;
+      border: 2px solid #999;
+      border-radius: 5px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.3);
+    }
+  "))
+  
+  dt <- DT::datatable(
+    data,
+    extensions = c('Buttons', 'Responsive'),
+    options = list(
+      paging = TRUE,
+      searching = TRUE,
+      fixedColumns = TRUE,
+      autoWidth = TRUE,
+      ordering = TRUE,
+      dom = 'Blfrtip',
+      buttons = list(
+        list(extend = "copy", className = "btn btn-light btn-sm"),
+        list(extend = "csv",  className = "btn btn-light btn-sm"),
+        list(extend = "excel",className = "btn btn-light btn-sm")
+      )
+    ),
+    class = "display stripe hover",
+    caption = caption
+  )
+  
+  htmltools::tagList(css_fix, dt)
+}
+
+
+#' Plot Categorical Raster Map with Interactive Visualization
+#'
+#' Creates a generic interactive map for any classified raster data using
+#' mapview, with proper classification, coloring, and legend.
+#'
+#' @param cat_raster A SpatRaster object (from terra package) containing
+#'   classification values. The raster should contain integer values
+#'   corresponding to different categories.
+#' @param cat_table A data frame containing the classification scheme.
+#'   The **first column** must be the numeric codes (ID) and the
+#'   **second column** must be the category names. It may optionally
+#'   include a column named 'color_palette' with hex color codes for custom colors.
+#' @param yr Character or numeric value representing the year or time period
+#'   for the map. Used in the layer name and legend title.
+#' @param layer_title A character string for the layer name prefix in the legend
+#'   and layer control. Defaults to "Layer".
+#'
+#' @return A mapview object containing an interactive leaflet map with the
+#'   categorical data displayed using the specified colors and including a legend.
+#'
+#' @details This function performs the following steps:
+#' \enumerate{
+#'   \item Filters the category table to include only classes present in the raster.
+#'   \item Reclassifies raster values to a sequential index for consistent coloring.
+#'   \item Converts the raster to a categorical factor with proper labels.
+#'   \item Applies a color palette. If a 'color_palette' column exists in `cat_table`,
+#'         it will be used. Otherwise, a predefined color set is applied.
+#'   \item Creates an interactive map with mapview.
+#'   \item Adds a custom legend with category names and colors.
+#' }
+#'
+#' @note The function requires the following packages: terra, mapview, leaflet,
+#'   and dplyr (for the pipe operator).
+#'
+#' @examples
+#' \dontrun{
+#' # Load required packages
+#' library(terra)
+#' library(mapview)
+#'
+#' # Create example data
+#' class_raster <- rast(nrows = 100, ncols = 100, vals = sample(1:3, 10000, replace = TRUE))
+#'
+#' # Create a table with custom colors
+#' class_table <- data.frame(
+#'   CODE = 1:3,
+#'   CLASS_NAME = c("Class A", "Class B", "Class C"),
+#'   color_palette = c("#228B22", "#FF0000", "#FFFF00")
+#' )
+#'
+#' # Create the interactive map
+#' cat_map <- plot_categorical_rst_mapview(class_raster, class_table, yr = 2025, layer_title = "Classification")
+#' cat_map # Display the map
+#' }
+#'
+#' @importFrom terra values classify as.factor levels<- activeCat coltab ncell
+#' @importFrom mapview mapview
+#' @importFrom leaflet colorFactor addLegend
+#' @importFrom dplyr %>%
+#' @export
+plot_categorical_rst_mapview <- function(cat_raster, cat_table, layer_title = "Layer") {
+  names(cat_table)[1] <- "ID"
+  names(cat_table)[2] <- "Category"
+  
+  cat_table$ID <- as.numeric(cat_table$ID)
+  unique_values <- unique(values(cat_raster, na.rm = TRUE))
+  cat_tbl_filtered <- cat_table[cat_table$ID %in% unique_values, ]
+  
+  reclass_from <- cat_tbl_filtered$ID
+  reclass_to <- seq_along(cat_tbl_filtered$ID)
+  reclass_matrix <- cbind(reclass_from, reclass_to)
+  cat_reclass <- classify(cat_raster, reclass_matrix, others = NA)
+  cat_factor <- as.factor(cat_reclass)
+  
+  levels_df <- data.frame(
+    ID = reclass_to,
+    Category = factor(cat_tbl_filtered$Category, levels = cat_tbl_filtered$Category)
+  )
+  
+  levels(cat_factor) <- levels_df
+  activeCat(cat_factor) <- "Category"
+  
+  predefined_colors <- c(
+    "#3cb44b", "#ffe119", "#4363d8", "#f58231", "#911eb4", "#46f0f0", "#f032e6", "#e6194B",
+    "#bcf60c", "#fabebe", "#008080", "#e6beff", "#9A6324", "#fffac8", "#800000", "#aaffc3",
+    "#808000", "#ffd8b1", "#000075", "#808080", "#1F77B4", "#FF7F0E", "#40E0D0", "#6B8E23",
+    "#2CA02C", "#D62728", "#9467BD", "#8C564B", "#E377C2", "#7F7F7F", "#CD5C5C", "#7B68EE",
+    "#17BECF", "#BCBD22", "#FF9896", "#C5B0D5", "#C49C94", "#9C9EDE", "#AEC7E8", "#FFBB78",
+    "#98DF8A", "#FF7F50", "#FFD700", "#8B0000", "#20B2AA", "#DA70D6", "#B22222", "#5F9EA0",
+    "#ffffff", "#000000"
+  )
+  
+  # Conditionally select color palette
+  if ("color_palette" %in% names(cat_tbl_filtered)) {
+    map_colors <- cat_tbl_filtered$color_palette
+  } else {
+    if (nrow(cat_tbl_filtered) > length(predefined_colors)) {
+      warning("Not enough predefined colors for all categories. Colors will be recycled.")
+    }
+    map_colors <- predefined_colors[1:nrow(cat_tbl_filtered)]
+  }
+  
+  color_table <- data.frame(
+    value = reclass_to,
+    color = map_colors
+  )
+  
+  coltab(cat_factor) <- color_table
+  
+  map_result <- mapview(
+    cat_factor,
+    zcol = "Category",
+    maxpixels = ncell(cat_factor),
+    layer.name = paste(layer_title),
+    na.color = "transparent",
+    legend = FALSE
+  )
+  
+  pal <- colorFactor(
+    palette = color_table$color,
+    domain = levels_df$Category
+  )
+  
+  map_result@map <- map_result@map %>%
+    addLegend(
+      position = "topright",
+      pal = pal,
+      values = levels_df$Category,
+      title = paste(layer_title)
+    )
+  
+  return(map_result)
 }

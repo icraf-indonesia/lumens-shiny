@@ -14,7 +14,8 @@ install_load(
   "dplyr", "remotes", "rmarkdown", "XML", "splitstackshape", "shinyalert",
   "terra", "tibble", "ggplot2", "magrittr", "tidyr", "tidyterra", "DT",
   "readr", "plotly", "scales", "ggthemes", "rlang", "xml2", "tidyverse",
-  "readxl", "openxlsx", "openxlsx2", "conflicted"
+  "readxl", "openxlsx", "openxlsx2", "conflicted", "stringr", "mapview",
+  "tools", "leafsync", "leaflet"
 )
 
 if (!("LUMENSR" %in% rownames(installed.packages()))) {
@@ -34,10 +35,11 @@ ui <- fluidPage(
   titlePanel("SCIENDO Simulate"),
   sidebarLayout(
     sidebarPanel(
-      fileInput("map1_file", "Land cover map initial", accept = c("image/tiff")),
+      fileInput("map1_file", "Initial Land Cover/Use Map", accept = c("image/tiff")),
+      numericInput("init_year", "Initial Year", value = 2025),
       fileInput("mapz_file", "Planning Unit", accept = c("image/tiff")),
       fileInput("lc_file", "Land Use/Cover Lookup Table (CSV)", accept = c(".csv")),
-      fileInput("rc_file", "Raster Cube", multiple=T),
+      fileInput("rc_file", "Raster Cube", accept = c(".tif", ".xml"), multiple=T),
       numericInput("repetition", "Repetition", value = 2),
       
       tags$head(
@@ -92,7 +94,12 @@ ui <- fluidPage(
     ),
     mainPanel(
       tabsetPanel(
-        tabPanel("User Guide", includeMarkdown("../helpfile/sciendo_simulate_quick_user_guide.md")),
+        tabPanel("User Guide", 
+                 div(
+                   style = "height: 800px; overflow-y: auto; padding: 15px; border: 1px solid #ddd; border-radius: 5px; background-color: #fff;",
+                   includeMarkdown("../helpfile/sciendo_simulate_quick_user_guide_ID.md")
+                 )
+        ),
         tabPanel("Log",
                  textOutput("selected_directory"),
                  textOutput("dinamica_path"),
@@ -112,21 +119,22 @@ server <- function(input, output, session) {
   #### Initialize all required reactive values ####
   rv <- reactiveValues(
     wd = NULL,
-    factors_path = NULL,
     dinamica_path = NULL,
     report_file = NULL,
     map1_file = NULL,
-    map2_file = NULL,
     mapz_file = NULL,
     mapz_df = NULL,
     lc_path = NULL,
     lc_df = NULL,
     zone_df = NULL,
+    dcf_path = NULL,
+    tm_path = NULL,
+    period_value = NULL,
     memory_allocation = NULL,
     rc = NULL,
     rc_xml = NULL
   )
-  
+
   volumes <- c(
     Home = fs::path_home(), "R Installation" = R.home(), 
     getVolumes()()
@@ -154,52 +162,41 @@ server <- function(input, output, session) {
   })
   
   #### Read file inputs ####
-  # observeEvent(input$rc_file, {
-  #   pattern <- "*.tif$"
-  #   rc <- input$rc_file
-  #   if(is.null(rc))
-  #     return()
-  #   
-  #   prev_wd <- getwd()
-  #   uploaded_dir <- dirname(rc$datapath[1])
-  #   setwd(uploaded_dir)
-  #   for(i in 1:nrow(rc)){
-  #     print(rc$name[i])
-  #     if(substrRight(rc$name[i], 3) == "ers") {
-  #       pattern <- "*.ers$"
-  #     }
-  #     file.rename(rc$datapath[i], rc$name[i])
-  #   }
-  #   setwd(prev_wd)
-  #   
-  #   rv$rc <- paste(uploaded_dir, rc$name[grep(pattern = pattern, rc$name)], sep = "/")
-  # })
-  
   observeEvent(input$rc_file, {
     rc <- input$rc_file
     if (is.null(rc)) return()
+    
+    # check if both .tif and .xml are present
+    has_tif <- any(grepl("\\.tif$", rc$name, ignore.case = TRUE))
+    has_xml <- any(grepl("\\.xml$", rc$name, ignore.case = TRUE))
+    
+    if (!has_tif || !has_xml) {
+      showNotification(
+        "Please upload both a .tif and a .xml file.",
+        type = "error",
+        duration = 5
+      )
+      return() 
+    }
     
     prev_wd <- getwd()
     uploaded_dir <- dirname(rc$datapath[1])
     setwd(uploaded_dir)
     
+    # rename uploaded files to their original names
     for (i in 1:nrow(rc)) {
       file.rename(rc$datapath[i], rc$name[i])
     }
     
-    pattern <- ifelse(any(grepl("\\.ers$", rc$name)), "\\.ers$", "\\.tif$")
-    rv$rc <- paste(uploaded_dir, rc$name[grep(pattern, rc$name)], sep = "/")
-    
+    # save paths
+    tif_file <- rc$name[grep("\\.tif$", rc$name, ignore.case = TRUE)]
     xml_file <- rc$name[grep("\\.xml$", rc$name, ignore.case = TRUE)]
-    if (length(xml_file) > 0) {
-      rv$rc_xml <- paste(uploaded_dir, xml_file, sep = "/")
-    } else {
-      rv$rc_xml <- NULL 
-    }
-    
-    # convert xml PU table into dataframe
+    rv$rc <- file.path(uploaded_dir, tif_file)
+    rv$rc_xml <- file.path(uploaded_dir, xml_file)
+
     xml_data <- xml2::read_xml(rv$rc_xml)  
     
+    # Extract PU classes
     pu_classes <- xml_data %>%
       xml2::xml_find_all(".//PUClasses/Class") %>% 
       purrr::map_df(~ tibble(
@@ -207,11 +204,20 @@ server <- function(input, output, session) {
         PU = xml2::xml_attr(., "PU"))
       )
     
+    # Extract period value
+    period_value <- xml_data %>%
+      xml2::xml_find_first(".//Period/Value") %>%
+      xml2::xml_text() %>%
+      as.numeric()
+    
     rv$zone_df <- pu_classes
+    rv$period_value <- period_value
     
     setwd(prev_wd)
   })
   
+  
+
   #### Read lc lookup table ####
   observeEvent(input$lc_file, {
     f <- input$lc_file
@@ -356,8 +362,9 @@ server <- function(input, output, session) {
     return(new_path)
   }
   
-  # Input validation
+  # --- Input validation ---
   iv <- InputValidator$new()
+  
   iv$add_rule("map1_file", sv_required(message = "Please upload land cover map at T1"))
   iv$add_rule("mapz_file", sv_required(message = "Please upload planning unit"))
   iv$add_rule("rc_file", sv_required(message = "Please upload raster cube"))
@@ -366,6 +373,20 @@ server <- function(input, output, session) {
   iv$add_rule("dcf_path", sv_required(message = "Please select a directory of woe dcf"))
   iv$add_rule("wd", sv_required(message = "Please select an output directory"))
   iv$add_rule("memory_allocation", sv_required(message = "Please select memory allocation option"))
+  
+  # Raster cube input validation
+  iv$add_rule("rc_file", function(value) {
+    if (is.null(value)) return(NULL)  
+    
+    has_tif <- any(grepl("\\.tif$", value$name, ignore.case = TRUE))
+    has_xml <- any(grepl("\\.xml$", value$name, ignore.case = TRUE))
+    
+    if (!has_tif || !has_xml) {
+      return("Please upload both a .tif and a .xml file for the raster cube")
+    }
+    
+    NULL
+  })
   
   #### Do the calculation and store it to the markdown content ####
   observeEvent(input$processSimulate, {
@@ -378,11 +399,13 @@ server <- function(input, output, session) {
     }
     
     showNotification("Analysis is running. Please wait...", type = "message", duration = NULL, id = "running_notification")
-    
+
     withProgress(message = "Running SCIENDO Simulate", value = 0, {
       tryCatch({
         result <- run_sciendo_simulate_process(
           lc_t1_path = rv$map1_file,
+          initial_year = input$init_year,
+          period_value = rv$period_value,
           lc_lookup_table_path = rv$lc_path,
           lc_lookup_table = rv$lc_df,
           zone_lookup_table = rv$zone_df,

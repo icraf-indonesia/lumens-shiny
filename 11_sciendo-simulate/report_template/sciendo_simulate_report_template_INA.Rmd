@@ -41,6 +41,7 @@ library(scales)
 library(ggthemes)
 library(rlang)
 library(conflicted)
+library(stringr)
 conflict_prefer("layout", "plotly") 
 conflict_prefer("filter", "dplyr")
 conflict_prefer("select", "dplyr") 
@@ -77,7 +78,7 @@ analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
 
 # Ringkasan
 
-Hasil simulasi proyeksi perubahan tutupan/penggunaan lahan didasarkan pada masukan iterasi `r params$inputs$rep` dan disimpan sebagai peta raster (GeoTIFF) dengan nama unik `landscape{n-th}.tif`.
+Hasil simulasi proyeksi perubahan tutupan/penggunaan lahan didasarkan pada masukan iterasi `r params$inputs$rep` dan disimpan sebagai peta raster (GeoTIFF).
 
 # Deskripsi singkat modul
 
@@ -100,51 +101,71 @@ plot_categorical_raster(lc_t1)
 ## Peta Unit Perencanaan
 
 ```{r planning unit, echo=FALSE, message=FALSE, warning=FALSE}
-zone <- rast(params$inputs$zone_path)
-plot(zone)
+zone_rast <- rast(params$inputs$zone_path)
+
+zone <- add_legend_to_categorical_raster(zone_rast, lookup_table = params$inputs$zone_lookup_table)
+
+plot_categorical_raster(zone)
 ```
 
 
 ## Tabel Referensi Tutupan/Penggunaan Lahan
 
 ```{r lut, echo=FALSE, message=FALSE, warning=FALSE}
-datatable(df_lc)
-
-# df_lc %>% kable() %>%
-#   kable_styling(bootstrap_options = c("striped", "hover"))
+# datatable(df_lc)
+render_dt_table(df_lc, caption = "Tabel Referensi Tutupan/Penggunaan Lahan")
 ```
 
 # Hasil
-
 ## Peta Proyeksi Perubahan Tutupan/Penggunaan Lahan {.tabset}
 
-```{r lu projected maps, echo=FALSE, fig.keep='all', results='asis'}
-list_luc <- params$inputs$output_dir %>% 
-  list.files(full.names=TRUE, pattern="*.tif$")
+```{r lu projected maps, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
+list_luc <- params$inputs$output_dir %>%
+  list.files(full.names = TRUE, pattern = "^landscape\\d+\\.tif$")
+
+lc_tbl_path <- params$inputs$lc_lookup_table_path
+tmp <- read_csv(lc_tbl_path, skip = 1, n_max = 0)
+all_names <- c("ID", "LC", "ID_Traj", "Trajectory", "color_palette")
+col_names <- all_names[seq_along(names(tmp))]
+lc_table <- read_csv(lc_tbl_path, skip = 1, col_names = col_names)
+
+
+list_luc <- list_luc[order(as.numeric(stringr::str_extract(basename(list_luc), "\\d+")))]
 rst_list <- list()
-counter <- 0
-for(i in list_luc){
-  r <- i %>% rast() %>%
-    add_legend_to_categorical_raster(., lookup_table = df_lc)
-  rst_list[[i]] <- r
-  counter <- counter + 1
+
+for(i in seq_along(list_luc)){
+  file_path <- list_luc[i]
   
-  cat(paste0("### Proyeksi Tutupan/Penggunaan Lahan pada T+", counter, " \n\n"))
+  r <- rast(file_path)
+  rst_list[[file_path]] <- r
+  
+  year <- stringr::str_extract(basename(file_path), "\\d{4}")
+  if(is.na(year)) {
+    year <- stringr::str_extract(basename(file_path), "\\d+")
+  }
+  lyr_title <- paste0("Landscape ", year)
+  
+  cat(paste0("### Proyeksi Tutupan/Penggunaan Lahan pada ", year, " \n\n"))
+  
+  child_env <- new.env()
+  child_env$r <- r
+  child_env$lc_table <- lc_table
+  child_env$year <- year
+  child_env$plot_categorical_rst_mapview <- plot_categorical_rst_mapview
+
   cat(
-    knitr::knit_child(
-      text = c(
-        "```{r}",
-        "#| echo: false",
-        "#| message: false",
-        "#| warning: false",
-        "r %>% plot_categorical_raster()",
-        "```"
-      ), quiet = TRUE
-    ), sep = "\n"
+  knitr::knit_child(
+    text = c(
+      "```{r, echo=FALSE, message=FALSE, warning=FALSE, out.width='100%', out.height='500px'}",
+      "plot_categorical_rst_mapview(r, lc_table, lyr_title)",
+      "```"
+    ),
+    envir = child_env,
+    quiet = TRUE
+  ), sep = "\n"
   )
   
-  cat('\n')
-  
+  cat('\n\n')
 }
 ```
 
@@ -178,7 +199,20 @@ plot_interactive_stacked_area(lc_freq_table_export)
 
 ### Tabel Proyeksi Luas Tutupan/Penggunaan Lahan
 ```{r Projected LULCC Table, echo=FALSE, message=FALSE, warning=FALSE}
-DT::datatable(lc_freq_table) %>%
+DT::datatable(
+  lc_freq_table, 
+  extensions = c('Buttons', 'Responsive'),
+  caption = "Tabel Proyeksi Luas Tutupan/Penggunaan Lahan",
+  options = list(
+    dom = 'Blfrtip',
+    buttons = list(
+      list(extend = "copy", className = "btn btn-light btn-sm"),
+      list(extend = "csv",  className = "btn btn-light btn-sm"),
+      list(extend = "excel",className = "btn btn-light btn-sm")
+      )
+  )
+  ) %>%
+# render_dt_table(lc_freq_table, caption = "Tabel Proyeksi Luas Tutupan/Penggunaan Lahan") %>%
   DT::formatRound(columns = which(sapply(lc_freq_table, is.numeric)), digits = 1)
 ```
 
@@ -200,19 +234,33 @@ src <- lapply(seq_len(nrow(zone_df)), function(i) {
     "```{r zone_{{i}}_table, echo=FALSE}",
     "lc_proj_table <- all_freq_pu_list[[{{i}}]]",
     "if (nrow(lc_proj_table) > 0) {",
+    "  year_columns <- colnames(lc_proj_table)[-1]",
+    "  ",
+    "  if (length(year_columns) > 0) {",
+    "    years_text <- paste('for years', paste(year_columns, collapse = ', '))",
+    "  } else {",
+    "    years_text <- ''",
+    "  }",
+    "  ",
     "  DT::datatable(",
     "    lc_proj_table,",
+    "    extensions = c('Buttons', 'Responsive'),",
     "    caption = htmltools::tags$caption(",
     "      style = 'caption-side: top; text-align: center; color:black; font-size:1.2em;',",
-    "      'Proyeksi Tutupan/Penggunaan Lahan pada {{label}}'",
+    "      paste('Proyeksi Tutupan/Penggunaan Lahan di {{label}}', years_text)",
     "    ),", 
     "    rownames = FALSE,",
     "    options = list(",
-    "      dom = 't',",
+    "      dom = 'Blfrtip',",
     "      pageLength = nrow(lc_proj_table),",
     "      autoWidth = FALSE,",
     "      scrollX = TRUE,",
-    "      columnDefs = list(list(width = '100%', targets = '_all'))",
+    "      columnDefs = list(list(width = '100%', targets = '_all')),",
+    "      buttons = list(",
+    "        list(extend = 'copy', className = 'btn btn-light btn-sm'),",
+    "        list(extend = 'csv',  className = 'btn btn-light btn-sm'),",
+    "        list(extend = 'excel',className = 'btn btn-light btn-sm')",
+    "        )",
     "    )",
     "  ) %>%",
     "  DT::formatRound(columns = which(sapply(lc_proj_table, is.numeric)), digits = 1)",

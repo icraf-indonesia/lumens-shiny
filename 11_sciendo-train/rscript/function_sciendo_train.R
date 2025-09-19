@@ -901,7 +901,7 @@ run_dinamica_woe_model <- function(dinamica_path = NULL, output_dir, egoml, memo
 }
 
 run_sciendo_train_process <- function(lc_t1_path, lc_t2_path, zone_path, lc_lookup_table_path,
-                                      lc_lookup_table, z_lookup_table_path, factor_path, time_points,
+                                      lc_lookup_table, z_lookup_table, factor_path, time_points,
                                       dinamica_path = NULL, output_dir, memory_allocation, progress_callback = NULL) {
   start_time <- Sys.time()
   cat("Started at:", format(start_time, "%Y-%m-%d %H:%M:%S"), "\n")
@@ -933,11 +933,12 @@ run_sciendo_train_process <- function(lc_t1_path, lc_t2_path, zone_path, lc_look
   run_dinamica_raster_cube(dinamica_path, output_dir, out_rc$egoml_rc_file, memory_allocation)
   
   # generate modified xml file
-  pu_df <- read.csv(z_lookup_table_path)
+  pu_df <- z_lookup_table
   
-  add_pu_classes_to_pam(
+  add_period_pu_classes_to_pam(
     output_dir = output_dir,  
-    pu_classes = pu_df
+    pu_classes = pu_df,
+    time_points = time_points
   )
 
   if (!is.null(progress_callback)) progress_callback(0.7, "generate egoml: initialize weight of evidence parameters")
@@ -950,7 +951,7 @@ run_sciendo_train_process <- function(lc_t1_path, lc_t2_path, zone_path, lc_look
   run_dinamica_woe_model(dinamica_path, output_dir, out_woe$egoml_woe_file, memory_allocation)
   
   listWoeReport <- out_woe$weight  %>% list.files(full.names=TRUE, pattern="weight_report*")
-  df_pu <- read.csv(z_lookup_table_path) %>% dplyr::rename(ID_PU = 1, PU = 2)
+  df_pu <- z_lookup_table %>% dplyr::rename(ID_PU = 1, PU = 2)
   woe_list <- create_list_of_weight_report(out_woe$weight, listWoeReport, df_pu, lc_lookup_table)
   
   end_time <- Sys.time()
@@ -966,7 +967,7 @@ run_sciendo_train_process <- function(lc_t1_path, lc_t2_path, zone_path, lc_look
       lc_t2_path = lc_t2_path,
       zone_path = zone_path,
       lc_lookup_table_path = lc_lookup_table_path,
-      z_lookup_table_path = z_lookup_table_path,
+      z_lookup_table = z_lookup_table,
       factor_path = factor_path,
       year1 = time_points$t1,
       year2 = time_points$t2,
@@ -1077,11 +1078,12 @@ analyze_multicollinearity <- function(folder_path, sample_size = 10000, vif_thre
   ))
 }
 
-#' Add Planning Unit Classes to Raster Metadata File
+#' Add Period and Planning Unit Classes to Raster Metadata File
 #' 
-#' This function enhances a GDAL PAM (.aux.xml) metadata file by adding Planning Unit (PU)
-#' class information while preserving existing raster metadata. The PU classes are added
-#' as a separate XML node at the same level as the original PAMDataset content.
+#' This function enhances a GDAL PAM (.aux.xml) metadata file by adding Period information
+#' and Planning Unit (PU) class information while preserving existing raster metadata. 
+#' Both period and PU classes are added as separate XML nodes at the same level as the 
+#' original PAMDataset content.
 #'
 #' @param output_dir Character string specifying the directory path containing the 
 #'                  'sciendo_factors.tif' file and where the PAM metadata will be saved.
@@ -1089,6 +1091,11 @@ analyze_multicollinearity <- function(folder_path, sample_size = 10000, vif_thre
 #'                  \itemize{
 #'                    \item First column contains PU IDs (numeric or character)
 #'                    \item Second column contains PU class names (character)
+#'                  }
+#' @param time_points A data frame or list containing time points with elements:
+#'                  \itemize{
+#'                    \item t1: Start time (numeric or character that can be coerced to numeric)
+#'                    \item t2: End time (numeric or character that can be coerced to numeric)
 #'                  }
 #' @param overwrite Logical indicating whether to overwrite an existing PAM file
 #'                 (default = TRUE). If FALSE and file exists, function will error.
@@ -1103,6 +1110,7 @@ analyze_multicollinearity <- function(folder_path, sample_size = 10000, vif_thre
 #'   \item Validates input parameters
 #'   \item Creates a new XML structure with Root parent node
 #'   \item Preserves all existing PAM metadata if present
+#'   \item Adds period information under a new <Period> node
 #'   \item Adds PU classes under a new <PUClasses> node
 #'   \item Saves the combined XML structure with proper formatting
 #' }
@@ -1114,6 +1122,9 @@ analyze_multicollinearity <- function(folder_path, sample_size = 10000, vif_thre
 #'   <PAMDataset>
 #'     <!-- Original raster metadata -->
 #'   </PAMDataset>
+#'   <Period>
+#'     <Value>[calculated period]</Value>
+#'   </Period>
 #'   <PUClasses>
 #'     <Class ID="1" PU="Protected Forest"/>
 #'     <!-- Additional classes -->
@@ -1130,15 +1141,19 @@ analyze_multicollinearity <- function(folder_path, sample_size = 10000, vif_thre
 #'             "Urban Area", "Wetland Agriculture", "Dryland Agriculture",
 #'             "Riverbank Buffer", "Kerinci Sebelat National Park")
 #' )
+#' 
+#' # Prepare time points
+#' time_data <- data.frame(t1 = 2000, t2 = 2010)
 #'
 #' # Add to PAM file (using tempdir() for example)
 #' output_path <- tempdir()
 #' file.create(paste0(output_path, "/sciendo_factors.tif.aux.xml"))
 #' 
 #' try(
-#'   add_pu_classes_to_pam(
+#'   add_period_pu_classes_to_pam(
 #'     output_dir = output_path,
-#'     pu_classes = pu_data
+#'     pu_classes = pu_data,
+#'     time_points = time_data
 #'   )
 #' )
 #' }
@@ -1148,7 +1163,7 @@ analyze_multicollinearity <- function(folder_path, sample_size = 10000, vif_thre
 #'
 #' @export
 #' @importFrom XML newXMLNode xmlParse xmlRoot xmlChildren saveXML
-add_pu_classes_to_pam <- function(output_dir, pu_classes, overwrite = TRUE) {
+add_period_pu_classes_to_pam <- function(output_dir, pu_classes, time_points, overwrite = TRUE) {
   # Verify XML package availability
   if (!requireNamespace("XML", quietly = TRUE)) {
     stop("Package 'XML' required but not installed. Please install with: install.packages('XML')")
@@ -1166,6 +1181,17 @@ add_pu_classes_to_pam <- function(output_dir, pu_classes, overwrite = TRUE) {
   if (ncol(pu_classes) < 2) {
     stop("pu_classes must have at least 2 columns (ID and PU class)")
   }
+  
+  # Validate time_points structure
+  if (!is.data.frame(time_points) && !is.list(time_points)) {
+    stop("time_points must be a data frame or list")
+  }
+  if (!all(c("t1", "t2") %in% names(time_points))) {
+    stop("time_points must contain elements named 't1' and 't2'")
+  }
+  
+  # Calculate period
+  period <- as.numeric(time_points$t2) - as.numeric(time_points$t1)
   
   # Define file paths
   pam_file <- file.path(output_dir, "sciendo_factors.tif.aux.xml")
@@ -1189,6 +1215,10 @@ add_pu_classes_to_pam <- function(output_dir, pu_classes, overwrite = TRUE) {
     })
   }
   
+  # Add Period section
+  period_node <- XML::newXMLNode("Period", parent = root)
+  XML::newXMLNode("Value", period, parent = period_node)
+  
   # Add PU classes section
   pu_node <- XML::newXMLNode("PUClasses", parent = root)
   apply(pu_classes, 1, function(row) {
@@ -1203,7 +1233,7 @@ add_pu_classes_to_pam <- function(output_dir, pu_classes, overwrite = TRUE) {
   # Save output
   tryCatch({
     XML::saveXML(root, file = pam_file)
-    message("Successfully updated PAM metadata file:\n  ", pam_file)
+    message("Successfully updated PAM metadata file with period and PU classes:\n  ", pam_file)
     invisible(TRUE)
   }, error = function(e) {
     stop("Failed to save XML file: ", e$message)
@@ -1532,4 +1562,86 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, temp
   }
   
   message("\nAll files processed successfully!")
+}
+
+#' Render a DataTable with Enhanced Features
+#'
+#' Creates an interactive DT::datatable with common extensions and styling options
+#' pre-configured for ease of use. Includes export buttons, responsive design,
+#' and professional styling.
+#'
+#' @param data A data frame or matrix containing the data to be displayed.
+#' @param caption Character string specifying the table caption (optional).
+#'
+#' @return A DT::datatable object with enhanced features and styling.
+#'
+#' @details
+#' This function provides a convenient wrapper for creating DataTables with
+#' commonly used features:
+#' \itemize{
+#'   \item \strong{Extensions}: Buttons (export functionality) and Responsive (mobile-friendly)
+#'   \item \strong{Options}: Pagination, search, fixed columns, auto-width, ordering
+#'   \item \strong{Styling}: Display class with stripe and hover effects
+#'   \item \strong{Export}: Copy, CSV, and Excel export buttons
+#' }
+#'
+#' The DOM layout includes Buttons (B), length menu (l), filter (f), 
+#' processing (r), table (t), information (i), and pagination (p).
+#'
+#' @examples
+#' \dontrun{
+#' # Basic usage
+#' render_dt_table(mtcars, caption = "Motor Trend Car Road Tests")
+#'
+#' # Without caption
+#' render_dt_table(iris)
+#'
+#' # Use in R Markdown
+#' ```{r}
+#' library(DT)
+#' render_dt_table(mtcars, "Sample Data Table")
+#' ```
+#' }
+#'
+#' @seealso
+#' \code{\link[DT]{datatable}}, \code{\link[DT]{DTOutput}}
+#'
+#' @export
+render_dt_table <- function(data, caption = NULL) {
+  css_fix <- htmltools::tags$style(htmltools::HTML("
+    div.dt-button-info {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 10000;
+      background: white;
+      padding: 20px;
+      border: 2px solid #999;
+      border-radius: 5px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.3);
+    }
+  "))
+  
+  dt <- DT::datatable(
+    data,
+    extensions = c('Buttons', 'Responsive'),
+    options = list(
+      paging = TRUE,
+      searching = TRUE,
+      fixedColumns = TRUE,
+      autoWidth = TRUE,
+      ordering = TRUE,
+      dom = 'Blfrtip',
+      buttons = list(
+        list(extend = "copy", className = "btn btn-light btn-sm"),
+        list(extend = "csv",  className = "btn btn-light btn-sm"),
+        list(extend = "excel",className = "btn btn-light btn-sm")
+        )
+    ),
+    class = "display stripe hover",
+    caption = caption
+  )
+  
+  htmltools::tagList(css_fix, dt)
 }
