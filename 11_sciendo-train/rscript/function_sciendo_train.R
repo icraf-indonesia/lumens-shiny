@@ -299,6 +299,44 @@ plot_categorical_raster <- function(raster_object, filename = "raster_plot.png",
   )
 }
 
+create_list_of_weight_report <- function(woe_report_path, list_woe_report, df_zone, lc_lookup_table) {
+  listWoeReport <- list_woe_report
+  woe <- list()
+  len <- nrow(df_zone)
+  
+  vec <- c()
+  for(j in listWoeReport) {
+    number <- gsub(paste0(woe_report_path, "/weight_report"), "", j) %>% substr(1, 2) %>% as.numeric()
+    vec <- c(vec, number)
+  }
+  
+  for(counter in 1:length(vec)){
+    i <- vec[counter]
+    woe[[paste0("pu", sprintf("%03d", i))]][['name']] <- df_zone[i, 2]
+    woe[[paste0("pu", sprintf("%03d", i))]][['report']] <- listWoeReport[counter] %>%
+      read.csv() %>%
+      dplyr::select(-X) %>% 
+      dplyr::left_join(lc_lookup_table, by = join_by(Transition_From. == ID_LC)) %>%
+      dplyr::rename(LC_FROM = LC) %>%
+      dplyr::left_join(lc_lookup_table, by = join_by(Transition_To. == ID_LC)) %>%
+      dplyr::rename(LC_TO = LC) %>%
+      mutate(
+        Transition = paste(LC_FROM, "->", LC_TO),
+        Range = paste(Range_Lower_Limit., "<= v <", Range_Upper_Limit.),
+        Significant = if_else(Significant == 1, "yes", "no")
+      ) %>%
+      dplyr::select(Transition, Variable., Range, Possible_Transitions, Executed_Transitions, Weight_Coefficient, Contrast, Significant)
+    woe[[paste0("pu", sprintf("%03d", i))]][['unique_transition']] <- woe[[paste0("pu", sprintf("%03d", i))]][['report']] %>% 
+      distinct(Transition) %>% unlist() %>% as.vector()
+  }
+  woe_out <- list(
+    woe = woe,
+    n_zone = len,
+    df_zone = df_zone
+  )
+  return(woe_out)
+}
+
 #' Generate SCIENDO-Train Report
 #' 
 #' Generates a report for the SCIENDO-Train analysis using R Markdown.
