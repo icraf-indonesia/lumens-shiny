@@ -299,7 +299,7 @@ summary_of_emission_calculation <- function(quescdb, period) {
   az <- quescdb %>% 
     group_by(ID_PU, PU) %>% 
     summarise(Ha = sum(Ha, na.rm = TRUE), .groups = "drop") %>% 
-    rename(ID = ID_PU)
+    dplyr::rename(ID = ID_PU)
   
   # Calculate total emission per planning unit from quescdb
   ze <- quescdb %>% 
