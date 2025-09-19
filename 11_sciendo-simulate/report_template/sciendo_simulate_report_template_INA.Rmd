@@ -151,13 +151,13 @@ for(i in seq_along(list_luc)){
   child_env$r <- r
   child_env$lc_table <- lc_table
   child_env$year <- year
-  child_env$plot_categorical_rst_mapview <- plot_categorical_rst_mapview
+  child_env$plot_categorical_raster_mapview <- plot_categorical_raster_mapview
 
   cat(
   knitr::knit_child(
     text = c(
       "```{r, echo=FALSE, message=FALSE, warning=FALSE, out.width='100%', out.height='500px'}",
-      "plot_categorical_rst_mapview(r, lc_table, lyr_title)",
+      "plot_categorical_raster_mapview(r, lc_table, lyr_title)",
       "```"
     ),
     envir = child_env,
