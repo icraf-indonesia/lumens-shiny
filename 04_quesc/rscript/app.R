@@ -22,7 +22,11 @@ install_load(
   "bslib",
   "shinyalert",
   "plotly",
-  "stringr"
+  "stringr",
+  "readr",
+  "leaflet",
+  "stars",
+  "mapview"
 )
 
 if (!("LUMENSR" %in% rownames(installed.packages()))) {
@@ -38,7 +42,7 @@ ui <- fluidPage(
   tags$head(
     tags$link(rel = "shortcut icon", href = "favicon.ico")  
   ),
-  titlePanel("QUES-C Analysis"),
+  titlePanel("QuES-C Module"),
   sidebarLayout(
     sidebarPanel(
       fileInput("map1_file", "Land cover map at T1", accept = c("image/tiff")),
@@ -54,7 +58,7 @@ ui <- fluidPage(
       div(style = "display: flex; flex-direction: column; gap: 10px;",
           shinyDirButton("wd", "Select output directory", "Please select a directory"),
           verbatimTextOutput("print_output_dir", placeholder = TRUE),
-          actionButton("processQUESC", "Run", 
+          actionButton("processQUESC", "Run QuES-C Analysis", 
                        style = "font-size: 18px; padding: 10px 15px; background-color: #4CAF50; color: white;"),
           hidden(
             actionButton("openReport", "Open Report",
@@ -249,7 +253,7 @@ server <- function(input, output, session) {
     
     showNotification("Analysis is running. Please wait...", type = "message", duration = NULL, id = "running_notification")
     
-    withProgress(message = "Running QUES-C Analysis", value = 0, {
+    withProgress(message = "Running QUES-C Module", value = 0, {
       tryCatch({
         # c_lookup_path <- rename_uploaded_file(input$carbon_file)
         results <- run_quesc_analysis(

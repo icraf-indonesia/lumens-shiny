@@ -750,29 +750,49 @@ plot_lcc_freq_bar <- function(lcc_table, col_T1 = NULL, col_T2 = NULL, Freq = NU
   return(p)
 }
 
-
-
-
-
-# plot_categorical_raster -------------------------------------------------
-
-#' Plot a categorical raster map
+#' Plot a categorical raster with an optional download button
 #'
-#' This function takes a raster object as input and produces a ggplot. If the raster
-#' object includes a "color_pallete" column with hex color codes, these colors are
-#' used for the fill scale. Otherwise, the default `scale_fill_hypso_d()` fill scale
-#' from the tidyterra package is used.
+#' This function creates a categorical map from a raster object using
+#' **ggplot2** and **tidyterra**. In HTML outputs (e.g., R Markdown HTML reports),
+#' the plot is rendered as an inline image with a **Download PNG** button.
+#' In non-HTML outputs (e.g., PDF, Word), only the `ggplot` object is returned.
 #'
-#' @param raster_object A raster object.
+#' If the raster's category table contains a `color_palette` column with valid
+#' hex codes, those colors are used for plotting. Otherwise, a default palette
+#' is applied. The plot legend is automatically formatted for readability.
 #'
-#' @return A ggplot object.
-#' @importFrom tidyterra scale_fill_hypso_d
-#' @importFrom ggplot2 ggplot theme_bw labs theme scale_fill_manual element_text unit element_blank guides guide_legend
-#' @importFrom tidyterra geom_spatraster scale_fill_hypso_d
+#' @param raster_object A [`SpatRaster`][terra::SpatRaster] object containing
+#'   categorical data. Should include category labels, and optionally a
+#'   `color_palette` column in `cats(raster_object)`.
+#' @param filename A string giving the default filename (with extension) for
+#'   the downloaded PNG in HTML output. Defaults to `"raster_plot.png"`.
+#' @param dpi An integer giving the resolution (dots per inch) for the saved
+#'   PNG image in HTML output. Defaults to `300`.
+#'
+#' @return 
+#' - If the output format is **HTML**: an [htmltools::tagList] containing the 
+#'   rendered raster plot and a styled download button.
+#' - If the output format is **non-HTML** (PDF, Word, etc.): a `ggplot` object
+#'   that can be further modified or printed.
+#'
+#' @examples
+#' \dontrun{
+#' library(terra)
+#' r <- rast(matrix(sample(1:3, 100, TRUE), 10, 10))
+#' cats(r) <- data.frame(ID = 1:3, class = c("Forest", "Agriculture", "Urban"))
+#'
+#' # Returns ggplot in non-HTML output
+#' plot_categorical_raster(r)
+#'
+#' # In HTML output, adds download button
+#' plot_categorical_raster(r, filename = "landcover_map.png", dpi = 200)
+#' }
+#'
 #' @export
-plot_categorical_raster <- function(raster_object) {
-  # Check if raster_object has a color_pallete column and it contains hex color codes
-  if ("color_palette" %in% names(cats(raster_object)[[1]]) && all(grepl("^#[0-9A-Fa-f]{6}$", cats(raster_object)$color_pallete))) {
+plot_categorical_raster <- function(raster_object, filename = "raster_plot.png", dpi = 300) {
+  # Color palette
+  if ("color_palette" %in% names(cats(raster_object)[[1]]) &&
+      all(grepl("^#[0-9A-Fa-f]{6}$", cats(raster_object)$color_pallete))) {
     fill_scale <- scale_fill_manual(values = cats(raster_object)[[1]]$color_palette, na.value = "white")
   } else {
     fill_scale <- scale_fill_manual(values = c(
@@ -788,34 +808,65 @@ plot_categorical_raster <- function(raster_object) {
       "#D9D9D9", "#BC80BD", "#CCEBC5", "#FFED6F", "#E41A1C"
     ), na.value = "white")
   }
-  if(!is.na(time(raster_object))) {
+  
+  if (!is.na(time(raster_object))) {
     plot_title <- time(raster_object)
   } else {
     plot_title <- names(raster_object)
   }
+  
   # Generate the plot
   plot_lc <- ggplot() +
     tidyterra::geom_spatraster(data = raster_object) +
     fill_scale +
     theme_bw() +
     labs(title = plot_title, fill = NULL) +
-    guides(fill = guide_legend(title.position = "top", ncol=3))+
-    theme(axis.title.x = element_blank(),
-          axis.title.y = element_blank(),
-          panel.grid.major = element_blank(),
-          panel.grid.minor = element_blank(),
-          legend.title = element_text(size = 12),
-          legend.text = element_text(size = 10),
-          legend.key.height = unit(0.25, "cm"),
-          legend.key.width = unit(0.25, "cm"),
-          legend.position = "bottom",
-          legend.justification = c(0,0.8))
+    guides(fill = guide_legend(title.position = "top", ncol = 2)) +
+    theme(
+      axis.title.x = element_blank(),
+      axis.title.y = element_blank(),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      legend.title = element_text(size = 12),
+      legend.text = element_text(size = 10),
+      legend.key.height = unit(0.25, "cm"),
+      legend.key.width = unit(0.25, "cm"),
+      legend.position = "bottom",
+      legend.justification = c(0, 0.8)
+    )
+
+  if (!knitr::is_html_output()) {
+    return(plot_lc)
+  }
   
-  return(plot_lc)
+  # Save PNG with custom dpi
+  tf <- tempfile(fileext = ".png")
+  ggsave(tf, plot_lc, width = 7, height = 5, dpi = dpi)
+  img_data <- base64enc::dataURI(file = tf, mime = "image/png")
+  
+  # download button
+  htmltools::tagList(
+    tags$div(
+      style = "margin-bottom:10px;",
+      tags$img(
+        src = img_data, 
+        style = "max-width:100%; height:auto; display:block; margin-bottom:5px;"
+      ),
+      tags$button(
+        "Download PNG",
+        onclick = sprintf(
+          "var link = document.createElement('a'); link.download = '%s';
+          link.href = this.previousElementSibling.src; link.click();",
+          filename
+        ),
+        style = "padding:4px 8px; font-size:0.9em; 
+                 background:#d3d3d3; border-radius:4px; 
+                 color:#333333; text-decoration:none;
+                 border: none; outline: none;"
+      )
+    )
+  )
 }
-
-
-
 
 # calc_res_conve_factor_to_ha ---------------------------------------------
 
@@ -1932,6 +1983,8 @@ run_preques_analysis <- function(lc_t1_input, lc_t2_input, admin_z_input,
     stop("Invalid or missing Trajectory lookup table")
   }
   
+  if (!is.null(progress_callback)) progress_callback(0.2, "Preparing land cover/use data")
+  
   # Prepare land cover data
   prepare_lc_data <- function(lc_input, time_point) {
     if(is.null(lc_input) || !file.exists(lc_input$datapath)) {
@@ -1952,9 +2005,9 @@ run_preques_analysis <- function(lc_t1_input, lc_t2_input, admin_z_input,
   if (!grepl("\\+units=m", st_crs(lc_data$t1)$proj4string)) {
     stop("Land use/covert T1 must have units in meters.")
   }
-  
-  if (!is.null(progress_callback)) progress_callback(0.2, "Land cover data prepared")
 
+  if (!is.null(progress_callback)) progress_callback(0.3, "Preparing planning unit data")
+  
   # Prepare administrative zones data
   if(!inherits(admin_z_input, "SpatRaster")){
     admin_z <- terra::rast(admin_z_input$datapath) %>%
@@ -1963,8 +2016,6 @@ run_preques_analysis <- function(lc_t1_input, lc_t2_input, admin_z_input,
   } else {
     admin_z <- admin_z_input
   }
-
-  if (!is.null(progress_callback)) progress_callback(0.3, "Planning unit data prepared")
   
   harmonised_rasters <-
     check_and_harmonise_geometries(lc_t1 = lc_data$t1, lc_t2 = lc_data$t2, admin = admin_z)
@@ -1972,6 +2023,8 @@ run_preques_analysis <- function(lc_t1_input, lc_t2_input, admin_z_input,
   lc_data$t1 <- harmonised_rasters$lc_t1
   lc_data$t2 <- harmonised_rasters$lc_t2
   admin_z <- harmonised_rasters$admin
+  
+  if (!is.null(progress_callback)) progress_callback(0.5, "Running main Pre-QuES analysis")
 
   # Run main Pre-QuES analysis
   output_pre_ques <- ques_pre(
@@ -1979,10 +2032,9 @@ run_preques_analysis <- function(lc_t1_input, lc_t2_input, admin_z_input,
     convert_to_Ha = TRUE
   )
 
-  if (!is.null(progress_callback)) progress_callback(0.5, "Main Pre-QuES analysis completed")
-
-  # Run trajectory analysis
+  if (!is.null(progress_callback)) progress_callback(0.7, "Running Pre-QuES trajectory analysis")
   
+  # Run trajectory analysis
   output_pre_ques_traj <- ques_pre_trajectory(
     lc_data$t1, lc_data$t2, admin_z, lc_lookup, lookup_trajectory,
     trajectory_column_name = "trajectory",
@@ -1995,8 +2047,6 @@ run_preques_analysis <- function(lc_t1_input, lc_t2_input, admin_z_input,
   #   convert_to_Ha = TRUE
   # )
 
-  if (!is.null(progress_callback)) progress_callback(0.7, "Pre-QuES Trajectory analysis completed")
-
   # End of the script
   end_time <- Sys.time()
   cat("Ended at:", format(end_time, "%Y-%m-%d %H:%M:%S"), "\n")
@@ -2007,6 +2057,8 @@ run_preques_analysis <- function(lc_t1_input, lc_t2_input, admin_z_input,
     session_log = format_session_info_table(),
     output_dir = output_dir
   )
+  
+  if (!is.null(progress_callback)) progress_callback(0.9, "Generating Pre-QuES report")
 
   # Generate and save outputs
   generate_outputs(output_pre_ques, output_pre_ques_traj, #output_pre_ques_def,
@@ -2309,3 +2361,279 @@ format_session_info_table <- function() {
 }
 
 easy_to_read_numbers <- scales::label_comma()
+
+#' Render a DataTable with Enhanced Features
+#'
+#' Creates an interactive DT::datatable with common extensions and styling options
+#' pre-configured for ease of use. Includes export buttons, responsive design,
+#' professional styling, and automatic numeric formatting.
+#'
+#' @param data A data frame or matrix containing the data to be displayed.
+#' @param caption Character string specifying the table caption (optional).
+#' @param digits Integer specifying the number of decimal places for percentages (default = 2).
+#' @param area_digits Integer specifying the number of decimal places for area values (default = 0).
+#' @param notification_timeout Time in milliseconds for the copy notification to auto-dismiss (default = 3000 = 3 seconds).
+#'
+#' @return A DT::datatable object with enhanced features and styling.
+#'
+#' @details
+#' This function provides a convenient wrapper for creating DataTables with
+#' commonly used features:
+#' \itemize{
+#'   \item \strong{Extensions}: Buttons (export functionality) and Responsive (mobile-friendly)
+#'   \item \strong{Options}: Pagination, search, fixed columns, auto-width, ordering
+#'   \item \strong{Styling}: Display class with stripe and hover effects
+#'   \item \strong{Export}: Copy, CSV, and Excel export buttons
+#'   \item \strong{Formatting}: Automatic numeric formatting with thousands separators
+#'   \item \strong{Notification}: Auto-dismissing copy notifications
+#' }
+#'
+#' The DOM layout includes Buttons (B), length menu (l), filter (f), 
+#' processing (r), table (t), information (i), and pagination (p).
+#'
+#' @examples
+#' \dontrun{
+#' # Basic usage
+#' render_dt_table(mtcars, caption = "Motor Trend Car Road Tests")
+#'
+#' # Without caption
+#' render_dt_table(iris)
+#'
+#' # Custom decimal places
+#' render_dt_table(mtcars, digits = 0)
+#'
+#' # Use in R Markdown
+#' ```{r}
+#' library(DT)
+#' render_dt_table(mtcars, "Sample Data Table")
+#' ```
+#' }
+#'
+#' @seealso
+#' \code{\link[DT]{datatable}}, \code{\link[DT]{DTOutput}}
+#'
+#' @export
+render_dt_table <- function(data, caption = NULL, digits = 2, area_digits = 0, notification_timeout = 1000) {
+  css_fix <- htmltools::tags$style(htmltools::HTML(sprintf("
+    div.dt-button-info {
+      position: fixed;
+      top: 50%%;
+      left: 50%%;
+      transform: translate(-50%%, -50%%);
+      z-index: 10000;
+      background: white;
+      padding: 20px;
+      border: 2px solid #999;
+      border-radius: 5px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.3);
+      animation: fadeOut %dms ease-in %dms forwards;
+    }
+    
+    @keyframes fadeOut {
+      from { opacity: 1; }
+      to { opacity: 0; visibility: hidden; }
+    }
+  ", notification_timeout, notification_timeout)))
+  
+  formatted_data <- data
+  numeric_cols <- which(sapply(data, function(x) {
+    is.numeric(x) || (inherits(x, "units") && is.numeric(as.numeric(x)))
+  }))
+  
+  # Apply formatting to numeric columns
+  if (length(numeric_cols) > 0) {
+    for (col in numeric_cols) {
+      col_data <- data[[col]]
+      col_name <- names(data)[col]
+      is_percentage_col <- grepl("^%|Percent|Percentage|% T1|% T2", col_name, ignore.case = TRUE)
+      if (inherits(col_data, "units")) {
+        numeric_values <- as.numeric(col_data)
+        units_attr <- attributes(col_data)
+        is_integer_col <- all(numeric_values == floor(numeric_values), na.rm = TRUE)
+        if (is_integer_col) {
+          formatted_values <- format(numeric_values, big.mark = ",", scientific = FALSE, trim = TRUE)
+        } else {
+          formatted_values <- format(round(numeric_values, area_digits), big.mark = ",", scientific = FALSE, nsmall = area_digits, trim = TRUE)
+        }
+        if (!is.null(units_attr$units)) {
+          formatted_data[[col]] <- paste(formatted_values, units_attr$units)
+        } else {
+          formatted_data[[col]] <- formatted_values
+        }
+      } else {
+        is_integer_col <- all(col_data == floor(col_data), na.rm = TRUE)
+        if (is_percentage_col) {
+          formatted_data[[col]] <- format(round(col_data, digits), nsmall = digits, trim = TRUE)
+        } else if (is_integer_col) {
+          formatted_data[[col]] <- format(col_data, big.mark = ",", scientific = FALSE, trim = TRUE)
+        } else {
+          formatted_data[[col]] <- format(round(col_data, area_digits), big.mark = ",", scientific = FALSE, nsmall = area_digits, trim = TRUE)
+        }
+      }
+    }
+  }
+  
+  dt <- DT::datatable(
+    formatted_data,
+    extensions = c('Buttons', 'Responsive'),
+    options = list(
+      paging = TRUE,
+      searching = TRUE,
+      fixedColumns = TRUE,
+      autoWidth = TRUE,
+      ordering = TRUE,
+      dom = 'Blfrtip',
+      buttons = list(
+        list(extend = "copy", 
+             className = "btn btn-light btn-sm",
+             text = "Copy",
+             title = caption),
+        list(extend = "csv",  
+             className = "btn btn-light btn-sm",
+             title = caption),
+        list(extend = "excel", 
+             className = "btn btn-light btn-sm",
+             title = caption)
+      )
+    ),
+    class = "display stripe hover",
+    caption = caption,
+    rownames = FALSE
+  )
+  
+  htmltools::tagList(css_fix, dt)
+}
+
+#' Plot Categorical Raster Map with Interactive Visualization
+#'
+#' Creates a generic interactive map for any classified raster data using
+#' mapview, with proper classification, coloring, and legend.
+#'
+#' @param cat_raster A SpatRaster object (from terra package) containing
+#'   classification values. The raster should contain integer values
+#'   corresponding to different categories.
+#' @param cat_table A data frame containing the classification scheme.
+#'   The **first column** must be the numeric codes (ID) and the
+#'   **second column** must be the category names. It may optionally
+#'   include a column named 'color_palette' with hex color codes for custom colors.
+#' @param yr Character or numeric value representing the year or time period
+#'   for the map. Used in the layer name and legend title.
+#' @param layer_title A character string for the layer name prefix in the legend
+#'   and layer control. Defaults to "Layer".
+#'
+#' @return A mapview object containing an interactive leaflet map with the
+#'   categorical data displayed using the specified colors and including a legend.
+#'
+#' @details This function performs the following steps:
+#' \enumerate{
+#'   \item Filters the category table to include only classes present in the raster.
+#'   \item Reclassifies raster values to a sequential index for consistent coloring.
+#'   \item Converts the raster to a categorical factor with proper labels.
+#'   \item Applies a color palette. If a 'color_palette' column exists in `cat_table`,
+#'         it will be used. Otherwise, a predefined color set is applied.
+#'   \item Creates an interactive map with mapview.
+#'   \item Adds a custom legend with category names and colors.
+#' }
+#'
+#' @note The function requires the following packages: terra, mapview, leaflet,
+#'   and dplyr (for the pipe operator).
+#'
+#' @examples
+#' \dontrun{
+#' # Load required packages
+#' library(terra)
+#' library(mapview)
+#'
+#' # Create example data
+#' class_raster <- rast(nrows = 100, ncols = 100, vals = sample(1:3, 10000, replace = TRUE))
+#'
+#' # Create a table with custom colors
+#' class_table <- data.frame(
+#'   CODE = 1:3,
+#'   CLASS_NAME = c("Class A", "Class B", "Class C"),
+#'   color_palette = c("#228B22", "#FF0000", "#FFFF00")
+#' )
+#'
+#' # Create the interactive map
+#' cat_map <- plot_categorical_raster_mapview(class_raster, class_table, yr = 2025, layer_title = "Classification")
+#' cat_map # Display the map
+#' }
+#'
+#' @importFrom terra values classify as.factor levels<- activeCat coltab ncell
+#' @importFrom mapview mapview
+#' @importFrom leaflet colorFactor addLegend
+#' @importFrom dplyr %>%
+#' @export
+plot_categorical_raster_mapview <- function(cat_raster, cat_table, layer_title = "Layer") {
+  names(cat_table)[1] <- "ID"
+  names(cat_table)[2] <- "Category"
+  
+  cat_table$ID <- as.numeric(cat_table$ID)
+  unique_values <- unique(values(cat_raster, na.rm = TRUE))
+  cat_tbl_filtered <- cat_table[cat_table$ID %in% unique_values, ]
+  
+  reclass_from <- cat_tbl_filtered$ID
+  reclass_to <- seq_along(cat_tbl_filtered$ID)
+  reclass_matrix <- cbind(reclass_from, reclass_to)
+  cat_reclass <- classify(cat_raster, reclass_matrix, others = NA)
+  cat_factor <- as.factor(cat_reclass)
+  
+  levels_df <- data.frame(
+    ID = reclass_to,
+    Category = factor(cat_tbl_filtered$Category, levels = cat_tbl_filtered$Category)
+  )
+  
+  levels(cat_factor) <- levels_df
+  activeCat(cat_factor) <- "Category"
+  
+  predefined_colors <- c(
+    "#3cb44b", "#ffe119", "#4363d8", "#f58231", "#911eb4", "#46f0f0", "#f032e6", "#e6194B",
+    "#bcf60c", "#fabebe", "#008080", "#e6beff", "#9A6324", "#fffac8", "#800000", "#aaffc3",
+    "#808000", "#ffd8b1", "#000075", "#808080", "#1F77B4", "#FF7F0E", "#40E0D0", "#6B8E23",
+    "#2CA02C", "#D62728", "#9467BD", "#8C564B", "#E377C2", "#7F7F7F", "#CD5C5C", "#7B68EE",
+    "#17BECF", "#BCBD22", "#FF9896", "#C5B0D5", "#C49C94", "#9C9EDE", "#AEC7E8", "#FFBB78",
+    "#98DF8A", "#FF7F50", "#FFD700", "#8B0000", "#20B2AA", "#DA70D6", "#B22222", "#5F9EA0",
+    "#ffffff", "#000000"
+  )
+  
+  # Conditionally select color palette
+  if ("color_palette" %in% names(cat_tbl_filtered)) {
+    map_colors <- cat_tbl_filtered$color_palette
+  } else {
+    if (nrow(cat_tbl_filtered) > length(predefined_colors)) {
+      warning("Not enough predefined colors for all categories. Colors will be recycled.")
+    }
+    map_colors <- predefined_colors[1:nrow(cat_tbl_filtered)]
+  }
+  
+  color_table <- data.frame(
+    value = reclass_to,
+    color = map_colors
+  )
+  
+  coltab(cat_factor) <- color_table
+  
+  map_result <- mapview(
+    cat_factor,
+    zcol = "Category",
+    maxpixels = ncell(cat_factor),
+    layer.name = paste(layer_title),
+    na.color = "transparent",
+    legend = FALSE
+  )
+  
+  pal <- colorFactor(
+    palette = color_table$color,
+    domain = levels_df$Category
+  )
+  
+  map_result@map <- map_result@map %>%
+    addLegend(
+      position = "topright",
+      pal = pal,
+      values = levels_df$Category,
+      title = paste(layer_title)
+    )
+  
+  return(map_result)
+}

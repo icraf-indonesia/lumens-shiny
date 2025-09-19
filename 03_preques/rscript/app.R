@@ -5,9 +5,9 @@ required_packages <- c(
   "terra", "dplyr", "tidyterra", "ggplot2", "forcats", "stringr",
   "cowplot", "networkD3", "scales", "purrr", "rmarkdown",
   "kableExtra", "htmlTable", "knitr", "magrittr", "tidyr",
-  "rlang", "stats", "utils", "methods", "sf", "ggrepel",
+  "rlang", "stats", "utils", "methods", "sf", "ggrepel", "readr",
   "viridis", "textclean", "shiny", "shinydashboard", "shinyjs",
-  "shinyFiles", "bslib", "shinyalert", "writexl"
+  "shinyFiles", "bslib", "shinyalert", "writexl", "mapview", "leaflet"
 )
 
 
@@ -182,7 +182,7 @@ server <- function(input, output, session) {
     req(validate_inputs())
 
     showNotification("Analysis is running. Please wait...", type = "message", duration = NULL, id = "running_notification")
-    withProgress(message = 'Running Pre-QuES Analysis', value = 0, {
+    withProgress(message = 'Running Pre-QuES Analysis', value = 0.1, {
       tryCatch({
         # Load LC T1 raster
         lc_t1_raster <- terra::rast(rv$lc_t1$datapath)

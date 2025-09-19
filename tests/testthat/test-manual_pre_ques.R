@@ -15,10 +15,12 @@ source("03_preques/rscript/functions_ques_pre.R")
 
 # Define required packages
 required_packages <- c(
-  "terra", "dplyr", "ggplot2", "sf",  # Core spatial/data analysis
-  "rmarkdown", "bslib",               # Reporting
-  "readr", "tidyr", "networkD3",      # Data wrangling & visualization
-  "stringr", "scales", "purrr"        
+  "terra", "dplyr", "tidyterra", "ggplot2", "forcats", "stringr",
+  "cowplot", "networkD3", "scales", "purrr", "rmarkdown",
+  "kableExtra", "htmlTable", "knitr", "magrittr", "tidyr",
+  "rlang", "stats", "utils", "methods", "sf", "ggrepel", "readr",
+  "viridis", "textclean", "shiny", "shinydashboard", "shinyjs",
+  "shinyFiles", "bslib", "shinyalert", "writexl", "mapview", "leaflet"
 )
 
 # Install missing packages quietly

@@ -19,7 +19,8 @@ required_packages <- c(
   "terra", "dplyr", "ggplot2", "sf", # Core spatial/data analysis
   "rmarkdown", "bslib", # Reporting
   "readr", "tidyr", "networkD3", # Data wrangling & visualization
-  "stringr", "scales", "purrr", "LUMENSR"
+  "stringr", "scales", "purrr", "LUMENSR",
+  "mapview", "leaflet"
 )
 
 # Install missing packages quietly

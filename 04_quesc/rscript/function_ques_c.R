@@ -14,33 +14,34 @@ is_numeric_str <- function(s) {
 #' English text for summary table
 summary_text_en <- c(
   "Period",
-  "Total area (ha)",
-  "Total emission (tonne CO\u2082-eq)",
-  "Total sequestration (tonne CO\u2082-eq)",
-  "Net emission (tonne CO\u2082-eq)",
-  "Emission rate (tonne CO\u2082-eq yr\u207B\u00B9)",
-  "Emission rate per-unit area (tonne CO\u2082-eq ha\u207B\u00B9 yr\u207B\u00B9)"
+  "Total Area (ha)",
+  "Total Emission (tonne CO\u2082-eq)",
+  "Total Sequestration (tonne CO\u2082-eq)",
+  "Net Emission (tonne CO\u2082-eq)",
+  "Net Emission Rate (tonne CO\u2082-eq yr\u207B\u00B9)",
+  "Net Emission Rate Per-unit Area (tonne CO\u2082-eq ha\u207B\u00B9 yr\u207B\u00B9)"
 )
 
 #' Indonesian text for summary table
 summary_text_id <- c(
   "Periode", 
-  "Total area (ha)", 
+  "Total Area (ha)", 
   "Total Emisi (Ton CO\u2082-eq)", 
   "Total Sekuestrasi (Ton CO\u2082-eq)", 
   "Emisi Bersih (Ton CO\u2082-eq)", 
-  "Laju Emisi (Ton CO\u2082-eq tahun\u207B\u00B9)",
-  "Laju emisi per-unit area (Ton CO\u2082-eq ha\u207B\u00B9 tahun\u207B\u00B9)"
+  "Laju Emisi Bersih (Ton CO\u2082-eq tahun\u207B\u00B9)",
+  "Laju Emisi Bersih Per-unit Area (Ton CO\u2082-eq ha\u207B\u00B9 tahun\u207B\u00B9)"
 )
 
 #' English text for zonal summary table
-summary_zonal_text_en <- list(ID = 1,
-                              "Planning Unit" = 2, 
-                              "Area (Ha)" = 3, 
-                              "Carbon Avg. (Periode 1)" = 4, 
-                              "Carbon Avg. (Periode 2)" = 5, 
-                              "Net Emission (tonne CO\u2082-eq)" = 6, 
-                              "Emission Rate (tonne CO\u2082-eq ha\u207B\u00B9 yr\u207B\u00B9)" = 7
+summary_zonal_text_en <- list(
+  ID = 1,
+  "Planning Unit" = 2, 
+  "Area (Ha)" = 3, 
+  "Carbon Avg. (Periode 1)" = 4, 
+  "Carbon Avg. (Periode 2)" = 5, 
+  "Gross Emission Rate (tonne CO\u2082-eq ha\u207B\u00B9 yr\u207B\u00B9)" = 6, 
+  "Gross Sequestration Rate (tonne CO\u2082-eq ha\u207B\u00B9 yr\u207B\u00B9)" = 7
 )
 
 #' Indonesian text for zonal summary table
@@ -50,29 +51,30 @@ summary_zonal_text_id <- list(
   "Luas (Ha)" = 3,
   "Rerata Karbon Periode 1" = 4,
   "Rerata Karbon Periode 2" = 5,
-  "Emisi Bersih (Ton CO\u2082-eq)" = 6,
-  "Laju Emisi (Ton CO\u2082-eq ha\u207B\u00B9 tahun\u207B\u00B9)" = 7
+  "Laju Emisi Kotor (Ton CO\u2082-eq ha\u207B\u00B9 tahun\u207B\u00B9)" = 6,
+  "Laju Sekuestrasi Kotor (Ton CO\u2082-eq ha\u207B\u00B9 tahun\u207B\u00B9)" = 7
 )
+
 #' English text for zonal carbon summary table
 summary_zona_carbon_text_en <- list(
   ID = 1,
   "Planning Unit" = 2,
   "Area (ha)" = 3,
-  "Total emission (tonne CO\u2082-eq)" = 4,
-  "Total sequestration (tonne CO\u2082-eq)" = 5,
+  "Total Emission (tonne CO\u2082-eq)" = 4,
+  "Total Sequestration (tonne CO\u2082-eq)" = 5,
   "Net Emission (tonne CO\u2082-eq)" = 6,
-  "Emission Rate (tonne CO\u2082-eq ha\u207B\u00B9 yr\u207B\u00B9)" = 7
+  "Net Emission Rate (tonne CO\u2082-eq ha\u207B\u00B9 yr\u207B\u00B9)" = 7
 )
 
 #' Indonesian text for zonal carbon summary table
 summary_zona_carbon_text_id <- list(
   ID = 1,
-  "Unit perencanaan" = 2,
+  "Unit Perencanaan" = 2,
   "Luas (ha)" = 3,
-  "Total emisi (ton CO\u2082-eq)" = 4,
-  "Total sekuestrasi (ton CO\u2082-eq)" = 5,
-  "Emisi bersih (ton CO\u2082-eq)" = 6,
-  "Laju emisi (ton CO\u2082-eq ha\u207B\u00B9 tahun\u207B\u00B9)" = 7
+  "Total Emisi (ton CO\u2082-eq)" = 4,
+  "Total Sekuestrasi (ton CO\u2082-eq)" = 5,
+  "Emisi Bersih (ton CO\u2082-eq)" = 6,
+  "Laju Emisi Bersih (ton CO\u2082-eq ha\u207B\u00B9 tahun\u207B\u00B9)" = 7
 )
 
 #' Format Session Information
@@ -162,6 +164,7 @@ rasterise_multipolygon_quesc <- function(sf_object, raster_res, field = "ID") {
 print_area <- function(x) {
   format(x, digits = 15, big.mark = ",")
 }
+
 #' Format Rate Values
 #'
 #' Formats a numeric value representing a rate with a big mark separator for thousands and two decimal places.
@@ -174,24 +177,32 @@ print_rate <- function(x) {
 }
 
 
-#' Plot QUES-C Results
+#' Plot Continuous Raster Map with Download Option
 #'
-#' This function creates a ggplot for a SpatRaster object with a gradient fill.
+#' This function creates a continuous raster map using **ggplot2** and **tidyterra**.
+#' In HTML outputs (e.g., R Markdown HTML reports), the plot is rendered as an inline
+#' image with a **Download PNG** button. In non-HTML outputs (e.g., PDF, Word),
+#' only the `ggplot` object is returned.
 #'
-#' @param map A SpatRaster object to plot.
-#' @param legend A character string for the legend title.
-#' @param low A character string for the low end of the color gradient.
-#' @param high A character string for the high end of the color gradient.
-#' @param na_color A character string for the color of NA values. Default is "white".
-#' @return A ggplot object.
-#' @importFrom ggplot2 ggplot theme_bw labs theme scale_fill_gradient element_text unit element_blank
-#' @importFrom tidyterra geom_spatraster
+#' @param map A [`SpatRaster`][terra::SpatRaster] object to plot.
+#' @param legend A character string giving the legend title. If `NULL`, no legend title is shown.
+#' @param low A character string specifying the color for the low end of the gradient.
+#' @param high A character string specifying the color for the high end of the gradient.
+#' @param na_color A character string for the color of `NA` values. Defaults to `"white"`.
+#' @param filename A string giving the default filename (with extension) for the downloaded
+#'   PNG in HTML output. Defaults to `"continuous_raster.png"`.
+#' @param dpi An integer giving the resolution (dots per inch) for the saved PNG image
+#'   in HTML output. Defaults to `300`.
+#'
+#' @return 
+#' - If the output format is **HTML**: an [htmltools::tagList] containing the 
+#'   rendered raster plot and a styled download button.
+#' - If the output format is **non-HTML** (PDF, Word, etc.): a `ggplot` object
+#'   that can be further modified or printed.
+#'
 #' @export
-plot_quesc_results <- function(map, legend, low, high, na_color = "white") {
-  # Determine plot title
-  # plot_title <- if (!is.na(time(map))) time(map) else names(map)
-  
-  # Generate the plot
+plot_continuous_raster <- function(map, legend, low, high, na_color = "white",
+    filename = "continuous_raster.png", dpi = 300) {
   plot_lc <- ggplot() +
     tidyterra::geom_spatraster(data = map) +
     ggplot2::scale_fill_gradient(
@@ -201,21 +212,55 @@ plot_quesc_results <- function(map, legend, low, high, na_color = "white") {
       name = if (!is.null(legend)) legend else NULL
     ) +
     ggplot2::theme_bw() +
-    # labs(title = plot_title) +
+    ggplot2::labs(fill = NULL) +
+    ggplot2::guides(fill = ggplot2::guide_colorbar(
+      title.position = "top",
+      barwidth = unit(5, "cm"),
+      barheight = unit(0.3, "cm")
+    )) +
     ggplot2::theme(
       axis.title.x = ggplot2::element_blank(),
       axis.title.y = ggplot2::element_blank(),
       panel.grid.major = ggplot2::element_blank(),
       panel.grid.minor = ggplot2::element_blank(),
-      legend.title = ggplot2::element_text(size = 10),
-      legend.text = ggplot2::element_text(size = 8),
-      legend.key.height = ggplot2::unit(1, "cm"),
-      legend.key.width = ggplot2::unit(0.25, "cm"), 
-      legend.position = "right",
-      legend.justification = c(0, 0.5)
+      legend.title = ggplot2::element_text(size = 12),
+      legend.text = ggplot2::element_text(size = 10),
+      legend.position = "bottom",
+      legend.justification = c(0, 0.8)
     )
   
-  return(plot_lc)
+  # If non-HTML output, return ggplot
+  if (!knitr::is_html_output()) {
+    return(plot_lc)
+  }
+  
+  # Save PNG with custom dpi
+  tf <- tempfile(fileext = ".png")
+  ggplot2::ggsave(tf, plot_lc, width = 7, height = 5, dpi = dpi)
+  img_data <- base64enc::dataURI(file = tf, mime = "image/png")
+  
+  # HTML image + download button
+  htmltools::tagList(
+    htmltools::tags$div(
+      style = "margin-bottom:10px;",
+      htmltools::tags$img(
+        src = img_data,
+        style = "max-width:100%; height:auto; display:block; margin-bottom:5px;"
+      ),
+      htmltools::tags$button(
+        "Download PNG",
+        onclick = sprintf(
+          "var link = document.createElement('a'); link.download = '%s';
+          link.href = this.previousElementSibling.src; link.click();",
+          filename
+        ),
+        style = "padding:4px 8px; font-size:0.9em; 
+                 background:#d3d3d3; border-radius:4px; 
+                 color:#333333; text-decoration:none;
+                 border: none; outline: none;"
+      )
+    )
+  )
 }
 
 #' Summarize Emission Calculation
@@ -254,7 +299,7 @@ summary_of_emission_calculation <- function(quescdb, period) {
   az <- quescdb %>% 
     group_by(ID_PU, PU) %>% 
     summarise(Ha = sum(Ha, na.rm = TRUE), .groups = "drop") %>% 
-    rename(ID = ID_PU)
+    dplyr::rename(ID = ID_PU)
   
   # Calculate total emission per planning unit from quescdb
   ze <- quescdb %>% 
@@ -285,7 +330,7 @@ summary_of_emission_calculation <- function(quescdb, period) {
     mutate(PU_wrapped = str_wrap(PU, width = 10))
   
   # Create interactive plot
-  # Prepare data for plotting (moved outside the function for separation of concerns)
+  # Prepare data for plotting 
   zc_plot <- plotly::plot_ly(
     data = zc,
     x = ~reorder(stringr::str_wrap(PU, width = 40), -NET_EM_RATE),
@@ -341,12 +386,12 @@ summary_of_emission_calculation <- function(quescdb, period) {
     mutate(Ha = format(round(Ha, 2), nsmall = 2, big.mark = ",", decimal.mark = ".")) %>% 
     mutate_if(is.numeric, print_rate)
   
-  names(zc_final)[1:length(summary_zona_carbon_text_en)] <- names(summary_zona_carbon_text_en)
+  names(zc_final)[1:length(summary_zona_carbon_text_id)] <- names(summary_zona_carbon_text_id)
   
   # Create summary data frame
   summary_df <- data.frame(
     ID = 1:7,
-    Category = summary_text_en,
+    Category = summary_text_id,
     Summary = as.character(
       c(
         paste0(period$p1, "-", period$p2),
@@ -461,7 +506,7 @@ zonal_statistic_database <- function(quescdb, period) {
     mutate(Ha = format(round(Ha, 2), nsmall = 2, big.mark = ",", decimal.mark = ".")) %>%
     mutate_if(is.numeric, print_rate) %>%
     dplyr::rename(
-      unlist(summary_zonal_text_en)
+      unlist(summary_zonal_text_id)
     )
   
   # data_merge_sel <- quescdb[ which((quescdb$EM + quescdb$SQ) > 0), ]
@@ -789,40 +834,52 @@ generate_dummy_crosstab <- function(landcover, zone) {
   return(tibble::tibble(lucDummy))
 }
 
-#' Plot a categorical raster map
+#' Plot a categorical raster with an optional download button
 #'
-#' This function takes a raster object as input and produces a ggplot. If the raster
-#' object includes a "color_pallete" column with hex color codes, these colors are
-#' used for the fill scale. Otherwise, the default `scale_fill_hypso_d()` fill scale
-#' from the tidyterra package is used.
+#' This function creates a categorical map from a raster object using
+#' **ggplot2** and **tidyterra**. In HTML outputs (e.g., R Markdown HTML reports),
+#' the plot is rendered as an inline image with a **Download PNG** button.
+#' In non-HTML outputs (e.g., PDF, Word), only the `ggplot` object is returned.
 #'
-#' @param raster_object A raster object.
+#' If the raster's category table contains a `color_palette` column with valid
+#' hex codes, those colors are used for plotting. Otherwise, a default palette
+#' is applied. The plot legend is automatically formatted for readability.
 #'
-#' @return A ggplot object.
-#' @importFrom terra cats
-#' @importFrom ggplot2 ggplot theme_bw labs theme scale_fill_manual element_text unit element_blank guides guide_legend
-#' @importFrom tidyterra geom_spatraster scale_fill_hypso_d
+#' @param raster_object A [`SpatRaster`][terra::SpatRaster] object containing
+#'   categorical data. Should include category labels, and optionally a
+#'   `color_palette` column in `cats(raster_object)`.
+#' @param filename A string giving the default filename (with extension) for
+#'   the downloaded PNG in HTML output. Defaults to `"raster_plot.png"`.
+#' @param dpi An integer giving the resolution (dots per inch) for the saved
+#'   PNG image in HTML output. Defaults to `300`.
+#'
+#' @return 
+#' - If the output format is **HTML**: an [htmltools::tagList] containing the 
+#'   rendered raster plot and a styled download button.
+#' - If the output format is **non-HTML** (PDF, Word, etc.): a `ggplot` object
+#'   that can be further modified or printed.
+#'
+#' @examples
+#' \dontrun{
+#' library(terra)
+#' r <- rast(matrix(sample(1:3, 100, TRUE), 10, 10))
+#' cats(r) <- data.frame(ID = 1:3, class = c("Forest", "Agriculture", "Urban"))
+#'
+#' # Returns ggplot in non-HTML output
+#' plot_categorical_raster(r)
+#'
+#' # In HTML output, adds download button
+#' plot_categorical_raster(r, filename = "landcover_map.png", dpi = 200)
+#' }
+#'
 #' @export
-#' Plot a categorical raster map
-#'
-#' This function takes a raster object as input and produces a ggplot. If the raster
-#' object includes a "color_pallete" column with hex color codes, these colors are
-#' used for the fill scale. Otherwise, a default color palette is used.
-#'
-#' @param raster_object A SpatRaster object with categorical data.
-#'
-#' @return A ggplot object.
-#' @importFrom terra cats time
-#' @importFrom ggplot2 ggplot theme_bw labs theme scale_fill_manual element_text unit element_blank guides guide_legend
-#' @importFrom tidyterra geom_spatraster
-#' @export
-plot_categorical_raster <- function(raster_object) {
-  # Check if raster_object has a color_pallete column and it contains hex color codes
-  if ("color_palette" %in% names(terra::cats(raster_object)[[1]]) && all(grepl("^#[0-9A-Fa-f]{6}$", terra::cats(raster_object)$color_pallete))) {
-    fill_scale <- ggplot2::scale_fill_manual(values = terra::cats(raster_object)[[1]]$color_palette, na.value = "white")
+plot_categorical_raster <- function(raster_object, filename = "raster_plot.png", dpi = 300) {
+  # Color palette
+  if ("color_palette" %in% names(cats(raster_object)[[1]]) &&
+      all(grepl("^#[0-9A-Fa-f]{6}$", cats(raster_object)$color_pallete))) {
+    fill_scale <- scale_fill_manual(values = cats(raster_object)[[1]]$color_palette, na.value = "white")
   } else {
-    # fill_scale <- ggplot2::scale_fill_manual(values = c("#4E79A7", "#F28E2B", "#E15759", "#76B7B2", "#59A14F", "#EDC948", "#B07AA1", "#FF9DA7", "#9C755F","#BAB0AC"), na.value = "white")
-    fill_scale <- ggplot2::scale_fill_manual(values = c(
+    fill_scale <- scale_fill_manual(values = c(
       "#4E79A7", "#F28E2B", "#E15759", "#76B7B2", "#59A14F",
       "#EDC948", "#B07AA1", "#FF9DA7", "#9C755F", "#BAB0AC",
       "#86BCB6", "#FFB84D", "#A5C1DC", "#D37295", "#C4AD66",
@@ -835,32 +892,66 @@ plot_categorical_raster <- function(raster_object) {
       "#D9D9D9", "#BC80BD", "#CCEBC5", "#FFED6F", "#E41A1C"
     ), na.value = "white")
   }
-  if (!is.na(terra::time(raster_object))) {
-    plot_title <- terra::time(raster_object)
+  
+  if (!is.na(time(raster_object))) {
+    plot_title <- time(raster_object)
   } else {
     plot_title <- names(raster_object)
   }
+  
   # Generate the plot
-  plot_lc <- ggplot2::ggplot() +
+  plot_lc <- ggplot() +
     tidyterra::geom_spatraster(data = raster_object) +
     fill_scale +
-    ggplot2::theme_bw() +
-    ggplot2::labs(title = plot_title, fill = NULL) +
-    ggplot2::guides(fill = ggplot2::guide_legend(title.position = "top", ncol = 3)) +
-    ggplot2::theme(
-      axis.title.x = ggplot2::element_blank(),
-      axis.title.y = ggplot2::element_blank(),
-      panel.grid.major = ggplot2::element_blank(),
-      panel.grid.minor = ggplot2::element_blank(),
-      legend.title = ggplot2::element_text(size = 10),
-      legend.text = ggplot2::element_text(size = 8),
-      legend.key.height = ggplot2::unit(0.25, "cm"),
-      legend.key.width = ggplot2::unit(0.25, "cm"),
+    theme_bw() +
+    labs(title = plot_title, fill = NULL) +
+    guides(fill = guide_legend(title.position = "top", ncol = 2)) +
+    theme(
+      axis.title.x = element_blank(),
+      axis.title.y = element_blank(),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      legend.title = element_text(size = 12),
+      legend.text = element_text(size = 10),
+      legend.key.height = unit(0.25, "cm"),
+      legend.key.width = unit(0.25, "cm"),
       legend.position = "bottom",
-      legend.justification = c(0, 0.5)
+      legend.justification = c(0, 0.8)
     )
-  return(plot_lc)
+  
+  if (!knitr::is_html_output()) {
+    return(plot_lc)
+  }
+  
+  # Save PNG with custom dpi
+  tf <- tempfile(fileext = ".png")
+  ggsave(tf, plot_lc, width = 7, height = 5, dpi = dpi)
+  img_data <- base64enc::dataURI(file = tf, mime = "image/png")
+  
+  # download button
+  htmltools::tagList(
+    tags$div(
+      style = "margin-bottom:10px;",
+      tags$img(
+        src = img_data, 
+        style = "max-width:100%; height:auto; display:block; margin-bottom:5px;"
+      ),
+      tags$button(
+        "Download PNG",
+        onclick = sprintf(
+          "var link = document.createElement('a'); link.download = '%s';
+          link.href = this.previousElementSibling.src; link.click();",
+          filename
+        ),
+        style = "padding:4px 8px; font-size:0.9em; 
+                 background:#d3d3d3; border-radius:4px; 
+                 color:#333333; text-decoration:none;
+                 border: none; outline: none;"
+      )
+    )
+  )
 }
+
 
 #' Generate QUES-C Report
 #'
@@ -1004,7 +1095,7 @@ run_quesc_analysis <- function(lc_t1_path, lc_t2_path, admin_z_path, c_lookup_pa
   c_lookup_input <- readr::read_csv(c_lookup_path)
   
   
-  if (!is.null(progress_callback)) progress_callback(0.2, "load maps")
+  if (!is.null(progress_callback)) progress_callback(0.1, "Preparing land cover/use")
   
   lc_t1 <- lc_t1_path %>%
     terra::rast() %>%
@@ -1021,6 +1112,8 @@ run_quesc_analysis <- function(lc_t1_path, lc_t2_path, admin_z_path, c_lookup_pa
     ) %>%
     check_and_harmonise_geometry(reference_map = lc_t1)
   
+  if (!is.null(progress_callback)) progress_callback(0.2, "Preparing planning unit")
+  
   # read polygon
   zone_sf1 <- sf::st_read(admin_z_path)
   zone_sf <- sf::st_cast(zone_sf1, "MULTIPOLYGON")
@@ -1034,11 +1127,13 @@ run_quesc_analysis <- function(lc_t1_path, lc_t2_path, admin_z_path, c_lookup_pa
   zone <- zone %>%
     check_and_harmonise_geometry(reference_map = lc_t1)
   
+  if (!is.null(progress_callback)) progress_callback(0.4, "Running land cover/use change analysis")
+  
   preques <- LUMENSR::ques_pre(lc_t1, lc_t2, zone)
   period_year <- as.numeric(time_points$t1) - as.numeric(time_points$t2)
   lucDummy <- generate_dummy_crosstab(c_lookup_input, zone_lookup_input)
   
-  if (!is.null(progress_callback)) progress_callback(0.5, "create QUES-C database")
+  if (!is.null(progress_callback)) progress_callback(0.5, "Generating QuES-C database")
   
   # join table
   df_lucdb <- c_lookup_input %>% dplyr::rename(ID_LC1 = 1, C_T1 = 3) %>% dplyr::select(1:3) %>%
@@ -1062,7 +1157,7 @@ run_quesc_analysis <- function(lc_t1_path, lc_t2_path, admin_z_path, c_lookup_pa
     cbind(., as.matrix(c_lookup_input[, 3]) ) %>%
     rbind(., c(0, NA))
   
-  if (!is.null(progress_callback)) progress_callback(0.7, "generate carbon, emission, and sequestration maps")
+  if (!is.null(progress_callback)) progress_callback(0.6, "Generating carbon, emission, and sequestration maps")
   
   # create all maps
   map_carbon1 <- lc_t1 %>% terra::classify(reclassify_matrix)
@@ -1104,7 +1199,7 @@ run_quesc_analysis <- function(lc_t1_path, lc_t2_path, admin_z_path, c_lookup_pa
     session_log = session_log
   )
   
-  if (!is.null(progress_callback)) progress_callback(0.9, "outputs generated and saved")
+  if (!is.null(progress_callback)) progress_callback(0.7, "Exporting outputs")
   readr::write_csv(df_lucdb,
               paste0(output_dir, "/quesc_database.csv"),
               quote = "needed"
@@ -1126,9 +1221,10 @@ run_quesc_analysis <- function(lc_t1_path, lc_t2_path, admin_z_path, c_lookup_pa
               overwrite = T
   )
   
-  if (!is.null(progress_callback)) progress_callback(1, "generate report")
+  if (!is.null(progress_callback)) progress_callback(0.9, "Generating QuES-C report")
   generate_quesc_report(output_quesc = out, dir = output_dir)
   
+  if (!is.null(progress_callback)) progress_callback(1, "Analysis is done!")
   return(out)
 }
 
@@ -1202,4 +1298,258 @@ check_and_install_packages <- function(required_packages) {
   } else {
     cat("\nAll required packages are installed and loaded.\n")
   }
+}
+
+#' Render a DataTable with Enhanced Features
+#'
+#' Creates an interactive DT::datatable with common extensions and styling options
+#' pre-configured for ease of use. Includes export buttons, responsive design,
+#' professional styling, and automatic numeric formatting.
+#'
+#' @param data A data frame or matrix containing the data to be displayed.
+#' @param caption Character string specifying the table caption (optional).
+#' @param digits Integer specifying the number of decimal places for percentages (default = 2).
+#' @param area_digits Integer specifying the number of decimal places for area values (default = 0).
+#' @param notification_timeout Time in milliseconds for the copy notification to auto-dismiss (default = 3000 = 3 seconds).
+#'
+#' @return A DT::datatable object with enhanced features and styling.
+#'
+#' @details
+#' This function provides a convenient wrapper for creating DataTables with
+#' commonly used features:
+#' \itemize{
+#'   \item \strong{Extensions}: Buttons (export functionality) and Responsive (mobile-friendly)
+#'   \item \strong{Options}: Pagination, search, fixed columns, auto-width, ordering
+#'   \item \strong{Styling}: Display class with stripe and hover effects
+#'   \item \strong{Export}: Copy, CSV, and Excel export buttons
+#'   \item \strong{Formatting}: Automatic numeric formatting with thousands separators
+#'   \item \strong{Notification}: Auto-dismissing copy notifications
+#' }
+#'
+#' The DOM layout includes Buttons (B), length menu (l), filter (f), 
+#' processing (r), table (t), information (i), and pagination (p).
+#'
+#' @examples
+#' \dontrun{
+#' # Basic usage
+#' render_dt_table(mtcars, caption = "Motor Trend Car Road Tests")
+#'
+#' # Without caption
+#' render_dt_table(iris)
+#'
+#' # Custom decimal places
+#' render_dt_table(mtcars, digits = 0)
+#'
+#' # Use in R Markdown
+#' ```{r}
+#' library(DT)
+#' render_dt_table(mtcars, "Sample Data Table")
+#' ```
+#' }
+#'
+#' @seealso
+#' \code{\link[DT]{datatable}}, \code{\link[DT]{DTOutput}}
+#'
+#' @export
+render_dt_table <- function(data, caption = NULL, digits = 2, area_digits = 0, notification_timeout = 1000) {
+  css_fix <- htmltools::tags$style(htmltools::HTML(sprintf("
+    div.dt-button-info {
+      position: fixed;
+      top: 50%%;
+      left: 50%%;
+      transform: translate(-50%%, -50%%);
+      z-index: 10000;
+      background: white;
+      padding: 20px;
+      border: 2px solid #999;
+      border-radius: 5px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.3);
+      animation: fadeOut %dms ease-in %dms forwards;
+    }
+    
+    @keyframes fadeOut {
+      from { opacity: 1; }
+      to { opacity: 0; visibility: hidden; }
+    }
+  ", notification_timeout, notification_timeout)))
+  
+  formatted_data <- data
+  numeric_cols <- which(sapply(data, function(x) {
+    is.numeric(x) || (inherits(x, "units") && is.numeric(as.numeric(x)))
+  }))
+  
+  # Apply formatting to numeric columns
+  if (length(numeric_cols) > 0) {
+    for (col in numeric_cols) {
+      col_data <- data[[col]]
+      col_name <- names(data)[col]
+      is_percentage_col <- grepl("^%|Percent|Percentage|% T1|% T2", col_name, ignore.case = TRUE)
+      if (inherits(col_data, "units")) {
+        numeric_values <- as.numeric(col_data)
+        units_attr <- attributes(col_data)
+        is_integer_col <- all(numeric_values == floor(numeric_values), na.rm = TRUE)
+        if (is_integer_col) {
+          formatted_values <- format(numeric_values, big.mark = ",", scientific = FALSE, trim = TRUE)
+        } else {
+          formatted_values <- format(round(numeric_values, area_digits), big.mark = ",", scientific = FALSE, nsmall = area_digits, trim = TRUE)
+        }
+        if (!is.null(units_attr$units)) {
+          formatted_data[[col]] <- paste(formatted_values, units_attr$units)
+        } else {
+          formatted_data[[col]] <- formatted_values
+        }
+      } else {
+        is_integer_col <- all(col_data == floor(col_data), na.rm = TRUE)
+        if (is_percentage_col) {
+          formatted_data[[col]] <- format(round(col_data, digits), nsmall = digits, trim = TRUE)
+        } else if (is_integer_col) {
+          formatted_data[[col]] <- format(col_data, big.mark = ",", scientific = FALSE, trim = TRUE)
+        } else {
+          formatted_data[[col]] <- format(round(col_data, area_digits), big.mark = ",", scientific = FALSE, nsmall = area_digits, trim = TRUE)
+        }
+      }
+    }
+  }
+  
+  dt <- DT::datatable(
+    formatted_data,
+    extensions = c('Buttons', 'Responsive'),
+    options = list(
+      paging = TRUE,
+      searching = TRUE,
+      fixedColumns = TRUE,
+      autoWidth = TRUE,
+      ordering = TRUE,
+      dom = 'Blfrtip',
+      buttons = list(
+        list(extend = "copy", 
+             className = "btn btn-light btn-sm",
+             text = "Copy",
+             title = caption),
+        list(extend = "csv",  
+             className = "btn btn-light btn-sm",
+             title = caption),
+        list(extend = "excel", 
+             className = "btn btn-light btn-sm",
+             title = caption)
+      )
+    ),
+    class = "display stripe hover",
+    caption = caption,
+    rownames = FALSE
+  )
+  
+  htmltools::tagList(css_fix, dt)
+}
+
+#' Create an interactive map of a continuous raster with custom color gradient
+#'
+#' This function generates an interactive map using mapview and leaflet to visualize
+#' a continuous raster dataset with a custom color gradient. It creates a smooth
+#' color transition between the specified low and high colors and adds a custom
+#' legend with HTML formatting support.
+#'
+#' @param raster_data A SpatRaster object (from terra package) containing the
+#'   continuous data to be visualized.
+#' @param low_color Character string specifying the color for low values.
+#'   Can be a color name (e.g., "blue", "red") or hexadecimal color code.
+#' @param high_color Character string specifying the color for high values.
+#'   Can be a color name (e.g., "blue", "red") or hexadecimal color code.
+#' @param caption Character string for the legend title. Supports HTML formatting
+#'   for subscripts and superscripts (e.g., "Emission (tonne CO<sub>2</sub>-eq ha<sup>-1</sup>)").
+#' @param raster_layer Character string specifying the layer name to display
+#'   in the map controls (should be a simple name without special characters).
+#'
+#' @return A mapview object with an interactive map displaying the raster data
+#'   with the specified color gradient and a custom legend.
+#'
+#' @details
+#' The function uses mapview for the base map rendering and leaflet for adding
+#' a custom legend. The built-in mapview legend is disabled to allow for the
+#' custom HTML-formatted legend title.
+#'
+#' @note
+#' Requires the following packages: terra, mapview, leaflet
+#' The function will stop with an error message if any required package is not installed.
+#'
+#' @examples
+#' \dontrun{
+#' # Load required packages
+#' library(terra)
+#' 
+#' # Create a sample raster
+#' r <- rast(ncols = 100, nrows = 100)
+#' values(r) <- runif(ncell(r)) * 100
+#' 
+#' # Plot with custom colors and HTML-formatted caption
+#' plot_continuous_raster_mapview(
+#'   raster_data = r,
+#'   low_color = "blue",
+#'   high_color = "red",
+#'   caption = "Value (units<sup>-1</sup>)",
+#'   raster_layer = "Sample Data"
+#' )
+#' 
+#' # Plot with different colors and simpler caption
+#' plot_continuous_raster_mapview(
+#'   raster_data = r,
+#'   low_color = "green",
+#'   high_color = "purple",
+#'   caption = "Temperature (°C)",
+#'   raster_layer = "Temperature"
+#' )
+#' }
+#'
+#' @export
+#' @importFrom grDevices colorRampPalette
+#' @importFrom terra values
+#' @importFrom mapview mapview
+#' @importFrom leaflet addLegend colorNumeric labelFormat
+plot_continuous_raster_mapview <- function(raster_data, low_color, high_color, caption, raster_layer) {
+  
+  # Check if required packages are installed
+  if (!requireNamespace("terra", quietly = TRUE)) {
+    stop("Package 'terra' is required but not installed.")
+  }
+  if (!requireNamespace("mapview", quietly = TRUE)) {
+    stop("Package 'mapview' is required but not installed.")
+  }
+  if (!requireNamespace("leaflet", quietly = TRUE)) {
+    stop("Package 'leaflet' is required but not installed.")
+  }
+  
+  # Create a color ramp function from the specified low and high colors
+  color_palette <- grDevices::colorRampPalette(c(low_color, high_color))(255)
+  
+  # Create mapview without legend
+  map_result <- mapview::mapview(
+    raster_data,
+    col.regions = color_palette,
+    layer.name = raster_layer,
+    na.color = "transparent",
+    legend = FALSE
+  )
+  
+  # Get raster values for legend
+  raster_values <- terra::values(raster_data)
+  raster_values <- raster_values[!is.na(raster_values)]
+  min_val <- min(raster_values, na.rm = TRUE)
+  max_val <- max(raster_values, na.rm = TRUE)
+  
+  # Create custom legend using leaflet with continuous gradient
+  map_result@map <- map_result@map %>%
+    leaflet::addLegend(
+      position = "bottomright",
+      pal = leaflet::colorNumeric(
+        palette = color_palette,
+        domain = c(min_val, max_val),
+        na.color = "transparent"
+      ),
+      values = c(min_val, max_val),
+      title = caption,
+      labFormat = leaflet::labelFormat(),
+      opacity = 1
+    )
+  
+  return(map_result)
 }
