@@ -70,7 +70,7 @@ ui <- fluidPage(
     ),
     mainPanel(
       tabsetPanel(
-        tabPanel("User Guide", includeMarkdown("../helpfile/quesc_help.md")),
+        tabPanel("User Guide", includeMarkdown("../helpfile/quesc_help_ID.md")),
         tabPanel("Log",
                  textOutput("selected_directory"),         
                  verbatimTextOutput("status_messages"),
