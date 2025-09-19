@@ -119,8 +119,8 @@ server <- function(input, output, session) {
 
   output$user_guide <- renderUI({
     guide_paths <- c(
-      "03_preques/helpfile/preques_quick_user_guide.Rmd",
-      "../helpfile/preques_quick_user_guide.Rmd"
+      "03_preques/helpfile/preques_quick_user_guide_ID.Rmd",
+      "../helpfile/preques_quick_user_guide_ID.Rmd"
     )
 
     for (path in guide_paths) {

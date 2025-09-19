@@ -13,6 +13,7 @@ library(stringr)
 library(RColorBrewer)
 library(kableExtra)
 library(shinyFiles)
+library(pkgdown)
 
 # Source the functions
 source("functions_ta_profit.R")
@@ -131,8 +132,8 @@ server <- function(input, output, session) {
   
   output$user_guide <- renderUI({
     guide_paths <- c(
-      "07_ta-profit/helpfile/ta-profit_quick_user_guide.Rmd",
-      "../helpfile/ta-profit_quick_user_guide.Rmd"
+      "07_ta-profit/helpfile/ta-profit_quick_user_guide_ID.Rmd",
+      "../helpfile/ta-profit_quick_user_guide_ID.Rmd"
     )
     
     for (path in guide_paths) {
@@ -201,6 +202,7 @@ server <- function(input, output, session) {
         paths <- list(
           pathLULCT1 = input$lulc_t1$datapath,
           pathLULCT2 = input$lulc_t2$datapath,
+          pathPU = input$pu_raster$datapath,
           # pathLookupCstock = input$cstock_table$datapath,
           pathLookupNPV = input$npv_table$datapath,
           pathLookupPU = input$pu_table$datapath
