@@ -23,10 +23,10 @@ install_load(
   "shinyalert",
   "plotly",
   "stringr",
-  "mapview",
-  "leaflet",
   "readr",
-  "kableExtra"
+  "leaflet",
+  "stars",
+  "mapview"
 )
 
 if (!("LUMENSR" %in% rownames(installed.packages()))) {
@@ -253,7 +253,7 @@ server <- function(input, output, session) {
     
     showNotification("Analysis is running. Please wait...", type = "message", duration = NULL, id = "running_notification")
     
-    withProgress(message = "Running QUES-C Analysis", value = 0, {
+    withProgress(message = "Running QUES-C Module", value = 0, {
       tryCatch({
         # c_lookup_path <- rename_uploaded_file(input$carbon_file)
         results <- run_quesc_analysis(
