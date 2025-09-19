@@ -1,5 +1,5 @@
 ---
-title: "Laporan Modul Analisis Profitabilitas"
+title: "Laporan Analisis Profitabilitas"
 output: 
   html_document:
     toc: true
@@ -20,10 +20,13 @@ params:
   npv1_map: NA
   npv2_map: NA
   deltaNPV_map: NA
+  LULCT1: NA
+  LULCT2: NA
+  PU: NA
   map1_file_path: NULL
   map2_file_path: NULL
+  pu_file_path: NULL
   npv_file_path: NULL
-  carbon_file_path: NULL
   pu_table_path: NULL
   year1: NULL
   year2: NULL
@@ -45,6 +48,7 @@ library(scales)
 library(leaflet)
 library(mapview)
 library(dplyr)
+library(LUMENSR)
 ```
 
 <details><summary>Klik di sini untuk Log Analisis</summary>
@@ -59,7 +63,8 @@ analysis_log <- tribble(
   "Land Cover (t1)",      params$map1_file_path,
   "Land Cover (t2)",   params$map2_file_path,
   "Profitability data",   params$npv_file_path,
-  "Carbon stock data",   params$carbon_file_path,
+  "Planning Unit data",   params$pu_file_path,
+  "Planning Unit data",   params$pu_table_path,
   "Year 1", as.character(params$year1),
   "Year 2", as.character(params$year2),
   "NoData land-cover class", as.character(params$raster_nodata),
@@ -76,6 +81,171 @@ analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
 # Pendahuluan
 
 Laporan ini menyajikan hasil Analisis Profitabilitas berdasarkan skenario perubahan penggunaan lahan. Analisis berfokus pada penilaian Net Present Value (NPV) yang terkait dengan berbagai perubahan penggunaan lahan. Pendekatan ini membantu mengevaluasi implikasi keuangan dari transisi penggunaan lahan serta mendukung pengambilan keputusan yang terinformasi untuk menilai kelayakan ekonomi berbagai skenario penggunaan lahan.
+
+# Data yang Digunakan {.tabset}
+
+## Peta Tutupan/Penggunaan Lahan pada `r params$p1`
+
+```{r Land-Use/Cover Map T1, echo=FALSE, message=FALSE, warning=FALSE}
+fill_scale <- ggplot2::scale_fill_manual(
+  values = c(
+    "#4E79A7", "#F28E2B", "#E15759", "#76B7B2", "#59A14F",
+    "#EDC948", "#B07AA1", "#FF9DA7", "#9C755F", "#BAB0AC",
+    "#86BCB6", "#FFB84D", "#A5C1DC", "#D37295", "#C4AD66",
+    "#7B8D8E", "#B17B62", "#8CD17D", "#DE9D9C", "#5A5A5A",
+    "#A0A0A0", "#D7B5A6", "#6D9EEB", "#E69F00", "#56B4E9",
+    "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7",
+    "#999999", "#E51E10", "#FF7F00", "#FFFF33", "#A65628",
+    "#F781BF", "#999933", "#8DD3C7", "#FFFFB3", "#BEBADA",
+    "#FB8072", "#80B1D3", "#FDB462", "#B3DE69", "#FCCDE5",
+    "#D9D9D9", "#BC80BD", "#CCEBC5", "#FFED6F", "#E41A1C"
+  ),
+  na.value = "white",
+  name = "Tutupan Lahan"
+)
+
+lc1_map <- ggplot() +
+  tidyterra::geom_spatraster(data = params$LULCT1) +
+  fill_scale + 
+  theme_bw() +
+  theme(
+    axis.title = element_blank(),
+    panel.grid = element_blank(),
+    legend.title = element_text(size = 10),
+    legend.text = element_text(size = 8),
+    legend.key.height = unit(1, "cm"),
+    legend.key.width = unit(0.25, "cm"),
+    legend.position = "right",
+    legend.justification = c(0, 0.5),
+    plot.title = element_text(hjust = 0.5, face = "bold")
+  )
+
+lc1_map
+```
+
+## Peta Tutupan/Penggunaan Lahan pada `r params$p2`
+
+```{r Land-Use/Cover Map T2, echo=FALSE, message=FALSE, warning=FALSE}
+fill_scale <- ggplot2::scale_fill_manual(
+  values = c(
+    "#4E79A7", "#F28E2B", "#E15759", "#76B7B2", "#59A14F",
+    "#EDC948", "#B07AA1", "#FF9DA7", "#9C755F", "#BAB0AC",
+    "#86BCB6", "#FFB84D", "#A5C1DC", "#D37295", "#C4AD66",
+    "#7B8D8E", "#B17B62", "#8CD17D", "#DE9D9C", "#5A5A5A",
+    "#A0A0A0", "#D7B5A6", "#6D9EEB", "#E69F00", "#56B4E9",
+    "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7",
+    "#999999", "#E51E10", "#FF7F00", "#FFFF33", "#A65628",
+    "#F781BF", "#999933", "#8DD3C7", "#FFFFB3", "#BEBADA",
+    "#FB8072", "#80B1D3", "#FDB462", "#B3DE69", "#FCCDE5",
+    "#D9D9D9", "#BC80BD", "#CCEBC5", "#FFED6F", "#E41A1C"
+  ),
+  na.value = "white",
+  name = "Tutupan Lahan"
+)
+
+lc2_map <- ggplot() +
+  tidyterra::geom_spatraster(data = params$LULCT2) +
+  fill_scale + 
+  theme_bw() +
+  theme(
+    axis.title = element_blank(),
+    panel.grid = element_blank(),
+    legend.title = element_text(size = 10),
+    legend.text = element_text(size = 8),
+    legend.key.height = unit(1, "cm"),
+    legend.key.width = unit(0.25, "cm"),
+    legend.position = "right",
+    legend.justification = c(0, 0.5),
+    plot.title = element_text(hjust = 0.5, face = "bold")
+  )
+
+lc2_map
+```
+
+## Peta Unit Perencanaan
+
+```{r Planning Unit, echo=FALSE, message=FALSE, warning=FALSE}
+fill_scale <- ggplot2::scale_fill_manual(
+  values = c(
+    "#4E79A7", "#F28E2B", "#E15759", "#76B7B2", "#59A14F",
+    "#EDC948", "#B07AA1", "#FF9DA7", "#9C755F", "#BAB0AC",
+    "#86BCB6", "#FFB84D", "#A5C1DC", "#D37295", "#C4AD66",
+    "#7B8D8E", "#B17B62", "#8CD17D", "#DE9D9C", "#5A5A5A",
+    "#A0A0A0", "#D7B5A6", "#6D9EEB", "#E69F00", "#56B4E9",
+    "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7",
+    "#999999", "#E51E10", "#FF7F00", "#FFFF33", "#A65628",
+    "#F781BF", "#999933", "#8DD3C7", "#FFFFB3", "#BEBADA",
+    "#FB8072", "#80B1D3", "#FDB462", "#B3DE69", "#FCCDE5",
+    "#D9D9D9", "#BC80BD", "#CCEBC5", "#FFED6F", "#E41A1C"
+  ),
+  na.value = "white",
+  name = "Tutupan Lahan"
+)
+
+pu_map <- ggplot() +
+  tidyterra::geom_spatraster(data = params$PU) +
+  fill_scale + 
+  theme_bw() +
+  theme(
+    axis.title = element_blank(),
+    panel.grid = element_blank(),
+    legend.title = element_text(size = 10),
+    legend.text = element_text(size = 8),
+    legend.key.height = unit(1, "cm"),
+    legend.key.width = unit(0.25, "cm"),
+    legend.position = "right",
+    legend.justification = c(0, 0.5),
+    plot.title = element_text(hjust = 0.5, face = "bold")
+  )
+
+pu_map
+```
+
+## Tabel Acuan Unit Perencanaan
+
+```{r PU Lookup Table, echo=FALSE, message=FALSE, warning=FALSE}
+datatable(
+  read.csv(params$pu_table_path),
+    extensions = c('Buttons', 'Responsive'),
+    options = list(
+      paging = TRUE,
+      searching = TRUE,
+      fixedColumns = TRUE,
+      autoWidth = TRUE,
+      ordering = TRUE,
+      dom = 'Blfrtip',
+      buttons = list(
+        list(extend = "copy", className = "btn btn-light btn-sm"),
+        list(extend = "csv",  className = "btn btn-light btn-sm"),
+        list(extend = "excel",className = "btn btn-light btn-sm")
+        )
+    ),
+    class = "display stripe hover"
+)
+```
+
+## Tabel Acuan NPV
+
+```{r NPV Lookup Table, echo=FALSE, message=FALSE, warning=FALSE}
+datatable(
+  read.csv(params$npv_file_path),
+    extensions = c('Buttons', 'Responsive'),
+    options = list(
+      paging = TRUE,
+      searching = TRUE,
+      fixedColumns = TRUE,
+      autoWidth = TRUE,
+      ordering = TRUE,
+      dom = 'Blfrtip',
+      buttons = list(
+        list(extend = "copy", className = "btn btn-light btn-sm"),
+        list(extend = "csv",  className = "btn btn-light btn-sm"),
+        list(extend = "excel",className = "btn btn-light btn-sm")
+        )
+    ),
+    class = "display stripe hover"
+)
+```
 
 # Hasil Analisis
 Alur kerja analisis melibatkan beberapa langkah kunci:
