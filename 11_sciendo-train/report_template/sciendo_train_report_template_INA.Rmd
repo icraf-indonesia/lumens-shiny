@@ -192,7 +192,7 @@ Variance Inflation Factor (VIF) adalah metode untuk mengukur sejauh mana variabe
 
 ```{r vif, echo=FALSE, message=FALSE, warning=FALSE, fig.show='hide'}
 collinearity <- analyze_multicollinearity(factor_path, verbose = FALSE)
-render_dt_table(collinearity$vif_table, caption = "Tabel Cadagan Karbon")
+render_dt_table(collinearity$vif_table, caption = "Tabel Cadagan Karbon", area_digits = 3)
 ```
 
 ### Matriks kolinearitas
