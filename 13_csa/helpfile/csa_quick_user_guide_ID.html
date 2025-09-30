@@ -1,0 +1,90 @@
+
+
+
+<div id="gambaran-umum" class="section level1">
+<h1>Gambaran Umum</h1>
+<p>Modul Analisis Profitabilitas memungkinkan pengguna untuk menilai
+manfaat ekonomi dari skenario perubahan penggunaan lahan dengan
+menghitung <em>Net Present Value</em> (NPV). Modul ini mengevaluasi
+dampak finansial sekaligus lingkungan, membantu mengidentifikasi
+pertukaran (<em>trade-offs</em>) antara pembangunan ekonomi dan
+keberlanjutan lingkungan.</p>
+</div>
+<div id="konsep-utama" class="section level1">
+<h1>Konsep Utama:</h1>
+<ol style="list-style-type: decimal">
+<li><strong>Net Present Value (NPV)</strong>: Suatu metrik keuangan yang
+menghitung nilai saat ini dari arus kas di masa depan yang dihasilkan
+oleh suatu proyek atau investasi, dengan memperhitungkan nilai waktu
+dari uang. NPV membantu menilai profitabilitas dari berbagai skenario
+penggunaan lahan.</li>
+</ol>
+<!-- 2. **Biaya Peluang (Opportunity Cost)**: Potensi manfaat yang hilang ketika memilih satu opsi penggunaan lahan dibandingkan dengan yang lain. Konsep ini menyoroti pertukaran antara pembangunan ekonomi dan keberlanjutan lingkungan. -->
+<p><!-- 3. **Emisi Karbon**: Pelepasan karbon dioksida (CO2) dan gas rumah kaca lainnya yang terkait dengan berbagai praktik penggunaan lahan. Memahami emisi karbon penting untuk menilai dampak lingkungan dan mengembangkan strategi mitigasi. --></p>
+<ol start="2" style="list-style-type: decimal">
+<li><strong>Manfaat Ekonomi</strong>: Keuntungan finansial yang
+diperoleh dari perubahan penggunaan lahan, mencakup peningkatan
+pendapatan, penghematan biaya, serta potensi investasi dalam praktik
+berkelanjutan. Analisis ini membantu pengambil keputusan menyeimbangkan
+tujuan ekonomi dan lingkungan.</li>
+</ol>
+</div>
+<div id="data-dan-variabel-input" class="section level1">
+<h1>Data dan Variabel Input</h1>
+<p>Sebelum menggunakan alat Analisis Profitabilitas, siapkan hal-hal
+berikut:</p>
+<ol style="list-style-type: decimal">
+<li><p><strong>Peta Tutupan Lahan Tahun Pertama</strong>: File raster
+kategorikal dalam format GeoTIFF yang merepresentasikan jenis penggunaan
+lahan pada tahun awal. File ini harus menggunakan sistem proyeksi
+UTM.</p></li>
+<li><p><strong>Peta Tutupan Lahan Tahun Kedua</strong>: File raster
+kategorikal dalam format GeoTIFF yang merepresentasikan jenis penggunaan
+lahan pada tahun akhir, juga menggunakan sistem proyeksi UTM.</p></li>
+<li><p><strong>Tabel Lookup NPV</strong>: File CSV berisi data numerik
+yang menggambarkan aliran pendapatan dan struktur biaya untuk setiap
+jenis penggunaan lahan. Tabel ini menyediakan nilai <em>Net Present
+Value</em> (NPV) dari berbagai jenis penggunaan lahan.</p></li>
+</ol>
+<!-- 4. **Tabel Lookup QUES-C**: File CSV dengan data numerik tentang cadangan karbon. Basis data ini mencakup nilai karbon (CO2eq) yang terkait dengan berbagai jenis penggunaan lahan. -->
+<p>## Menggunakan Modul Analisis Profitabilitas</p>
+<p>Ikuti langkah-langkah berikut untuk menggunakan modul:</p>
+<p><video controls style="max-width:80%;height:auto;">
+<source src="ta-profit.mp4" type="video/mp4"> Browser Anda tidak
+mendukung pemutar video. </video></p>
+<p># Hasil Analisis</p>
+<p>Setelah analisis selesai, Anda akan menemukan output berikut pada
+direktori yang dipilih:</p>
+<ol style="list-style-type: decimal">
+<li><p><strong>Peta Distribusi NPV Tahun Pertama</strong>: Peta raster
+biner dalam format GeoTIFF yang diturunkan dari peta tutupan lahan. Peta
+ini menyoroti kelas area fokus yang ditentukan pengguna, di mana area
+fokus direpresentasikan dengan nilai 1, menunjukkan area yang menjadi
+perhatian untuk analisis karbon pada tahun pertama.</p></li>
+<li><p><strong>Peta Distribusi NPV Tahun Kedua</strong>: Peta raster
+biner dalam format GeoTIFF yang diturunkan dari peta tutupan lahan. Peta
+ini menyoroti kelas area fokus yang ditentukan pengguna, di mana area
+fokus direpresentasikan dengan nilai 1, menunjukkan area yang menjadi
+perhatian untuk analisis karbon pada tahun kedua.</p></li>
+</ol>
+<!-- 3. **Peta Emisi**: Representasi berbasis raster dari data emisi, menggunakan shapefile poligon berupa grid sampel. Grid ini digunakan untuk mengekstrak nilai kunci terkait TECI dan ukuran area fokus, yang berkontribusi dalam memahami emisi akibat perubahan penggunaan lahan. -->
+<p><!-- 4. **Peta Biaya Peluang**: Plot raster yang merepresentasikan Indeks Integrasi Area Fokus (DIFA). Sumbu x menunjukkan *Total Edge Contrast Index* (TECI), sedangkan sumbu y menampilkan proporsi kumulatif area fokus. Kurva menggambarkan hubungan antara fragmentasi habitat (TECI) dan jumlah habitat, dengan luas area di bawah kurva menentukan skor DIFA (berkisar 0–100%). Skor DIFA yang lebih tinggi menunjukkan integrasi habitat yang lebih baik. --></p>
+<ol start="3" style="list-style-type: decimal">
+<li><strong>Laporan Analisis Profitabilitas</strong>: Laporan HTML yang
+merangkum hasil analisis profitabilitas. Laporan ini mencakup
+interpretasi utama dan visualisasi output, seperti peta karbon, emisi,
+dan biaya peluang, yang memberikan wawasan mengenai dampak ekonomi dan
+lingkungan dari perubahan penggunaan lahan.</li>
+</ol>
+<hr />
+<p>Untuk informasi lebih detail atau pemecahan masalah, lihat
+dokumentasi lengkap Analisis Profitabilitas di sini <a href="https://help.lumens.or.id/07-profitability.html" class="uri">https://help.lumens.or.id/07-profitability.html</a> atau
+hubungi pengembang alat ini.</p>
+<p><font size="1">LUMENS adalah perangkat lunak gratis dan hadir TANPA
+JAMINAN APA PUN. Pengguna bertanggung jawab atas hasil yang dihasilkan.
+Hasil sangat bergantung pada kualitas data input (“garbage in, garbage
+out”) dan dapat bervariasi atau sensitif terhadap parameter yang
+digunakan. Silakan laporkan setiap masalah yang ditemui saat menggunakan
+LUMENS sebagai <a href="https://github.com/icraf-indonesia/lumens-shiny/issues">GitHub
+issue</a>. Umpan balik dan pertanyaan dipersilakan <a href="mailto:lumens@cifor-icraf.org">Contact Us</a>.</font></p>
+</div>

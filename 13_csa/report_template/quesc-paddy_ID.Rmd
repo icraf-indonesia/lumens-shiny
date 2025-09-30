@@ -1,0 +1,57 @@
+---
+title: "Laporan Analisis Lahan Sawah"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+    df_print: kable
+params:
+  areaOfAgricTable: NA
+  start_time: NA
+  end_time: NA
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(knitr)
+library(kableExtra)
+library(DT)
+library(dplyr)
+```
+
+# Pendahuluan
+
+Laporan ini menyajikan data luas lahan sawah irigasi dan tadah hujan serta indeks tanam per tahun.
+
+Waktu mulai analisis: `r params$start_time`  
+Waktu selesai analisis: `r params$end_time`
+
+# Data yang Digunakan {.tabset}
+
+## Tabel Luas Sawah (areaOfAgricTable)
+
+```{r}
+datatable(
+  params$areaOfAgricTable,
+  extensions = c('Buttons', 'Responsive'),
+  options = list(
+    paging = TRUE,
+    searching = TRUE,
+    fixedColumns = TRUE,
+    autoWidth = TRUE,
+    ordering = TRUE,
+    dom = 'Blfrtip',
+    buttons = list(
+      list(extend = "copy", className = "btn btn-light btn-sm"),
+      list(extend = "csv",  className = "btn btn-light btn-sm"),
+      list(extend = "excel",className = "btn btn-light btn-sm")
+    )
+  ),
+  class = "display stripe hover"
+)
+```
+
+# Kesimpulan
+
+Data ini dapat digunakan untuk mendukung analisis profitabilitas dan intensitas tanam sawah.
