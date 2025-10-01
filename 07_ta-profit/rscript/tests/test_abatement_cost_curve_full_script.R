@@ -1,6 +1,10 @@
+library(terra)
+library(dplyr)
+library(ggplot2)
+library(readr)
+
 # Define data directory
 data_dir <- "D:/ICRAF/Kodingan/icraf-indonesia/lumens-shiny"
-
 pathLULCT1 <- file.path(data_dir, "data/raster/bungo_landcover_1990r.tif")
 pathLULCT2 <- file.path(data_dir, "data/raster/bungo_landcover_2000r.tif")
 valueT1 <- 1990
