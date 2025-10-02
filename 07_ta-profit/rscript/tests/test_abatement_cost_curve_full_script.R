@@ -121,7 +121,8 @@ build_opcost_table <- function(dt_quesc_npv, period, total_area) {
     luchg = data_em_sel$LULCC,
     zone = data_em_sel$PU,
     opcost = data_em_sel$opcost,
-    emrate = data_em_sel$em_rate
+    emrate = data_em_sel$em_rate,
+    area = data_em_sel$Ha
   ) %>%
     filter(!is.nan(opcost), !is.na(opcost))
   
@@ -152,7 +153,8 @@ df_curve <- data.frame(
   opportunity_cost = opcost_table$opcost,
   log_opportunity_cost = opcost_table$opcost_log,
   land_use_change = opcost_table$luchg,
-  planning_unit = opcost_table$zone
+  planning_unit = opcost_table$zone,
+  area = opcost_table$area
 )
 
 # Group data by land use change
@@ -189,17 +191,40 @@ df_neg <- df_s %>%
     xmin = cumsum(emission_rate)  # reversed stacking toward negative
   )
 
+df_pu_dominance <- df_curve %>%
+  group_by(land_use_change, planning_unit) %>%
+  summarise(total_area = sum(area), .groups = "drop") %>%
+  group_by(land_use_change) %>%
+  mutate(
+    land_use_total_area = sum(total_area),
+    pct_of_largest_pu = total_area / land_use_total_area
+  ) %>%
+  slice_max(total_area, n = 1, with_ties = FALSE) %>%  # get largest PU only
+  ungroup() %>%
+  select(land_use_change, planning_unit, pct_of_largest_pu)
+
 # Combine back
-df_s_fixed <- bind_rows(df_pos, df_neg) %>%
+# df_s_fixed <- bind_rows(df_pos, df_neg) %>%
+#   mutate(
+#     hover_text = paste0(
+#       "Land Use Change: ", land_use_change, "<br>",
+#       "Opportunity Cost: ", scales::comma(opportunity_cost), "<br>",
+#       "Emission Rate: ", scales::comma(emission_rate)
+#     )
+#   )
+
+df_s_final <- bind_rows(df_pos, df_neg) %>%
+  left_join(df_pu_dominance, by = "land_use_change") %>%
   mutate(
     hover_text = paste0(
       "Land Use Change: ", land_use_change, "<br>",
       "Opportunity Cost: ", scales::comma(opportunity_cost), "<br>",
-      "Emission Rate: ", scales::comma(emission_rate)
+      "Emission Rate: ", scales::comma(emission_rate), "<br>",
+      "Largest PU: ", planning_unit, " (", scales::percent(pct_of_largest_pu, accuracy = 0.1), ")"
     )
   )
 
-p <- ggplot(df_s_fixed) +
+p <- ggplot(df_s_final) +
   geom_rect(aes(
     xmin = xmin, xmax = xmax, ymin = 0, ymax = opportunity_cost_log,
     fill = land_use_change,
