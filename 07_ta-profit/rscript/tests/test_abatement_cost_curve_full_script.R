@@ -2,6 +2,9 @@ library(terra)
 library(dplyr)
 library(ggplot2)
 library(readr)
+library(scales)
+library(purrr)
+library(plotly)
 
 # Define data directory
 data_dir <- "D:/ICRAF/Kodingan/icraf-indonesia/lumens-shiny"
@@ -148,7 +151,8 @@ df_curve <- data.frame(
   emission_rate = opcost_table$emrate,
   opportunity_cost = opcost_table$opcost,
   log_opportunity_cost = opcost_table$opcost_log,
-  land_use_change = opcost_table$luchg
+  land_use_change = opcost_table$luchg,
+  planning_unit = opcost_table$zone
 )
 
 # Group data by land use change
@@ -160,8 +164,7 @@ df_grouped <- df_curve %>%
 # Filter and order data
 df_all <- df_grouped %>% filter(opportunity_cost != 0)
 
-df <- df_all %>%
-  filter(emission_rate > 0) %>%
+df_s <- df_all %>%
   mutate(
     opportunity_cost_log = case_when(
       opportunity_cost > 0 ~ log10(opportunity_cost),
@@ -169,34 +172,154 @@ df <- df_all %>%
       opportunity_cost == 0 ~ 0
     )
   ) %>%
-  arrange(opportunity_cost_log) %>% 
+  arrange(opportunity_cost_log)
+
+# Split into positive and negative emissions
+df_pos <- df_s %>%
+  filter(emission_rate >= 0) %>%
   mutate(
     xmin = lag(cumsum(emission_rate), default = 0),
-    xmax = cumsum(emission_rate),
+    xmax = cumsum(emission_rate)
+  )
+
+df_neg <- df_s %>%
+  filter(emission_rate < 0) %>%
+  mutate(
+    xmax = lag(cumsum(emission_rate), default = 0),
+    xmin = cumsum(emission_rate)  # reversed stacking toward negative
+  )
+
+# Combine back
+df_s_fixed <- bind_rows(df_pos, df_neg) %>%
+  mutate(
     hover_text = paste0(
       "Land Use Change: ", land_use_change, "<br>",
-      "Opportunity Cost: ", round(opportunity_cost, 2), "<br>",
-      "Emission Rate: ", round(emission_rate, 2)
+      "Opportunity Cost: ", scales::comma(opportunity_cost), "<br>",
+      "Emission Rate: ", scales::comma(emission_rate)
     )
   )
 
-p <- ggplot(df) +
+p <- ggplot(df_s_fixed) +
   geom_rect(aes(
     xmin = xmin, xmax = xmax, ymin = 0, ymax = opportunity_cost_log,
     fill = land_use_change,
-    text = hover_text   # << important for ggplotly tooltip
+    text = hover_text 
   ), color = "black") +
-  # geom_text(aes(
-  #   x = (xmin + xmax) / 2,
-  #   y = opportunity_cost + ifelse(opportunity_cost > 0, 5, -5),
-  #   label = label_wrapped
-  # ), size = 1) +
   labs(
     x = "Emission Rate (ton CO2e/ ha year)",
     y = "Opportunity Cost (currency/ton CO2e)",
     title = "Abatement Cost Curve"
   ) +
+  scale_x_continuous(
+    limits = function(x) {
+      max_abs <- max(abs(c(x[1], x[2])))
+      c(min(x), max_abs)
+    },
+    breaks = function(x) pretty(x, n = 6),
+    labels = function(x) scales::comma(x, accuracy = 0.01)
+  ) +
+  scale_y_continuous(
+    breaks = function(x) floor(min(x)):ceiling(max(x)),
+    labels = function(x) {
+      # Handle both positive and negative log values
+      values <- ifelse(x >= 0, 10^x, -10^abs(x))
+      ifelse(
+        values == floor(values),
+        scales::comma(values, accuracy = 1),
+        scales::comma(values)
+      )
+    }
+  ) +
   theme_minimal() +
   theme(legend.position = "none")
 
 ggplotly(p, tooltip = "text")
+
+### per Planning Unit
+# Prepare data
+df_pu <- df_curve %>%
+  filter(opportunity_cost != 0) %>%
+  mutate(
+    opportunity_cost_log = case_when(
+      opportunity_cost > 0 ~ log10(opportunity_cost),
+      opportunity_cost < 0 ~ -log10(abs(opportunity_cost)),
+      opportunity_cost == 0 ~ 0
+    )
+  )
+
+# Function to assign xmin/xmax per planning unit with directional stacking
+process_unit <- function(df) {
+  df_pos <- df %>%
+    filter(emission_rate >= 0) %>%
+    arrange(opportunity_cost_log) %>%
+    mutate(
+      xmin = lag(cumsum(emission_rate), default = 0),
+      xmax = cumsum(emission_rate)
+    )
+  
+  df_neg <- df %>%
+    filter(emission_rate < 0) %>%
+    arrange(opportunity_cost_log) %>%
+    mutate(
+      xmax = lag(cumsum(emission_rate), default = 0),
+      xmin = cumsum(emission_rate)
+    )
+  
+  bind_rows(df_pos, df_neg) %>%
+    mutate(
+      hover_text = paste0(
+        "Land Use Change: ", land_use_change, "<br>",
+        "Opportunity Cost: ", scales::comma(opportunity_cost), "<br>",
+        "Emission Rate: ", scales::comma(emission_rate)
+      )
+    )
+}
+
+# Apply per planning unit
+df_pu_processed <- df_pu %>%
+  group_split(planning_unit) %>%
+  map_df(process_unit)
+
+# Generate plots per planning unit
+plots_list <- df_pu_processed %>%
+  split(.$planning_unit) %>%
+  map(~ {
+    p <- ggplot(.x) +
+      geom_rect(aes(
+        xmin = xmin, xmax = xmax, ymin = 0, ymax = opportunity_cost_log,
+        fill = land_use_change,
+        text = hover_text
+      ), color = "black") +
+      labs(
+        x = "Emission Rate (ton CO2e/ ha year)",
+        y = "Opportunity Cost (currency/ton CO2e)",
+        title = paste("Abatement Cost Curve -", unique(.x$planning_unit))
+      ) +
+      scale_y_continuous(
+        breaks = function(x) floor(min(x)):ceiling(max(x)),
+        labels = function(x) {
+          values <- ifelse(x >= 0, 10^x, -10^abs(x))
+          ifelse(
+            values == floor(values),
+            scales::comma(values, accuracy = 1),
+            scales::comma(values)
+          )
+        }
+      ) +
+      scale_x_continuous(
+        limits = function(x) {
+          max_abs <- max(abs(c(x[1], x[2])))
+          c(min(x), max_abs)
+        },
+        breaks = function(x) pretty(x, n = 6),
+        labels = function(x) scales::comma(x, accuracy = 0.01)
+      ) +
+      theme_minimal() +
+      theme(legend.position = "none")
+    
+    ggplotly(p, tooltip = "text")
+  })
+
+# Show first plot
+plots_list[[1]]
+
