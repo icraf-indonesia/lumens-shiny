@@ -17,6 +17,7 @@ pathLookupPU<- file.path(data_dir, "data/table/zone_table_bungo.csv")
 pathLookupNPV<- file.path(data_dir, "data/table/profitability_table_bungo.csv")
 pathLookupCARBON<- file.path(data_dir, "data/table/carbon_bungo.csv")
 period <- valueT2 - valueT1
+currency <- "IDR"
 
 # PREPROCESSING DATA #### 
 LULCT1 <- rast(pathLULCT1)
@@ -217,10 +218,10 @@ df_s_final <- bind_rows(df_pos, df_neg) %>%
   left_join(df_pu_dominance, by = "land_use_change") %>%
   mutate(
     hover_text = paste0(
-      "Land Use Change: ", land_use_change, "<br>",
+      "Perubahan Lahan: ", land_use_change, "<br>",
       "Opportunity Cost: ", scales::comma(opportunity_cost), "<br>",
-      "Emission Rate: ", scales::comma(emission_rate), "<br>",
-      "Largest PU: ", planning_unit, " (", scales::percent(pct_of_largest_pu, accuracy = 0.1), ")"
+      "Laju Emisi: ", scales::comma(emission_rate), "<br>",
+      "Dominasi Unit Perencanaan: ", planning_unit, " (", scales::percent(pct_of_largest_pu, accuracy = 0.1), ")"
     )
   )
 
@@ -231,9 +232,9 @@ p <- ggplot(df_s_final) +
     text = hover_text 
   ), color = "black") +
   labs(
-    x = "Emission Rate (ton CO2e/ ha year)",
-    y = "Opportunity Cost (currency/ton CO2e)",
-    title = "Abatement Cost Curve"
+    x = "Laju Emisi (ton CO<sub>2</sub>-eq/ha.tahun)",
+    y = paste0("Opportunity Cost (", currency, "/ton CO<sub>2</sub>-eq)"),
+    title = "Kurva Abatement Cost"
   ) +
   scale_x_continuous(
     limits = function(x) {
@@ -293,9 +294,9 @@ process_unit <- function(df) {
   bind_rows(df_pos, df_neg) %>%
     mutate(
       hover_text = paste0(
-        "Land Use Change: ", land_use_change, "<br>",
+        "Perubahan Lahan: ", land_use_change, "<br>",
         "Opportunity Cost: ", scales::comma(opportunity_cost), "<br>",
-        "Emission Rate: ", scales::comma(emission_rate)
+        "Laju Emisi: ", scales::comma(emission_rate)
       )
     )
 }
@@ -316,9 +317,9 @@ plots_list <- df_pu_processed %>%
         text = hover_text
       ), color = "black") +
       labs(
-        x = "Emission Rate (ton CO2e/ ha year)",
-        y = "Opportunity Cost (currency/ton CO2e)",
-        title = paste("Abatement Cost Curve -", unique(.x$planning_unit))
+        x = "Laju Emisi (ton CO<sub>2</sub>-eq/ha.tahun)",
+        y = paste0("Opportunity Cost (", currency, "/ton CO<sub>2</sub>-eq)"),                            
+        title = paste("Kurva Abatement Cost -", unique(.x$planning_unit))
       ) +
       scale_y_continuous(
         breaks = function(x) floor(min(x)):ceiling(max(x)),
