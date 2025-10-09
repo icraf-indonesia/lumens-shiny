@@ -147,7 +147,7 @@ build_opcost_table <- function(dt_quesc_npv, period, total_area) {
 # Build the opportunity cost table based on the land use change period and total area
 opcost_result <- build_opcost_table(combinedRasterTable, period, total_area)
 opcost_table <- opcost_result$opcost_all
-opcost_table$order <- c(1:nrow(opcost_table))
+# opcost_table$order <- c(1:nrow(opcost_table))
 
 df_curve <- data.frame(
   emission_rate = opcost_table$emrate,

@@ -71,29 +71,14 @@ plot_categorical_raster <- function(raster_object) {
 # Helper function for consistent number formatting
 easy_to_read_numbers <- scales::label_comma()
 
-# Fungsi untuk transformasi logaritmik dengan penanganan nilai nol/negatif
-log_transform <- function(x, base = 10, offset = 1) {
-  if (is.numeric(x)) {
-    # Handle negative values and zeros by adding offset
-    sign(x) * log(abs(x) + offset, base = base)
-  } else {
-    x
-  }
-}
-
 # Data Processing Functions
-# preprocess_data <- function(pathLULCT1, pathLULCT2, pathPU, 
-#                             pathLookupCstock, pathLookupPU, pathLookupNPV,
-#                             valueT1, valueT2) {
-
 preprocess_data <- function(pathLULCT1, pathLULCT2, pathPU, 
-                            pathLookupPU, pathLookupNPV,
+                            pathLookupPU, pathLookupNPV, pathLookupCstock,
                             valueT1, valueT2) {  
-    
+  
   # Load and process LULC T1
   LULCT1 <- terra::rast(pathLULCT1)
   LookupNPV <- readr::read_csv(pathLookupNPV)
-  # LookupCstock <- readr::read_csv(pathLookupCstock)
   levels(LULCT1) <- LookupNPV
   LULCT1 <- setNames(LULCT1, "LC1")
   if (!is.null(valueT1)) terra::time(LULCT1, tstep = "years") <- as.numeric(valueT1)
@@ -126,8 +111,8 @@ preprocess_data <- function(pathLULCT1, pathLULCT2, pathPU,
   
   colnames(combinedRasterTable)[1:3] <- c("PU", "LC1", "LC2")
   
-  LookupCARBON<- read_csv(pathLookupCARBON)
-  LookupCARBON <- LookupCARBON %>% dplyr::select(ID = 1, LC = 2, Carbon = 3)
+  LookupCstock <- readr::read_csv(pathLookupCstock)
+  LookupCstock <- LookupCstock %>% dplyr::select(ID = 1, LC = 2, Carbon = 3)
   
   # Join with NPV and CARBON data
   combinedRasterTable <- combinedRasterTable %>%
@@ -135,8 +120,8 @@ preprocess_data <- function(pathLULCT1, pathLULCT2, pathPU,
     left_join(LookupNPV %>% rename_all(~paste0(., "_LC1")), by = c("LC1" = "LC_LC1")) %>%
     left_join(LookupNPV %>% rename_all(~paste0(., "_LC2")), by = c("LC2" = "LC_LC2")) %>% 
     # Join Carbon lookup for LC1 and LC2
-    left_join(LookupCARBON %>% rename(C_T1 = Carbon), by = c("LC1" = "LC")) %>%
-    left_join(LookupCARBON %>% rename(C_T2 = Carbon), by = c("LC2" = "LC")) %>%
+    left_join(LookupCstock %>% rename(C_T1 = Carbon), by = c("LC1" = "LC")) %>%
+    left_join(LookupCstock %>% rename(C_T2 = Carbon), by = c("LC2" = "LC")) %>%
     select(-ID.x, -ID.y) %>%
     mutate(
       NPV1 = NPV_LC1 * Ha,
@@ -146,6 +131,7 @@ preprocess_data <- function(pathLULCT1, pathLULCT2, pathPU,
     )
   
   total_area <- sum(combinedRasterTable$Ha, na.rm = TRUE)
+  period <- as.numeric(valueT2) - as.numeric(valueT1)
   
   # Create NPV maps
   npv_matrix <- as.matrix(LookupNPV[, c("ID", "NPV")])
@@ -161,18 +147,21 @@ preprocess_data <- function(pathLULCT1, pathLULCT2, pathPU,
     LULCT1 = LULCT1,
     LULCT2 = LULCT2,
     PU = PU,
-    total_area = total_area
+    total_area = total_area,
+    period = period
   ))
 }
 
 build_opcost_table <- function(dt_quesc_npv, period, total_area) {
-  data_em_sel <- combinedRasterTable
   
-  data_em_sel <- within(data_em_sel, {
-    em_rate <- ((C_T1 - C_T2) * (Ha * 3.67)) / (total_area * period)
-    em_tot <- (C_T1 - C_T2) * 3.67
-    opcost <- (NPV2 - NPV1) / em_tot
-  })
+  data_em_sel <- dt_quesc_npv
+  
+  data_em_sel <- data_em_sel %>%
+    mutate(
+      em_rate = ((C_T1 - C_T2) * (Ha * 3.67)) / (total_area * period),
+      em_tot  = (C_T1 - C_T2) * 3.67,
+      opcost  = ifelse(em_tot != 0, (NPV2 - NPV1) / em_tot, NA)
+    )
   
   opcost_tab <- data.frame(
     luchg = data_em_sel$LULCC,
@@ -198,6 +187,141 @@ build_opcost_table <- function(dt_quesc_npv, period, total_area) {
   opcost_all <- rbind(opcost_tab_n, opcost_tab_p)
   opcost_all$cum_emrate2 <- as.factor(opcost_all$cum_emrate)
   list(opcost_all = opcost_all)
+}
+
+#----------------------------------------------------------
+# 1. Prepare base data
+#----------------------------------------------------------
+prepare_curve_data <- function(opcost_table) {
+  df_curve <- data.frame(
+    emission_rate = opcost_table$emrate,
+    opportunity_cost = opcost_table$opcost,
+    log_opportunity_cost = opcost_table$opcost_log,
+    land_use_change = opcost_table$luchg,
+    planning_unit = opcost_table$zone,
+    area = opcost_table$area
+  )
+  return(df_curve)
+}
+
+#----------------------------------------------------------
+# 2. Group and transform for main abatement curve
+#----------------------------------------------------------
+build_grouped_data <- function(df_curve) {
+  print("Column names in df_curve:")
+  print(colnames(df_curve))
+  
+  df_grouped <- df_curve %>%
+    group_by(land_use_change) %>% 
+    summarise(
+      emission_rate = sum(emission_rate),
+      opportunity_cost = sum(opportunity_cost),
+      .groups = "drop"
+    ) %>%
+    filter(opportunity_cost != 0) %>%
+    mutate(
+      opportunity_cost_log = case_when(
+        opportunity_cost > 0 ~ log10(opportunity_cost),
+        opportunity_cost < 0 ~ -log10(abs(opportunity_cost)),
+        TRUE ~ 0
+      )
+    ) %>%
+    arrange(opportunity_cost_log)
+  
+  return(df_grouped)
+}
+
+#----------------------------------------------------------
+# 3. Split into positive and negative emissions
+#----------------------------------------------------------
+split_emission_direction <- function(df_s) {
+  df_pos <- df_s %>%
+    filter(emission_rate >= 0) %>%
+    mutate(
+      xmin = lag(cumsum(emission_rate), default = 0),
+      xmax = cumsum(emission_rate)
+    )
+  
+  df_neg <- df_s %>%
+    filter(emission_rate < 0) %>%
+    mutate(
+      xmax = lag(cumsum(emission_rate), default = 0),
+      xmin = cumsum(emission_rate)
+    )
+  
+  df_split <- bind_rows(df_pos, df_neg)
+  
+  return(df_split)
+}
+
+#----------------------------------------------------------
+# 4. Calculate dominance per planning unit
+#----------------------------------------------------------
+calculate_pu_dominance <- function(df_curve) {
+  df_pu_dominance <- df_curve %>%
+    group_by(land_use_change, planning_unit) %>%
+    summarise(total_area = sum(area), .groups = "drop") %>%
+    group_by(land_use_change) %>%
+    mutate(
+      land_use_total_area = sum(total_area),
+      pct_of_largest_pu = total_area / land_use_total_area
+    ) %>%
+    slice_max(total_area, n = 1, with_ties = FALSE) %>%
+    ungroup() %>%
+    select(land_use_change, planning_unit, pct_of_largest_pu)
+  
+  return(df_pu_dominance)
+}
+
+#----------------------------------------------------------
+# 5. Combine and prepare final dataset
+#----------------------------------------------------------
+prepare_final_dataset <- function(df_split, df_pu_dominance) {
+  df_s_final <- df_split %>%
+    left_join(df_pu_dominance, by = "land_use_change") %>%
+    mutate(
+      hover_text = paste0(
+        "Perubahan Lahan: ", land_use_change, "<br>",
+        "Opportunity Cost: ", scales::comma(opportunity_cost), "<br>",
+        "Laju Emisi: ", scales::comma(emission_rate), "<br>",
+        "Dominasi Unit Perencanaan: ", planning_unit, " (", scales::percent(pct_of_largest_pu, accuracy = 0.1), ")"
+      )
+    )
+  return(df_s_final)
+}
+
+#----------------------------------------------------------
+# 6. Plot Abatement Curve (Main)
+#----------------------------------------------------------
+plot_abatement_curve <- function(df_s_final, currency) {
+  p <- ggplot(df_s_final) +
+    geom_rect(aes(
+      xmin = xmin, xmax = xmax, ymin = 0, ymax = opportunity_cost_log,
+      fill = land_use_change,
+      text = hover_text
+    ), color = "black") +
+    labs(
+      x = "Laju Emisi (ton CO<sub>2</sub>-eq/ha.tahun)",
+      y = paste0("Opportunity Cost (", currency, "/ton CO<sub>2</sub>-eq)"),
+      title = "Kurva Abatement Cost"
+    ) +
+    scale_x_continuous(
+      breaks = function(x) pretty(x, n = 6),
+      labels = function(x) scales::comma(x, accuracy = 0.01)
+    ) +
+    scale_y_continuous(
+      breaks = function(x) floor(min(x)):ceiling(max(x)),
+      labels = function(x) {
+        values <- ifelse(x >= 0, 10^x, -10^abs(x))
+        ifelse(values == floor(values),
+               scales::comma(values, accuracy = 1),
+               scales::comma(values))
+      }
+    ) +
+    theme_minimal() +
+    theme(legend.position = "none")
+  
+  ggplotly(p, tooltip = "text")
 }
 
 # Analysis Functions
@@ -364,17 +488,116 @@ process_pu_data <- function(pu_data, pu_name, currency = "IDR") {
     lc2_bar = lc2_bar,
     lulcc_bar = lulcc_bar,
     all_dissolved_lulcc_pu = all_dissolved_lulcc_pu,
-    currency = currency  # Store currency for later use
+    currency = currency 
   )
 }
 
-# Report Generation - Modified version
+#----------------------------------------------------------
+# 7. Per-Planning Unit Processing
+#----------------------------------------------------------
+process_unit <- function(df) {
+  df_pos <- df %>%
+    filter(emission_rate >= 0) %>%
+    arrange(opportunity_cost_log) %>%
+    mutate(
+      xmin = lag(cumsum(emission_rate), default = 0),
+      xmax = cumsum(emission_rate)
+    )
+  
+  df_neg <- df %>%
+    filter(emission_rate < 0) %>%
+    arrange(opportunity_cost_log) %>%
+    mutate(
+      xmax = lag(cumsum(emission_rate), default = 0),
+      xmin = cumsum(emission_rate)
+    )
+  
+  bind_rows(df_pos, df_neg) %>%
+    mutate(
+      hover_text = paste0(
+        "Perubahan Lahan: ", land_use_change, "<br>",
+        "Opportunity Cost: ", scales::comma(opportunity_cost), "<br>",
+        "Laju Emisi: ", scales::comma(emission_rate)
+      )
+    )
+}
+
+#----------------------------------------------------------
+# 8. Generate all plots per planning unit
+#----------------------------------------------------------
+generate_plots_by_pu <- function(df_curve, currency) {
+  df_pu <- df_curve %>%
+    filter(opportunity_cost != 0) %>%
+    mutate(
+      opportunity_cost_log = case_when(
+        opportunity_cost > 0 ~ log10(opportunity_cost),
+        opportunity_cost < 0 ~ -log10(abs(opportunity_cost)),
+        TRUE ~ 0
+      )
+    )
+  
+  df_pu_processed <- df_pu %>%
+    group_split(planning_unit) %>%
+    purrr::map_df(process_unit)
+  
+  plots_list <- df_pu_processed %>%
+    split(.$planning_unit) %>%
+    purrr::map(~ {
+      p <- ggplot(.x) +
+        geom_rect(aes(
+          xmin = xmin, xmax = xmax, ymin = 0, ymax = opportunity_cost_log,
+          fill = land_use_change,
+          text = hover_text
+        ), color = "black") +
+        labs(
+          x = "Laju Emisi (ton CO<sub>2</sub>-eq/ha.tahun)",
+          y = paste0("Opportunity Cost (", currency, "/ton CO<sub>2</sub>-eq)"),
+          title = paste("Kurva Abatement Cost -", unique(.x$planning_unit))
+        ) +
+        scale_x_continuous(
+          breaks = function(x) pretty(x, n = 6),
+          labels = function(x) scales::comma(x, accuracy = 0.01)
+        ) +
+        scale_y_continuous(
+          breaks = function(x) floor(min(x)):ceiling(max(x)),
+          labels = function(x) {
+            values <- ifelse(x >= 0, 10^x, -10^abs(x))
+            ifelse(values == floor(values),
+                   scales::comma(values, accuracy = 1),
+                   scales::comma(values))
+          }
+        ) +
+        theme_minimal() +
+        theme(legend.position = "none")
+      
+      ggplotly(p, tooltip = "text")
+    })
+  
+  return(plots_list)
+}
+
+generate_abatement_outputs <- function(opcost_table, currency) {
+  df_curve <- prepare_curve_data(opcost_table)
+  df_grouped <- build_grouped_data(df_curve)
+  df_split <- split_emission_direction(df_grouped)
+  df_pu_dominance <- calculate_pu_dominance(df_curve)
+  df_final <- prepare_final_dataset(df_split, df_pu_dominance)
+  
+  main_plot <- plot_abatement_curve(df_final, currency)
+  pu_plots <- generate_plots_by_pu(df_curve, currency)
+  
+  return(list(main_plot = main_plot, pu_plots = pu_plots))
+}
+
+# Report Generation - Modified version with Abatement Curve integration
 generate_report_params <- function(data, maps, paths, times, output_dir, pu_outputs, currency) {
+
   # Helper function to format column names with currency
   format_currency_col <- function(col_name, currency) {
     paste0(col_name, " (", currency, ")")
   }
   
+  # --- Main NPV Summary Tables ---
   main_total_values <- calculate_total_values(data$combinedRasterTable) %>% 
     as.data.frame() %>% 
     rename(
@@ -385,11 +608,18 @@ generate_report_params <- function(data, maps, paths, times, output_dir, pu_outp
     t() %>% 
     `colnames<-`("Value")
   
+  # --- Dissolved Layers for Visualization ---
   main_dissolved_lc1 <- dissolve_lc1(data$combinedRasterTable)
   main_dissolved_lc2 <- dissolve_lc2(data$combinedRasterTable)
   main_dissolved_lulcc <- dissolve_lulcc(data$combinedRasterTable)
   all_dissolved_lulcc <- all_dissolve_lulcc(data$combinedRasterTable)
   
+  # --- Generate Abatement Curve Outputs ---
+  opcost_results <- build_opcost_table(data$combinedRasterTable, data$period, data$total_area)
+  opcost_table <- opcost_results$opcost_all
+  abatement_outputs <- generate_abatement_outputs(opcost_table, currency)
+  
+  # --- Return All Parameters for Report Rendering ---
   list(
     session_log = format_session_info_table(),
     start_time = format(times$start_time, "%Y-%m-%d %H:%M:%S"),
@@ -416,6 +646,8 @@ generate_report_params <- function(data, maps, paths, times, output_dir, pu_outp
     year2 = times$valueT2,
     pu_outputs = pu_outputs,
     output_dir = output_dir,
-    currency = currency
+    currency = currency,
+    abatement_main_plot = abatement_outputs$main_plot,
+    abatement_pu_plots = abatement_outputs$pu_plots
   )
 }

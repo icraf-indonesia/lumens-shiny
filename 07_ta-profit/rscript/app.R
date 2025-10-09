@@ -14,9 +14,11 @@ library(RColorBrewer)
 library(kableExtra)
 library(shinyFiles)
 library(pkgdown)
+library(purrr)
+library(tidyverse)
 
 # Source the functions
-source("functions_ta_profit.R")
+source("functions.R")
 
 # JavaScript code for closing window
 jscode <- "shinyjs.closeWindow = function() { window.close(); }"
@@ -39,6 +41,7 @@ ui <- fluidPage(
       fileInput("pu_raster", "Planning Unit Raster", accept = c("image/tiff", ".tif")),
       fileInput("pu_table", "Planning Unit lookup table", accept = c(".csv")),
       fileInput("npv_table", "NPV lookup table", accept = c(".csv")),
+      fileInput("cstock_table", "Carbon lookup table", accept = c(".csv")),
       selectInput(
         inputId = "currency",
         label = "Select a Currency:",
@@ -96,7 +99,7 @@ server <- function(input, output, session) {
     map1_file_path = NULL,
     map2_file_path = NULL,
     npv_file_path = NULL,
-    # carbon_file_path = NULL,
+    carbon_file_path = NULL,
     pu_table_path = NULL,
     npv1_map = NULL,
     npv2_map = NULL,
@@ -150,7 +153,7 @@ server <- function(input, output, session) {
   observe({
     rv$lulc_t1 <- input$lulc_t1
     rv$lulc_t2 <- input$lulc_t2
-    # rv$cstock_table <- input$cstock_table
+    rv$cstock_table <- input$cstock_table
     rv$npv_table <- input$npv_table
     rv$pu_raster <- input$pu_raster
     rv$pu_table <- input$pu_table
@@ -162,7 +165,7 @@ server <- function(input, output, session) {
     validate(
       need(rv$lulc_t1, "Please upload Land Use/Cover T1 file"),
       need(rv$lulc_t2, "Please upload Land Use/Cover T2 file"),
-      # need(rv$cstock_table, "Please upload Carbon Stock Lookup Table (CSV) file"),
+      need(rv$cstock_table, "Please upload Carbon Stock Lookup Table (CSV) file"),
       need(rv$npv_table, "Please upload NPV Lookup Table (CSV) file"),
       need(rv$pu_raster, "Please upload Planning Units Raster"),
       need(rv$pu_table, "Please upload Planning Units Lookup Table (CSV) file"),
@@ -189,7 +192,7 @@ server <- function(input, output, session) {
           pathLULCT1 = input$lulc_t1$datapath,
           pathLULCT2 = input$lulc_t2$datapath,
           pathPU = input$pu_raster$datapath,
-          # pathLookupCstock = input$cstock_table$datapath,
+          pathLookupCstock = input$cstock_table$datapath,
           pathLookupPU = input$pu_table$datapath,
           pathLookupNPV = input$npv_table$datapath,
           valueT1 = input$year1,
@@ -203,7 +206,6 @@ server <- function(input, output, session) {
           pathLULCT1 = input$lulc_t1$datapath,
           pathLULCT2 = input$lulc_t2$datapath,
           pathPU = input$pu_raster$datapath,
-          # pathLookupCstock = input$cstock_table$datapath,
           pathLookupNPV = input$npv_table$datapath,
           pathLookupPU = input$pu_table$datapath
         )

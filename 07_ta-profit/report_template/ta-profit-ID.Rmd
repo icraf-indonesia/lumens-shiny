@@ -32,6 +32,8 @@ params:
   year2: NULL
   pu_outputs: NULL
   currency: NULL
+  abatement_main_plot: NULL
+  abatement_pu_plots: NULL
   output_dir: NULL
 ---
 
@@ -63,7 +65,7 @@ analysis_log <- tribble(
   "Land Cover (t1)",      params$map1_file_path,
   "Land Cover (t2)",   params$map2_file_path,
   "Profitability data",   params$npv_file_path,
-  "Planning Unit data",   params$pu_file_path,
+  "Planning Unit map",   params$pu_file_path,
   "Planning Unit data",   params$pu_table_path,
   "Year 1", as.character(params$year1),
   "Year 2", as.character(params$year2),
@@ -101,22 +103,26 @@ fill_scale <- ggplot2::scale_fill_manual(
     "#D9D9D9", "#BC80BD", "#CCEBC5", "#FFED6F", "#E41A1C"
   ),
   na.value = "white",
-  name = "Tutupan Lahan"
+  name = "Tutupan Lahan",
+  labels = function(x) stringr::str_wrap(x, width = 20)
 )
 
 lc1_map <- ggplot() +
   tidyterra::geom_spatraster(data = params$LULCT1) +
-  fill_scale + 
+  fill_scale +
+  guides(fill = guide_legend(ncol = 2, byrow = TRUE)) + 
   theme_bw() +
   theme(
     axis.title = element_blank(),
     panel.grid = element_blank(),
-    legend.title = element_text(size = 10),
-    legend.text = element_text(size = 8),
-    legend.key.height = unit(1, "cm"),
-    legend.key.width = unit(0.25, "cm"),
+    legend.title = element_text(size = 8, face = "bold"),
+    legend.text = element_text(size = 6),
+    legend.key.height = unit(0.5, "cm"),
+    legend.key.width = unit(0.4, "cm"),
     legend.position = "right",
     legend.justification = c(0, 0.5),
+    legend.box.margin = margin(0, 0, 0, 0),
+    legend.background = element_rect(fill = "lightgrey"),
     plot.title = element_text(hjust = 0.5, face = "bold")
   )
 
@@ -140,22 +146,26 @@ fill_scale <- ggplot2::scale_fill_manual(
     "#D9D9D9", "#BC80BD", "#CCEBC5", "#FFED6F", "#E41A1C"
   ),
   na.value = "white",
-  name = "Tutupan Lahan"
+  name = "Tutupan Lahan",
+  labels = function(x) stringr::str_wrap(x, width = 20)
 )
 
 lc2_map <- ggplot() +
   tidyterra::geom_spatraster(data = params$LULCT2) +
   fill_scale + 
+  guides(fill = guide_legend(ncol = 2, byrow = TRUE)) + 
   theme_bw() +
   theme(
     axis.title = element_blank(),
     panel.grid = element_blank(),
-    legend.title = element_text(size = 10),
-    legend.text = element_text(size = 8),
-    legend.key.height = unit(1, "cm"),
-    legend.key.width = unit(0.25, "cm"),
+    legend.title = element_text(size = 8, face = "bold"),
+    legend.text = element_text(size = 6),
+    legend.key.height = unit(0.5, "cm"),
+    legend.key.width = unit(0.4, "cm"),
     legend.position = "right",
     legend.justification = c(0, 0.5),
+    legend.box.margin = margin(0, 0, 0, 0),
+    legend.background = element_rect(fill = "lightgrey"),
     plot.title = element_text(hjust = 0.5, face = "bold")
   )
 
@@ -185,16 +195,19 @@ fill_scale <- ggplot2::scale_fill_manual(
 pu_map <- ggplot() +
   tidyterra::geom_spatraster(data = params$PU) +
   fill_scale + 
+  guides(fill = guide_legend(ncol = 2, byrow = TRUE)) + 
   theme_bw() +
   theme(
     axis.title = element_blank(),
     panel.grid = element_blank(),
-    legend.title = element_text(size = 10),
-    legend.text = element_text(size = 8),
-    legend.key.height = unit(1, "cm"),
-    legend.key.width = unit(0.25, "cm"),
+    legend.title = element_text(size = 8, face = "bold"),
+    legend.text = element_text(size = 6),
+    legend.key.height = unit(0.5, "cm"),
+    legend.key.width = unit(0.4, "cm"),
     legend.position = "right",
     legend.justification = c(0, 0.5),
+    legend.box.margin = margin(0, 0, 0, 0),
+    legend.background = element_rect(fill = "lightgrey"),
     plot.title = element_text(hjust = 0.5, face = "bold")
   )
 
@@ -206,21 +219,22 @@ pu_map
 ```{r PU Lookup Table, echo=FALSE, message=FALSE, warning=FALSE}
 datatable(
   read.csv(params$pu_table_path),
-    extensions = c('Buttons', 'Responsive'),
-    options = list(
-      paging = TRUE,
-      searching = TRUE,
-      fixedColumns = TRUE,
-      autoWidth = TRUE,
-      ordering = TRUE,
-      dom = 'Blfrtip',
-      buttons = list(
-        list(extend = "copy", className = "btn btn-light btn-sm"),
-        list(extend = "csv",  className = "btn btn-light btn-sm"),
-        list(extend = "excel",className = "btn btn-light btn-sm")
-        )
-    ),
-    class = "display stripe hover"
+  extensions = c('Buttons', 'Responsive'),
+  rownames = FALSE,
+  options = list(
+    paging = TRUE,
+    searching = TRUE,
+    fixedColumns = TRUE,
+    autoWidth = TRUE,
+    ordering = TRUE,
+    dom = 'Blfrtip',
+    buttons = list(
+      list(extend = "copy", className = "btn btn-light btn-sm"),
+      list(extend = "csv",  className = "btn btn-light btn-sm"),
+      list(extend = "excel",className = "btn btn-light btn-sm")
+      )
+  ),
+  class = "display stripe hover"
 )
 ```
 
@@ -229,21 +243,22 @@ datatable(
 ```{r NPV Lookup Table, echo=FALSE, message=FALSE, warning=FALSE}
 datatable(
   read.csv(params$npv_file_path),
-    extensions = c('Buttons', 'Responsive'),
-    options = list(
-      paging = TRUE,
-      searching = TRUE,
-      fixedColumns = TRUE,
-      autoWidth = TRUE,
-      ordering = TRUE,
-      dom = 'Blfrtip',
-      buttons = list(
-        list(extend = "copy", className = "btn btn-light btn-sm"),
-        list(extend = "csv",  className = "btn btn-light btn-sm"),
-        list(extend = "excel",className = "btn btn-light btn-sm")
-        )
-    ),
-    class = "display stripe hover"
+  extensions = c('Buttons', 'Responsive'),
+  rownames = FALSE,
+  options = list(
+    paging = TRUE,
+    searching = TRUE,
+    fixedColumns = TRUE,
+    autoWidth = TRUE,
+    ordering = TRUE,
+    dom = 'Blfrtip',
+    buttons = list(
+      list(extend = "copy", className = "btn btn-light btn-sm"),
+      list(extend = "csv",  className = "btn btn-light btn-sm"),
+      list(extend = "excel",className = "btn btn-light btn-sm")
+      )
+  ),
+  class = "display stripe hover"
 )
 ```
 
@@ -356,7 +371,7 @@ mapview(
 )
 ```
 
-#### Table
+#### Tabel
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 params$npv2_table %>%
   dplyr::mutate(dplyr::across(where(is.numeric), easy_to_read_numbers)) %>%
@@ -457,7 +472,10 @@ params$deltaNPV_table %>%
     )
 ```
 
-## Hasil NPV pada Tingkat Unit Perencanaan
+#### Kurva Abatement Cost
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+params$abatement_main_plot
+```
 
 ```{r child_documen_traj_fao, echo=FALSE, fig.keep='all', results='asis'}
 render_child_pu <- function(results_list, pu_name, currency) {
@@ -528,7 +546,18 @@ render_child_pu <- function(results_list, pu_name, currency) {
     "    ),",
     "    class = 'display stripe hover'",
     "  )",
+    "```",
+    "",
+    paste0("#### Kurva Abatement per Perubahan Lahan di ", pu_name),
+    "```{r}",
+    "#| echo: false",
+    "params$abatement_pu_plots[[pu_name]]",
     "```"
+    # paste0("#### Kurva Abatement per Perubahan Lahan di ", pu_name),
+    # "```{r}",
+    # "#| echo: false",
+    # "for (p in results_list[[pu_name]][['abatement_plots']]) print(p)",
+    # "```"
   )
   
   # Knit the child document
@@ -544,7 +573,6 @@ render_child_pu <- function(results_list, pu_name, currency) {
 for (pu_name in names(params$pu_outputs)) {
   render_child_pu(params$pu_outputs, pu_name, params$currency)
 }
-
 ```
 
 # Kesimpulan
