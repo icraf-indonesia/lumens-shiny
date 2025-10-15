@@ -1,3 +1,26 @@
+#' Profitability Analysis Shiny Application
+#'
+#' @description
+#' This Shiny web application performs **Profitability Analysis** for land-use and land-cover (LULC)
+#' changes between two time periods (T1 and T2). It integrates spatial raster processing,
+#' economic valuation (NPV), and carbon stock analysis to produce a comprehensive report
+#' summarizing land-use profitability and environmental implications.
+#'
+#' @details
+#' The app reads spatial raster inputs for two LULC periods (T1 and T2),
+#' planning unit raster, and lookup tables for NPV and carbon stock values.
+#' It processes these datasets to compute opportunity costs, emissions,
+#' and profitability per land-use transition, and exports the results
+#' in a structured report format (HTML or PDF).
+#'
+#' @seealso
+#' \code{\link{functions.R}} for modular processing functions
+#'
+#' @import shiny shinyjs shinyalert rmarkdown bslib terra dplyr readr plotly stringr
+#' RColorBrewer kableExtra shinyFiles pkgdown purrr tidyverse
+#'
+#' @export
+
 source('../../helper.R')
 
 library(shiny)
@@ -16,14 +39,41 @@ library(shinyFiles)
 library(pkgdown)
 library(purrr)
 library(tidyverse)
+library(openxlsx)
 
-# Source the functions
+#' Source Function Definitions
+#'
+#' @description
+#' Loads all helper functions used in the profitability analysis
+#' (data preprocessing, lookup operations, report generation, etc.).
 source("functions.R")
 
-# JavaScript code for closing window
+#' JavaScript Extension for Shiny
+#'
+#' @description
+#' Provides a small JS function (`closeWindow()`) for allowing
+#' the Shiny app to close its browser tab or window.
+#'
+#' @examples
 jscode <- "shinyjs.closeWindow = function() { window.close(); }"
 
-# UI Definition
+#' User Interface Definition
+#'
+#' @description
+#' Defines the layout, input controls, and display panels of the
+#' Profitability Analysis Shiny application. Users can upload LULC,
+#' planning unit, and lookup tables, select analysis parameters, and
+#' trigger report generation.
+#'
+#' @section UI Structure:
+#' - **Sidebar Panel**: input controls for file uploads and options  
+#' - **Main Panel**: log messages and user guide tabs  
+#'
+#' @seealso
+#' \code{\link{server}} for server-side processing logic
+#'
+#' @return
+#' A Shiny UI object to be passed into `shinyApp(ui, server)`
 ui <- fluidPage(
   useShinyjs(),
   theme = bs_theme(version = 5),
@@ -48,7 +98,7 @@ ui <- fluidPage(
         choices = c("IDR", "USD", "EUR", "JPY"),
         selected = "IDR"
       ),
-      # fileInput("cstock_table", "Carbon Stock lookup table", accept = c(".csv")),
+      # Directory selector and control buttons
       div(style = "display: flex; flex-direction: column; gap: 10px;",
           shinyDirButton("wd", "Select Output Directory", "Please select a directory"),
           textOutput("selected_directory"),
@@ -81,14 +131,33 @@ ui <- fluidPage(
   )
 )
 
-# Server Logic
+#' @title Shiny Server Logic for Profitability Analysis App
+#'
+#' @description
+#' Defines all server-side logic for the **TA Profitability Analysis** Shiny application.
+#' Handles input validation, reactive state management, analysis execution, report generation,
+#' and user interaction (notifications, report/folder opening, and navigation).
+#'
+#' @param input Shiny input object, containing UI input values.
+#' @param output Shiny output object, defining reactive UI outputs.
+#' @param session Shiny session object for user session handling.
+#'
+#' @return No return value. Called internally by \code{shinyApp()} to initialize the app.
+#'
+#' @seealso \code{\link{ui}}, \code{\link{preprocess_data}}, \code{\link{process_pu_data}}, \code{\link{generate_report_params}}
+#'
+#' @keywords server reactive shiny-app
+#'
+#' @export
 server <- function(input, output, session) {
   options(shiny.maxRequestSize = 100 * 1024^2)
   
-  #### Initialize reactive values ####
+  #' @section Reactive Values:
+  #' Initializes all key reactive values used to store analysis inputs, results, and file paths.
+  #' @keywords reactive-values
   rv <- reactiveValues(
-    wd = "",  # Working directory for saving outputs
-    report_file = NULL,  # Path to the generated report
+    wd = "",
+    report_file = NULL, 
     total_table = NULL,
     npv1_table = NULL,
     npv2_table = NULL,
@@ -109,21 +178,28 @@ server <- function(input, output, session) {
     currency = NULL
   )
   
-  #' Directory selection
+  #' @section Directory Selection:
+  #' Enables the user to choose an output directory for storing analysis results and reports.
+  #' Uses \pkg{shinyFiles} to interface with the filesystem.
+  #' @seealso \code{\link[shinyFiles]{shinyDirChoose}}, \code{\link[shinyFiles]{parseDirPath}}
   volumes <- c(Home = fs::path_home(), "R Installation" = R.home(), getVolumes()())
   shinyDirChoose(input, 'wd', roots = volumes, session = session)
   
-  # Reactive value to store selected output directory
+  #' @section Reactive Output Directory:
+  #' Tracks and stores the user-selected output directory path as a reactive value.
   selected_output_dir <- reactiveVal(value = NULL)
   
-  # Update reactive value when output directory is selected
+  #' @section Observe Output Directory:
+  #' Updates the reactive output directory when a new folder is selected by the user.
   observe({
     if (!is.null(input$output_dir)) {
       selected_output_dir(parseDirPath(volumes, input$output_dir))
     }
   })
   
-  #' Display the selected output directory path
+  #' @section Render Selected Directory:
+  #' Displays the selected output directory path in the UI.
+  #' Updates the reactive value \code{rv$wd}.
   output$selected_directory <- renderText({
     rv$wd <- parseDirPath(volumes, input$wd)
     if(length(rv$wd) == 0) {
@@ -133,6 +209,10 @@ server <- function(input, output, session) {
     }
   })
   
+  #' @section Render User Guide:
+  #' Dynamically loads and renders the user guide R Markdown file into an HTML fragment.
+  #' Displays a fallback message if the guide file is not found.
+  #' @importFrom rmarkdown render
   output$user_guide <- renderUI({
     guide_paths <- c(
       "07_ta-profit/helpfile/ta-profit_quick_user_guide_ID.Rmd",
@@ -149,7 +229,8 @@ server <- function(input, output, session) {
     HTML("<p>User guide file not found.</p>")
   })
   
-  # Update reactive values when inputs change
+  #' @section Observe Input Changes:
+  #' Keeps reactive values synchronized with file and text inputs from the UI.
   observe({
     rv$lulc_t1 <- input$lulc_t1
     rv$lulc_t2 <- input$lulc_t2
@@ -160,7 +241,10 @@ server <- function(input, output, session) {
     rv$currency <- input$currency
   })
   
-  # Input validation
+  #' @section Input Validation:
+  #' Validates all user inputs before running the analysis.
+  #' Prevents execution if any required file or field is missing.
+  #' @return TRUE if all inputs are valid, otherwise displays validation messages.
   validate_inputs <- reactive({
     validate(
       need(rv$lulc_t1, "Please upload Land Use/Cover T1 file"),
@@ -175,7 +259,15 @@ server <- function(input, output, session) {
     TRUE
   })
   
-  # Run analysis
+  #' @section Run Analysis:
+  #' Main observer triggered by the **Run Analysis** button.
+  #' Executes the data preprocessing, profitability analysis, and report generation.
+  #' @details
+  #' - Calls \code{preprocess_data()} to clean and merge raster and lookup data.
+  #' - Processes each planning unit using \code{process_pu_data()}.
+  #' - Generates report parameters and renders an HTML report.
+  #' - Displays progress and completion notifications.
+  #' @importFrom shiny withProgress incProgress showNotification
   observeEvent(input$process, {
     rv$wd <- parseDirPath(volumes, input$wd)
     req(validate_inputs(), rv$wd)
@@ -270,7 +362,9 @@ server <- function(input, output, session) {
     }
   })
   
-  # Open Report button observer (moved outside the process observer)
+  #' @section Open Report:
+  #' Opens the generated HTML report after analysis completion.
+  #' Displays an error notification if the report file cannot be found.
   observeEvent(input$open_report, {
     if (!is.null(rv$report_file) && file.exists(rv$report_file)) {
       if (.Platform$OS.type == "windows") {
@@ -283,7 +377,9 @@ server <- function(input, output, session) {
     }
   })
   
-  # Open Output Folder button observer (assuming you have logic for this)
+  #' @section Open Output Folder:
+  #' Opens the output folder in the system's file explorer.
+  #' Handles Windows and macOS/Linux environments separately.
   observeEvent(input$open_output_folder, {
     if (!is.null(rv$wd) && dir.exists(rv$wd)) {
       if (.Platform$OS.type == "windows") {
@@ -296,12 +392,16 @@ server <- function(input, output, session) {
     }
   })
   
-  # Handle session end -------------------------------------------------------
+  #' @section Session Termination:
+  #' Stops the app gracefully when the user session ends.
   session$onSessionEnded(function() {
     stopApp()
   })
   
-  # Return to Main Menu button observer -------------------------------------
+  #' @section Return to Main Menu:
+  #' Shows a confirmation dialog for returning to the main menu.
+  #' Closes the app window upon confirmation.
+  #' @importFrom shinyalert shinyalert
   observeEvent(input$returnButton, {
     shinyalert(
       title = "Confirmation",
@@ -313,6 +413,9 @@ server <- function(input, output, session) {
     )
   })
   
+  #' @section Alert Response:
+  #' Handles user confirmation from the return-to-menu alert dialog.
+  #' Closes the Shiny session and window if confirmed.
   observeEvent(input$alert, {
     if(input$alert) {
       js$closeWindow()

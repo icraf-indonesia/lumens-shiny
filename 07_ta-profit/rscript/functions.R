@@ -1,4 +1,11 @@
-# Utility Functions
+#' Format R Session Information Table
+#'
+#' Creates a summary table containing R version, platform, library paths, and locale settings.
+#'
+#' @return A tibble with two columns: `Category` and `Details`, containing formatted session info.
+#' @examples
+#' format_session_info_table()
+#' @export
 format_session_info_table <- function() {
   si <- sessionInfo()
   
@@ -22,6 +29,16 @@ format_session_info_table <- function() {
   return(session_summary)
 }
 
+#' Plot Categorical Raster
+#'
+#' Generates a ggplot for categorical raster data, with either predefined or extracted color palettes.
+#'
+#' @param raster_object A `SpatRaster` object containing categorical values.
+#'
+#' @return A `ggplot` object visualizing the raster with color legend.
+#' @examples
+#' plot_categorical_raster(my_raster)
+#' @export
 plot_categorical_raster <- function(raster_object) {
   # Check if raster_object has a color_pallete column and it contains hex color codes
   if ("color_palette" %in% names(terra::cats(raster_object)[[1]]) && all(grepl("^#[0-9A-Fa-f]{6}$", terra::cats(raster_object)$color_pallete))) {
@@ -71,7 +88,31 @@ plot_categorical_raster <- function(raster_object) {
 # Helper function for consistent number formatting
 easy_to_read_numbers <- scales::label_comma()
 
-# Data Processing Functions
+#' Preprocess Land Use and Planning Unit Data
+#'
+#' Loads and prepares raster and lookup data for NPV and carbon stock analysis.
+#'
+#' @param pathLULCT1 File path to land-use/cover raster for time 1.
+#' @param pathLULCT2 File path to land-use/cover raster for time 2.
+#' @param pathPU File path to planning unit raster.
+#' @param pathLookupPU File path to planning unit lookup table (CSV).
+#' @param pathLookupNPV File path to NPV lookup table (CSV).
+#' @param pathLookupCstock File path to carbon stock lookup table (CSV).
+#' @param valueT1 Numeric year for time 1.
+#' @param valueT2 Numeric year for time 2.
+#'
+#' @return A list containing processed raster layers, lookup tables, and combined summary data:
+#' \itemize{
+#'   \item combinedRasterTable — summarized data table with NPV and carbon info
+#'   \item npv1_map, npv2_map, deltaNPV_map — raster maps
+#'   \item LULCT1, LULCT2, PU — original rasters
+#'   \item total_area, period — metadata for analysis
+#' }
+#' @examples
+#' preprocess_data("lulc_t1.tif", "lulc_t2.tif", "pu.tif",
+#'                 "lookup_pu.csv", "lookup_npv.csv", "lookup_cstock.csv",
+#'                 2000, 2020)
+#' @export
 preprocess_data <- function(pathLULCT1, pathLULCT2, pathPU, 
                             pathLookupPU, pathLookupNPV, pathLookupCstock,
                             valueT1, valueT2) {  
@@ -152,6 +193,28 @@ preprocess_data <- function(pathLULCT1, pathLULCT2, pathPU,
   ))
 }
 
+generate_output_maps <- function(npv1_map, npv2_map, deltaNPV_map, npv_table, wd) {
+  writeRaster(npv1_map, file.path(wd, "npv1_distribution_map.tif"), overwrite = TRUE)
+  writeRaster(npv2_map, file.path(wd, "npv2_distribution_map.tif"), overwrite = TRUE)
+  writeRaster(deltaNPV_map, file.path(wd, "deltaNPV_distribution_map.tif"), overwrite = TRUE)
+  write.xlsx(npv_table, file.path(wd, "tabel_npv.xlsx"), overwrite = TRUE)
+}
+
+#' Build Opportunity Cost Table
+#'
+#' Calculates opportunity costs and emission rates based on NPV and carbon data.
+#'
+#' @param dt_quesc_npv Data frame from `preprocess_data()` output.
+#' @param period Time period between T1 and T2 (in years).
+#' @param total_area Total analysis area in hectares.
+#'
+#' @return A list with one element:
+#' \itemize{
+#'   \item `opcost_all` — combined positive and negative opportunity cost table.
+#' }
+#' @examples
+#' build_opcost_table(data$combinedRasterTable, data$period, data$total_area)
+#' @export
 build_opcost_table <- function(dt_quesc_npv, period, total_area) {
   
   data_em_sel <- dt_quesc_npv
@@ -189,9 +252,17 @@ build_opcost_table <- function(dt_quesc_npv, period, total_area) {
   list(opcost_all = opcost_all)
 }
 
-#----------------------------------------------------------
-# 1. Prepare base data
-#----------------------------------------------------------
+#' Prepare Curve Data for Abatement Analysis
+#'
+#' Formats opportunity cost data for abatement curve visualization.
+#'
+#' @param opcost_table Output from `build_opcost_table()` function.
+#'
+#' @return A data frame with formatted columns for emission rates, opportunity costs,
+#' land use changes, planning units, and areas.
+#' @examples
+#' prepare_curve_data(opcost_table)
+#' @export
 prepare_curve_data <- function(opcost_table) {
   df_curve <- data.frame(
     emission_rate = opcost_table$emrate,
@@ -204,9 +275,16 @@ prepare_curve_data <- function(opcost_table) {
   return(df_curve)
 }
 
-#----------------------------------------------------------
-# 2. Group and transform for main abatement curve
-#----------------------------------------------------------
+#' Build Grouped Data for Abatement Curve
+#'
+#' Aggregates curve data by land use change and calculates logarithmic opportunity costs.
+#'
+#' @param df_curve Data frame from `prepare_curve_data()` function.
+#'
+#' @return A grouped and summarized data frame ready for abatement curve plotting.
+#' @examples
+#' build_grouped_data(curve_data)
+#' @export
 build_grouped_data <- function(df_curve) {
   print("Column names in df_curve:")
   print(colnames(df_curve))
@@ -231,9 +309,17 @@ build_grouped_data <- function(df_curve) {
   return(df_grouped)
 }
 
-#----------------------------------------------------------
-# 3. Split into positive and negative emissions
-#----------------------------------------------------------
+#' Split Emission Data by Direction
+#'
+#' Separates positive and negative emissions and calculates cumulative ranges.
+#'
+#' @param df_s Data frame from `build_grouped_data()` function.
+#'
+#' @return A data frame with emission data split into positive and negative components
+#' with calculated xmin and xmax values for plotting.
+#' @examples
+#' split_emission_direction(grouped_data)
+#' @export
 split_emission_direction <- function(df_s) {
   df_pos <- df_s %>%
     filter(emission_rate >= 0) %>%
@@ -254,9 +340,17 @@ split_emission_direction <- function(df_s) {
   return(df_split)
 }
 
-#----------------------------------------------------------
-# 4. Calculate dominance per planning unit
-#----------------------------------------------------------
+#' Calculate Planning Unit Dominance
+#'
+#' Determines the dominant planning unit for each land use change type.
+#'
+#' @param df_curve Data frame from `prepare_curve_data()` function.
+#'
+#' @return A data frame showing the percentage dominance of planning units
+#' for each land use change category.
+#' @examples
+#' calculate_pu_dominance(curve_data)
+#' @export
 calculate_pu_dominance <- function(df_curve) {
   df_pu_dominance <- df_curve %>%
     group_by(land_use_change, planning_unit) %>%
@@ -273,9 +367,18 @@ calculate_pu_dominance <- function(df_curve) {
   return(df_pu_dominance)
 }
 
-#----------------------------------------------------------
-# 5. Combine and prepare final dataset
-#----------------------------------------------------------
+#' Prepare Final Dataset for Abatement Curve
+#'
+#' Combines split emission data with planning unit dominance information.
+#'
+#' @param df_split Data frame from `split_emission_direction()` function.
+#' @param df_pu_dominance Data frame from `calculate_pu_dominance()` function.
+#'
+#' @return A complete dataset with hover text and all necessary columns
+#' for interactive abatement curve visualization.
+#' @examples
+#' prepare_final_dataset(split_data, dominance_data)
+#' @export
 prepare_final_dataset <- function(df_split, df_pu_dominance) {
   df_s_final <- df_split %>%
     left_join(df_pu_dominance, by = "land_use_change") %>%
@@ -290,9 +393,17 @@ prepare_final_dataset <- function(df_split, df_pu_dominance) {
   return(df_s_final)
 }
 
-#----------------------------------------------------------
-# 6. Plot Abatement Curve (Main)
-#----------------------------------------------------------
+#' Plot Abatement Cost Curve
+#'
+#' Creates an interactive abatement cost curve plot using Plotly.
+#'
+#' @param df_s_final Complete dataset from `prepare_final_dataset()` function.
+#' @param currency Character string specifying the currency symbol (e.g., "IDR", "USD").
+#'
+#' @return An interactive Plotly graph showing the abatement cost curve.
+#' @examples
+#' plot_abatement_curve(final_data, "IDR")
+#' @export
 plot_abatement_curve <- function(df_s_final, currency) {
   p <- ggplot(df_s_final) +
     geom_rect(aes(
@@ -324,7 +435,16 @@ plot_abatement_curve <- function(df_s_final, currency) {
   ggplotly(p, tooltip = "text")
 }
 
-# Analysis Functions
+' Calculate Total NPV Values
+#'
+#' Computes summary statistics for NPV across the entire dataset.
+#'
+#' @param data Data frame from `preprocess_data()` output.
+#'
+#' @return A data frame with total NPV values for time 1, time 2, and their difference.
+#' @examples
+#' calculate_total_values(processed_data)
+#' @export
 calculate_total_values <- function(data) {
   data %>%
     summarise(
@@ -334,6 +454,17 @@ calculate_total_values <- function(data) {
     )
 }
 
+#' Dissolve Land Cover Data for Time 1
+#'
+#' Aggregates NPV and area data by land cover class for the first time period.
+#'
+#' @param data Data frame from `preprocess_data()` output.
+#' @param top_n Number of top land cover classes to return (default: 10).
+#'
+#' @return A data frame with summarized NPV and area data for top land cover classes at T1.
+#' @examples
+#' dissolve_lc1(processed_data, 10)
+#' @export
 dissolve_lc1 <- function(data, top_n = 10) {
   data %>%
     group_by(LC1) %>%
@@ -344,6 +475,17 @@ dissolve_lc1 <- function(data, top_n = 10) {
     slice_head(n = top_n)
 }
 
+#' Dissolve Land Cover Data for Time 2
+#'
+#' Aggregates NPV and area data by land cover class for the second time period.
+#'
+#' @param data Data frame from `preprocess_data()` output.
+#' @param top_n Number of top land cover classes to return (default: 10).
+#'
+#' @return A data frame with summarized NPV and area data for top land cover classes at T2.
+#' @examples
+#' dissolve_lc2(processed_data, 10)
+#' @export
 dissolve_lc2 <- function(data, top_n = 10) {
   data %>%
     group_by(LC2) %>%
@@ -354,6 +496,17 @@ dissolve_lc2 <- function(data, top_n = 10) {
     slice_head(n = top_n)
 }
 
+#' Dissolve Land Use Land Cover Change Data
+#'
+#' Aggregates NPV change data by land use change transitions.
+#'
+#' @param data Data frame from `preprocess_data()` output.
+#' @param top_n Number of top land use changes to return (default: 10).
+#'
+#' @return A data frame with summarized NPV change data for top land use transitions.
+#' @examples
+#' dissolve_lulcc(processed_data, 10)
+#' @export
 dissolve_lulcc <- function(data, top_n = 10) {
   data %>%
     group_by(LC1, LC2) %>%
@@ -368,6 +521,16 @@ dissolve_lulcc <- function(data, top_n = 10) {
     slice_head(n = top_n)
 }
 
+#' Dissolve All Land Use Land Cover Change Data
+#'
+#' Aggregates all NPV change data by land use change transitions without filtering.
+#'
+#' @param data Data frame from `preprocess_data()` output.
+#'
+#' @return A complete data frame with all land use transitions and their NPV changes.
+#' @examples
+#' all_dissolve_lulcc(processed_data)
+#' @export
 all_dissolve_lulcc <- function(data) {
   data %>%
     group_by(LC1, LC2) %>%
@@ -381,7 +544,18 @@ all_dissolve_lulcc <- function(data) {
     arrange(desc(Total_abs_deltaNPV)) 
 }
 
-# Visualization Functions
+#' Create Land Cover 1 Bar Chart
+#'
+#' Generates an interactive bar chart for NPV by land cover class at time 1.
+#'
+#' @param data Data frame from `dissolve_lc1()` function.
+#' @param title Chart title (default: "Top 10 Total NPV by LC1").
+#' @param currency Currency symbol for display (default: "IDR").
+#'
+#' @return An interactive Plotly bar chart.
+#' @examples
+#' create_lc1_bar(lc1_data, "NPV by Land Cover T1", "USD")
+#' @export
 create_lc1_bar <- function(data, title = "Top 10 Total NPV by LC1", currency = "IDR") {
   plotly::plot_ly(
     data = data,
@@ -408,6 +582,18 @@ create_lc1_bar <- function(data, title = "Top 10 Total NPV by LC1", currency = "
     )
 }
 
+#' Create Land Cover 2 Bar Chart
+#'
+#' Generates an interactive bar chart for NPV by land cover class at time 2.
+#'
+#' @param data Data frame from `dissolve_lc2()` function.
+#' @param title Chart title (default: "Top 10 Total NPV by LC2").
+#' @param currency Currency symbol for display (default: "IDR").
+#'
+#' @return An interactive Plotly bar chart.
+#' @examples
+#' create_lc2_bar(lc2_data, "NPV by Land Cover T2", "USD")
+#' @export
 create_lc2_bar <- function(data, title = "Top 10 Total NPV by LC2", currency = "IDR") {
   plotly::plot_ly(
     data = data,
@@ -434,6 +620,18 @@ create_lc2_bar <- function(data, title = "Top 10 Total NPV by LC2", currency = "
     )
 }
 
+#' Create Land Use Change Bar Chart
+#'
+#' Generates an interactive diverging bar chart for NPV changes by land use transition.
+#'
+#' @param data Data frame from `dissolve_lulcc()` function.
+#' @param title Chart title (default: "Top 10 LULCC by ΔNPV").
+#' @param currency Currency symbol for display (default: "IDR").
+#'
+#' @return An interactive Plotly diverging bar chart.
+#' @examples
+#' create_lulcc_bar(lulcc_data, "Land Use Change NPV Differences", "USD")
+#' @export
 create_lulcc_bar <- function(data, title = "Top 10 LULCC by ΔNPV", currency = "IDR") {
   data <- data %>%
     arrange(desc(Total_abs_deltaNPV)) %>%
@@ -456,7 +654,25 @@ create_lulcc_bar <- function(data, title = "Top 10 LULCC by ΔNPV", currency = "
     )
 }
 
-# Planning Unit Analysis
+#' Process Planning Unit Data
+#'
+#' Performs comprehensive analysis for a specific planning unit including
+#' NPV calculations and visualization generation.
+#'
+#' @param pu_data Subset of data for a specific planning unit.
+#' @param pu_name Name of the planning unit for labeling.
+#' @param currency Currency symbol for display (default: "IDR").
+#'
+#' @return A list containing:
+#' \itemize{
+#'   \item total_values - Summary NPV statistics
+#'   \item lc1_bar, lc2_bar, lulcc_bar - Interactive charts
+#'   \item all_dissolved_lulcc_pu - Complete land use change data
+#'   \item currency - Currency used for formatting
+#' }
+#' @examples
+#' process_pu_data(pu_data, "Forest Zone", "USD")
+#' @export
 process_pu_data <- function(pu_data, pu_name, currency = "IDR") {
   # Helper function to format column names with currency
   format_currency_col <- function(col_name, currency) {
@@ -492,9 +708,16 @@ process_pu_data <- function(pu_data, pu_name, currency = "IDR") {
   )
 }
 
-#----------------------------------------------------------
-# 7. Per-Planning Unit Processing
-#----------------------------------------------------------
+#' Process Unit Data for Abatement Curves
+#'
+#' Prepares emission and opportunity cost data for individual planning units.
+#'
+#' @param df Data frame containing emission rate and opportunity cost data.
+#'
+#' @return A processed data frame with cumulative emission ranges and hover text.
+#' @examples
+#' process_unit(unit_data)
+#' @export
 process_unit <- function(df) {
   df_pos <- df %>%
     filter(emission_rate >= 0) %>%
@@ -522,9 +745,17 @@ process_unit <- function(df) {
     )
 }
 
-#----------------------------------------------------------
-# 8. Generate all plots per planning unit
-#----------------------------------------------------------
+#' Generate Abatement Plots by Planning Unit
+#'
+#' Creates individual abatement cost curves for each planning unit.
+#'
+#' @param df_curve Data frame from `prepare_curve_data()` function.
+#' @param currency Currency symbol for display.
+#'
+#' @return A list of interactive Plotly abatement curves, one for each planning unit.
+#' @examples
+#' generate_plots_by_pu(curve_data, "IDR")
+#' @export
 generate_plots_by_pu <- function(df_curve, currency) {
   df_pu <- df_curve %>%
     filter(opportunity_cost != 0) %>%
@@ -576,6 +807,21 @@ generate_plots_by_pu <- function(df_curve, currency) {
   return(plots_list)
 }
 
+#' Generate Complete Abatement Outputs
+#'
+#' Orchestrates the generation of both main and planning unit-specific abatement curves.
+#'
+#' @param opcost_table Output from `build_opcost_table()` function.
+#' @param currency Currency symbol for display.
+#'
+#' @return A list containing:
+#' \itemize{
+#'   \item main_plot - Overall abatement cost curve
+#'   \item pu_plots - Individual abatement curves per planning unit
+#' }
+#' @examples
+#' generate_abatement_outputs(opcost_data, "USD")
+#' @export
 generate_abatement_outputs <- function(opcost_table, currency) {
   df_curve <- prepare_curve_data(opcost_table)
   df_grouped <- build_grouped_data(df_curve)
@@ -589,7 +835,22 @@ generate_abatement_outputs <- function(opcost_table, currency) {
   return(list(main_plot = main_plot, pu_plots = pu_plots))
 }
 
-# Report Generation - Modified version with Abatement Curve integration
+#' Generate Report Parameters
+#'
+#' Prepares all necessary parameters for RMarkdown report generation.
+#'
+#' @param data Main processed data from `preprocess_data()` function.
+#' @param maps Spatial data objects from `preprocess_data()` function.
+#' @param paths File paths used in the analysis.
+#' @param times Timing information for the analysis.
+#' @param output_dir Directory where outputs will be saved.
+#' @param pu_outputs Processed planning unit data from `process_pu_data()` function.
+#' @param currency Currency symbol for display.
+#'
+#' @return A comprehensive list of parameters ready for RMarkdown report rendering.
+#' @examples
+#' generate_report_params(data, maps, paths, times, output_dir, pu_outputs, "IDR")
+#' @export
 generate_report_params <- function(data, maps, paths, times, output_dir, pu_outputs, currency) {
 
   # Helper function to format column names with currency
@@ -618,6 +879,8 @@ generate_report_params <- function(data, maps, paths, times, output_dir, pu_outp
   opcost_results <- build_opcost_table(data$combinedRasterTable, data$period, data$total_area)
   opcost_table <- opcost_results$opcost_all
   abatement_outputs <- generate_abatement_outputs(opcost_table, currency)
+  
+  generate_output_maps(maps$npv1_map, maps$npv2_map, maps$deltaNPV_map, data$combinedRasterTable, output_dir)
   
   # --- Return All Parameters for Report Rendering ---
   list(
