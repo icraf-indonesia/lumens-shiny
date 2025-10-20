@@ -86,7 +86,7 @@ Laporan ini menyajikan hasil Analisis Profitabilitas berdasarkan skenario peruba
 
 # Data yang Digunakan {.tabset}
 
-## Peta Tutupan/Penggunaan Lahan pada `r params$p1`
+## Peta Tutupan/Penggunaan Lahan pada `r params$year1`
 
 ```{r Land-Use/Cover Map T1, echo=FALSE, message=FALSE, warning=FALSE}
 fill_scale <- ggplot2::scale_fill_manual(
@@ -129,7 +129,7 @@ lc1_map <- ggplot() +
 lc1_map
 ```
 
-## Peta Tutupan/Penggunaan Lahan pada `r params$p2`
+## Peta Tutupan/Penggunaan Lahan pada `r params$year2`
 
 ```{r Land-Use/Cover Map T2, echo=FALSE, message=FALSE, warning=FALSE}
 fill_scale <- ggplot2::scale_fill_manual(
@@ -242,7 +242,13 @@ datatable(
 
 ```{r NPV Lookup Table, echo=FALSE, message=FALSE, warning=FALSE}
 datatable(
-  read.csv(params$npv_file_path),
+  read.csv(params$npv_file_path) |>
+    dplyr::rename(
+      `Tutupan Lahan` = LC,
+      !!glue::glue("NPV ({params$currency})") := NPV,
+      `Karbon (ton C/ha)` = CARBON
+    ) |>
+    dplyr::mutate(dplyr::across(where(is.numeric), easy_to_read_numbers)),
   extensions = c('Buttons', 'Responsive'),
   rownames = FALSE,
   options = list(
