@@ -249,7 +249,7 @@ build_opcost_table <- function(dt_quesc_npv, period, total_area) {
   
   opcost_all <- rbind(opcost_tab_n, opcost_tab_p)
   opcost_all$cum_emrate2 <- as.factor(opcost_all$cum_emrate)
-  list(opcost_all = opcost_all)
+  list(opcost_all = opcost_all, data_em_sel = data_em_sel)
 }
 
 #' Prepare Curve Data for Abatement Analysis
@@ -387,7 +387,7 @@ prepare_final_dataset <- function(df_split, df_pu_dominance) {
         "Perubahan Lahan: ", land_use_change, "<br>",
         "Opportunity Cost: ", scales::comma(opportunity_cost), "<br>",
         "Laju Emisi: ", scales::comma(emission_rate), "<br>",
-        "Dominasi Unit Perencanaan: ", planning_unit, " (", scales::percent(pct_of_largest_pu, accuracy = 0.1), ")"
+        "Unit Perencanaan Dominan: ", planning_unit, " (", scales::percent(pct_of_largest_pu, accuracy = 0.1), ")"
       )
     )
   return(df_s_final)
@@ -405,7 +405,27 @@ prepare_final_dataset <- function(df_split, df_pu_dominance) {
 #' plot_abatement_curve(final_data, "IDR")
 #' @export
 plot_abatement_curve <- function(df_s_final, currency) {
+  # Calculate the x-axis limits from your data
+  x_limits <- range(c(df_s_final$xmin, df_s_final$xmax), na.rm = TRUE)
+  max_abs <- max(abs(x_limits))
+  x_range <- c(x_limits[1], max_abs)
+  
+  # Calculate y-axis limits
+  y_limits <- range(c(0, df_s_final$opportunity_cost_log), na.rm = TRUE)
+  
   p <- ggplot(df_s_final) +
+    # Add background for x < 0 (emissions/negative side)
+    geom_rect(
+      data = data.frame(xmin = x_range[1], xmax = 0, ymin = y_limits[1], ymax = y_limits[2]),
+      aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax),
+      fill = "#ffe6e6", alpha = 0.8, inherit.aes = FALSE
+    ) +
+    # Add background for x >= 0 (sequestration/positive side)
+    geom_rect(
+      data = data.frame(xmin = 0, xmax = x_range[2], ymin = y_limits[1], ymax = y_limits[2]),
+      aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax),
+      fill = "#e6f7e6", alpha = 0.8, inherit.aes = FALSE
+    ) +
     geom_rect(aes(
       xmin = xmin, xmax = xmax, ymin = 0, ymax = opportunity_cost_log,
       fill = land_use_change,
@@ -432,7 +452,56 @@ plot_abatement_curve <- function(df_s_final, currency) {
     theme_minimal() +
     theme(legend.position = "none")
   
-  ggplotly(p, tooltip = "text")
+  ggplotly(p, tooltip = "text") %>%
+    layout(
+      hovermode = "x+y",
+      xaxis = list(showspikes = TRUE, spikemode = 'across', spikesnap = 'cursor', spikethickness = 0.8, spikecolor = 'grey'),
+      yaxis = list(showspikes = TRUE, spikemode = 'across', spikesnap = 'cursor', spikethickness = 0.8, spikecolor = 'grey')
+      # hoverlabel = list(bgcolor = "white")
+    ) %>%
+    config(
+      displaylogo = FALSE,
+      displayModeBar = TRUE,
+      modeBarButtonsToAdd = list(
+        list(
+          name = "Fullscreen",
+          icon = list(
+            width = 20,
+            height = 20,
+            path = "M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z",
+            transform = "scale(1)"
+          ),
+          click = htmlwidgets::JS("
+          function(gd) {
+            var fullscreenElement = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
+            if (!fullscreenElement) {
+              var el = gd;
+              if (el.requestFullscreen) {
+                el.requestFullscreen();
+              } else if (el.webkitRequestFullscreen) {
+                el.webkitRequestFullscreen();
+              } else if (el.mozRequestFullScreen) {
+                el.mozRequestFullScreen();
+              } else if (el.msRequestFullscreen) {
+                el.msRequestFullscreen();
+              }
+            } else {
+              if (document.exitFullscreen) {
+                document.exitFullscreen();
+              } else if (document.webkitExitFullscreen) {
+                document.webkitExitFullscreen();
+              } else if (document.mozCancelFullScreen) {
+                document.mozCancelFullScreen();
+              } else if (document.msExitFullscreen) {
+                document.msExitFullscreen();
+              }
+            }
+          }
+        ")
+        )
+      ),
+      scrollZoom = TRUE
+    )
 }
 
 ' Calculate Total NPV Values
@@ -568,9 +637,7 @@ create_lc1_bar <- function(data, title = "Top 10 Total NPV by LC1", currency = "
       "Total NPV:", format(Total_NPV1, big.mark = ",", scientific = FALSE), " ", currency
     ),
     marker = list(
-      color = ~Total_NPV1,
-      colorscale = "Viridis",
-      showscale = FALSE
+      color = "lightblue"
     )
   ) %>%
     plotly::layout(
@@ -606,9 +673,7 @@ create_lc2_bar <- function(data, title = "Top 10 Total NPV by LC2", currency = "
       "Total NPV:", format(Total_NPV2, big.mark = ",", scientific = FALSE), " ", currency
     ),
     marker = list(
-      color = ~Total_NPV2,
-      colorscale = "Plasma",
-      showscale = FALSE
+      color = "steelblue"
     )
   ) %>%
     plotly::layout(
@@ -774,7 +839,27 @@ generate_plots_by_pu <- function(df_curve, currency) {
   plots_list <- df_pu_processed %>%
     split(.$planning_unit) %>%
     purrr::map(~ {
+      # Calculate the x-axis limits from the data for this planning unit
+      x_limits <- range(c(.x$xmin, .x$xmax), na.rm = TRUE)
+      max_abs <- max(abs(x_limits))
+      x_range <- c(x_limits[1], max_abs)
+      
+      # Calculate y-axis limits
+      y_limits <- range(c(0, .x$opportunity_cost_log), na.rm = TRUE)
+      
       p <- ggplot(.x) +
+        # Add background for x < 0 (emissions/negative side)
+        geom_rect(
+          data = data.frame(xmin = x_range[1], xmax = 0, ymin = y_limits[1], ymax = y_limits[2]),
+          aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax),
+          fill = "#ffe6e6", alpha = 0.8, inherit.aes = FALSE
+        ) +
+        # Add background for x >= 0 (sequestration/positive side)
+        geom_rect(
+          data = data.frame(xmin = 0, xmax = x_range[2], ymin = y_limits[1], ymax = y_limits[2]),
+          aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax),
+          fill = "#e6f7e6", alpha = 0.8, inherit.aes = FALSE
+        ) +
         geom_rect(aes(
           xmin = xmin, xmax = xmax, ymin = 0, ymax = opportunity_cost_log,
           fill = land_use_change,
@@ -801,7 +886,56 @@ generate_plots_by_pu <- function(df_curve, currency) {
         theme_minimal() +
         theme(legend.position = "none")
       
-      ggplotly(p, tooltip = "text")
+      ggplotly(p, tooltip = "text") %>%
+        layout(
+          hovermode = "x+y",
+          xaxis = list(showspikes = TRUE, spikemode = 'across', spikesnap = 'cursor', spikethickness = 0.8, spikecolor = 'grey'),
+          yaxis = list(showspikes = TRUE, spikemode = 'across', spikesnap = 'cursor', spikethickness = 0.8, spikecolor = 'grey')
+          # hoverlabel = list(bgcolor = "white")
+        ) %>%
+        config(
+          displaylogo = FALSE,
+          displayModeBar = TRUE,
+          modeBarButtonsToAdd = list(
+            list(
+              name = "Fullscreen",
+              icon = list(
+                width = 20,
+                height = 20,
+                path = "M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z",
+                transform = "scale(1)"
+              ),
+              click = htmlwidgets::JS("
+          function(gd) {
+            var fullscreenElement = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
+            if (!fullscreenElement) {
+              var el = gd;
+              if (el.requestFullscreen) {
+                el.requestFullscreen();
+              } else if (el.webkitRequestFullscreen) {
+                el.webkitRequestFullscreen();
+              } else if (el.mozRequestFullScreen) {
+                el.mozRequestFullScreen();
+              } else if (el.msRequestFullscreen) {
+                el.msRequestFullscreen();
+              }
+            } else {
+              if (document.exitFullscreen) {
+                document.exitFullscreen();
+              } else if (document.webkitExitFullscreen) {
+                document.webkitExitFullscreen();
+              } else if (document.mozCancelFullScreen) {
+                document.mozCancelFullScreen();
+              } else if (document.msExitFullscreen) {
+                document.msExitFullscreen();
+              }
+            }
+          }
+        ")
+            )
+          ),
+          scrollZoom = TRUE
+        )
     })
   
   return(plots_list)
@@ -878,9 +1012,12 @@ generate_report_params <- function(data, maps, paths, times, output_dir, pu_outp
   # --- Generate Abatement Curve Outputs ---
   opcost_results <- build_opcost_table(data$combinedRasterTable, data$period, data$total_area)
   opcost_table <- opcost_results$opcost_all
+  npv_output_table <- opcost_results$data_em_sel %>% 
+    select(-Freq, -ID_LC1, -ID_LC2, -C_T1, -C_T2, -NPV_LC1, -NPV_LC2) %>%
+    filter(!is.nan(opcost), !is.na(opcost))
   abatement_outputs <- generate_abatement_outputs(opcost_table, currency)
   
-  generate_output_maps(maps$npv1_map, maps$npv2_map, maps$deltaNPV_map, data$combinedRasterTable, output_dir)
+  generate_output_maps(maps$npv1_map, maps$npv2_map, maps$deltaNPV_map, npv_output_table, output_dir)
   
   # --- Return All Parameters for Report Rendering ---
   list(

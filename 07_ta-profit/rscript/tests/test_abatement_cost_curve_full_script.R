@@ -5,6 +5,7 @@ library(readr)
 library(scales)
 library(purrr)
 library(plotly)
+# library(htmlwidgets)
 
 # Define data directory
 data_dir <- "D:/ICRAF/Kodingan/icraf-indonesia/lumens-shiny"
@@ -141,13 +142,15 @@ build_opcost_table <- function(dt_quesc_npv, period, total_area) {
   
   opcost_all <- rbind(opcost_tab_n, opcost_tab_p)
   opcost_all$cum_emrate2 <- as.factor(opcost_all$cum_emrate)
-  list(opcost_all = opcost_all)
+  list(opcost_all = opcost_all, data_em_sel = data_em_sel)
 }
 
 # Build the opportunity cost table based on the land use change period and total area
 opcost_result <- build_opcost_table(combinedRasterTable, period, total_area)
 opcost_table <- opcost_result$opcost_all
-# opcost_table$order <- c(1:nrow(opcost_table))
+npv_output_table <- opcost_result$data_em_sel %>% 
+  select(-Freq, -ID_LC1, -ID_LC2, -C_T1, -C_T2, -NPV_LC1, -NPV_LC2) %>%
+  filter(!is.nan(opcost), !is.na(opcost))
 
 df_curve <- data.frame(
   emission_rate = opcost_table$emrate,
@@ -225,7 +228,27 @@ df_s_final <- bind_rows(df_pos, df_neg) %>%
     )
   )
 
+# Calculate the x-axis limits from your data
+x_limits <- range(c(df_s_final$xmin, df_s_final$xmax), na.rm = TRUE)
+max_abs <- max(abs(x_limits))
+x_range <- c(x_limits[1], max_abs)
+
+# Calculate y-axis limits
+y_limits <- range(c(0, df_s_final$opportunity_cost_log), na.rm = TRUE)
+
 p <- ggplot(df_s_final) +
+  # Add background for x < 0 (emissions/negative side)
+  geom_rect(
+    data = data.frame(xmin = x_range[1], xmax = 0, ymin = y_limits[1], ymax = y_limits[2]),
+    aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax),
+    fill = "#ffe6e6", alpha = 0.8, inherit.aes = FALSE
+  ) +
+  # Add background for x >= 0 (sequestration/positive side)
+  geom_rect(
+    data = data.frame(xmin = 0, xmax = x_range[2], ymin = y_limits[1], ymax = y_limits[2]),
+    aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax),
+    fill = "#e6f7e6", alpha = 0.8, inherit.aes = FALSE
+  ) +
   geom_rect(aes(
     xmin = xmin, xmax = xmax, ymin = 0, ymax = opportunity_cost_log,
     fill = land_use_change,
@@ -259,7 +282,56 @@ p <- ggplot(df_s_final) +
   theme_minimal() +
   theme(legend.position = "none")
 
-ggplotly(p, tooltip = "text")
+ggplotly(p, tooltip = "text") %>%
+  layout(
+    hovermode = "x+y",
+    xaxis = list(showspikes = TRUE, spikemode = 'across', spikesnap = 'cursor', spikethickness = 0.8, spikecolor = 'grey'),
+    yaxis = list(showspikes = TRUE, spikemode = 'across', spikesnap = 'cursor', spikethickness = 0.8, spikecolor = 'grey')
+    # hoverlabel = list(bgcolor = "white")
+  ) %>%
+  config(
+    displaylogo = FALSE,
+    displayModeBar = TRUE,
+    modeBarButtonsToAdd = list(
+      list(
+        name = "Fullscreen",
+        icon = list(
+          width = 20,
+          height = 20,
+          path = "M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z",
+          transform = "scale(1)"
+        ),
+        click = htmlwidgets::JS("
+          function(gd) {
+            var fullscreenElement = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
+            if (!fullscreenElement) {
+              var el = gd;
+              if (el.requestFullscreen) {
+                el.requestFullscreen();
+              } else if (el.webkitRequestFullscreen) {
+                el.webkitRequestFullscreen();
+              } else if (el.mozRequestFullScreen) {
+                el.mozRequestFullScreen();
+              } else if (el.msRequestFullscreen) {
+                el.msRequestFullscreen();
+              }
+            } else {
+              if (document.exitFullscreen) {
+                document.exitFullscreen();
+              } else if (document.webkitExitFullscreen) {
+                document.webkitExitFullscreen();
+              } else if (document.mozCancelFullScreen) {
+                document.mozCancelFullScreen();
+              } else if (document.msExitFullscreen) {
+                document.msExitFullscreen();
+              }
+            }
+          }
+        ")
+      )
+    ),
+    scrollZoom = TRUE
+  ) 
 
 ### per Planning Unit
 # Prepare data
