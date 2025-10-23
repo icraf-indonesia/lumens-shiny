@@ -82,11 +82,21 @@ analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
 
 # Pendahuluan
 
+## Deskripsi Modul
 Laporan ini menyajikan hasil Analisis Profitabilitas berdasarkan skenario perubahan penggunaan lahan. Analisis berfokus pada penilaian Net Present Value (NPV) yang terkait dengan berbagai perubahan penggunaan lahan. Pendekatan ini membantu mengevaluasi implikasi keuangan dari transisi penggunaan lahan serta mendukung pengambilan keputusan yang terinformasi untuk menilai kelayakan ekonomi berbagai skenario penggunaan lahan.
 
-# Data yang Digunakan {.tabset}
+## Cara Kerja Analisis
+Alur kerja analisis melibatkan beberapa langkah kunci:
 
-## Peta Tutupan/Penggunaan Lahan pada `r params$year1`
+1. **Pemrosesan Data NPV**: Data NPV diproses untuk membuat tabel referensi yang komprehensif.
+
+2. **Analisis Perubahan Penggunaan Lahan**: Peta perubahan penggunaan lahan diproses untuk menilai perubahan dalam NPV.
+
+3. **Visualisasi**: Peta dihasilkan untuk merepresentasikan secara visual sebaran spasial dari perubahan NPV.
+
+## Data yang Digunakan {.tabset}
+
+### Peta Tutupan/Penggunaan Lahan pada `r params$year1`
 
 ```{r Land-Use/Cover Map T1, echo=FALSE, message=FALSE, warning=FALSE}
 fill_scale <- ggplot2::scale_fill_manual(
@@ -129,7 +139,7 @@ lc1_map <- ggplot() +
 lc1_map
 ```
 
-## Peta Tutupan/Penggunaan Lahan pada `r params$year2`
+### Peta Tutupan/Penggunaan Lahan pada `r params$year2`
 
 ```{r Land-Use/Cover Map T2, echo=FALSE, message=FALSE, warning=FALSE}
 fill_scale <- ggplot2::scale_fill_manual(
@@ -172,7 +182,7 @@ lc2_map <- ggplot() +
 lc2_map
 ```
 
-## Peta Unit Perencanaan
+### Peta Unit Perencanaan
 
 ```{r Planning Unit, echo=FALSE, message=FALSE, warning=FALSE}
 fill_scale <- ggplot2::scale_fill_manual(
@@ -214,7 +224,7 @@ pu_map <- ggplot() +
 pu_map
 ```
 
-## Tabel Acuan Unit Perencanaan
+### Tabel Acuan Unit Perencanaan
 
 ```{r PU Lookup Table, echo=FALSE, message=FALSE, warning=FALSE}
 datatable(
@@ -238,7 +248,7 @@ datatable(
 )
 ```
 
-## Tabel Acuan NPV
+### Tabel Acuan NPV
 
 ```{r NPV Lookup Table, echo=FALSE, message=FALSE, warning=FALSE}
 datatable(
@@ -269,11 +279,6 @@ datatable(
 ```
 
 # Hasil Analisis
-Alur kerja analisis melibatkan beberapa langkah kunci:
-
-1. **Pemrosesan Data NPV**: Data NPV diproses untuk membuat tabel referensi yang komprehensif.
-2. **Analisis Perubahan Penggunaan Lahan**: Peta perubahan penggunaan lahan diproses untuk menilai perubahan dalam NPV.
-3. **Visualisasi**: Peta dihasilkan untuk merepresentasikan secara visual sebaran spasial dari perubahan NPV.
 
 ## Ringkasan Net Present Value (NPV)
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
@@ -283,15 +288,15 @@ params$total_table %>%
   DT::datatable()
 ```
 
-### NPV untuk Tahun `r params$year1` {.tabset}
+## NPV untuk Tahun `r params$year1` {.tabset}
 Bagian ini menyajikan sepuluh kategori tutupan lahan dengan total NPV tertinggi pada tahun `r params$year1`. NPV mewakili imbal hasil ekonomi kumulatif (dalam `r params$currency`) yang diperoleh dari kegiatan penggunaan lahan di atas suatu area, biasanya diukur dalam hektar. NPV adalah metrik kunci dalam perencanaan penggunaan lahan karena mencerminkan nilai kini dari manfaat masa depan yang terkait dengan penggunaan lahan yang berbeda pada tahun `r params$year1`.
 
-#### Grafik
+### Grafik
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 params$npv1_chart
 ```
 
-#### Peta Distribusi
+### Peta Distribusi
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 npv1_map <- params$npv1_map  
 
@@ -327,7 +332,7 @@ mapview(
 # )
 ```
 
-#### Tabel
+### Tabel
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 params$npv1_table %>%
   dplyr::mutate(dplyr::across(where(is.numeric), easy_to_read_numbers)) %>%
@@ -356,15 +361,15 @@ params$npv1_table %>%
     )
 ```
 
-### NPV untuk Tahun `r params$year2` {.tabset}
+## NPV untuk Tahun `r params$year2` {.tabset}
 Bagian ini menyajikan sepuluh kategori tutupan lahan dengan total NPV tertinggi pada tahun `r params$year2`. NPV mewakili imbal hasil ekonomi kumulatif (dalam `r params$currency`) yang diperoleh dari kegiatan penggunaan lahan di atas suatu area, biasanya diukur dalam hektar. NPV adalah metrik kunci dalam perencanaan penggunaan lahan karena mencerminkan nilai kini dari manfaat masa depan yang terkait dengan penggunaan lahan yang berbeda pada tahun `r params$year2`.
 
-#### Grafik
+### Grafik
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 params$npv2_chart
 ```
 
-#### Peta Distribusi
+### Peta Distribusi
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 npv2_map <- params$npv2_map  
 
@@ -377,7 +382,7 @@ mapview(
 )
 ```
 
-#### Tabel
+### Tabel
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 params$npv2_table %>%
   dplyr::mutate(dplyr::across(where(is.numeric), easy_to_read_numbers)) %>%
@@ -406,16 +411,15 @@ params$npv2_table %>%
     )
 ```
 
-
-### Delta NPV dari Tahun `r params$year1` to `r params$year2` {.tabset}
+## Delta NPV dari Tahun `r params$year1` to `r params$year2` {.tabset}
 Bagian ini menyajikan perubahan NPV (ΔNPV) antara tahun `r params$year1` dan `r params$year2`. ΔNPV mencerminkan perbedaan dalam proyeksi imbal hasil ekonomi dari penggunaan lahan di dua periode waktu. Nilai ΔNPV positif menunjukkan peningkatan profitabilitas dari waktu ke waktu, sementara nilai negatif menunjukkan penurunan.
 
-#### Grafik
+### Grafik
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 params$deltaNPV_chart
 ```
 
-#### Peta Distribusi
+### Peta Distribusi
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 deltaNPV_map <- params$deltaNPV_map  
 
@@ -448,7 +452,7 @@ mapview(
 )
 ```
 
-#### Tabel
+### Tabel
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 params$deltaNPV_table %>%
   dplyr::mutate(dplyr::across(where(is.numeric), easy_to_read_numbers)) %>%
@@ -478,11 +482,12 @@ params$deltaNPV_table %>%
     )
 ```
 
-#### Kurva Abatement Cost
+### Kurva Abatement Cost
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 params$abatement_main_plot
 ```
 
+## Analsis per Unit Perencanaan
 ```{r child_documen_traj_fao, echo=FALSE, fig.keep='all', results='asis'}
 render_child_pu <- function(results_list, pu_name, currency) {
   # Create a temporary environment to store the variables
