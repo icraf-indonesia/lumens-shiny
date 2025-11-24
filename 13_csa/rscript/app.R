@@ -16,6 +16,7 @@ library(shinyFiles)
 library(pkgdown)
 
 # Source the functions
+source("functions.R")
 
 # JavaScript code for closing window
 jscode <- "shinyjs.closeWindow = function() { window.close(); }"
@@ -31,13 +32,25 @@ ui <- fluidPage(
   titlePanel("QUES-C Paddy Field Analysis"),
   sidebarLayout(
     sidebarPanel(
-      # fileInput("lulc_t1", "Land cover map at T1", accept = c("image/tiff", ".tif")),
-      # textInput("year1", "Year of T1", value = "1990"),
-      # fileInput("lulc_t2", "Land cover map at T2", accept = c("image/tiff", ".tif")),
-      # textInput("year2", "Year of T2", value = "2000"),
+      fileInput("lulc", "Land cover map", accept = c("image/tiff", ".tif")),
+      textInput("year", "Year of map", value = "1990"),
       # fileInput("pu_raster", "Planning Unit Raster", accept = c("image/tiff", ".tif")),
       # fileInput("pu_table", "Planning Unit lookup table", accept = c(".csv")),
-      fileInput("agric_table", "Agricultural lookup table", accept = c(".csv")),
+      radioButtons("zone_type", "Planning Units Input Type",
+                   choices = c("Raster" = "raster", "Shapefile" = "shapefile"), selected = "shapefile"),
+      conditionalPanel(
+        condition = "input.zone_type == 'raster'",
+        fileInput("zone_raster", "Planning Units (Raster)", accept = c(".tif", ".tiff")),
+        fileInput("lookup_zone", "Planning Units Lookup (CSV)", accept = c(".csv"))
+      ),
+      conditionalPanel(
+        condition = "input.zone_type == 'shapefile'",
+        fileInput("zone_shapefile", "Planning Units (Shapefile)",
+                  accept = c(".shp", ".dbf", ".prj", ".shx"), multiple = TRUE)
+      ),
+      fileInput("lc_table", "Landcover lookup table (CSV)", accept = c(".csv")),
+      fileInput("co2_table", "CO2 Conversion lookup table (CSV)", accept = c(".csv")),
+      fileInput("sf_table", "Scaling Factor lookup table (CSV)", accept = c(".csv")),
       div(style = "display: flex; flex-direction: column; gap: 10px;",
           shinyDirButton("wd", "Select Output Directory", "Please select a directory"),
           textOutput("selected_directory"),
@@ -123,50 +136,74 @@ server <- function(input, output, session) {
   
   # Update reactive values when inputs change
   observe({
-    rv$agric_table <- input$agric_table
+    rv$lulc <- input$lulc
+    rv$year <- input$year
+    # rv$pu_raster <- input$pu_raster
+    if (input$zone_type == "raster") {
+      rv$zone_input <- input$zone_raster
+      rv$lookup_zone <- input$lookup_zone
+    } else {
+      rv$zone_input <- input$zone_shapefile
+      rv$lookup_zone <- NULL  # Will be created from shapefile
+    }
+    rv$pu_table <- input$pu_table
+    rv$lc_table <- input$lc_table
+    rv$co2_table <- input$co2_table
+    rv$sf_table <- input$sf_table
   })
   
   # Input validation
   validate_inputs <- reactive({
     validate(
-      need(rv$agric_table, "Please upload Planning Units Lookup Table (CSV) file"),
+      need(rv$lulc, "Please upload Land Use/Cover T1 file"),
+      need(rv$year, "Please upload Land Use/Cover T2 file"),
+      # need(rv$pu_raster, "Please upload Planning Units Raster"),
+      # need(rv$pu_table, "Please upload Planning Units Lookup Table (CSV) file"),
+      need(input$zone_type, "Please select Planning Units Input Type"),
+      need(rv$zone_input, "Please upload Planning Units file"),
+      need(if(input$zone_type == "raster") rv$lookup_zone else TRUE, "Please upload Planning Units Lookup (CSV) file for raster input"),
+      need(rv$lc_table, "Please upload Landcover Lookup Table (CSV) file"),
+      need(rv$co2_table, "Please upload CO2 Conversion Lookup Table (CSV) file"),
+      need(rv$sf_table, "Please upload Scaling Factor Lookup Table (CSV) file"),
       need(rv$wd != "", "Please select an output directory")
     )
     TRUE
   })
   
-  # Run analysis
   observeEvent(input$process, {
     rv$wd <- parseDirPath(volumes, input$wd)
     req(validate_inputs(), rv$wd)
-    req(input$agric_table)
-    
-    # === INSERTED YOUR AGRICULTURAL FORMULA HERE ===
-    areaOfAgricTable <- read.csv(input$agric_table$datapath)
-    
-    # Uniform column names
-    colnames(areaOfAgricTable) <- c('TAHUN', 'SAWAH_IRIGASI', 'TADAH_HUJAN', 'LUAS_PANEN')
-    
-    # TOTAL LUAS SAWAH (ha/yr)
-    areaOfAgricTable$LUAS_TOTAL <- areaOfAgricTable$SAWAH_IRIGASI + areaOfAgricTable$TADAH_HUJAN
-    
-    # MASA TANAM DALAM SETAHUN (Index Penanaman Irigasi)
-    areaOfAgricTable$IP_IRIGASI1 <- (areaOfAgricTable$LUAS_PANEN - areaOfAgricTable$TADAH_HUJAN) / areaOfAgricTable$SAWAH_IRIGASI
-    areaOfAgricTable$IP_IRIGASI2 <- areaOfAgricTable$LUAS_PANEN / areaOfAgricTable$SAWAH_IRIGASI
-    
-    # SFw = Faktor skala lahan sawah irigasi intermitten
-    # 0.49 * Tadah Hujan + (Luas Panen - Tadah Hujan) * 1   /  15
-    areaOfAgricTable$SFW <- (0.49 * areaOfAgricTable$TADAH_HUJAN + 
-                               (areaOfAgricTable$LUAS_PANEN - areaOfAgricTable$TADAH_HUJAN)) / 15
-    # === END FORMULA BLOCK ===
-    
     showNotification("Analysis is running. Please wait...", type = "message", duration = NULL, id = "running_notification")
     
-    withProgress(message = 'Running TA Profitability Analysis', value = 0, {
+    withProgress(message = 'Running QUES-C Paddy Analysis', value = 0, {
       tryCatch({
         incProgress(0.1, detail = "Starting analysis...")
         
         start_time <- Sys.time()
+        
+        # result <- preprocess_data(
+        #   pathLULCT = input$lulc$datapath,
+        #   # pathPU = input$pu_raster$datapath,
+        #   zone_type   = input$zone_type,
+        #   pathPU    = input$zone_input$datapath,
+        #   pathLookupLC = input$lc_table$datapath,
+        #   # pathLookupPU = input$pu_table$datapath,
+        #   pathLookupPU = if (input$zone_type == "raster") input$lookup_zone$datapath else NULL,
+        #   pathLookupCO2 = input$co2_table$datapath,
+        #   pathLookupSF = input$sf_table$datapath,
+        #   year = input$year
+        # )
+        
+        result <- preprocess_data(
+          pathLULCT = rv$lulc$datapath,
+          zone_type = input$zone_type,
+          pathPU = if (input$zone_type == "raster") rv$zone_input$datapath else rv$zone_input,
+          pathLookupPU = if (input$zone_type == "raster") rv$lookup_zone$datapath else NULL,
+          pathLookupLC = rv$lc_table$datapath,
+          pathLookupCO2 = rv$co2_table$datapath,
+          pathLookupSF = rv$sf_table$datapath,
+          year = rv$year
+        )
         
         incProgress(0.5, detail = "Generating report...")
         
@@ -178,7 +215,7 @@ server <- function(input, output, session) {
         rmarkdown::render(
           input = "../report_template/quesc-paddy_ID.Rmd",
           output_file = report_path,
-          params = list(areaOfAgricTable = areaOfAgricTable, start_time = start_time, end_time = end_time),
+          params = list(result = result, start_time = start_time, end_time = end_time),
           envir = new.env(parent = globalenv()),
           quiet = TRUE
         )

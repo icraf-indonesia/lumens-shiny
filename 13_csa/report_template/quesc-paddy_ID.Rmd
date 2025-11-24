@@ -7,7 +7,7 @@ output:
     number_sections: true
     df_print: kable
 params:
-  areaOfAgricTable: NA
+  result: NA
   start_time: NA
   end_time: NA
 ---
@@ -18,40 +18,44 @@ library(knitr)
 library(kableExtra)
 library(DT)
 library(dplyr)
+library(plotly)
 ```
 
 # Pendahuluan
-
 Laporan ini menyajikan data luas lahan sawah irigasi dan tadah hujan serta indeks tanam per tahun.
 
 Waktu mulai analisis: `r params$start_time`  
 Waktu selesai analisis: `r params$end_time`
 
-# Data yang Digunakan {.tabset}
+# Hasil Perhitungan Emisi {.tabset}
 
-## Tabel Luas Sawah (areaOfAgricTable)
+## Grafik Emisi CH₄ dan N₂O per PU
 
 ```{r}
+params$result$plot
+```
+
+## Tabel Ringkasan Emisi
+```{r}
 datatable(
-  params$areaOfAgricTable,
-  extensions = c('Buttons', 'Responsive'),
-  options = list(
-    paging = TRUE,
-    searching = TRUE,
-    fixedColumns = TRUE,
-    autoWidth = TRUE,
-    ordering = TRUE,
-    dom = 'Blfrtip',
-    buttons = list(
-      list(extend = "copy", className = "btn btn-light btn-sm"),
-      list(extend = "csv",  className = "btn btn-light btn-sm"),
-      list(extend = "excel",className = "btn btn-light btn-sm")
-    )
-  ),
-  class = "display stripe hover"
+params$result$summary_by_PU,
+extensions = c('Buttons', 'Responsive'),
+options = list(
+paging = TRUE,
+searching = TRUE,
+fixedColumns = TRUE,
+autoWidth = TRUE,
+ordering = TRUE,
+dom = 'Blfrtip',
+buttons = list(
+list(extend = "copy", className = "btn btn-light btn-sm"),
+list(extend = "csv",  className = "btn btn-light btn-sm"),
+list(extend = "excel",className = "btn btn-light btn-sm")
+)
+),
+class = "display stripe hover"
 )
 ```
 
 # Kesimpulan
-
-Data ini dapat digunakan untuk mendukung analisis profitabilitas dan intensitas tanam sawah.
+Data ini dapat digunakan untuk mendukung analisis terkait perubahan penggunaan lahan, emisi, dan perencanaan wilayah.
