@@ -3,79 +3,158 @@
 
 <div id="gambaran-umum" class="section level1">
 <h1>Gambaran Umum</h1>
-<p>Modul Analisis Profitabilitas memungkinkan pengguna untuk menilai
-manfaat ekonomi dari skenario perubahan penggunaan lahan dengan
-menghitung <em>Net Present Value</em> (NPV). Modul ini mengevaluasi
-dampak finansial sekaligus lingkungan, membantu mengidentifikasi
-pertukaran (<em>trade-offs</em>) antara pembangunan ekonomi dan
-keberlanjutan lingkungan.</p>
+<p>Modul <strong>QUES-C Paddy</strong> dirancang untuk menghitung emisi
+gas rumah kaca dari kegiatan budidaya padi sawah, khususnya:</p>
+<ol style="list-style-type: decimal">
+<li><strong>Emisi CH₄ (Metana)</strong> yang dilepaskan dari proses
+anaerob di lahan sawah tergenang.</li>
+<li><strong>Emisi N₂O (Dinitrogen Oksida)</strong> yang terkait dengan
+penggunaan pupuk sintetis maupun organik.</li>
+</ol>
+<p>Perhitungan ini mengikuti pendekatan dari <em>2006 IPCC Guidelines
+for National Greenhouse Gas Inventories</em> Volume 4, khususnya
+<strong>Chapter 5 – Cropland</strong> dan <strong>Chapter 11 – N₂O from
+Managed Soils</strong>.</p>
+<p>Modul ini mendukung pengambil keputusan dalam memahami kontribusi
+emisi dari sistem persawahan, menilai dampak praktik pengelolaan, dan
+merancang strategi mitigasi berbasis data.</p>
 </div>
 <div id="konsep-utama" class="section level1">
-<h1>Konsep Utama:</h1>
+<h1>Konsep Utama</h1>
 <ol style="list-style-type: decimal">
-<li><strong>Net Present Value (NPV)</strong>: Suatu metrik keuangan yang
-menghitung nilai saat ini dari arus kas di masa depan yang dihasilkan
-oleh suatu proyek atau investasi, dengan memperhitungkan nilai waktu
-dari uang. NPV membantu menilai profitabilitas dari berbagai skenario
-penggunaan lahan.</li>
-</ol>
-<!-- 2. **Biaya Peluang (Opportunity Cost)**: Potensi manfaat yang hilang ketika memilih satu opsi penggunaan lahan dibandingkan dengan yang lain. Konsep ini menyoroti pertukaran antara pembangunan ekonomi dan keberlanjutan lingkungan. -->
-<p><!-- 3. **Emisi Karbon**: Pelepasan karbon dioksida (CO2) dan gas rumah kaca lainnya yang terkait dengan berbagai praktik penggunaan lahan. Memahami emisi karbon penting untuk menilai dampak lingkungan dan mengembangkan strategi mitigasi. --></p>
-<ol start="2" style="list-style-type: decimal">
-<li><strong>Manfaat Ekonomi</strong>: Keuntungan finansial yang
-diperoleh dari perubahan penggunaan lahan, mencakup peningkatan
-pendapatan, penghematan biaya, serta potensi investasi dalam praktik
-berkelanjutan. Analisis ini membantu pengambil keputusan menyeimbangkan
-tujuan ekonomi dan lingkungan.</li>
+<li><strong>Emisi CH₄ pada Sawah (IPCC Tier 1/2)</strong><br />
+Emisi CH₄ dihitung berdasarkan:
+<ul>
+<li>Faktor emisi dasar (EF)</li>
+<li>Faktor koreksi untuk kondisi lahan, pengelolaan air, penggunaan
+jerami, dan musim tanam<br />
+Rumus umum (IPCC): <span class="math display">\[ CH_4 = EF_{adj} \times
+t \times A \]</span> di mana:</li>
+<li><em>EF_adj</em>: faktor emisi ter-adjust<br />
+</li>
+<li><em>t</em>: lama periode tanam (hari)<br />
+</li>
+<li><em>A</em>: luas sawah (ha)</li>
+</ul></li>
+<li><strong>Emisi N₂O dari Pupuk (IPCC N₂O Direct
+Emissions)</strong><br />
+IPCC mengasumsikan sebagian nitrogen yang diberikan melalui pupuk akan
+terkonversi menjadi N₂O: <span class="math display">\[ N_2O_{direct} =
+N_{applied} \times EF_{N_2O} \]</span> di mana:
+<ul>
+<li><em>N_applied</em>: jumlah nitrogen yang diberikan (kg N)<br />
+</li>
+<li><em>EF_N₂O</em>: faktor emisi default (0.01 atau 1%)</li>
+</ul></li>
+<li><strong>Konversi ke CO₂-eq</strong><br />
+Menggunakan <strong>GWP</strong> (IPCC AR5):
+<ul>
+<li>CH₄ → 28<br />
+</li>
+<li>N₂O → 265</li>
+</ul></li>
 </ol>
 </div>
 <div id="data-dan-variabel-input" class="section level1">
 <h1>Data dan Variabel Input</h1>
-<p>Sebelum menggunakan alat Analisis Profitabilitas, siapkan hal-hal
-berikut:</p>
+<p>Sebelum menjalankan modul QUES-C Paddy, siapkan data berikut:</p>
 <ol style="list-style-type: decimal">
-<li><p><strong>Peta Tutupan Lahan Tahun Pertama</strong>: File raster
-kategorikal dalam format GeoTIFF yang merepresentasikan jenis penggunaan
-lahan pada tahun awal. File ini harus menggunakan sistem proyeksi
-UTM.</p></li>
-<li><p><strong>Peta Tutupan Lahan Tahun Kedua</strong>: File raster
-kategorikal dalam format GeoTIFF yang merepresentasikan jenis penggunaan
-lahan pada tahun akhir, juga menggunakan sistem proyeksi UTM.</p></li>
-<li><p><strong>Tabel Lookup NPV</strong>: File CSV berisi data numerik
-yang menggambarkan aliran pendapatan dan struktur biaya untuk setiap
-jenis penggunaan lahan. Tabel ini menyediakan nilai <em>Net Present
-Value</em> (NPV) dari berbagai jenis penggunaan lahan.</p></li>
+<li><p><strong>Peta Tutupan Lahan – Sawah</strong><br />
+Raster kategorikal (GeoTIFF) dengan sistem proyeksi UTM, berisi kelas
+penggunaan lahan.<br />
+Modul akan memfilter piksel yang termasuk kategori <em>sawah</em> untuk
+analisis CH₄ dan N₂O.</p></li>
+<li><p><strong>Peta Unit Perencanaan (Planning Unit / PU)</strong><br />
+Raster atau shapefile yang mengelompokkan area ke dalam unit analisis
+(desa, kecamatan, grid, dll.).</p></li>
+<li><p><strong>Tabel Lookup Faktor Emisi CH₄</strong> (CSV)<br />
+Berisi:</p>
+<ul>
+<li>EF dasar (kg CH₄/ha/day)</li>
+<li>Faktor koreksi manajemen air (SFw)</li>
+<li>Faktor koreksi residu jerami (SFr)</li>
+<li>Faktor koreksi musim tanam (SFs)</li>
+<li>Lama tanam (t)</li>
+</ul></li>
+<li><p><strong>Tabel Lookup Emisi N₂O dari Pupuk</strong> (CSV)<br />
+Berisi:</p>
+<ul>
+<li>Jenis pupuk</li>
+<li>Kandungan nitrogen</li>
+<li>Dosis pupuk per ha</li>
+<li>Faktor emisi IPCC (EF_N2O)</li>
+</ul></li>
+<li><p><strong>Tabel Konversi Gas (CH₄ &amp; N₂O ke
+CO₂-eq)</strong><br />
+Mengikuti GWP IPCC (misal AR5).</p></li>
 </ol>
-<!-- 4. **Tabel Lookup QUES-C**: File CSV dengan data numerik tentang cadangan karbon. Basis data ini mencakup nilai karbon (CO2eq) yang terkait dengan berbagai jenis penggunaan lahan. -->
-<p>## Menggunakan Modul Analisis Profitabilitas</p>
-<p>Ikuti langkah-langkah berikut untuk menggunakan modul:</p>
-<p><video controls style="max-width:80%;height:auto;">
-<source src="ta-profit.mp4" type="video/mp4"> Browser Anda tidak
-mendukung pemutar video. </video></p>
-<p># Hasil Analisis</p>
-<p>Setelah analisis selesai, Anda akan menemukan output berikut pada
-direktori yang dipilih:</p>
+<div id="cara-menggunakan-modul-ques-c-paddy" class="section level2">
+<h2>Cara Menggunakan Modul QUES-C Paddy</h2>
+<p>Ikuti langkah-langkah berikut:</p>
 <ol style="list-style-type: decimal">
-<li><p><strong>Peta Distribusi NPV Tahun Pertama</strong>: Peta raster
-biner dalam format GeoTIFF yang diturunkan dari peta tutupan lahan. Peta
-ini menyoroti kelas area fokus yang ditentukan pengguna, di mana area
-fokus direpresentasikan dengan nilai 1, menunjukkan area yang menjadi
-perhatian untuk analisis karbon pada tahun pertama.</p></li>
-<li><p><strong>Peta Distribusi NPV Tahun Kedua</strong>: Peta raster
-biner dalam format GeoTIFF yang diturunkan dari peta tutupan lahan. Peta
-ini menyoroti kelas area fokus yang ditentukan pengguna, di mana area
-fokus direpresentasikan dengan nilai 1, menunjukkan area yang menjadi
-perhatian untuk analisis karbon pada tahun kedua.</p></li>
+<li>Unggah seluruh data input (raster dan CSV).</li>
+<li>Tentukan tipe <em>Planning Unit</em>: raster atau shapefile.</li>
+<li>Jalankan fungsi <code>preprocess_data()</code> untuk:
+<ul>
+<li>membaca raster,</li>
+<li>merasterisasi shapefile (jika ada),</li>
+<li>menghitung luas piksel,</li>
+<li>membuat tabel frekuensi per PU.</li>
+</ul></li>
+<li>Modul secara otomatis:
+<ul>
+<li>menerapkan faktor emisi CH₄,</li>
+<li>menghitung emisi N₂O berdasarkan pupuk,</li>
+<li>mengonversi total emisi menjadi CO₂-eq,</li>
+<li>merangkum hasil per PU,</li>
+<li>membuat grafik interaktif CH₄ + N₂O.</li>
+</ul></li>
 </ol>
-<!-- 3. **Peta Emisi**: Representasi berbasis raster dari data emisi, menggunakan shapefile poligon berupa grid sampel. Grid ini digunakan untuk mengekstrak nilai kunci terkait TECI dan ukuran area fokus, yang berkontribusi dalam memahami emisi akibat perubahan penggunaan lahan. -->
-<p><!-- 4. **Peta Biaya Peluang**: Plot raster yang merepresentasikan Indeks Integrasi Area Fokus (DIFA). Sumbu x menunjukkan *Total Edge Contrast Index* (TECI), sedangkan sumbu y menampilkan proporsi kumulatif area fokus. Kurva menggambarkan hubungan antara fragmentasi habitat (TECI) dan jumlah habitat, dengan luas area di bawah kurva menentukan skor DIFA (berkisar 0–100%). Skor DIFA yang lebih tinggi menunjukkan integrasi habitat yang lebih baik. --></p>
-<ol start="3" style="list-style-type: decimal">
-<li><strong>Laporan Analisis Profitabilitas</strong>: Laporan HTML yang
-merangkum hasil analisis profitabilitas. Laporan ini mencakup
-interpretasi utama dan visualisasi output, seperti peta karbon, emisi,
-dan biaya peluang, yang memberikan wawasan mengenai dampak ekonomi dan
-lingkungan dari perubahan penggunaan lahan.</li>
+<video controls style="max-width:80%;height:auto;">
+<source src="ta-paddy.mp4" type="video/mp4">
+<p>Browser Anda tidak mendukung pemutar video. </video></p>
+</div>
+</div>
+<div id="hasil-analisis" class="section level1">
+<h1>Hasil Analisis</h1>
+<p>Setelah analisis selesai, modul akan menghasilkan beberapa
+output:</p>
+<ol style="list-style-type: decimal">
+<li><p><strong>Peta Identifikasi Sawah</strong><br />
+Raster GeoTIFF yang menunjukkan area sawah yang digunakan dalam
+perhitungan.</p></li>
+<li><p><strong>Peta Emisi CH₄ + N₂O per PU</strong><br />
+File raster atau shapefile yang menampilkan total emisi dalam CO₂-eq
+pada setiap unit perencanaan.</p></li>
+<li><p><strong>Ringkasan Statistik per PU</strong><br />
+Tabel CSV berisi:</p>
+<ul>
+<li>Emisi CH₄ (ton CH₄/tahun)</li>
+<li>Emisi N₂O (ton N₂O/tahun)</li>
+<li>Total CO₂-eq</li>
+</ul></li>
+<li><p><strong>Grafik Interaktif Emisi</strong><br />
+Diagram batang (ggplotly) yang membandingkan kontribusi CH₄ dan N₂O pada
+tiap PU.</p></li>
+<li><p><strong>Laporan HTML QUES-C Paddy</strong><br />
+Berisi:</p>
+<ul>
+<li>Penjelasan metode IPCC<br />
+</li>
+<li>Tabel input dan faktor emisi<br />
+</li>
+<li>Visualisasi peta<br />
+</li>
+<li>Perhitungan CH₄ dan N₂O<br />
+</li>
+<li>Interpretasi hasil untuk pengambil keputusan</li>
+</ul></li>
 </ol>
+</div>
+<div id="referensi-utama" class="section level1">
+<h1>Referensi Utama</h1>
+<p>Sumber resmi IPCC Guideline 2006 Volume 4:<br />
+<a href="https://www.ipcc-nggip.iges.or.jp/public/2006gl/vol4.html" class="uri">https://www.ipcc-nggip.iges.or.jp/public/2006gl/vol4.html</a></p>
 <hr />
 <p>Untuk informasi lebih detail atau pemecahan masalah, lihat
 dokumentasi lengkap Analisis Profitabilitas di sini <a href="https://help.lumens.or.id/07-profitability.html" class="uri">https://help.lumens.or.id/07-profitability.html</a> atau
