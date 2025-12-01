@@ -14,6 +14,7 @@ library(RColorBrewer)
 library(kableExtra)
 library(shinyFiles)
 library(pkgdown)
+library(sf)
 
 # Source the functions
 source("functions.R")
@@ -51,6 +52,8 @@ ui <- fluidPage(
       fileInput("lc_table", "Landcover lookup table (CSV)", accept = c(".csv")),
       fileInput("co2_table", "CO2 Conversion lookup table (CSV)", accept = c(".csv")),
       fileInput("sf_table", "Scaling Factor lookup table (CSV)", accept = c(".csv")),
+      fileInput("pupuk_table", "Fertilizer lookup table (CSV)", accept = c(".csv")),
+      fileInput("n2o_table", "N2O Conversion lookup table (CSV)", accept = c(".csv")),
       div(style = "display: flex; flex-direction: column; gap: 10px;",
           shinyDirButton("wd", "Select Output Directory", "Please select a directory"),
           textOutput("selected_directory"),
@@ -150,6 +153,8 @@ server <- function(input, output, session) {
     rv$lc_table <- input$lc_table
     rv$co2_table <- input$co2_table
     rv$sf_table <- input$sf_table
+    rv$pupuk_table <- input$pupuk_table
+    rv$n2o_table <- input$n2o_table
   })
   
   # Input validation
@@ -165,6 +170,8 @@ server <- function(input, output, session) {
       need(rv$lc_table, "Please upload Landcover Lookup Table (CSV) file"),
       need(rv$co2_table, "Please upload CO2 Conversion Lookup Table (CSV) file"),
       need(rv$sf_table, "Please upload Scaling Factor Lookup Table (CSV) file"),
+      need(rv$pupuk_table, "Please upload Fertilizer Lookup Table (CSV) file"),
+      need(rv$n2o_table, "Please upload N2O Conversion Lookup Table (CSV) file"),
       need(rv$wd != "", "Please select an output directory")
     )
     TRUE
@@ -202,6 +209,8 @@ server <- function(input, output, session) {
           pathLookupLC = rv$lc_table$datapath,
           pathLookupCO2 = rv$co2_table$datapath,
           pathLookupSF = rv$sf_table$datapath,
+          pathLookupPupuk = rv$pupuk_table$datapath,
+          pathLookupN2O= rv$n2o_table$datapath,
           year = rv$year
         )
         

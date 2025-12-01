@@ -77,6 +77,18 @@ rasterise_multipolygon <- function(sf_object, raster_res = c(100,100), field = "
   return(rasterised_spatraster)
 }
 
+reclassify_to_binary <- function(raster, target_value) {
+  reclass <- function(x) {
+    # Use nested ifelse for the reclassification logic:
+    # If x equals target_value, return 1
+    # Else, if x is NA, return NA
+    # Otherwise, return 0
+    ifelse(x %in% target_value, 1, ifelse(is.na(x), NA, 0))
+  }
+  
+  app(raster, reclass)
+}
+
 preprocess_data <- function(
     pathLULCT,
     zone_type,
@@ -85,6 +97,8 @@ preprocess_data <- function(
     pathLookupPU = NULL,
     pathLookupCO2,
     pathLookupSF,
+    pathLookupPupuk,
+    pathLookupN2O,
     year = NULL
 ) {
   
@@ -95,6 +109,7 @@ preprocess_data <- function(
   library(readr)
   library(ggplot2)
   library(plotly)
+  library(tidyterra)
   
   # -------------------------------
   # 1. READ INPUT DATA
@@ -103,6 +118,24 @@ preprocess_data <- function(
   LookupLC <- read_csv(pathLookupLC)
   LookupSF <- read_csv(pathLookupSF)
   LookupCO2 <- read_csv(pathLookupCO2)
+  LookupPupuk <- read_csv(pathLookupPupuk)
+  LookupN2O <- read_csv(pathLookupN2O)
+  
+  get_lookup_value <- function(tbl, variable_name) {
+    tbl %>%
+      filter(Variable == variable_name) %>%
+      pull(Value)
+  }
+  
+  get_rotation_factor <- function(tbl, var_name, rotation_vars) {
+    value <- get_lookup_value(tbl, var_name)
+    total <- tbl %>%
+      filter(Variable %in% rotation_vars) %>%
+      pull(Value) %>%
+      sum()
+    
+    value / total
+  }
   
   # Set names and levels for LULCT
   name_rast <- names(LULCT)
@@ -183,30 +216,95 @@ preprocess_data <- function(
     )
   
   # -------------------------------
-  # 5. CALCULATE CH4 + CO2-eq
+  # 5. CALCULATE CH4 + N2O -> CO2-eq
   # -------------------------------
   combinedRasterTable <- combinedRasterTable %>%
     mutate(
       CH4_emission = Lookup_wide$Total_EF * Lookup_wide$t * Ha * 1e-3,
-      CH4_emission_CO2 = CH4_emission * LookupCO2$GWP[LookupCO2$Gas == "CH4"] * 1e-6
+      CH4_emission_CO2 = CH4_emission * LookupCO2$Value[LookupCO2$Variable == "GWP_CH4"] * 1e-6
+    )
+  
+  #### PERHITUNGAN N2O ####
+  # Hitung N tunggal (rata-rata Urea)
+  n_table <- LookupPupuk %>%
+    group_by(KABUPATEN) %>%
+    summarise(
+      `N Urea` = mean(PT_UREA, na.rm = TRUE)
+    )
+  
+  # Mengalikan untuk mendapatkan N2O
+  n_urea_factor  <- get_lookup_value(LookupN2O, "N Urea")
+  n_table <- n_table %>%
+    mutate(
+      `N Tunggal` = `N Urea` * n_urea_factor
+    )
+  
+  # Lookup factor names
+  rotation_vars <- c(
+    "Rotasi padi 1 kali",
+    "Rotasi padi 2-3 kali",
+    "Tidak ditanami padi"
+  )
+  
+  # Extract factors with helper functions
+  area100_factor <- get_lookup_value(LookupN2O, "100% dosis pupuk")
+  area50_factor  <- get_lookup_value(LookupN2O, "50% dosis pupuk")
+  
+  rotation1_factor <- get_rotation_factor(LookupN2O, "Rotasi padi 1 kali", rotation_vars)
+  rotation2_factor <- get_rotation_factor(LookupN2O, "Rotasi padi 2-3 kali", rotation_vars)
+  
+  N2O_emission <- combinedRasterTable %>%
+    mutate(
+      N2O_emission_100_1 = Ha * area100_factor * rotation1_factor,
+      N2O_emission_100_2 = Ha * area100_factor * rotation2_factor,
+      N2O_emission_50_1  = Ha * area50_factor  * rotation1_factor,
+      N2O_emission_50_2  = Ha * area50_factor  * rotation2_factor
+    )
+  
+  # Extract factors with helper functions
+  EF_N2O <- get_lookup_value(LookupCO2, "EF_N2O")
+  EF_CO2 <- get_lookup_value(LookupCO2, "EF_CO2")
+  GWP_N2O  <- get_lookup_value(LookupCO2, "GWP_N2O")
+  
+  N2O_emission_CO2 <- N2O_emission %>%
+    mutate(
+      N2O_emission_CO2_100_1 = ((N2O_emission_100_1 * n_table$`N Tunggal` * EF_N2O * GWP_N2O) + (N2O_emission_100_1 * n_table$`N Tunggal` * EF_CO2))/1000,
+      N2O_emission_CO2_100_2 = ((N2O_emission_100_2 * n_table$`N Tunggal` * 2.5 * EF_N2O * GWP_N2O) + (N2O_emission_100_2 * n_table$`N Tunggal` * 2.5 * EF_CO2))/1000,
+      N2O_emission_CO2_50_1  = ((N2O_emission_50_1 * n_table$`N Tunggal` * 0.5 * EF_N2O * GWP_N2O) + (N2O_emission_50_1 * n_table$`N Tunggal` * 0.5 * EF_CO2))/1000,
+      N2O_emission_CO2_50_2  = ((N2O_emission_50_2 * n_table$`N Tunggal` * 2.5 * 0.5 * EF_N2O * GWP_N2O) + (N2O_emission_50_2 * n_table$`N Tunggal` * 2.5 * 0.5 * EF_CO2))/1000,
+      # Total N2O emissions across all scenarios (Juta Ton CO2-eq/tahun)
+      N2O_emission_CO2_total =
+        (N2O_emission_CO2_100_1 +
+           N2O_emission_CO2_100_2 +
+           N2O_emission_CO2_50_1  +
+           N2O_emission_CO2_50_2) * 1e-6
     )
   
   # -------------------------------
   # 6. SUM BY PU
   # -------------------------------
-  summary_by_PU <- combinedRasterTable %>%
-    group_by(PU) %>%
-    summarise(
-      `Emission from CH4 (Juta Ton CO2-eq/tahun)` = sum(CH4_emission_CO2, na.rm = TRUE)
-    )
+  # summary_by_PU <- combinedRasterTable %>%
+  #   group_by(PU) %>%
+  #   summarise(
+  #     `Emission from CH4 (Juta Ton CO2-eq/tahun)` = sum(CH4_emission_CO2, na.rm = TRUE)
+  #   )
+  # 
+  # # Add dummy N2O
+  # summary_by_PU$N2O_emission <- 0.5
   
-  # Add dummy N2O
-  summary_by_PU$N2O_emission <- 0.5
+  summary_by_PU <- N2O_emission_CO2 %>%
+    group_by(PU) %>%
+    select(CH4_emission_CO2, N2O_emission_CO2_total) %>% 
+    mutate(
+      `Total Emission (Juta Ton CO2-eq/tahun)` =
+        sum(CH4_emission_CO2, N2O_emission_CO2_total, na.rm = TRUE)
+    )
   
   # Convert to long format
   summary_long <- summary_by_PU %>%
+    select(-`Total Emission (Juta Ton CO2-eq/tahun)`) %>% 
     pivot_longer(
-      cols = c(`Emission from CH4 (Juta Ton CO2-eq/tahun)`, N2O_emission),
+      cols = c(CH4_emission_CO2, N2O_emission_CO2_total),
       names_to = "Gas",
       values_to = "Value"
     )
@@ -238,6 +336,89 @@ preprocess_data <- function(
   plot_interactive <- ggplotly(p, tooltip = "text")
   
   # -------------------------------
+  # 8. PADDY AND NON-PADDY MAP
+  # -------------------------------
+  paddy_values <- LookupLC %>% 
+    filter(paddy == 1) %>% 
+    pull(ID)
+  
+  paddy_map <- reclassify_to_binary(LULCT, paddy_values)
+  
+  # Convert to factor
+  paddy_map_factor <- as.factor(paddy_map)
+  
+  fill_scale <- scale_fill_manual(
+    values = c("0" = "orange",   # non-paddy
+               "1" = "darkgreen"  # paddy
+    ),
+    na.value = "white",
+    labels = c("Non-Paddy", "Paddy"),
+    na.translate = FALSE
+  )
+  
+  plot_paddy_map <- ggplot() +
+    geom_spatraster(data = paddy_map_factor) +
+    coord_sf() +
+    fill_scale +
+    theme_bw() +
+    theme(
+      legend.position = "bottom",
+      legend.title = element_blank(),
+      legend.key = element_rect(colour = 'grey32')
+    ) +
+    guides(fill = guide_legend(reverse = TRUE))
+  
+  # -------------------------------
+  # 9. COUNT PADDY & NON-PADDY BY PU
+  # -------------------------------
+  
+  # Combine PU and paddy raster
+  combined_paddy <- c(PU, paddy_map)
+  
+  # Convert raster stack to table
+  paddy_table <- terra::as.data.frame(combined_paddy, na.rm = TRUE) %>%
+    setNames(c("PU", "PADDY")) %>%
+    group_by(PU, PADDY) %>%
+    summarise(n_pixel = n(), .groups = "drop") %>%
+    mutate(area_ha = n_pixel * area_ha_per_pixel)
+  
+  # Convert PADDY=0/1 to labels
+  paddy_table$Class <- ifelse(paddy_table$PADDY == 1, "Paddy", "Non-Paddy")
+  
+  # -------------------------------
+  # 10. PLOT STACKED BAR CHART
+  # -------------------------------
+  plot_paddy_bar <- ggplot(
+    paddy_table,
+    aes(
+      x = factor(PU),
+      y = area_ha,
+      fill = Class,
+      text = paste0(
+        "Unit Perencanaan: ", PU, "<br>",
+        "Kelas: ", Class, "<br>",
+        "Area (Ha): ", round(area_ha, 2)
+      )
+    )
+  ) +
+    geom_col() +
+    scale_fill_manual(values = c("Non-Paddy" = "orange",
+                                 "Paddy" = "darkgreen")) +
+    labs(
+      title = "Paddy vs Non-Paddy Area per PU",
+      x = "Planning Unit (PU)",
+      y = "Area (ha)",
+      fill = "Class"
+    ) +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
+  
+  plot_paddy_bar_interactive <- plotly::ggplotly(
+    plot_paddy_bar,
+    tooltip = "text"
+  )
+  
+  # -------------------------------
   # RETURN ALL RESULTS
   # -------------------------------
   return(list(
@@ -251,6 +432,8 @@ preprocess_data <- function(
     combinedRasterTable = combinedRasterTable,
     summary_by_PU = summary_by_PU,
     summary_long = summary_long,
-    plot = plot_interactive
+    plot = plot_interactive,
+    plot_paddy_map = plot_paddy_map,
+    plot_paddy_bar_interactive = plot_paddy_bar_interactive
   ))
 }

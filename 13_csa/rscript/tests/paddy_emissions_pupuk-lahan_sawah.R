@@ -7,15 +7,15 @@ library(scales)
 library(readr)
 library(tidyr)
 
-pathLULC = "D:/ICRAF/Kodingan/icraf-indonesia/lumens-shiny/13_csa/rscript/tests/data/sulsel/1_Raster/Penutupan Lahan/lc_2010.tif"
+pathLULC = "D:/ICRAF/Kodingan/icraf-indonesia/lumens-shiny/13_csa/rscript/tests/data/sulsel/1_Raster/Penutupan Lahan/lc_1990.tif"
 pathLookupLC = "D:/ICRAF/Kodingan/icraf-indonesia/lumens-shiny/13_csa/rscript/tests/data/sulsel/3_Tabular/tabel_acuan_penutupan_lahan_sulsel.csv"
 pathPU = "D:/ICRAF/Kodingan/icraf-indonesia/lumens-shiny/13_csa/rscript/tests/data/sulsel/1_Raster/Unit Perencanaan/admin_kabupaten.tif"
 pathLookupPU = "D:/ICRAF/Kodingan/icraf-indonesia/lumens-shiny/13_csa/rscript/tests/data/sulsel/3_Tabular/tabel_acuan_administrasi_kabupaten_sulsel.csv"
-year = 2010
-pathLookupCO2 = "D:/ICRAF/Kodingan/icraf-indonesia/lumens-shiny/13_csa/rscript/tests/data/sulsel/CO2_conversion_lookup_table.csv"
-pathLookupSF = "D:/ICRAF/Kodingan/icraf-indonesia/lumens-shiny/13_csa/rscript/tests/data/sulsel/scaling_factors_lookup_table.csv"
-pathLookupPupuk = "D:/ICRAF/Kodingan/icraf-indonesia/lumens-shiny/13_csa/rscript/tests/data/sulsel/dosis_pupuk_lookup_table.csv"
-pathLookupN2O = "D:/ICRAF/Kodingan/icraf-indonesia/lumens-shiny/13_csa/rscript/tests/data/sulsel/N2O_lookup_table.csv"
+year = 1990
+pathLookupCO2 = "D:/ICRAF/Kodingan/icraf-indonesia/lumens-shiny/13_csa/rscript/tests/data/sulsel/tabel_acuan_konversi_CO2.csv"
+pathLookupSF = "D:/ICRAF/Kodingan/icraf-indonesia/lumens-shiny/13_csa/rscript/tests/data/sulsel/tabel_acuan_scaling_factors.csv"
+pathLookupPupuk = "D:/ICRAF/Kodingan/icraf-indonesia/lumens-shiny/13_csa/rscript/tests/data/sulsel/tabel_acuan_dosis_pupuk.csv"
+pathLookupN2O = "D:/ICRAF/Kodingan/icraf-indonesia/lumens-shiny/13_csa/rscript/tests/data/sulsel/tabel_acuan_N2O.csv"
 
 # PREPROCESSING DATA #### 
 LULC <- rast(pathLULC)
@@ -156,9 +156,9 @@ N2O_emission_CO2 <- N2O_emission %>%
     # Total N2O emissions across all scenarios (Juta Ton CO2-eq/tahun)
     N2O_emission_CO2_total =
       (N2O_emission_CO2_100_1 +
-      N2O_emission_CO2_100_2 +
-      N2O_emission_CO2_50_1  +
-      N2O_emission_CO2_50_2) * 1e-6
+         N2O_emission_CO2_100_2 +
+         N2O_emission_CO2_50_1  +
+         N2O_emission_CO2_50_2) * 1e-6
   )
 
 # SUM CH4_emission_CO2 by PU

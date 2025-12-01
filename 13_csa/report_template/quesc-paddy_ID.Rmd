@@ -57,5 +57,15 @@ class = "display stripe hover"
 )
 ```
 
+## Lahan Padi
+```{r}
+params$result$plot_paddy_map
+```
+
+## Area Padi dan Non Padi
+```{r}
+params$result$plot_paddy_bar_interactive
+```
+
 # Kesimpulan
 Data ini dapat digunakan untuk mendukung analisis terkait perubahan penggunaan lahan, emisi, dan perencanaan wilayah.
