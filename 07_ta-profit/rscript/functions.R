@@ -1039,6 +1039,7 @@ generate_report_params <- function(data, maps, paths, times, output_dir, pu_outp
     pu_file_path = paths$pathPU,
     npv_file_path = paths$pathLookupNPV,
     pu_table_path = paths$pathLookupPU,
+    cstock_table_path = paths$pathLookupCstock,
     npv1_map = maps$npv1_map,
     npv2_map = maps$npv2_map,
     deltaNPV_map = maps$deltaNPV_map,

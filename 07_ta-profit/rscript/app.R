@@ -299,7 +299,8 @@ server <- function(input, output, session) {
           pathLULCT2 = input$lulc_t2$datapath,
           pathPU = input$pu_raster$datapath,
           pathLookupNPV = input$npv_table$datapath,
-          pathLookupPU = input$pu_table$datapath
+          pathLookupPU = input$pu_table$datapath,
+          pathLookupCstock = input$cstock_table$datapath
         )
         times <- list(start_time = start_time, end_time = end_time, valueT1 = input$year1, valueT2 = input$year2)
         
@@ -308,7 +309,7 @@ server <- function(input, output, session) {
         for (pu_name in pu_list) {
           pu_data <- result$combinedRasterTable %>% filter(PU == pu_name)
           pu_outputs[[pu_name]] <- process_pu_data(pu_data, pu_name, input$currency)
-        }
+        }  
         
         # And update the main chart generation:
         params <- generate_report_params(

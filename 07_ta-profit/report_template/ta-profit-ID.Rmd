@@ -27,6 +27,7 @@ params:
   map2_file_path: NULL
   pu_file_path: NULL
   npv_file_path: NULL
+  cstock_table_path: NULL
   pu_table_path: NULL
   year1: NULL
   year2: NULL
@@ -51,6 +52,7 @@ library(leaflet)
 library(mapview)
 library(dplyr)
 library(LUMENSR)
+library(glue)
 ```
 
 <details><summary>Klik di sini untuk Log Analisis</summary>
@@ -251,14 +253,31 @@ datatable(
 ### Tabel Acuan NPV
 
 ```{r NPV Lookup Table, echo=FALSE, message=FALSE, warning=FALSE}
+# baca tabel NPV
+npv_tbl <- read.csv(params$npv_file_path) |>
+  select(LC, NPV)
+
+# baca tabel carbon stock
+carbon_tbl <- read.csv(params$cstock_table_path) |>
+  select(LC, CARBON)
+
+# join NPV + Carbon
+npv_carbon_tbl <- npv_tbl |>
+  left_join(carbon_tbl, by = "LC") |>
+  mutate(
+    CARBON = ifelse(is.na(CARBON), 0, CARBON)
+  ) |>
+  rename(
+    `Tutupan Lahan` = LC,
+    !!glue("NPV ({params$currency})") := NPV,
+    `Karbon (ton C/ha)` = CARBON
+  ) |>
+  mutate(
+    across(where(is.numeric), easy_to_read_numbers)
+  )
+
 datatable(
-  read.csv(params$npv_file_path) |>
-    dplyr::rename(
-      `Tutupan Lahan` = LC,
-      !!glue::glue("NPV ({params$currency})") := NPV,
-      `Karbon (ton C/ha)` = CARBON
-    ) |>
-    dplyr::mutate(dplyr::across(where(is.numeric), easy_to_read_numbers)),
+  npv_carbon_tbl,
   extensions = c('Buttons', 'Responsive'),
   rownames = FALSE,
   options = list(
@@ -269,10 +288,10 @@ datatable(
     ordering = TRUE,
     dom = 'Blfrtip',
     buttons = list(
-      list(extend = "copy", className = "btn btn-light btn-sm"),
-      list(extend = "csv",  className = "btn btn-light btn-sm"),
-      list(extend = "excel",className = "btn btn-light btn-sm")
-      )
+      list(extend = "copy",  className = "btn btn-light btn-sm"),
+      list(extend = "csv",   className = "btn btn-light btn-sm"),
+      list(extend = "excel", className = "btn btn-light btn-sm")
+    )
   ),
   class = "display stripe hover"
 )
@@ -446,7 +465,7 @@ mapview(
   deltaNPV_map,
   maxpixels = ncell(deltaNPV_map),
   na.color = "transparent",
-  layer.name = "ΔNPV",
+  layer.name = "Delta NPV",
   at = breaks,
   col.regions = colors
 )
