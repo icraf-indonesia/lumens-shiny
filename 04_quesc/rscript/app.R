@@ -200,47 +200,25 @@ server <- function(input, output, session) {
     rv$output_dir = parseDirPath(volumes, input$output_dir)
   })
   
+  # Input validation
+  iv <- InputValidator$new()
+  iv$add_rule("lc_t1_path", sv_required(message = "Please upload land cover map at T1"))
+  iv$add_rule("lc_t2_path", sv_required(message = "Please upload land cover map at T2"))
+  iv$add_rule("admin_z_path", sv_required(message = "Please upload planning unit"))
+  iv$add_rule("c_lookup_path", sv_required(message = "Please upload carbon stock lookup table"))
+  iv$add_rule("t1", sv_required(message = "Please define the year of T1"))
+  iv$add_rule("t2", sv_required(message = "Please define the year of T2"))
+  iv$add_rule("output_dir", sv_required(message = "Please select an output directory"))
+  
   #### Do the calculation and store it to the markdown content ####
   observeEvent(input$processQUESC, {
     # Check if any input is missing
-    missing_inputs <- c()
-    if (is.null(input$output_dir) || is.null(rv$output_dir) || is.null(selected_output_dir())) {
-      missing_inputs <- c(missing_inputs, "Output Directory")
-    }
-    if (is.null(rv$lc_t1_path)) {
-      missing_inputs <- c(missing_inputs, "Initial Land Cover/Use Map")
-    }
-    if (is.null(rv$lc_t2_path)) {
-      missing_inputs <- c(missing_inputs, "Final Land Cover/Use Map")
-    }
-    if (is.null(rv$admin_z_path)) {
-      missing_inputs <- c(missing_inputs, "Planning Unit Map")
-    }
-    if (is.null(rv$c_lookup_path)) {
-      missing_inputs <- c(missing_inputs, "Land Cover/Use Carbon Stock Table")
-    }
-    if (is.null(rv$t1)) {
-      missing_inputs <- c(missing_inputs, "Initial Year")
-    }
-    if (is.null(rv$t2)) {
-      missing_inputs <- c(missing_inputs, "Final Year")
-    }
-    if (input$peat_decomposition == "Yes"){
-      if (is.null(rv$peat_map_path)) {
-        missing_inputs <- c(missing_inputs, "Peat Land Map")
-      }
-      if (is.null(rv$peat_emission_factor_table_path)) {
-        missing_inputs <- c(missing_inputs, "Peat Emission Factor Table")
-      }
-    }
-    
-    # If there are missing inputs, show a notification and stop
-    if (length(missing_inputs) > 0) {
+    if(!iv$is_valid()) {
+      iv$enable()
       showNotification(
-        paste("Please upload the following inputs:", paste(missing_inputs, collapse = ", ")),
-        type = "error"
-      )
-      return(NULL)
+        "Please correct the errors in the form and try again",
+        id = "submit_message", type = "error")
+      return()
     }
     
     withProgress(message = 'Running QuES-C Analysis', value = 0,{
