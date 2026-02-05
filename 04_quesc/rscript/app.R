@@ -33,7 +33,9 @@ install_load(
   "tools",
   "leaflet",
   "stars",
-  "mapview"
+  "mapview",
+  "writexl",
+  "DT"
 )
 
 if (!("LUMENSR" %in% rownames(installed.packages()))) {
@@ -339,7 +341,7 @@ server <- function(input, output, session) {
         incProgress(0.7, detail = "Exporting Results")
         
         if (input$peat_decomposition == "Yes"){
-          write.table(quesc_database_mineral_peat, paste0(rv$output_dir, "/quesc_database_mineral&peat_", rv$t1, "-", rv$t2, ".csv"), quote=FALSE, row.names=FALSE, sep=",")
+          writexl::write_xlsx(quesc_database_mineral_peat, path = paste0(rv$output_dir, "/quesc_database_mineral&peat_", rv$t1, "-", rv$t2, ".xlsx"))
           writeRaster(map_c1, paste0(rv$output_dir, "/carbon_map_", rv$t1, ".tif"), overwrite = T)
           writeRaster(map_c2, paste0(rv$output_dir, "/carbon_map_", rv$t2, ".tif"), overwrite = T)
           writeRaster(map_e, paste0(rv$output_dir, "/mineral-land_emission_map_", rv$t1, "-", rv$t2, ".tif"), overwrite = T)
