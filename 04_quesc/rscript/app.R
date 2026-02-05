@@ -1,5 +1,5 @@
-source('../../helper.R')
 source('function_ques_c.R')
+source('../../helper.R')
 
 install_load(
   "terra",
@@ -25,7 +25,13 @@ install_load(
   "data.table",
   "magrittr",
   "tidyr",
-  "tidyterra"
+  "tidyterra",
+  "plotly",
+  "stringr",
+  "readr",
+  "leaflet",
+  "stars",
+  "mapview"
 )
 
 if (!("LUMENSR" %in% rownames(installed.packages()))) {
@@ -49,7 +55,7 @@ ui <- fluidPage(
       textInput("t1", "Initial Year", value = "2000"),
       fileInput("lc_t2_path", "Final Land Cover/Use", accept = c("image/tiff"), placeholder = "input raster (.tif)"),
       textInput("t2", "Final Year", value = "2020"),
-      fileInput("c_lookup_path", "Land Cover/Use Carbon Stock Table", accept = c(".csv"), placeholder = "input table (.csv)"),
+      fileInput("c_lookup_path", "Land Cover/Use Carbon Stock Table", accept = c(".csv", ".xlsx", ".xls"), placeholder = "input table (.xlsx/.xls/.csv)"),
       fileInput("admin_z_path",
                 "Planning Unit",
                 accept = c(".shp", ".dbf", ".shx", ".prj"),
@@ -67,7 +73,7 @@ ui <- fluidPage(
                   accept = c(".shp", ".dbf", ".shx", ".prj"),
                   multiple = T,
                   placeholder = "input shapefiles (.shp, .dbf, .shx, .prj)"),
-        fileInput("peat_emission_factor_table_path", "Peat Emission Factor Table", accept = c(".csv"), placeholder = "input table (.csv)")
+        fileInput("peat_emission_factor_table_path", "Peat Emission Factor Table", accept = c(".csv", ".xlsx", ".xls"), placeholder = "input table (.xlsx/.xls/.csv)")
       ),
       conditionalPanel(
         condition = "input.peat_decomposition == 'No'",
@@ -106,7 +112,7 @@ ui <- fluidPage(
 )
 
 server <- function(input, output, session) {
-  options(shiny.maxRequestSize=30*1024^2)
+  options(shiny.maxRequestSize=100*1024^4)
   session$allowReconnect(TRUE) 
   
   # Directory selection
@@ -320,6 +326,7 @@ server <- function(input, output, session) {
           map_e_peat_res <- resample(map_e_peat, map_e)
           combined_map_e <- c(map_e, map_e_peat_res)
           map_e_mineral_peat <- app(combined_map_e, fun = sum_with_na)
+          map_e_mineral_peat[map_e_mineral_peat == 0] <- NA
           
           # Create mineral and peatland emission database
           tbl_quesc_filtered <- tbl_quesc %>% filter(!(Freq == 0 & Ha == 0))
