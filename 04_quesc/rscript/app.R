@@ -29,6 +29,8 @@ install_load(
   "plotly",
   "stringr",
   "readr",
+  "readxl",
+  "tools",
   "leaflet",
   "stars",
   "mapview"

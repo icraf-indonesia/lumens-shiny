@@ -157,6 +157,77 @@ rename_uploaded_file <- function(input_file) {
   return(new_path)
 }
 
+#' Read Data Files in Various Formats
+#' 
+#' This function reads data files in multiple formats (.csv, .xlsx, .xls) and 
+#' returns a data.frame. It automatically detects the file format based on the 
+#' extension and uses the appropriate reading method.
+#'
+#' @param file_path Character string specifying the path to the data file.
+#'                  The file must exist and be readable.
+#'
+#' @return A data.frame containing the data from the file. For Excel files,
+#'         tibbles are converted to data.frames. For CSV files, the result
+#'         from readr::read_csv() is converted to data.frame.
+#'
+#' @details 
+#' The function supports the following file formats:
+#' \itemize{
+#'   \item \strong{.csv}: Read using \code{readr::read_csv()} which provides
+#'         better performance and more robust parsing than base R's read.csv
+#'   \item \strong{.xlsx/.xls}: Read using \code{readxl::read_excel()} and 
+#'         converted to data.frame if needed
+#' }
+#' 
+#' The function will throw an error if:
+#' \itemize{
+#'   \item The file format is not supported
+#'   \item The file is empty (0 rows)
+#'   \item Required packages (\code{readr} or \code{readxl}) are not available
+#'   \item Any other error occurs during file reading
+#' }
+#'
+#' @examples
+#' \dontrun{
+#' # Read a CSV file
+#' data_csv <- read_table("data.csv")
+#' 
+#' # Read an Excel file (requires readxl package)
+#' data_excel <- read_table("data.xlsx")
+#' }
+#'
+#' @seealso 
+#' \code{\link[readr]{read_csv}} for CSV file reading,
+#' \code{\link[readxl]{read_excel}} for Excel file reading
+#'
+#' @importFrom tools file_ext
+#' @importFrom readr read_csv
+#' @importFrom readxl read_excel
+#' 
+#' @export
+read_table <- function(file_path) {
+  file_ext <- tolower(tools::file_ext(file_path))
+  tryCatch({
+    if (file_ext == "csv") {
+      data <- readr::read_csv(file_path, show_col_types = FALSE)
+      data <- as.data.frame(data)
+    } else if (file_ext %in% c("xlsx", "xls")) {
+      data <- readxl::read_excel(file_path)
+      if (inherits(data, "tbl_df")) {
+        data <- as.data.frame(data)
+      }
+    } else {
+      stop(sprintf("Unsupported file format: .%s. Please provide .csv, .xlsx, or .xls files.", file_ext))
+    }
+    if (is.null(data) || nrow(data) == 0) {
+      stop("The file appears to be empty.")
+    }
+    return(data)
+  }, error = function(e) {
+    stop(sprintf("Error reading file: %s", e$message))
+  })
+}
+
 # Summary of emission calculation
 summary_of_emission_calculation <- function(peat_decomposition, quescdb, zone, map_em, map_sq, period) {
   p <- as.numeric(period$p2) - as.numeric(period$p1)
@@ -958,7 +1029,7 @@ run_quesc_analysis <- function(lc_t1_path, lc_t2_path, admin_z_path, c_lookup_pa
   admin_z_input <- zone %>% raster()
   
   # Prepare C lookup table
-  df_c <- read.csv(c_lookup_path)
+  df_c <- read_table(c_lookup_path)
   
   if(nrow(df_c) == 0)
     return()
@@ -1122,7 +1193,7 @@ run_quesc_peat_analysis <- function(output_dir, lc_t1_path, lc_t2_path, admin_z_
                                      peat_map_path, peat_emission_factor_table_path, t1, t2) {
   # 1. Data Preparation -----------------------------------------------------
   # Prepare lookup table of peat emission factor
-  lookup_c.pt <- read.csv(peat_emission_factor_table_path)
+  lookup_c.pt <- read_table(peat_emission_factor_table_path)
   luc_lut <- lookup_c.pt
   names(lookup_c.pt)[1] <- "ID"
   names(lookup_c.pt)[ncol(lookup_c.pt)] <- "Peat"
