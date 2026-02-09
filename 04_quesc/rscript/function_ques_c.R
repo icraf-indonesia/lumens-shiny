@@ -1006,12 +1006,13 @@ generate_quesc_report <- function(output_quesc, output_dir) {
 #' @importFrom terra writeRaster
 #' 
 #' @export
-run_quesc_analysis <- function(lc_t1_path, lc_t2_path, admin_z_path, c_lookup_path,
-                               time_points, output_dir, progress_callback = NULL) {
+run_quesc_analysis <- function(lc_t1_path, lc_t2_path, admin_z_path, peat_map_path, c_lookup_path, peat_emission_factor_table_path,
+                               time_points, output_dir, peat_decomposition, progress_callback = NULL) {
   is_numeric_str <- function(s) {
     return(!is.na(as.integer(as.character(s))))
   }
-  
+
+  # Data Preparation --------------------------------------------------------
   # Prepare LC raster
   lc_t1_input <- raster(lc_t1_path)
   lc_t2_input <- raster(lc_t2_path)
@@ -1027,6 +1028,18 @@ run_quesc_analysis <- function(lc_t1_path, lc_t2_path, admin_z_path, c_lookup_pa
     )
   zone_lookup_input <- data.frame(ID_PU = zone_sf[[1]], PU = zone_sf[[2]])
   admin_z_input <- zone %>% raster()
+  
+  # Prepare peat raster
+  if (peat_decomposition == "Yes") {
+    peat_sf <- read_shapefile(shp_input = peat_map_path)
+    # peat_sf <- peat_map_path %>% st_read()
+    peat_sf <- st_cast(peat_sf, "MULTIPOLYGON")
+    peat <- peat_sf %>% 
+      rasterise_multipolygon_quesc(
+        raster_res = res(lc_t1_input), 
+        field = paste0(colnames(st_drop_geometry(peat_sf[1])))
+      )
+  }
   
   # Prepare C lookup table
   df_c <- read_table(c_lookup_path)
@@ -1054,13 +1067,21 @@ run_quesc_analysis <- function(lc_t1_path, lc_t2_path, admin_z_path, c_lookup_pa
     add_legend_to_categorical_raster(lookup_table = c_lookup_input, year = as.numeric(as.character(time_points$t2)))  
   zone <- admin_z_input %>% rast() %>%
     add_legend_to_categorical_raster(lookup_table = zone_lookup_input)
+
+  # LULC Change analysis ----------------------------------------------------
+  if (peat_decomposition == "Yes" && !is.null(peat)) {
+    preques <- ques_pre_quesc(lc_t1, lc_t2, zone, peat, peat_decomposition = "Yes")
+  } else {
+    preques <- ques_pre_quesc(lc_t1, lc_t2, zone, peat = NULL, peat_decomposition = "No")
+  }
   
-  preques <- ques_pre_quesc(lc_t1, lc_t2, zone)
   period_year <- as.numeric(as.character(time_points$t1)) - as.numeric(as.character(time_points$t2))
   lucDummy <- generate_dummy_crosstab(c_lookup_input, zone_lookup_input)
   
   # if (!is.null(progress_callback)) progress_callback(0.5, "create QUES-C database")
   
+
+  # QuES-C land-based analysis --------------------------------------------
   # join table
   df_lucdb <- c_lookup_input %>% dplyr::rename(ID_LC1 = 1, C_T1 = 3) %>% 
     rename_with(.cols = 2, ~as.character(time_points$t1)) %>% right_join(lucDummy, by="ID_LC1")
@@ -1096,7 +1117,8 @@ run_quesc_analysis <- function(lc_t1_path, lc_t2_path, admin_z_path, c_lookup_pa
     LU_CHG = do.call(paste, c(df_lucdb[c(as.character(time_points$t1), as.character(time_points$t2))], sep = " to "))
   )
   # session_log <- format_session_info_table()
-  
+
+  # Return all results ------------------------------------------------------
   out <- list(
     map_c1 = map_carbon1,
     map_c2 = map_carbon2,
@@ -1107,7 +1129,8 @@ run_quesc_analysis <- function(lc_t1_path, lc_t2_path, admin_z_path, c_lookup_pa
     lc_t2 = lc_t2, 
     zone = zone,
     df_pu = zone_lookup_input,
-    df_c = df_c
+    df_c = df_c,
+    crosstab = preques$landscape_level
   )
   
   # if (!is.null(progress_callback)) progress_callback(0.9, "outputs generated and saved")
@@ -1190,7 +1213,7 @@ run_quesc_analysis <- function(lc_t1_path, lc_t2_path, admin_z_path, c_lookup_pa
 #' }
 #'
 run_quesc_peat_analysis <- function(output_dir, lc_t1_path, lc_t2_path, admin_z_path, 
-                                     peat_map_path, peat_emission_factor_table_path, t1, t2) {
+                                     peat_map_path, peat_emission_factor_table_path, crosstab_peat, t1, t2) {
   # 1. Data Preparation -----------------------------------------------------
   # Prepare lookup table of peat emission factor
   lookup_c.pt <- read_table(peat_emission_factor_table_path)
@@ -1227,11 +1250,11 @@ run_quesc_peat_analysis <- function(output_dir, lc_t1_path, lc_t2_path, admin_z_
   peat_table <- data.frame(ID = peat_sf[[1]])
   peatmap_raw <- peat_sf %>%
     rasterise_multipolygon_quesc(
-      raster_res = res(luc_1), 
+      raster_res = res(luc_1),
       field = paste0(colnames(st_drop_geometry(peat_sf[1])))
     )
   peatmap <- resample(peatmap_raw, luc_1)
-  
+
   # Peat reclassification
   rec_value <- peat_table$ID
   rep_value <- 1
@@ -1289,6 +1312,99 @@ run_quesc_peat_analysis <- function(output_dir, lc_t1_path, lc_t2_path, admin_z_
   ))
 }
 
+# create_crosstab_quesc ---------------------------------------------------------
+
+#' Create Crosstab From Raster List for QuES-C Module
+#'
+#' This function takes a list of raster files, creates a stack, and returns a frequency table
+#' (crosstab) of the stack. The frequency table is filtered to remove rows where the frequency is zero.
+#'
+#' @param land_cover A SpatRaster object (stack of land cover rasters)
+#' @param zone A SpatRaster object of planning unit/zone (mandatory)
+#' @param peat An optional SpatRaster object for peat data
+#'
+#' @return A list with two elements: crosstab_square (wide format) and crosstab_long (long format).
+#'
+#' @importFrom terra rast crosstab compareGeom time levels nlyr
+#' @importFrom dplyr arrange desc
+#' @importFrom tidyr drop_na
+#'
+#' @examples
+#' \dontrun{
+#'   # Read in the legend for raster data
+#'   subset_legend <- LUMENSR::lc_lookup_klhk
+#'
+#'   # Read raster files
+#'   raster_files <- c("kalbar_LC11.tif", "kalbar_LC15.tif", "kalbar_LC20.tif") %>%
+#'     purrr::map(LUMENSR_example) %>%
+#'     purrr::map(rast)
+#'
+#'   # Loop through raster files
+#'   lc_list <- purrr::map(raster_files,
+#'                         ~apply_lookup_table(raster_file = .x,
+#'                                             lookup_lc = subset_legend))
+#'   
+#'   # Create land_cover stack
+#'   land_cover <- terra::rast(lc_list)
+#'   
+#'   # Create zone raster (example)
+#'   zone <- terra::rast(raster_files[[1]])
+#'   
+#'   # Turn raster files into a frequency table
+#'   crosstab_result <- create_crosstab_quesc(land_cover, zone)
+#' }
+#'
+#' @export
+#'
+create_crosstab_quesc <- function(land_cover, zone, peat = NULL) {
+  # Check if land_cover is a list of 'SpatRaster' objects
+  if (!all(sapply(land_cover, function(x) class(x) == "SpatRaster"))) {
+    stop("land_cover must be a list of 'SpatRaster' objects.")
+  }
+  
+  # Check if all rasters in the list have levels (categories)
+  has_levels <- sapply(land_cover, function(x) !is.null(terra::levels(x)))
+  if(!all(has_levels)) {
+    warning("Some rasters do not contain levels (categories).")
+  }
+  
+  # Check if all SpatRaster objects have a time attribute
+  all_times_present <- all(sapply(land_cover, function(x) !is.null(time(x))))
+  if (!all_times_present) {
+    stop("All SpatRaster objects must have a time attribute.")
+  }
+  
+  # Create combined stack 
+  names(land_cover) <- as.character(time(land_cover))
+  combined_stack <- land_cover
+  combined_stack <- c(combined_stack, zone)
+  
+  # Check and add peat if provided
+  if (!is.null(peat)) {
+    if (!inherits(peat, "SpatRaster")) {
+      stop("If provided, peat must be a SpatRaster object.")
+    }
+    if (!terra::compareGeom(combined_stack, peat, stopOnError = FALSE)) {
+      stop("Peat does not have the same projection, extent, and resolution as the combined stack.")
+    }
+    combined_stack <- c(combined_stack, peat)
+  }
+  
+  # Create crosstab
+  crosstab_square <- terra::crosstab(combined_stack, useNA = TRUE, digits = 3)
+  
+  # Convert to long format and clean
+  crosstab_long <- crosstab_square %>%
+    as.data.frame() %>%
+    dplyr::arrange(dplyr::desc(Freq)) %>% # order by descending Freq
+    tidyr::drop_na()
+  
+  names(crosstab_long) <- gsub("^X", "", names(crosstab_long))
+  crosstab_long <- crosstab_long[crosstab_long$Freq != 0, ]
+
+  return(list(crosstab_square = crosstab_square, crosstab_long = crosstab_long))
+}
+
 # Pre-QuES Land cover change analysis -------------------------------------
 
 #' @title Pre-QuES Land cover change analysis
@@ -1333,57 +1449,64 @@ run_quesc_peat_analysis <- function(output_dir, lc_t1_path, lc_t2_path, admin_z_
 #'   terra::rast()
 #' ques_pre(lc_t1_, lc_t2_, admin_z)
 #' }
-
-ques_pre_quesc <- function(lc_t1, lc_t2, admin_, cutoff_landscape = 5000, cutoff_pu = 500, convert_to_Ha = TRUE) {
+ques_pre_quesc <- function(lc_t1, lc_t2, admin_, peat = NULL, convert_to_Ha = TRUE, peat_decomposition = "Yes") {
   
-  ## Plot planning unit
+  ## Validate planning unit
   if (is(admin_, "SpatRaster")) {
-    plot_admin <- plot_categorical_raster(admin_) #%>% ggplot_to_image(image_width = 20, image_height = 14)
-    
+    plot_admin <- plot_categorical_raster(admin_)
   } else {
-    stopifnot(is(admin_, "sf")) # Ensure admin_ is either SpatRaster or sf (multipolygon)
-    plot_admin <- plot_planning_unit(admin_) #%>% ggplot_to_image(image_width = 20, image_height = 14)
-    admin_ <- rasterise_multipolygon(admin_) # convert admin_ to a spatraster
+    stopifnot(is(admin_, "sf"))
+    plot_admin <- plot_planning_unit(admin_)
+    admin_ <- rasterise_multipolygon(admin_)
   }
   
-  # Guardrails to check the input types
+  # Guardrails to check the input
   stopifnot(is(lc_t1, "SpatRaster"), is(lc_t2, "SpatRaster"))
-  
-  # Guardrails to check if the input rasters have attribute tables
   stopifnot(!is.null(cats(lc_t1)[[1]]), !is.null(cats(lc_t2)[[1]]))
   
-  # Guardrail to ensure identical extent and projection system
-  compareGeom(lc_t1, lc_t2, admin_, stopOnError = TRUE)
+  # Process peat map ONLY if peat_decomposition is "Yes" AND peat is provided
+  if (peat_decomposition == "Yes") {
+    if (is.null(peat)) {
+      stop("When peat_decomposition = 'Yes', a peat map must be provided")
+    }
+    
+    ## Validate peat map
+    if (is(peat, "SpatRaster")) {
+      plot_peat <- plot_categorical_raster(peat)
+    } else if (is(peat, "sf")) {
+      plot_peat <- plot_categorical_raster(peat)
+      peat <- rasterise_multipolygon(peat)
+    } else {
+      stop("peat must be either SpatRaster or sf object when peat_decomposition = 'Yes'")
+    }
+    
+    # Align peat map to the extent
+    peat <- extend(peat, lc_t1)
+    peat <- resample(peat, lc_t1, method = "near")
+    
+    compareGeom(lc_t1, lc_t2, admin_, peat, stopOnError = TRUE)
+  } else {
+    compareGeom(lc_t1, lc_t2, admin_, stopOnError = TRUE)
+  }
   
   # Plot land cover for both periods and the planning unit
-  ## Plot land cover T1
-  plot_lc_t1 <- plot_categorical_raster(lc_t1) #%>% ggplot_to_image(image_width = 20, image_height = 14)
-  ## Plot land cover T2
-  plot_lc_t2 <- plot_categorical_raster(lc_t2) #%>% ggplot_to_image(image_width = 20, image_height = 14)
+  plot_lc_t1 <- plot_categorical_raster(lc_t1)
+  plot_lc_t2 <- plot_categorical_raster(lc_t2)
   
   # Calculate and tabulate land cover composition in Hectares
   lc_freq_table <- calc_lc_freq(raster_list = list(lc_t1, lc_t2)) %>%
-    abbreviate_by_column( "Jenis tutupan lahan", remove_vowels = FALSE)
-  
+    abbreviate_by_column("Land-use/cover types", remove_vowels = FALSE)
   
   if (grepl("\\+units=m", st_crs(lc_t1)$proj4string)) {
     spatRes <- calc_res_conv_factor_to_ha(lc_t1)
     lc_freq_table <-
-      mutate(lc_freq_table, across(c(2,3), ~(spatRes*.x))) %>% # convert to hectares
-      #mutate_if(is.numeric, format, digits=3) %>% 
-      
+      mutate(lc_freq_table, across(c(2,3), ~(spatRes*.x))) %>%
       mutate(across(c(2,3), ~units::set_units(x = .x, value = "ha")))
   } else {
     cat("Frequency is shown in number of pixels isntead of hectares in the lc_freq_table")
   }
   
   lc_composition_tbl <- lc_freq_table
-  
-  # Plot land cover composition
-  # lc_composition_barplot <- lc_freq_table %>% 
-  #   plot_lc_freq(column_lc_type = "Land-use/cover types", #"Jenis tutupan lahan",
-  #                column_T1 = names(lc_freq_table)[2],
-  #                column_T2 = names(lc_freq_table)[3])
   
   # Store visualization results
   input_dataviz <- list(
@@ -1394,70 +1517,52 @@ ques_pre_quesc <- function(lc_t1, lc_t2, admin_, cutoff_landscape = 5000, cutoff
     tbl_lookup_lc_t2 = cats(lc_t2)[[1]],
     tbl_lookup_admin = cats(admin_)[[1]],
     lc_composition_tbl = lc_composition_tbl
-    # lc_composition_barplot = lc_composition_barplot
   )
+  
   # Create crosstabulation
   crosstab_matrix_landscape <- create_crosstab(land_cover = c(lc_t1, lc_t2))[["crosstab_square"]] |>
     as.data.frame.matrix()
   
-  crosstab_result <- create_crosstab(land_cover = c(lc_t1, lc_t2), zone = admin_)[["crosstab_long"]]
+  # Proper conditional for create_crosstab_quesc
+  if (peat_decomposition == "Yes" && !is.null(peat)) {
+    crosstab_result <- create_crosstab_quesc(land_cover = c(lc_t1, lc_t2), zone = admin_, peat = peat)[["crosstab_long"]]
+  } else {
+    crosstab_result <- create_crosstab_quesc(land_cover = c(lc_t1, lc_t2), zone = admin_)[["crosstab_long"]]
+  }
   
   # Get spatResolution
-  if( convert_to_Ha == TRUE) {
+  if(convert_to_Ha == TRUE) {
     SpatRes <- calc_res_conv_factor_to_ha(raster_input = lc_t1)
-    
     crosstab_result <- mutate(crosstab_result, Ha = Freq*SpatRes)
     crosstab_matrix_landscape <- crosstab_result
   }
   
   # Summarize crosstabulation at landscape level
-  # Subsetting the crosstab_result data frame
   selected_cols <- select(crosstab_result, -names(admin_))
-  
-  # Getting the names of the columns to be grouped
   group_cols <- setdiff(names(selected_cols), c("Freq", "Ha"))
-  
-  # Grouping the data frame by the columns selected above
   grouped_df <- group_by_at(selected_cols, group_cols)
   
-  # Summarizing the grouped data
   if ("Ha" %in% names(grouped_df)) {
     crosstab_landscape <- summarise(grouped_df, Freq = sum(.data[["Freq"]]), Ha = sum(.data[["Ha"]]), .groups = "drop")
   } else {
     crosstab_landscape <- summarise(grouped_df, Freq = sum(.data[["Freq"]]), .groups = "drop")
   }
-  # Create Sankey diagrams at landscape level
-  ## Sankey diagram showing all changes
-  # sankey_landscape <- crosstab_landscape %>%
-  #   create_sankey(area_cutoff = cutoff_landscape, change_only = FALSE)
-  
-  ## Sankey diagram showing only changes
-  # sankey_landscape_chg_only<- crosstab_landscape %>%
-  #   create_sankey(area_cutoff = cutoff_landscape, change_only = TRUE)
-  
-  # Compute 10 dominant land use changes
-  luc_top_10 <- crosstab_landscape %>% calc_top_lcc(n_rows = 10)
-  
-  # Tabulate and plot 10 dominant land use changes
-  luc_top_10_barplot <- luc_top_10 %>%
-    plot_lcc_freq_bar(col_T1 = as.character(time(lc_t1)), col_T2 = as.character(time(lc_t2)),
-                      Freq = if ("Ha" %in% names(luc_top_10)) "Ha" else "Freq")
   
   # Store results at landscape level
   landscape_level <- list(
-    # sankey_landscape= sankey_landscape,
-    # sankey_landscape_chg_only = sankey_landscape_chg_only,
-    luc_top_10_tbl = luc_top_10,
-    luc_top_10_barplot = luc_top_10_barplot,
     crosstab_landscape = crosstab_matrix_landscape,
     crosstab_long = crosstab_result
   )
   
-  # Compute summaries for each planning unit
-  pu_names <- crosstab_result %>% pull(names(admin_)) %>% unique()
-  pu_level <- purrr::map(pu_names, ~ lcc_summary_by_pu(crosstab_tbl = crosstab_result, pu_column = names(admin_), pu_name = .x, sankey_area_cutoff = cutoff_pu, n_top_lcc = 10))
-  pu_level <- stats::setNames(pu_level,pu_names)
+  # Only add peat-related results if peat_decomposition is "Yes"
+  if (peat_decomposition == "Yes" && !is.null(peat)) {
+    landscape_level$crosstab_peat_sum <- crosstab_landscape %>%
+      filter(peat_area == "Peat")
+  }
   
   # Return all results
-  return(list(input_dataviz = input_dataviz, landscape_level = landscape_level, pu_level = pu_level))
+  return(list(
+    input_dataviz = input_dataviz, 
+    landscape_level = landscape_level
+  ))
 }
