@@ -35,7 +35,8 @@ install_load(
   "stars",
   "mapview",
   "writexl",
-  "DT"
+  "DT",
+  "networkD3"
 )
 
 if (!("LUMENSR" %in% rownames(installed.packages()))) {
@@ -241,15 +242,17 @@ server <- function(input, output, session) {
         }
         
         incProgress(0.2, detail = "Calculating Land Based Carbon Emission")
-
         # Run QuES-C analysis
         results <- run_quesc_analysis(
           lc_t1_path = lc_t1_path,
           lc_t2_path = lc_t2_path,
           admin_z_path = rv$admin_z_path,
+          peat_map_path = rv$peat_map_path,
           c_lookup_path = c_lookup_path,
+          peat_emission_factor_table_path = peat_emission_factor_table_path,
           time_points = list(t1 = rv$t1, t2 = rv$t2),
           output_dir = rv$output_dir,
+          peat_decomposition = input$peat_decomposition,
           progress_callback = function(value, detail) {
             setProgress(value = value, message = detail)
           }
