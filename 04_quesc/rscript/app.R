@@ -240,7 +240,7 @@ server <- function(input, output, session) {
         if (input$peat_decomposition == "Yes"){
           peat_emission_factor_table_path <- rename_uploaded_file(input_file = rv$peat_emission_factor_table_path)
         }
-        
+
         incProgress(0.2, detail = "Calculating Land Based Carbon Emission")
         # Run QuES-C analysis
         results <- run_quesc_analysis(
@@ -268,6 +268,7 @@ server <- function(input, output, session) {
         zone <- results$zone
         df_pu <- results$zone_lookup_input
         df_c <- results$df_c
+        crosstab_peat <- results$crosstab
         
         # Run QuES-C peat analysis (if any)
         
@@ -281,13 +282,13 @@ server <- function(input, output, session) {
             admin_z_path = rv$admin_z_path,
             peat_map_path = rv$peat_map_path,
             peat_emission_factor_table_path = peat_emission_factor_table_path,
+            crosstab_peat = crosstab_peat,
             t1 = rv$t1,
             t2 = rv$t2
           )
           
           # Access peat emission results
-          tbl_quesc_peat <- results_peat$chg_ptable
-          tbl_quesc_peat_sum <- results_peat$chg_pdtable
+          tbl_quesc_peat <- results_peat$chg_pdtable
           map_e_peat <- results_peat$em_map
           peatmap <- results_peat$peatmap
           lookup_c.pt <- results_peat$lookup_c.pt
@@ -311,32 +312,34 @@ server <- function(input, output, session) {
           map_e_peat_res <- resample(map_e_peat, map_e)
           combined_map_e <- c(map_e, map_e_peat_res)
           map_e_mineral_peat <- app(combined_map_e, fun = sum_with_na)
-          map_e_mineral_peat[map_e_mineral_peat == 0] <- NA
+          # map_e_mineral_peat[map_e_mineral_peat == 0] <- NA
           
           # Create mineral and peatland emission database
-          tbl_quesc_filtered <- tbl_quesc %>% filter(!(Freq == 0 & Ha == 0))
-          options(scipen = 999)
-          
-          tbl_quesc_new <- tbl_quesc_filtered %>%
-            rename(em_mineral = EM) %>%
-            mutate(matching_key = paste(ID_PU, get(as.character(rv$t1)), get(as.character(rv$t2)), sep = "_")
+          peat_name <- names(peatmap)
+          tbl_quesc <- tbl_quesc %>%
+            full_join(
+              tbl_quesc_peat,
+              by = c("ID_PU", "PU", "ID_LC2", rv$t2, "ID_LC1", rv$t1, "LU_CHG"),
+              suffix = c("_nonpeat", "_peat"),
+              relationship = "many-to-many"
+            ) %>%
+            mutate(
+              !!peat_name := coalesce(peat_area_peat, peat_area_nonpeat),
+              Freq = coalesce(Freq_nonpeat, Freq_peat),
+              Ha = coalesce(Ha_nonpeat, Ha_peat),
+              EM_Total = EM + Peat_EM
+            ) %>%
+            select(
+              ID_PU, PU, ID_LC2, 
+              all_of(rv$t2), C_T2, FE_T2,   
+              ID_LC1, 
+              all_of(rv$t1), C_T1, FE_T1,  
+              Freq, Ha, !!peat_name, EM, SQ, Peat_EM, EM_Total, LU_CHG
             )
           
-          # Prepare the new peat emission table
-          peat_matching <- tbl_quesc_peat %>%
-            mutate(matching_key = paste(ID_PU, get(as.character(rv$t1)), get(as.character(rv$t2)), sep = "_")) %>%
-            select(matching_key, em_calc)
-          
-          # Merge the tables and reorganize columns
-          quesc_database_mineral_peat <- tbl_quesc_new %>%
-            left_join(peat_matching, by = "matching_key") %>%
-            mutate(em_peat = ifelse(is.na(em_calc), 0, em_calc)) %>%
-            select(-matching_key, -em_calc) %>%
-            mutate(EM = em_mineral + em_peat, Type = ifelse(em_peat == 0, "mineral", "peat")) %>%
-            # Relocate columns
-            relocate(em_peat, .after = em_mineral) %>%
-            relocate(EM, .after = em_peat) %>%
-            relocate(Type, .after = SQ)
+          tbl_quesc <- tbl_quesc %>%
+            rename(EM = EM_Total, EM_Mineral = EM, EM_Peat = Peat_EM) %>% 
+            relocate(SQ, .after = EM)
         }
         
         # Export results -------------------------------------------------------
@@ -344,7 +347,7 @@ server <- function(input, output, session) {
         incProgress(0.7, detail = "Exporting Results")
         
         if (input$peat_decomposition == "Yes"){
-          writexl::write_xlsx(quesc_database_mineral_peat, path = paste0(rv$output_dir, "/quesc_database_mineral&peat_", rv$t1, "-", rv$t2, ".xlsx"))
+          writexl::write_xlsx(tbl_quesc, path = paste0(rv$output_dir, "/quesc_database_mineral&peat_", rv$t1, "-", rv$t2, ".xlsx"))
           writeRaster(map_c1, paste0(rv$output_dir, "/carbon_map_", rv$t1, ".tif"), overwrite = T)
           writeRaster(map_c2, paste0(rv$output_dir, "/carbon_map_", rv$t2, ".tif"), overwrite = T)
           writeRaster(map_e, paste0(rv$output_dir, "/mineral-land_emission_map_", rv$t1, "-", rv$t2, ".tif"), overwrite = T)
@@ -386,10 +389,8 @@ server <- function(input, output, session) {
           
           # Conditional peat parameters
           tbl_quesc_peat = if (input$peat_decomposition == "Yes") tbl_quesc_peat else NULL,
-          tbl_quesc_peat_sum = if (input$peat_decomposition == "Yes") tbl_quesc_peat_sum else NULL,
           map_e_peat = if (input$peat_decomposition == "Yes") map_e_peat else NULL,
           map_e_mineral_peat = if (input$peat_decomposition == "Yes") map_e_mineral_peat else NULL,
-          quesc_database_mineral_peat = if (input$peat_decomposition == "Yes") quesc_database_mineral_peat else NULL,
           peatmap = if (input$peat_decomposition == "Yes") peatmap else NULL,
           lookup_c.pt = if (input$peat_decomposition == "Yes") lookup_c.pt else NULL,
           

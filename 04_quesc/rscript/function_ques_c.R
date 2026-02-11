@@ -1135,9 +1135,9 @@ run_quesc_analysis <- function(lc_t1_path, lc_t2_path, admin_z_path, peat_map_pa
   
   # if (!is.null(progress_callback)) progress_callback(0.9, "outputs generated and saved")
   # write.table(df_lucdb,
-  #             paste0(output_dir, "/quesc_database.csv"), 
-  #             quote=FALSE, 
-  #             row.names=FALSE, 
+  #             paste0(output_dir, "/quesc_database.csv"),
+  #             quote=FALSE,
+  #             row.names=FALSE,
   #             sep=",")
   # writeRaster(map_carbon1,
   #             paste0(output_dir, "/carbon_map_t1.tif"), overwrite = T)
@@ -1244,70 +1244,65 @@ run_quesc_peat_analysis <- function(output_dir, lc_t1_path, lc_t2_path, admin_z_
   luc_2 <- resample(luc_2raw, zone)
   
   # Prepare peat map
-  peat_sf <- read_shapefile(shp_input = peat_map_path)
-  # peat_sf <- peat_map_path %>% st_read()
-  peat_sf <- st_cast(peat_sf, "MULTIPOLYGON")
-  peat_table <- data.frame(ID = peat_sf[[1]])
-  peatmap_raw <- peat_sf %>%
-    rasterise_multipolygon_quesc(
-      raster_res = res(luc_1),
-      field = paste0(colnames(st_drop_geometry(peat_sf[1])))
-    )
-  peatmap <- resample(peatmap_raw, luc_1)
-
-  # Peat reclassification
-  rec_value <- peat_table$ID
-  rep_value <- 1
-  peatmap <- classify(peatmap, matrix(c(rec_value, rep_value), ncol = 2))
+  peat_data <- read_peat_map(peat_map_path, luc_1)
+  peat_map <- peat_data[[1]]
+  peat_tbl <- peat_data[[2]]
   
-  # 2. Create Cross Tabulation ----------------------------------------------
-  lu_chg <- (zone * 1) + (luc_1 * 100^1) + (luc_2 * 100^2)
-  cross_tab <- cross_tabulation(pu_table, luc_lut, zone, luc_1, luc_2, lu_chg)
-  chg_db <- cross_tab$lu.db
-  landUseChangeMapDummy <- cross_tab$landUseChangeMapDummy
+  # Cross tabulation
+  lucDummy <- generate_dummy_crosstab(lookup_c.pt, pu_table)
   
-  # 3. Calculate Emission Each Pixels ---------------------------------------
-  # Subset the landuse change
-  chg_ptmap <- lu_chg * peatmap
-  chg_ptable <- as.data.frame(freq(chg_ptmap))
-  chg_ptable <- chg_ptable[, -1]
-  chg_ptable <- na.omit(chg_ptable)
-  names(chg_ptable) <- c("ID", "COUNT")
-  chg_ptable$HECT <- chg_ptable$COUNT * res(zone)[1]^2 / 10000  # area in hectare
-  chg_ptable <- chg_ptable[, c("ID", "HECT")]
-  sub.chg_db <- chg_db[chg_db$ID_CHG %in% chg_ptable$ID, !names(chg_db) %in% "COUNT"]
-  chg_ptable <- merge(chg_ptable, sub.chg_db, by.x = "ID", by.y = "ID_CHG", all.x = TRUE)
+  # Calculate peat emission
+  reclassify_matrix <- as.matrix(lookup_c.pt[,1]) %>% 
+    cbind(., as.matrix(lookup_c.pt[,3])) %>%
+    rbind(., c(0, NA))
   
-  # Merge with the 'lookup_c.pt'
-  for (p in 1:2) {
-    chg_ptable <- merge(chg_ptable, lookup_c.pt, 
-                        by.x = paste0("ID_LC", p), 
-                        by.y = "ID", 
-                        all.x = TRUE)
-    names(chg_ptable)[names(chg_ptable) == "Peat"] <- paste0("EM_F_", eval(parse(text = paste0("t", p))))
-  }
-  
-  # 4. Calculate Total Emission ---------------------------------------------
-  # Calculate the total emission of each row
+  # Time multiplier emission at T1 applies for first half of period - Assumes emission at T2 applies for second half of period
   t_mult <- abs(as.numeric(as.character(t2)) - as.numeric(as.character(t1))) / 2 # multiplier, in year
-  chg_ptable$raw_em <- t_mult * eval(parse(text = paste0("chg_ptable$EM_F_", t1, "+ chg_ptable$EM_F_", t2)))
-  chg_ptable$em_calc <- chg_ptable$raw_em * chg_ptable$HECT
-  names(chg_ptable)[6] <- as.character(t1)
-  names(chg_ptable)[8] <- as.character(t2)
+  map_factor_em1 <- luc_1 %>% classify(reclassify_matrix)
+  map_factor_em2 <- luc_2 %>% classify(reclassify_matrix)
+  map_peat_decomp_em <- t_mult * (map_factor_em1 + map_factor_em2)
+  map_peat_decomp_em <- map_peat_decomp_em * peat_map
+  names(map_peat_decomp_em) <- rep(paste0("peat_decomposition_emission_", t1, "-", t2), nlyr(map_peat_decomp_em))
+
+  # Join table
+  df_lucdb <- lookup_c.pt %>% dplyr::rename(ID_LC1 = 1, FE_T1 = 3) %>% 
+    rename_with(.cols = 2, ~as.character(t1)) %>% right_join(lucDummy, by="ID_LC1")
   
-  # Merge as data.table
-  chg_pdtable <- data.table(chg_ptable[, c("ID_PU", "em_calc", "HECT")])
-  chg_pdtable <- chg_pdtable[, lapply(.SD, sum), by = list(ID_PU)][!is.na(ID_PU)]
+  df_lucdb <- lookup_c.pt %>% dplyr::rename(ID_LC2 = 1, FE_T2 = 3) %>% 
+    rename_with(.cols = 2, ~as.character(t2)) %>% right_join(df_lucdb, by="ID_LC2")
   
-  # Emission map: peat area either with emission or not
-  em_map <- classify(chg_ptmap, as.matrix(chg_ptable[, c("ID", "raw_em")]))
+  df_lucdb <- pu_table %>% dplyr::rename(ID_PU = 1) %>% 
+    rename_with(.cols = 2, ~names(zone)) %>% right_join(df_lucdb, by="ID_PU") 
+  
+  df_lucdb <- df_lucdb %>% crossing(peat_tbl)
+  
+  df_lucdb <- df_lucdb %>% 
+    left_join(
+      crosstab_peat$crosstab_long,
+      by = setNames(
+        names(crosstab_peat$crosstab_long)[c(3, 1, 2, 4)],
+        c(names(zone), as.character(t1), as.character(t2), names(peat_map))
+      )
+    )
+  
+  # the full version of preques database from preques analysis combined with all possible landcover listed in the lookup table
+  df_lucdb <- df_lucdb %>% replace(is.na(df_lucdb), 0) %>% dplyr::rename(PU = names(zone))
+  
+  df_lucdb <- df_lucdb %>% mutate(
+    Peat_EM = ifelse(
+      grepl("^(?=.*?(peat|peatland|gambut|lahan gambut|ekosistem gambut))(?!(.*?(non[-_]?|bukan|mineral|lahan\\s+mineral)))", 
+            peat_area, ignore.case = TRUE, perl = TRUE), # filter to only calculate emission of peat area
+      t_mult * (FE_T1 + FE_T2) * Ha * 3.67, 
+      0
+    ),
+    LU_CHG = do.call(paste, c(df_lucdb[c(as.character(t1), as.character(t2))], sep = " to "))
+  )
   
   # Return results
   return(list(
-    chg_ptable = chg_ptable,
-    chg_pdtable = chg_pdtable,
-    em_map = em_map,
-    peatmap = peatmap,
+    chg_pdtable = df_lucdb,
+    em_map = map_peat_decomp_em,
+    peatmap = peat_map,
     lookup_c.pt = lookup_c.pt
   ))
 }
@@ -1495,7 +1490,7 @@ ques_pre_quesc <- function(lc_t1, lc_t2, admin_, peat = NULL, convert_to_Ha = TR
   
   # Calculate and tabulate land cover composition in Hectares
   lc_freq_table <- calc_lc_freq(raster_list = list(lc_t1, lc_t2)) %>%
-    abbreviate_by_column("Land-use/cover types", remove_vowels = FALSE)
+    abbreviate_by_column("Jenis tutupan lahan", remove_vowels = FALSE)
   
   if (grepl("\\+units=m", st_crs(lc_t1)$proj4string)) {
     spatRes <- calc_res_conv_factor_to_ha(lc_t1)
@@ -1565,4 +1560,88 @@ ques_pre_quesc <- function(lc_t1, lc_t2, admin_, peat = NULL, convert_to_Ha = TR
     input_dataviz = input_dataviz, 
     landscape_level = landscape_level
   ))
+}
+
+#' Read and process peatland map data
+#' 
+#' This function reads a peatland map from a vector file, processes it based on 
+#' the number of features and classification values, and returns a rasterized 
+#' version aligned to a reference raster.
+#'
+#' @param peat_map_path Character string. Path to the peatland map vector file
+#'   (e.g., shapefile, GeoPackage).
+#' @param ref_raster SpatRaster. Reference raster for alignment and extent.
+#'
+#' @return A list with two elements:
+#'   \itemize{
+#'     \item \code{peat_rast}: A binary SpatRaster (0/1) indicating peatland presence
+#'     \item \code{peat_values}: Unique values from the peat attribute table
+#'   }
+#'
+#' @details The function handles three scenarios:
+#'   \enumerate{
+#'     \item Single feature: Assigns 1 to peat areas, 0 elsewhere within raster boundary
+#'     \item Multiple features with 0/1 IDs: Uses existing classification
+#'     \item Multiple features without 0/1 IDs: Treats all features as peat (1)
+#'   }
+#'   The output raster is resampled to match the reference raster dimensions if needed.
+#'
+#' @examples
+#' \dontrun{
+#' # Example usage
+#' ref_raster <- rast("reference.tif")
+#' result <- read_peat_map("peat_map.shp", ref_raster)
+#' peat_raster <- result[[1]]
+#' unique_values <- result[[2]]
+#' }
+#'
+#' @import terra sf
+#' @export
+read_peat_map <- function(peat_map_path, ref_raster) {
+  # Load data if file paths are provided
+  peat_sf <- read_shapefile(shp_input = peat_map_path)
+  # peat_sf <- peat_map_path %>% st_read()
+  peat_sf <- st_cast(peat_sf, "MULTIPOLYGON")
+  peat_vect <- vect(peat_sf)
+  n_features <- nrow(peat_vect)
+  
+  # Multiple features
+  col_names <- names(peat_vect)
+  id_col <- col_names[1]
+  id_values <- unique(values(peat_vect)[[id_col]])
+  peat_values <- unique(peat_vect[[col_names[2]]])
+  
+  # base raster
+  base_raster <- ref_raster
+  base_raster_null <- base_raster*0 
+  base_raster_fill <- ifel(base_raster > 0, 1, 0)
+  
+  # Single feature (only peat boundary)
+  if (n_features == 1) {
+    cat("assigning value 1 to peat, 0 elsewhere within raster boundary\n")
+    peat_rast <- rasterize(peat_vect, base_raster_null, field = 1)
+    peat_rast <- classify(peat_rast, rcl = cbind(NA, 0))
+    peat_rast <- peat_rast*base_raster_fill
+    peat_rast <- clamp(peat_rast, 0, 1)
+  }
+  
+  # Check if 0 and 1 are present in the first column
+  if (0 %in% id_values && 1 %in% id_values) {
+    cat("ID column contains 0 and 1 - using existing classification\n")
+    peat_rast <- rasterize(peat_vect, base_raster_null, field = id_col)
+    peat_rast <- clamp(peat_rast, 0, 1)
+  } else {
+    cat("Multiple features without 0/1 IDs - treating all as peat (1)\n")
+    peat_rast <- rasterize(peat_vect, base_raster_null, field = 1)
+    peat_rast <- clamp(peat_rast, 0, 1)
+  }
+  
+  # Ensure geometry match
+  names(peat_rast) <- rep(col_names[2], nlyr(peat_rast))
+  crs(peat_rast) <- crs(base_raster_null)
+  if (!all(dim(peat_rast) == dim(base_raster_null))) {
+    peat_rast <- resample(peat_rast, base_raster_null, method = "near")
+  }
+  out <- list(peat_rast, peat_values)
+  return(out)
 }
