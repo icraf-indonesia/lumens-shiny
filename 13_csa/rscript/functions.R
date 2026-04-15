@@ -1,3 +1,48 @@
+#' Format R Session Information Table
+#'
+#' Creates a summary table containing R version, platform, library paths, and locale settings.
+#'
+#' @return A tibble with two columns: `Category` and `Details`, containing formatted session info.
+#' @examples
+#' format_session_info_table()
+#' @export
+format_session_info_table <- function() {
+  si <- sessionInfo()
+  
+  r_version <- si$R.version[c("major", "minor", "year", "month", "day", "nickname")]
+  r_version <- paste0(
+    "R ", r_version$major, ".", r_version$minor,
+    " (", r_version$year, "-", r_version$month, "-", r_version$day, ")",
+    " '", r_version$nickname, "'"
+  )
+  
+  platform_os <- paste(si$platform, "|", si$running)
+  locale_info <- strsplit(si$locale, ";")[[1]]
+  locale_info <- paste(locale_info, collapse = "<br>")
+  lib_paths <- paste(.libPaths(), collapse = "<br>")
+  
+  session_summary <- tibble(
+    Category = c("R Version", "Platform | OS", ".libPaths", "Locale"),
+    Details = c(r_version, platform_os, lib_paths, locale_info)
+  )
+  
+  return(session_summary)
+}
+
+format_dt <- function(dt, data) {
+  num_cols <- names(data)[sapply(data, is.numeric)]
+  
+  dt %>%
+    formatRound(columns = num_cols, digits = 2) %>%
+    formatCurrency(
+      columns = num_cols,
+      currency = "",
+      interval = 3,
+      mark = ".",
+      dec.mark = ","
+    )
+}
+
 read_shapefile <- function(shp_input) {
   if (is.null(shp_input)) return(NULL)
   
@@ -220,8 +265,15 @@ preprocess_data <- function(
   # -------------------------------
   combinedRasterTable <- combinedRasterTable %>%
     mutate(
-      CH4_emission = Lookup_wide$Total_EF * Lookup_wide$t * Ha * 1e-3,
-      CH4_emission_CO2 = CH4_emission * LookupCO2$Value[LookupCO2$Variable == "GWP_CH4"] * 1e-6
+      CH4_emission = Lookup_wide$Total_EF * Lookup_wide$t * Ha * 1e-6,
+      CH4_emission_CO2 = CH4_emission * LookupCO2$Value[LookupCO2$Variable == "GWP_CH4"] * 1000
+    )
+  combinedRasterTable_clean <- combinedRasterTable
+  CH4_table <- combinedRasterTable_clean %>%
+    select(-Freq) %>% 
+    rename(
+      `CH4_emission (Gg CH4/th)` = CH4_emission,
+      `CH4_emission_CO2 (ton CO2-eq/tahun)` = CH4_emission_CO2
     )
   
   #### PERHITUNGAN N2O ####
@@ -255,10 +307,10 @@ preprocess_data <- function(
   
   N2O_emission <- combinedRasterTable %>%
     mutate(
-      N2O_emission_100_1 = Ha * area100_factor * rotation1_factor,
-      N2O_emission_100_2 = Ha * area100_factor * rotation2_factor,
-      N2O_emission_50_1  = Ha * area50_factor  * rotation1_factor,
-      N2O_emission_50_2  = Ha * area50_factor  * rotation2_factor
+      N2O_area_100_1 = Ha * area100_factor * rotation1_factor,
+      N2O_area_100_2 = Ha * area100_factor * rotation2_factor,
+      N2O_area_50_1  = Ha * area50_factor  * rotation1_factor,
+      N2O_area_50_2  = Ha * area50_factor  * rotation2_factor
     )
   
   # Extract factors with helper functions
@@ -268,16 +320,30 @@ preprocess_data <- function(
   
   N2O_emission_CO2 <- N2O_emission %>%
     mutate(
-      N2O_emission_CO2_100_1 = ((N2O_emission_100_1 * n_table$`N Tunggal` * EF_N2O * GWP_N2O) + (N2O_emission_100_1 * n_table$`N Tunggal` * EF_CO2))/1000,
-      N2O_emission_CO2_100_2 = ((N2O_emission_100_2 * n_table$`N Tunggal` * 2.5 * EF_N2O * GWP_N2O) + (N2O_emission_100_2 * n_table$`N Tunggal` * 2.5 * EF_CO2))/1000,
-      N2O_emission_CO2_50_1  = ((N2O_emission_50_1 * n_table$`N Tunggal` * 0.5 * EF_N2O * GWP_N2O) + (N2O_emission_50_1 * n_table$`N Tunggal` * 0.5 * EF_CO2))/1000,
-      N2O_emission_CO2_50_2  = ((N2O_emission_50_2 * n_table$`N Tunggal` * 2.5 * 0.5 * EF_N2O * GWP_N2O) + (N2O_emission_50_2 * n_table$`N Tunggal` * 2.5 * 0.5 * EF_CO2))/1000,
-      # Total N2O emissions across all scenarios (Juta Ton CO2-eq/tahun)
+      N2O_emission_CO2_100_1 = ((N2O_area_100_1 * n_table$`N Tunggal` * EF_N2O * GWP_N2O) + (N2O_area_100_1 * n_table$`N Tunggal` * EF_CO2))/1000,
+      N2O_emission_CO2_100_2 = ((N2O_area_100_2 * n_table$`N Tunggal` * 2.5 * EF_N2O * GWP_N2O) + (N2O_area_100_2 * n_table$`N Tunggal` * 2.5 * EF_CO2))/1000,
+      N2O_emission_CO2_50_1  = ((N2O_area_50_1 * n_table$`N Tunggal` * 0.5 * EF_N2O * GWP_N2O) + (N2O_area_50_1 * n_table$`N Tunggal` * 0.5 * EF_CO2))/1000,
+      N2O_emission_CO2_50_2  = ((N2O_area_50_2 * n_table$`N Tunggal` * 2.5 * 0.5 * EF_N2O * GWP_N2O) + (N2O_area_50_2 * n_table$`N Tunggal` * 2.5 * 0.5 * EF_CO2))/1000,
+      # Total N2O emissions across all scenarios (Ton CO2-eq/tahun)
       N2O_emission_CO2_total =
         (N2O_emission_CO2_100_1 +
            N2O_emission_CO2_100_2 +
            N2O_emission_CO2_50_1  +
-           N2O_emission_CO2_50_2) * 1e-6
+           N2O_emission_CO2_50_2)
+    )
+  
+  N2O_emission_table <- N2O_emission_CO2 %>%
+    select(-Freq, -CH4_emission, -CH4_emission_CO2) %>%
+    rename(
+      `Luasan Sawah 100% Pemupukan 1x Rotasi (Ha)` = N2O_area_100_1,
+      `Luasan Sawah 100% Pemupukan 2-3x Rotasi (Ha)` = N2O_area_100_2,
+      `Luasan Sawah 50% Pemupukan 1x Rotasi (Ha)` = N2O_area_50_1,
+      `Luasan Sawah N2O 50% Pemupukan 2-3x Rotasi (Ha)` = N2O_area_50_2,
+      `Emisi 100% Pemupukan 1x Rotasi (Ton CO2-eq/tahun)` = N2O_emission_CO2_100_1,
+      `Emisi 100% Pemupukan 2-3x Rotasi (Ton CO2-eq/tahun)` = N2O_emission_CO2_100_2,
+      `Emisi 50% Pemupukan 1x Rotasi (Ton CO2-eq/tahun)` = N2O_emission_CO2_50_1,
+      `Emisi 50% Pemupukan 2-3x Rotasi (Ton CO2-eq/tahun)` = N2O_emission_CO2_50_2,
+      `Total Emisi N2O (Ton CO2-eq/tahun)` = N2O_emission_CO2_total
     )
   
   # -------------------------------
@@ -294,40 +360,132 @@ preprocess_data <- function(
   
   summary_by_PU <- N2O_emission_CO2 %>%
     group_by(PU) %>%
-    select(CH4_emission_CO2, N2O_emission_CO2_total) %>% 
-    mutate(
-      `Total Emission (Juta Ton CO2-eq/tahun)` =
-        sum(CH4_emission_CO2, N2O_emission_CO2_total, na.rm = TRUE)
+    summarise(
+      CH4_emission_CO2 = sum(CH4_emission_CO2, na.rm = TRUE),
+      N2O_emission_CO2_total = sum(N2O_emission_CO2_total, na.rm = TRUE),
+      `Total Emisi (Ton CO2-eq/tahun)` = CH4_emission_CO2 + N2O_emission_CO2_total,
+      .groups = "drop"
+    )
+  
+  PU_emission_table <-  summary_by_PU %>% 
+    rename(
+      `Emisi CH4 (Ton CO2-eq/tahun)` = CH4_emission_CO2,
+      `Emisi N2O (Ton CO2-eq/tahun)`= N2O_emission_CO2_total
     )
   
   # Convert to long format
+  # summary_long <- summary_by_PU %>%
+  #   select(-`Total Emisi (Ton CO2-eq/tahun)`) %>% 
+  #   pivot_longer(
+  #     cols = c(CH4_emission_CO2, N2O_emission_CO2_total),
+  #     names_to = "Gas",
+  #     values_to = "Value"
+  #   ) %>%
+  #   mutate(
+  #     Gas = dplyr::recode(
+  #       Gas,
+  #       "CH4_emission_CO2" = "CH4",
+  #       "N2O_emission_CO2_total" = "N2O"
+  #     )
+  #   )
+  # 
   summary_long <- summary_by_PU %>%
-    select(-`Total Emission (Juta Ton CO2-eq/tahun)`) %>% 
-    pivot_longer(
+    dplyr::select(PU, CH4_emission_CO2, N2O_emission_CO2_total) %>%
+    tidyr::pivot_longer(
       cols = c(CH4_emission_CO2, N2O_emission_CO2_total),
       names_to = "Gas",
       values_to = "Value"
+    ) %>%
+    dplyr::mutate(
+      Gas = dplyr::case_when(
+        Gas == "CH4_emission_CO2" ~ "CH4",
+        Gas == "N2O_emission_CO2_total" ~ "N2O",
+        TRUE ~ Gas
+      ),
+      Value_plot = ifelse(Gas == "N2O", -Value, Value)
+    )
+  
+  summary_long <- summary_long %>%
+    mutate(
+      Value_log = sign(Value_plot) * log10(abs(Value_plot) + 1)
     )
   
   # -------------------------------
   # 7. PLOT
   # -------------------------------
+  # p <- ggplot(summary_long,
+  #             aes(
+  #               x = reorder(PU, Value),
+  #               y = Value,
+  #               fill = Gas,
+  #               text = paste0(
+  #                 "PU: ", PU, "<br>",
+  #                 "Gas: ", Gas, "<br>",
+  #                 "Emisi: ", round(Value, 3), " Ton CO₂-eq/tahun"
+  #               )
+  #             )) +
+  #   geom_col() +
+  #   labs(
+  #     title = "Emisi CH₄ dan N₂O per PU",
+  #     x = "Unit Perencanaan",
+  #     y = "Ton CO₂-eq / tahun",
+  #     fill = "Sumber Emisi"
+  #   ) +
+  #   theme_minimal() +
+  #   coord_flip()
+  # p <- ggplot(summary_long,
+  #             aes(
+  #               x = reorder(PU, Value),
+  #               y = Value_plot,
+  #               fill = Gas,
+  #               text = paste0(
+  #                 "PU: ", PU, "<br>",
+  #                 "Gas: ", Gas, "<br>",
+  #                 "Emisi: ", round(Value, 3), "Ton CO₂-eq/tahun"
+  #               )
+  #             )) +
+  #   geom_col() +
+  #   scale_fill_manual(
+  #     values = c(
+  #       "CH4" = "#1b9e77",  
+  #       "N2O" = "#d95f02"   
+  #     )
+  #   ) +
+  #   scale_y_continuous(
+  #     labels = function(x) abs(x)
+  #   ) +
+  #   labs(
+  #     title = "Perbandingan Emisi CH₄ dan N₂O per PU",
+  #     x = "Unit Perencanaan",
+  #     y = "Ton CO₂-eq / tahun",
+  #     fill = "Jenis Gas"
+  #   ) +
+  #   geom_hline(yintercept = 0, color = "black") +
+  #   theme_minimal() +
+  #   coord_flip()
   p <- ggplot(summary_long,
               aes(
-                x = reorder(PU, Value),
-                y = Value,
+                x = reorder(PU, abs(Value)),
+                y = Value_log,
                 fill = Gas,
                 text = paste0(
                   "PU: ", PU, "<br>",
                   "Gas: ", Gas, "<br>",
-                  "Emisi: ", round(Value, 3), " Juta Ton CO₂-eq/tahun"
+                  "Emisi: ", round(Value, 2), " Ton CO₂-eq/tahun"
                 )
               )) +
     geom_col() +
+    scale_fill_manual(
+      values = c(
+        "CH4" = "#1b9e77",
+        "N2O" = "#d95f02"
+      )
+    ) +
+    geom_hline(yintercept = 0, color = "black") +
     labs(
-      title = "Emisi CH₄ dan N₂O (CO₂-eq) per PU",
-      x = "PU",
-      y = "Juta Ton CO₂-eq / tahun",
+      title = "Perbandingan Emisi CH₄ dan N₂O per PU",
+      x = "Unit Perencanaan",
+      y = "Log10 Emisi (CO₂-eq)",
       fill = "Jenis Gas"
     ) +
     theme_minimal() +
@@ -407,7 +565,7 @@ preprocess_data <- function(
     labs(
       title = "Paddy vs Non-Paddy Area per PU",
       x = "Planning Unit (PU)",
-      y = "Area (ha)",
+      y = "Area (Ha)",
       fill = "Class"
     ) +
     theme_minimal() +
@@ -422,6 +580,15 @@ preprocess_data <- function(
   # RETURN ALL RESULTS
   # -------------------------------
   return(list(
+    session_log = format_session_info_table(),
+    lulc_file_path = pathLULCT,
+    pu_file_path = pathPU,
+    lookup_pu_file_path = pathLookupPU,
+    lookup_lc_file_path = pathLookupLC,
+    lookup_co2_file_path = pathLookupCO2,
+    lookup_sf_file_path = pathLookupSF,
+    lookup_pupuk_file_path = pathLookupPupuk,
+    lookup_n2o_file_path = pathLookupN2O,
     LULCT = LULCT,
     PU = PU,
     lookup_LC = LookupLC,
@@ -430,7 +597,10 @@ preprocess_data <- function(
     lookup_CO2 = LookupCO2,
     combinedRaster = combinedRaster,
     combinedRasterTable = combinedRasterTable,
+    CH4_table = CH4_table,
+    N2O_emission_table = N2O_emission_table,
     summary_by_PU = summary_by_PU,
+    PU_emission_table = PU_emission_table,
     summary_long = summary_long,
     plot = plot_interactive,
     plot_paddy_map = plot_paddy_map,

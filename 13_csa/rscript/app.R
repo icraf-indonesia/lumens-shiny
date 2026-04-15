@@ -94,7 +94,32 @@ server <- function(input, output, session) {
   rv <- reactiveValues(
     wd = "",  # Working directory for saving outputs
     report_file = NULL,  
-    total_table = NULL
+    
+    # Filepath
+    lulc_file_path = NULL,
+    pu_file_path = NULL,
+    lookup_pu_file_path = NULL, 
+    lookup_lc_file_path = NULL, 
+    lookup_co2_file_path = NULL, 
+    lookup_sf_file_path = NULL, 
+    lookup_pupuk_file_path = NULL, 
+    lookup_n2o_file_path = NULL, 
+    
+    # Main inputs
+    lulc = NULL,
+    year = NULL,
+    zone_type = NULL,
+    
+    # Planning unit input
+    zone_input = NULL,            # raster OR shapefile
+    lookup_zone = NULL,           # only for raster
+    
+    # Lookup tables
+    lc_table = NULL,
+    co2_table = NULL,
+    sf_table = NULL,
+    pupuk_table = NULL,
+    n2o_table = NULL
   )
   
   #' Directory selection
@@ -218,13 +243,33 @@ server <- function(input, output, session) {
         
         end_time <- Sys.time()
         
+        paths <- list(
+          pathLULCT = rv$lulc$datapath,
+          pathPU = rv$zone_input$datapath,
+          pathLookupPU = if (input$zone_type == "raster") rv$lookup_zone$datapath else NULL,
+          pathLookupLC = rv$lc_table$datapath,
+          pathLookupCO2 = rv$co2_table$datapath,
+          pathLookupSF = rv$sf_table$datapath,
+          pathLookupPupuk = rv$pupuk_table$datapath,
+          pathLookupN2O = rv$n2o_table$datapath
+        )
+        
         output_file <- paste0("quesc-paddy_report_", format(Sys.time(), "%Y-%m-%d_%H-%M-%S"), ".html")
         report_path <- file.path(rv$wd, output_file)
+        
+        browser()
         
         rmarkdown::render(
           input = "../report_template/quesc-paddy_ID.Rmd",
           output_file = report_path,
-          params = list(result = result, start_time = start_time, end_time = end_time),
+          params = list(
+            result = result, 
+            start_time = format(start_time, "%Y-%m-%d %H:%M:%S"), 
+            end_time = format(end_time, "%Y-%m-%d %H:%M:%S"), 
+            paths = paths,
+            output_dir = rv$wd, 
+            year = input$year
+            ),
           envir = new.env(parent = globalenv()),
           quiet = TRUE
         )
