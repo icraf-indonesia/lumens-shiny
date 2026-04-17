@@ -35,8 +35,6 @@ ui <- fluidPage(
     sidebarPanel(
       fileInput("lulc", "Land cover map", accept = c("image/tiff", ".tif")),
       textInput("year", "Year of map", value = "1990"),
-      # fileInput("pu_raster", "Planning Unit Raster", accept = c("image/tiff", ".tif")),
-      # fileInput("pu_table", "Planning Unit lookup table", accept = c(".csv")),
       radioButtons("zone_type", "Planning Units Input Type",
                    choices = c("Raster" = "raster", "Shapefile" = "shapefile"), selected = "shapefile"),
       conditionalPanel(
@@ -166,7 +164,6 @@ server <- function(input, output, session) {
   observe({
     rv$lulc <- input$lulc
     rv$year <- input$year
-    # rv$pu_raster <- input$pu_raster
     if (input$zone_type == "raster") {
       rv$zone_input <- input$zone_raster
       rv$lookup_zone <- input$lookup_zone
@@ -187,8 +184,6 @@ server <- function(input, output, session) {
     validate(
       need(rv$lulc, "Please upload Land Use/Cover T1 file"),
       need(rv$year, "Please upload Land Use/Cover T2 file"),
-      # need(rv$pu_raster, "Please upload Planning Units Raster"),
-      # need(rv$pu_table, "Please upload Planning Units Lookup Table (CSV) file"),
       need(input$zone_type, "Please select Planning Units Input Type"),
       need(rv$zone_input, "Please upload Planning Units file"),
       need(if(input$zone_type == "raster") rv$lookup_zone else TRUE, "Please upload Planning Units Lookup (CSV) file for raster input"),
@@ -212,19 +207,6 @@ server <- function(input, output, session) {
         incProgress(0.1, detail = "Starting analysis...")
         
         start_time <- Sys.time()
-        
-        # result <- preprocess_data(
-        #   pathLULCT = input$lulc$datapath,
-        #   # pathPU = input$pu_raster$datapath,
-        #   zone_type   = input$zone_type,
-        #   pathPU    = input$zone_input$datapath,
-        #   pathLookupLC = input$lc_table$datapath,
-        #   # pathLookupPU = input$pu_table$datapath,
-        #   pathLookupPU = if (input$zone_type == "raster") input$lookup_zone$datapath else NULL,
-        #   pathLookupCO2 = input$co2_table$datapath,
-        #   pathLookupSF = input$sf_table$datapath,
-        #   year = input$year
-        # )
         
         result <- preprocess_data(
           pathLULCT = rv$lulc$datapath,
@@ -254,7 +236,7 @@ server <- function(input, output, session) {
           pathLookupN2O = rv$n2o_table$datapath
         )
         
-        output_file <- paste0("quesc-paddy_report_", format(Sys.time(), "%Y-%m-%d_%H-%M-%S"), ".html")
+        output_file <- paste0("quesc-paddy_report_log", format(Sys.time(), "%Y-%m-%d_%H-%M-%S"), ".html")
         report_path <- file.path(rv$wd, output_file)
         
         browser()

@@ -58,29 +58,282 @@ Laporan ini menyajikan hasil analisis spasial lahan sawah berdasarkan peta tutup
 
 Pendekatan yang digunakan mengintegrasikan data raster tutupan lahan dengan data unit perencanaan, serta berbagai faktor emisi dan skenario pemupukan. Hasil analisis ini diharapkan dapat mendukung perencanaan wilayah berbasis emisi serta pengelolaan lahan pertanian yang lebih berkelanjutan.
 
+# Data yang Digunakan {.tabset}
+
+## Peta Tutupan/Penggunaan Lahan pada `r params$year`
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+fill_scale <- ggplot2::scale_fill_manual(
+  values = c(
+    "#4E79A7", "#F28E2B", "#E15759", "#76B7B2", "#59A14F",
+    "#EDC948", "#B07AA1", "#FF9DA7", "#9C755F", "#BAB0AC",
+    "#86BCB6", "#FFB84D", "#A5C1DC", "#D37295", "#C4AD66",
+    "#7B8D8E", "#B17B62", "#8CD17D", "#DE9D9C", "#5A5A5A",
+    "#A0A0A0", "#D7B5A6", "#6D9EEB", "#E69F00", "#56B4E9",
+    "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7",
+    "#999999", "#E51E10", "#FF7F00", "#FFFF33", "#A65628",
+    "#F781BF", "#999933", "#8DD3C7", "#FFFFB3", "#BEBADA",
+    "#FB8072", "#80B1D3", "#FDB462", "#B3DE69", "#FCCDE5",
+    "#D9D9D9", "#BC80BD", "#CCEBC5", "#FFED6F", "#E41A1C"
+  ),
+  na.value = "white",
+  name = "Tutupan Lahan",
+  labels = function(x) stringr::str_wrap(x, width = 20)
+)
+
+lc_map <- ggplot() +
+  tidyterra::geom_spatraster(data = params$result$LULCT) +
+  fill_scale +
+  guides(fill = guide_legend(ncol = 2, byrow = TRUE)) + 
+  theme_bw() +
+  theme(
+    axis.title = element_blank(),
+    panel.grid = element_blank(),
+    legend.title = element_text(size = 8, face = "bold"),
+    legend.text = element_text(size = 6),
+    legend.key.height = unit(0.5, "cm"),
+    legend.key.width = unit(0.4, "cm"),
+    legend.position = "right",
+    legend.justification = c(0, 0.5),
+    legend.box.margin = margin(0, 0, 0, 0),
+    legend.background = element_rect(fill = "lightgrey"),
+    plot.title = element_text(hjust = 0.5, face = "bold")
+  )
+
+lc_map
+```
+
+## Peta Unit Perencanaan
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+fill_scale <- ggplot2::scale_fill_manual(
+  values = c(
+    "#4E79A7", "#F28E2B", "#E15759", "#76B7B2", "#59A14F",
+    "#EDC948", "#B07AA1", "#FF9DA7", "#9C755F", "#BAB0AC",
+    "#86BCB6", "#FFB84D", "#A5C1DC", "#D37295", "#C4AD66",
+    "#7B8D8E", "#B17B62", "#8CD17D", "#DE9D9C", "#5A5A5A",
+    "#A0A0A0", "#D7B5A6", "#6D9EEB", "#E69F00", "#56B4E9",
+    "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7",
+    "#999999", "#E51E10", "#FF7F00", "#FFFF33", "#A65628",
+    "#F781BF", "#999933", "#8DD3C7", "#FFFFB3", "#BEBADA",
+    "#FB8072", "#80B1D3", "#FDB462", "#B3DE69", "#FCCDE5",
+    "#D9D9D9", "#BC80BD", "#CCEBC5", "#FFED6F", "#E41A1C"
+  ),
+  na.value = "white",
+  name = "Unit Perencanaan",
+  labels = function(x) stringr::str_wrap(x, width = 20)
+)
+
+pu_map <- ggplot() +
+  tidyterra::geom_spatraster(data = params$result$PU) +
+  fill_scale +
+  guides(fill = guide_legend(ncol = 2, byrow = TRUE)) + 
+  theme_bw() +
+  theme(
+    axis.title = element_blank(),
+    panel.grid = element_blank(),
+    legend.title = element_text(size = 8, face = "bold"),
+    legend.text = element_text(size = 6),
+    legend.key.height = unit(0.5, "cm"),
+    legend.key.width = unit(0.4, "cm"),
+    legend.position = "right",
+    legend.justification = c(0, 0.5),
+    legend.box.margin = margin(0, 0, 0, 0),
+    legend.background = element_rect(fill = "lightgrey"),
+    plot.title = element_text(hjust = 0.5, face = "bold")
+  )
+
+pu_map
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
+if (!is.null(params$result$lookupPU)) {
+
+  cat("## Tabel Acuan Unit Perencanaan\n")
+
+  print(
+    datatable(
+      params$result$lookupPU,
+      extensions = c('Buttons', 'Responsive'),
+      rownames = FALSE,
+      options = list(
+        paging = TRUE,
+        searching = TRUE,
+        fixedColumns = TRUE,
+        autoWidth = TRUE,
+        ordering = TRUE,
+        dom = 'Blfrtip',
+        buttons = list(
+          list(extend = "copy",  className = "btn btn-light btn-sm"),
+          list(extend = "csv",   className = "btn btn-light btn-sm"),
+          list(extend = "excel", className = "btn btn-light btn-sm")
+        )
+      ),
+      class = "display stripe hover"
+    )
+  )
+}
+```
+
+## Tabel Acuan Konversi CO2
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+co2_table <- read.csv(params$paths$pathLookupCO2)
+
+# join NPV + Carbon
+co2_table <- co2_table |>
+  rename(
+    `Variabel` = Variable,
+    `Nilai` = Value
+  )
+
+datatable(
+  co2_table,
+  extensions = c('Buttons', 'Responsive'),
+  rownames = FALSE,
+  options = list(
+    paging = TRUE,
+    searching = TRUE,
+    fixedColumns = TRUE,
+    autoWidth = TRUE,
+    ordering = TRUE,
+    dom = 'Blfrtip',
+    buttons = list(
+      list(extend = "copy",  className = "btn btn-light btn-sm"),
+      list(extend = "csv",   className = "btn btn-light btn-sm"),
+      list(extend = "excel", className = "btn btn-light btn-sm")
+    )
+  ),
+  class = "display stripe hover"
+)
+```
+
+## Tabel Acuan Scalling Factors
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+sf_table <- read.csv(params$paths$pathLookupSF)
+
+# join NPV + Carbon
+sf_table <- sf_table |>
+  rename(
+    `No` = ID,
+    `Scalling Factors` = name,
+    `Variabel` = variable,
+    `Nilai` = value
+  )
+
+datatable(
+  sf_table,
+  extensions = c('Buttons', 'Responsive'),
+  rownames = FALSE,
+  options = list(
+    paging = TRUE,
+    searching = TRUE,
+    fixedColumns = TRUE,
+    autoWidth = TRUE,
+    ordering = TRUE,
+    dom = 'Blfrtip',
+    buttons = list(
+      list(extend = "copy",  className = "btn btn-light btn-sm"),
+      list(extend = "csv",   className = "btn btn-light btn-sm"),
+      list(extend = "excel", className = "btn btn-light btn-sm")
+    )
+  ),
+  class = "display stripe hover"
+)
+```
+
+## Tabel Acuan Dosis Pupuk
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+pupuk_table <- read.csv(params$paths$pathLookupPupuk)
+
+# join NPV + Carbon
+pupuk_table <- pupuk_table |>
+  rename(
+    `Kabupaten` = KABUPATEN,
+    `Kecamatan` = KECAMATAN
+  )
+
+datatable(
+  pupuk_table,
+  extensions = c('Buttons', 'Responsive'),
+  rownames = FALSE,
+  options = list(
+    paging = TRUE,
+    searching = TRUE,
+    fixedColumns = TRUE,
+    autoWidth = TRUE,
+    ordering = TRUE,
+    dom = 'Blfrtip',
+    buttons = list(
+      list(extend = "copy",  className = "btn btn-light btn-sm"),
+      list(extend = "csv",   className = "btn btn-light btn-sm"),
+      list(extend = "excel", className = "btn btn-light btn-sm")
+    )
+  ),
+  class = "display stripe hover"
+)
+```
+
+## Tabel Acuan Konversi N2O
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+n2o_table <- read.csv(params$paths$pathLookupN2O)
+
+# join NPV + Carbon
+n2o_table <- n2o_table |>
+  rename(
+    `Variabel` = Variable,
+    `Nilai` = Value
+  )
+
+datatable(
+  n2o_table,
+  extensions = c('Buttons', 'Responsive'),
+  rownames = FALSE,
+  options = list(
+    paging = TRUE,
+    searching = TRUE,
+    fixedColumns = TRUE,
+    autoWidth = TRUE,
+    ordering = TRUE,
+    dom = 'Blfrtip',
+    buttons = list(
+      list(extend = "copy",  className = "btn btn-light btn-sm"),
+      list(extend = "csv",   className = "btn btn-light btn-sm"),
+      list(extend = "excel", className = "btn btn-light btn-sm")
+    )
+  ),
+  class = "display stripe hover"
+)
+```
+
 # Distribusi Lahan Tahun `r params$year` {.tabset}
 
 ## Lahan Padi
+
+Peta ini menunjukkan distribusi spasial antara lahan padi (sawah) dan non-padi pada wilayah studi. Area dengan warna hijau merepresentasikan lahan padi, sedangkan area lainnya menunjukkan penggunaan lahan non-padi.
+
+Distribusi ini menjadi dasar dalam perhitungan emisi, karena hanya area dengan kategori padi yang diperhitungkan dalam estimasi emisi CH₄ dan N₂O. Pola spasial yang terbentuk juga dapat mengindikasikan konsentrasi aktivitas pertanian pada unit perencanaan tertentu.
+
 ```{r}
 params$result$plot_paddy_map
 ```
 
-Peta di atas menunjukkan distribusi spasial antara lahan padi (sawah) dan non-padi pada wilayah studi. Area dengan warna hijau merepresentasikan lahan padi, sedangkan area lainnya menunjukkan penggunaan lahan non-padi.
-
-Distribusi ini menjadi dasar dalam perhitungan emisi, karena hanya area dengan kategori padi yang diperhitungkan dalam estimasi emisi CH₄ dan N₂O. Pola spasial yang terbentuk juga dapat mengindikasikan konsentrasi aktivitas pertanian pada unit perencanaan tertentu.
-
 ## Area Padi dan Non Padi
+
+Grafik ini menunjukkan perbandingan luas area padi dan non-padi pada masing-masing unit perencanaan (PU). Perbedaan luas ini mencerminkan intensitas penggunaan lahan untuk pertanian padi di setiap wilayah.
+
+PU dengan dominasi area padi yang tinggi berpotensi memberikan kontribusi emisi yang lebih besar, terutama untuk emisi CH₄ yang sangat dipengaruhi oleh kondisi lahan sawah.
+
 ```{r}
 params$result$plot_paddy_bar_interactive
 ```
 
-Grafik di atas menunjukkan perbandingan luas area padi dan non-padi pada masing-masing unit perencanaan (PU). Perbedaan luas ini mencerminkan intensitas penggunaan lahan untuk pertanian padi di setiap wilayah.
-
-PU dengan dominasi area padi yang tinggi berpotensi memberikan kontribusi emisi yang lebih besar, terutama untuk emisi CH₄ yang sangat dipengaruhi oleh kondisi lahan sawah.
-
 # Hasil Perhitungan Emisi {.tabset}
 
 ## Tabel Emisi CH4 per PU
+
+Tabel ini menyajikan estimasi emisi CH₄ berdasarkan luas lahan padi pada masing-masing unit perencanaan. Emisi dihitung menggunakan faktor emisi yang telah disesuaikan dengan kondisi lingkungan dan praktik pengelolaan lahan.
+
+Nilai emisi CH₄ umumnya berbanding lurus dengan luas lahan sawah, sehingga unit perencanaan dengan luas area padi yang lebih besar akan menghasilkan emisi CH₄ yang lebih tinggi.
+
+
 ```{r}
 format_dt <- function(dt, data) {
   num_cols <- names(data)[sapply(data, is.numeric)]
@@ -117,11 +370,12 @@ class = "display stripe hover"
 ), params$result$CH4_table)
 ```
 
-Tabel di atas menyajikan estimasi emisi CH₄ berdasarkan luas lahan padi pada masing-masing unit perencanaan. Emisi dihitung menggunakan faktor emisi yang telah disesuaikan dengan kondisi lingkungan dan praktik pengelolaan lahan.
-
-Nilai emisi CH₄ umumnya berbanding lurus dengan luas lahan sawah, sehingga unit perencanaan dengan luas area padi yang lebih besar akan menghasilkan emisi CH₄ yang lebih tinggi.
-
 ## Tabel Emisi N2O per PU
+
+Tabel ini menunjukkan estimasi emisi N₂O berdasarkan berbagai skenario pemupukan dan rotasi tanam padi. Perhitungan dilakukan dengan mempertimbangkan variasi dosis pupuk (100% dan 50%) serta frekuensi rotasi tanam.
+
+Emisi N₂O cenderung lebih sensitif terhadap praktik pemupukan dibandingkan luas lahan semata. Oleh karena itu, variasi nilai antar skenario mencerminkan potensi mitigasi emisi melalui pengelolaan pupuk yang lebih efisien.
+
 ```{r}
 format_dt(datatable(
   params$result$N2O_emission_table,
@@ -145,11 +399,12 @@ format_dt(datatable(
 ), params$result$N2O_emission_table)
 ```
 
-Tabel ini menunjukkan estimasi emisi N₂O berdasarkan berbagai skenario pemupukan dan rotasi tanam padi. Perhitungan dilakukan dengan mempertimbangkan variasi dosis pupuk (100% dan 50%) serta frekuensi rotasi tanam.
-
-Emisi N₂O cenderung lebih sensitif terhadap praktik pemupukan dibandingkan luas lahan semata. Oleh karena itu, variasi nilai antar skenario mencerminkan potensi mitigasi emisi melalui pengelolaan pupuk yang lebih efisien.
-
 ## Tabel Ringkasan Emisi per PU
+
+Tabel ringkasan ini menggabungkan total emisi CH₄ dan N₂O pada masing-masing unit perencanaan dalam satuan CO₂-ekuivalen. Nilai ini memberikan gambaran kontribusi total emisi gas rumah kaca dari sektor pertanian padi.
+
+Perbandingan antar PU dapat digunakan untuk mengidentifikasi wilayah prioritas dalam upaya mitigasi emisi.
+
 ```{r}
 format_dt(datatable(
 params$result$PU_emission_table,
@@ -172,21 +427,17 @@ class = "display stripe hover"
 ), params$result$PU_emission_table)
 ```
 
-Tabel ringkasan ini menggabungkan total emisi CH₄ dan N₂O pada masing-masing unit perencanaan dalam satuan CO₂-ekuivalen. Nilai ini memberikan gambaran kontribusi total emisi gas rumah kaca dari sektor pertanian padi.
-
-Perbandingan antar PU dapat digunakan untuk mengidentifikasi wilayah prioritas dalam upaya mitigasi emisi.
-
 # Visualisasi Emisi
 
 ## Grafik Emisi CH₄ dan N₂O per PU
 
-```{r}
-params$result$plot
-```
-
 Grafik ini menampilkan distribusi emisi CH₄ dan N₂O pada masing-masing unit perencanaan. Perbedaan kontribusi antar gas dapat terlihat secara visual, di mana umumnya emisi CH₄ mendominasi total emisi dari lahan sawah.
 
 Variasi antar PU menunjukkan adanya perbedaan karakteristik wilayah, baik dari sisi luas lahan maupun praktik pengelolaan pertanian.
+
+```{r}
+params$result$plot
+```
 
 # Kesimpulan
 

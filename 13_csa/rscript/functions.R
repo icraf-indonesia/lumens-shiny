@@ -349,15 +349,6 @@ preprocess_data <- function(
   # -------------------------------
   # 6. SUM BY PU
   # -------------------------------
-  # summary_by_PU <- combinedRasterTable %>%
-  #   group_by(PU) %>%
-  #   summarise(
-  #     `Emission from CH4 (Juta Ton CO2-eq/tahun)` = sum(CH4_emission_CO2, na.rm = TRUE)
-  #   )
-  # 
-  # # Add dummy N2O
-  # summary_by_PU$N2O_emission <- 0.5
-  
   summary_by_PU <- N2O_emission_CO2 %>%
     group_by(PU) %>%
     summarise(
@@ -374,42 +365,29 @@ preprocess_data <- function(
     )
   
   # Convert to long format
-  # summary_long <- summary_by_PU %>%
-  #   select(-`Total Emisi (Ton CO2-eq/tahun)`) %>% 
-  #   pivot_longer(
-  #     cols = c(CH4_emission_CO2, N2O_emission_CO2_total),
-  #     names_to = "Gas",
-  #     values_to = "Value"
-  #   ) %>%
-  #   mutate(
-  #     Gas = dplyr::recode(
-  #       Gas,
-  #       "CH4_emission_CO2" = "CH4",
-  #       "N2O_emission_CO2_total" = "N2O"
-  #     )
-  #   )
-  # 
   summary_long <- summary_by_PU %>%
-    dplyr::select(PU, CH4_emission_CO2, N2O_emission_CO2_total) %>%
-    tidyr::pivot_longer(
+    select(-`Total Emisi (Ton CO2-eq/tahun)`) %>%
+    pivot_longer(
       cols = c(CH4_emission_CO2, N2O_emission_CO2_total),
       names_to = "Gas",
       values_to = "Value"
     ) %>%
-    dplyr::mutate(
-      Gas = dplyr::case_when(
-        Gas == "CH4_emission_CO2" ~ "CH4",
-        Gas == "N2O_emission_CO2_total" ~ "N2O",
-        TRUE ~ Gas
-      ),
-      Value_plot = ifelse(Gas == "N2O", -Value, Value)
+    mutate(
+      Gas = dplyr::recode(
+        Gas,
+        "CH4_emission_CO2" = "CH4",
+        "N2O_emission_CO2_total" = "N2O"
+      )
     )
+  
+  epsilon <- 1e-6
   
   summary_long <- summary_long %>%
     mutate(
-      Value_log = sign(Value_plot) * log10(abs(Value_plot) + 1)
+      Value_log = log10(Value + epsilon)
     )
-  
+
+
   # -------------------------------
   # 7. PLOT
   # -------------------------------
@@ -421,34 +399,14 @@ preprocess_data <- function(
   #               text = paste0(
   #                 "PU: ", PU, "<br>",
   #                 "Gas: ", Gas, "<br>",
-  #                 "Emisi: ", round(Value, 3), " Ton CO₂-eq/tahun"
-  #               )
-  #             )) +
-  #   geom_col() +
-  #   labs(
-  #     title = "Emisi CH₄ dan N₂O per PU",
-  #     x = "Unit Perencanaan",
-  #     y = "Ton CO₂-eq / tahun",
-  #     fill = "Sumber Emisi"
-  #   ) +
-  #   theme_minimal() +
-  #   coord_flip()
-  # p <- ggplot(summary_long,
-  #             aes(
-  #               x = reorder(PU, Value),
-  #               y = Value_plot,
-  #               fill = Gas,
-  #               text = paste0(
-  #                 "PU: ", PU, "<br>",
-  #                 "Gas: ", Gas, "<br>",
-  #                 "Emisi: ", round(Value, 3), "Ton CO₂-eq/tahun"
+  #                 "Emisi: ", round(Value, 2), "Ton CO₂-eq/tahun"
   #               )
   #             )) +
   #   geom_col() +
   #   scale_fill_manual(
   #     values = c(
-  #       "CH4" = "#1b9e77",  
-  #       "N2O" = "#d95f02"   
+  #       "CH4" = "#1b9e77",
+  #       "N2O" = "#d95f02"
   #     )
   #   ) +
   #   scale_y_continuous(
@@ -463,34 +421,72 @@ preprocess_data <- function(
   #   geom_hline(yintercept = 0, color = "black") +
   #   theme_minimal() +
   #   coord_flip()
+  
+  # p <- ggplot(summary_long,
+  #             aes(
+  #               x = reorder(PU, Value),
+  #               y = Value,
+  #               fill = Gas,
+  #               text = paste0(
+  #                 "PU: ", PU, "<br>",
+  #                 "Gas: ", Gas, "<br>",
+  #                 "Emisi: ", scales::comma(Value, accuracy = 0.01), " Ton CO₂-eq/tahun"
+  #               )
+  #             )) +
+  #   geom_col(position = "dodge") +  # penting biar CH4 & N2O sejajar
+  #   scale_fill_manual(
+  #     values = c(
+  #       "CH4" = "#1b9e77",
+  #       "N2O" = "#d95f02"
+  #     )
+  #   ) +
+  #   scale_y_log10(labels = scales::comma, na.value = NA) +
+  #   labs(
+  #     title = "Perbandingan Emisi CH₄ dan N₂O per PU (Log Scale)",
+  #     x = "Unit Perencanaan",
+  #     y = "Ton CO₂-eq / tahun (log scale)",
+  #     fill = "Jenis Gas"
+  #   ) +
+  #   theme_minimal() +
+  #   coord_flip()
+  
+  label_inverse_log <- function(x) {
+    scales::comma(10^x, accuracy = 0.01)
+  }
+  
   p <- ggplot(summary_long,
               aes(
-                x = reorder(PU, abs(Value)),
+                x = reorder(PU, Value),
                 y = Value_log,
                 fill = Gas,
                 text = paste0(
                   "PU: ", PU, "<br>",
                   "Gas: ", Gas, "<br>",
-                  "Emisi: ", round(Value, 2), " Ton CO₂-eq/tahun"
+                  "Emisi: ", scales::comma(Value, accuracy = 0.01), " Ton CO₂-eq/tahun"
                 )
               )) +
-    geom_col() +
+    geom_col(position = "stack") +  # ✅ tetap stacked
     scale_fill_manual(
       values = c(
         "CH4" = "#1b9e77",
         "N2O" = "#d95f02"
       )
     ) +
-    geom_hline(yintercept = 0, color = "black") +
+    scale_y_continuous(
+      breaks = scales::pretty_breaks(n = 6),
+      labels = function(x) {
+        paste0("10^", round(x, 1))
+      }
+    ) +
     labs(
-      title = "Perbandingan Emisi CH₄ dan N₂O per PU",
+      title = "Komposisi Emisi CH₄ dan N₂O per PU",
       x = "Unit Perencanaan",
-      y = "Log10 Emisi (CO₂-eq)",
+      y = "Emisi (Ton CO₂-eq/tahun, skala log)",
       fill = "Jenis Gas"
     ) +
     theme_minimal() +
     coord_flip()
-  
+
   plot_interactive <- ggplotly(p, tooltip = "text")
   
   # -------------------------------
