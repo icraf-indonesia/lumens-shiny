@@ -48,10 +48,10 @@ ui <- fluidPage(
                   accept = c(".shp", ".dbf", ".prj", ".shx"), multiple = TRUE)
       ),
       fileInput("lc_table", "Landcover lookup table (CSV)", accept = c(".csv")),
-      fileInput("co2_table", "CO2 Conversion lookup table (CSV)", accept = c(".csv")),
-      fileInput("sf_table", "Scaling Factor lookup table (CSV)", accept = c(".csv")),
+      fileInput("conversion_table", "Conversion lookup table (CSV)", accept = c(".csv")),
+      # fileInput("sf_table", "Scaling Factor lookup table (CSV)", accept = c(".csv")),
       fileInput("pupuk_table", "Fertilizer lookup table (CSV)", accept = c(".csv")),
-      fileInput("n2o_table", "N2O Conversion lookup table (CSV)", accept = c(".csv")),
+      # fileInput("n2o_table", "N2O Conversion lookup table (CSV)", accept = c(".csv")),
       div(style = "display: flex; flex-direction: column; gap: 10px;",
           shinyDirButton("wd", "Select Output Directory", "Please select a directory"),
           textOutput("selected_directory"),
@@ -98,10 +98,8 @@ server <- function(input, output, session) {
     pu_file_path = NULL,
     lookup_pu_file_path = NULL, 
     lookup_lc_file_path = NULL, 
-    lookup_co2_file_path = NULL, 
-    lookup_sf_file_path = NULL, 
+    lookup_conversion_file_path = NULL, 
     lookup_pupuk_file_path = NULL, 
-    lookup_n2o_file_path = NULL, 
     
     # Main inputs
     lulc = NULL,
@@ -114,10 +112,8 @@ server <- function(input, output, session) {
     
     # Lookup tables
     lc_table = NULL,
-    co2_table = NULL,
-    sf_table = NULL,
-    pupuk_table = NULL,
-    n2o_table = NULL
+    conversion_table = NULL,
+    pupuk_table = NULL
   )
   
   #' Directory selection
@@ -173,10 +169,8 @@ server <- function(input, output, session) {
     }
     rv$pu_table <- input$pu_table
     rv$lc_table <- input$lc_table
-    rv$co2_table <- input$co2_table
-    rv$sf_table <- input$sf_table
+    rv$conversion_table <- input$conversion_table
     rv$pupuk_table <- input$pupuk_table
-    rv$n2o_table <- input$n2o_table
   })
   
   # Input validation
@@ -188,10 +182,8 @@ server <- function(input, output, session) {
       need(rv$zone_input, "Please upload Planning Units file"),
       need(if(input$zone_type == "raster") rv$lookup_zone else TRUE, "Please upload Planning Units Lookup (CSV) file for raster input"),
       need(rv$lc_table, "Please upload Landcover Lookup Table (CSV) file"),
-      need(rv$co2_table, "Please upload CO2 Conversion Lookup Table (CSV) file"),
-      need(rv$sf_table, "Please upload Scaling Factor Lookup Table (CSV) file"),
+      need(rv$conversion_table, "Please upload Conversion Lookup Table (CSV) file"),
       need(rv$pupuk_table, "Please upload Fertilizer Lookup Table (CSV) file"),
-      need(rv$n2o_table, "Please upload N2O Conversion Lookup Table (CSV) file"),
       need(rv$wd != "", "Please select an output directory")
     )
     TRUE
@@ -214,10 +206,8 @@ server <- function(input, output, session) {
           pathPU = if (input$zone_type == "raster") rv$zone_input$datapath else rv$zone_input,
           pathLookupPU = if (input$zone_type == "raster") rv$lookup_zone$datapath else NULL,
           pathLookupLC = rv$lc_table$datapath,
-          pathLookupCO2 = rv$co2_table$datapath,
-          pathLookupSF = rv$sf_table$datapath,
+          pathLookupConversion = rv$conversion_table$datapath,
           pathLookupPupuk = rv$pupuk_table$datapath,
-          pathLookupN2O= rv$n2o_table$datapath,
           year = rv$year
         )
         
@@ -230,16 +220,12 @@ server <- function(input, output, session) {
           pathPU = rv$zone_input$datapath,
           pathLookupPU = if (input$zone_type == "raster") rv$lookup_zone$datapath else NULL,
           pathLookupLC = rv$lc_table$datapath,
-          pathLookupCO2 = rv$co2_table$datapath,
-          pathLookupSF = rv$sf_table$datapath,
-          pathLookupPupuk = rv$pupuk_table$datapath,
-          pathLookupN2O = rv$n2o_table$datapath
+          pathLookupConversion = rv$conversion_table$datapath,
+          pathLookupPupuk = rv$pupuk_table$datapath
         )
         
         output_file <- paste0("quesc-paddy_report_log", format(Sys.time(), "%Y-%m-%d_%H-%M-%S"), ".html")
         report_path <- file.path(rv$wd, output_file)
-        
-        browser()
         
         rmarkdown::render(
           input = "../report_template/quesc-paddy_ID.Rmd",

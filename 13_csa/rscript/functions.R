@@ -140,10 +140,8 @@ preprocess_data <- function(
     pathPU,
     pathLookupLC,
     pathLookupPU = NULL,
-    pathLookupCO2,
-    pathLookupSF,
+    pathLookupConversion,
     pathLookupPupuk,
-    pathLookupN2O,
     year = NULL
 ) {
   
@@ -161,11 +159,9 @@ preprocess_data <- function(
   # -------------------------------
   LULCT <- rast(pathLULCT)
   LookupLC <- read_csv(pathLookupLC)
-  LookupSF <- read_csv(pathLookupSF)
-  LookupCO2 <- read_csv(pathLookupCO2)
+  LookupConversion <- read_csv(pathLookupConversion)
   LookupPupuk <- read_csv(pathLookupPupuk)
-  LookupN2O <- read_csv(pathLookupN2O)
-  
+
   get_lookup_value <- function(tbl, variable_name) {
     tbl %>%
       filter(Variable == variable_name) %>%
@@ -175,7 +171,7 @@ preprocess_data <- function(
   get_rotation_factor <- function(tbl, var_name, rotation_vars) {
     value <- get_lookup_value(tbl, var_name)
     total <- tbl %>%
-      filter(Variable %in% rotation_vars) %>%
+      filter(Name %in% rotation_vars) %>%
       pull(Value) %>%
       sum()
     
@@ -253,9 +249,9 @@ preprocess_data <- function(
   # -------------------------------
   # 4. PREPARE LOOKUP TABLES
   # -------------------------------
-  Lookup_wide <- LookupSF %>%
-    select(variable, value) %>%
-    pivot_wider(names_from = variable, values_from = value) %>%
+  Lookup_wide <- LookupConversion %>%
+    select(Variable, Value) %>%
+    pivot_wider(names_from = Variable, values_from = Value) %>%
     mutate(
       Total_EF = EF * SFw * SFs * SFr
     )
@@ -266,7 +262,7 @@ preprocess_data <- function(
   combinedRasterTable <- combinedRasterTable %>%
     mutate(
       CH4_emission = Lookup_wide$Total_EF * Lookup_wide$t * Ha * 1e-6,
-      CH4_emission_CO2 = CH4_emission * LookupCO2$Value[LookupCO2$Variable == "GWP_CH4"] * 1000
+      CH4_emission_CO2 = CH4_emission * LookupConversion$Value[LookupConversion$Variable == "GWP_CH4"] * 1000
     )
   combinedRasterTable_clean <- combinedRasterTable
   CH4_table <- combinedRasterTable_clean %>%
@@ -285,7 +281,7 @@ preprocess_data <- function(
     )
   
   # Mengalikan untuk mendapatkan N2O
-  n_urea_factor  <- get_lookup_value(LookupN2O, "N Urea")
+  n_urea_factor  <- get_lookup_value(LookupConversion, "N_Urea")
   n_table <- n_table %>%
     mutate(
       `N Tunggal` = `N Urea` * n_urea_factor
@@ -299,11 +295,11 @@ preprocess_data <- function(
   )
   
   # Extract factors with helper functions
-  area100_factor <- get_lookup_value(LookupN2O, "100% dosis pupuk")
-  area50_factor  <- get_lookup_value(LookupN2O, "50% dosis pupuk")
+  area100_factor <- get_lookup_value(LookupConversion, "dosis100")
+  area50_factor  <- get_lookup_value(LookupConversion, "dosis50")
   
-  rotation1_factor <- get_rotation_factor(LookupN2O, "Rotasi padi 1 kali", rotation_vars)
-  rotation2_factor <- get_rotation_factor(LookupN2O, "Rotasi padi 2-3 kali", rotation_vars)
+  rotation1_factor <- get_rotation_factor(LookupConversion, "rotasi1", rotation_vars)
+  rotation2_factor <- get_rotation_factor(LookupConversion, "rotasi2", rotation_vars)
   
   N2O_emission <- combinedRasterTable %>%
     mutate(
@@ -314,9 +310,9 @@ preprocess_data <- function(
     )
   
   # Extract factors with helper functions
-  EF_N2O <- get_lookup_value(LookupCO2, "EF_N2O")
-  EF_CO2 <- get_lookup_value(LookupCO2, "EF_CO2")
-  GWP_N2O  <- get_lookup_value(LookupCO2, "GWP_N2O")
+  EF_N2O <- get_lookup_value(LookupConversion, "EF_N2O")
+  EF_CO2 <- get_lookup_value(LookupConversion, "EF_CO2")
+  GWP_N2O <- get_lookup_value(LookupConversion, "GWP_N2O")
   
   N2O_emission_CO2 <- N2O_emission %>%
     mutate(
@@ -581,16 +577,13 @@ preprocess_data <- function(
     pu_file_path = pathPU,
     lookup_pu_file_path = pathLookupPU,
     lookup_lc_file_path = pathLookupLC,
-    lookup_co2_file_path = pathLookupCO2,
-    lookup_sf_file_path = pathLookupSF,
+    lookup_conversion_file_path = pathLookupConversion,
     lookup_pupuk_file_path = pathLookupPupuk,
-    lookup_n2o_file_path = pathLookupN2O,
     LULCT = LULCT,
     PU = PU,
     lookup_LC = LookupLC,
     lookup_PU = LookupPU,
-    lookup_SF = LookupSF,
-    lookup_CO2 = LookupCO2,
+    lookup_Conversion = LookupConversion,
     combinedRaster = combinedRaster,
     combinedRasterTable = combinedRasterTable,
     CH4_table = CH4_table,

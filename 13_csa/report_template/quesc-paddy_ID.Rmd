@@ -23,6 +23,20 @@ library(kableExtra)
 library(DT)
 library(dplyr)
 library(plotly)
+
+format_dt <- function(dt, data) {
+  num_cols <- names(data)[sapply(data, is.numeric)]
+  
+  dt %>%
+    formatRound(columns = num_cols, digits = 2) %>%
+    formatCurrency(
+      columns = num_cols,
+      currency = "",
+      interval = 3,
+      mark = ".",
+      dec.mark = ","
+    )
+}
 ```
 
 <details><summary>Klik di sini untuk Log Analisis</summary>
@@ -38,10 +52,8 @@ analysis_log <- tribble(
   "Planning Unit Map", params$paths$pathPU,
   "Planning Unit Table", params$paths$pathLookupPU,
   "LULC Lookup Table", params$paths$pathLookupLC,
-  "CO2 Lookup Table", params$paths$pathLookupCO2,
-  "Scalling Factors Lookup Table", params$paths$pathLookupSF,
+  "Conversion Lookup Table", params$paths$pathLookupConversion,
   "Pupuk Lookup Table", params$paths$pathLookupPupuk,
-  "N2O Lookup Table", params$paths$pathLookupN2O,
   "Year", as.character(params$year),
   "Output Files", "",
   "Output Workspace", paste0(getwd(), " | ", params$output_dir),
@@ -175,51 +187,18 @@ if (!is.null(params$result$lookupPU)) {
 
 ## Tabel Acuan Konversi CO2
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
-co2_table <- read.csv(params$paths$pathLookupCO2)
+conversion_table <- read.csv(params$paths$pathLookupConversion)
 
 # join NPV + Carbon
-co2_table <- co2_table |>
+conversion_table <- conversion_table |>
   rename(
+    `Nama` = Name,
     `Variabel` = Variable,
     `Nilai` = Value
   )
 
 datatable(
-  co2_table,
-  extensions = c('Buttons', 'Responsive'),
-  rownames = FALSE,
-  options = list(
-    paging = TRUE,
-    searching = TRUE,
-    fixedColumns = TRUE,
-    autoWidth = TRUE,
-    ordering = TRUE,
-    dom = 'Blfrtip',
-    buttons = list(
-      list(extend = "copy",  className = "btn btn-light btn-sm"),
-      list(extend = "csv",   className = "btn btn-light btn-sm"),
-      list(extend = "excel", className = "btn btn-light btn-sm")
-    )
-  ),
-  class = "display stripe hover"
-)
-```
-
-## Tabel Acuan Scalling Factors
-```{r echo=FALSE, message=FALSE, warning=FALSE}
-sf_table <- read.csv(params$paths$pathLookupSF)
-
-# join NPV + Carbon
-sf_table <- sf_table |>
-  rename(
-    `No` = ID,
-    `Scalling Factors` = name,
-    `Variabel` = variable,
-    `Nilai` = value
-  )
-
-datatable(
-  sf_table,
+  conversion_table,
   extensions = c('Buttons', 'Responsive'),
   rownames = FALSE,
   options = list(
@@ -271,38 +250,6 @@ datatable(
 )
 ```
 
-## Tabel Acuan Konversi N2O
-```{r echo=FALSE, message=FALSE, warning=FALSE}
-n2o_table <- read.csv(params$paths$pathLookupN2O)
-
-# join NPV + Carbon
-n2o_table <- n2o_table |>
-  rename(
-    `Variabel` = Variable,
-    `Nilai` = Value
-  )
-
-datatable(
-  n2o_table,
-  extensions = c('Buttons', 'Responsive'),
-  rownames = FALSE,
-  options = list(
-    paging = TRUE,
-    searching = TRUE,
-    fixedColumns = TRUE,
-    autoWidth = TRUE,
-    ordering = TRUE,
-    dom = 'Blfrtip',
-    buttons = list(
-      list(extend = "copy",  className = "btn btn-light btn-sm"),
-      list(extend = "csv",   className = "btn btn-light btn-sm"),
-      list(extend = "excel", className = "btn btn-light btn-sm")
-    )
-  ),
-  class = "display stripe hover"
-)
-```
-
 # Distribusi Lahan Tahun `r params$year` {.tabset}
 
 ## Lahan Padi
@@ -335,20 +282,6 @@ Nilai emisi CH₄ umumnya berbanding lurus dengan luas lahan sawah, sehingga uni
 
 
 ```{r}
-format_dt <- function(dt, data) {
-  num_cols <- names(data)[sapply(data, is.numeric)]
-  
-  dt %>%
-    formatRound(columns = num_cols, digits = 2) %>%
-    formatCurrency(
-      columns = num_cols,
-      currency = "",
-      interval = 3,
-      mark = ".",
-      dec.mark = ","
-    )
-}
-
 format_dt(datatable(
 params$result$CH4_table,
 extensions = c('Buttons', 'Responsive'),

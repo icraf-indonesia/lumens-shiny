@@ -1,0 +1,19 @@
+ID,Name,Variable,Value,Satuan,Keterangan
+1,0% dosis pupuk,dosis0,0.0639,unitless,Tidak menerima bantuan pupuk
+2,50% dosis pupuk,dosis50,0.9025,unitless,Menerima bantuan pupuk dengan subsidi harga
+3,100% dosis pupuk,dosis100,0.0336,unitless,Menerima bantuan pupuk gratis
+4,Tidak ditanami padi,rotasi0,15635,Ha,Luas lahan yang tidak ditanami padi
+5,Rotasi padi 1 kali,rotasi1,173243,Ha,Luas lahan yang ditanami padi 1 kali
+6,Rotasi padi 2-3 kali,rotasi2,403316,Ha,Luas lahan yang ditanami padi 2-3 kali
+7,N Urea,N_Urea,0.46,unitless,Tanpa keterangan
+8,N NPK 15-10-12,N_NPK,0.15,unitless,Tanpa keterangan
+9,GWP CO1,GWP_CO2,1,unitless,Berdasarkan IPCC 2021
+10,GWP CH4,GWP_CH4,27.2,unitless,Berdasarkan IPCC 2021
+11,GWP N2O,GWP_N2O,273,unitless,Berdasarkan IPCC 2021
+12,Faktor Emisi N2O Lahan Sawah,EF_N2O,0.003,unitless,Tanpa keterangan
+13,Faktor Emisi CO2,EF_CO2,0.2,unitless,Tanpa keterangan
+14,Faktor Emisi CH4 per luas panen,EF,1.61,kg/Ha/hari ,Baseline EF untuk Sawah tergenang tanpa BO
+15,Scaling Factor Rejim Air,SFw,1,unitless,Scaling Faktor untuk Perbedaan Rejim air selama pertanaman (Tergenang terus menerus)
+16,Scaling Factor Jenis Tanah,SFs,1,unitless,Scalling faktor untuk jenis tanah
+17,Scaling Factor Varietas Padi,SFr,1,unitless,Scalling faktor untuk varietas padi (IR 64)
+18,Cultivation Period of Rice,t,240,hari,Lama budidaya padi dalam setahun
