@@ -3,158 +3,233 @@
 
 <div id="gambaran-umum" class="section level1">
 <h1>Gambaran Umum</h1>
-<p>Modul <strong>QUES-C Paddy</strong> dirancang untuk menghitung emisi
-gas rumah kaca dari kegiatan budidaya padi sawah, khususnya:</p>
+<p><strong>Modul Emisi Karbon Lahan Pertanian</strong> digunakan untuk
+menghitung emisi gas rumah kaca (GRK) dari sistem budidaya lahan
+pertanian, khususnya sawah, berbasis data spasial.</p>
+<p>Emisi yang dihitung meliputi:</p>
 <ol style="list-style-type: decimal">
-<li><strong>Emisi CH₄ (Metana)</strong> yang dilepaskan dari proses
-anaerob di lahan sawah tergenang.</li>
-<li><strong>Emisi N₂O (Dinitrogen Oksida)</strong> yang terkait dengan
-penggunaan pupuk sintetis maupun organik.</li>
+<li><strong>CH₄ (Metana)</strong> dari kondisi anaerob lahan
+tergenang<br />
+</li>
+<li><strong>N₂O (Dinitrogen Oksida)</strong> dari penggunaan pupuk
+nitrogen</li>
 </ol>
-<p>Perhitungan ini mengikuti pendekatan dari <em>2006 IPCC Guidelines
-for National Greenhouse Gas Inventories</em> Volume 4, khususnya
-<strong>Chapter 5 – Cropland</strong> dan <strong>Chapter 11 – N₂O from
-Managed Soils</strong>.</p>
-<p>Modul ini mendukung pengambil keputusan dalam memahami kontribusi
-emisi dari sistem persawahan, menilai dampak praktik pengelolaan, dan
-merancang strategi mitigasi berbasis data.</p>
+<p>Selain total emisi, modul ini juga menghasilkan:</p>
+<ul>
+<li>Distribusi spasial emisi<br />
+</li>
+<li>Emisi per unit perencanaan (PU)<br />
+</li>
+<li>Intensitas emisi (ton CO₂-eq/ha/tahun)</li>
+</ul>
+<p>Hasil analisis dapat digunakan untuk mendukung:</p>
+<ul>
+<li>Perencanaan pembangunan rendah karbon (LCDI)<br />
+</li>
+<li>Strategi mitigasi sektor pertanian<br />
+</li>
+<li>Pencapaian target NDC Indonesia 2030</li>
+</ul>
+<hr />
 </div>
 <div id="konsep-utama" class="section level1">
 <h1>Konsep Utama</h1>
-<ol style="list-style-type: decimal">
-<li><strong>Emisi CH₄ pada Sawah (IPCC Tier 1/2)</strong><br />
-Emisi CH₄ dihitung berdasarkan:
+<p>Perhitungan emisi dalam modul ini mengacu pada pedoman internasional
+serta referensi nasional, khususnya:</p>
 <ul>
-<li>Faktor emisi dasar (EF)</li>
-<li>Faktor koreksi untuk kondisi lahan, pengelolaan air, penggunaan
-jerami, dan musim tanam<br />
-Rumus umum (IPCC): <span class="math display">\[ CH_4 = EF_{adj} \times
-t \times A \]</span> di mana:</li>
-<li><em>EF_adj</em>: faktor emisi ter-adjust<br />
-</li>
-<li><em>t</em>: lama periode tanam (hari)<br />
-</li>
-<li><em>A</em>: luas sawah (ha)</li>
-</ul></li>
-<li><strong>Emisi N₂O dari Pupuk (IPCC N₂O Direct
-Emissions)</strong><br />
-IPCC mengasumsikan sebagian nitrogen yang diberikan melalui pupuk akan
-terkonversi menjadi N₂O: <span class="math display">\[ N_2O_{direct} =
-N_{applied} \times EF_{N_2O} \]</span> di mana:
+<li>IPCC 2006 Guidelines for National Greenhouse Gas Inventories (Volume
+4: Agriculture, Forestry and Other Land Use)</li>
+<li>2019 Refinement to the 2006 IPCC Guidelines</li>
+<li>Pedoman nasional (KLHK, Bappenas – LCDI, Kementerian Pertanian)</li>
+</ul>
+<p>Pendekatan yang digunakan telah disederhanakan agar dapat diterapkan
+pada data spasial (raster) dan unit perencanaan wilayah.</p>
+<p>Emisi CH₄ dari lahan sawah dihitung berdasarkan pendekatan IPCC untuk
+lahan tergenang (flooded rice fields), di mana emisi dipengaruhi oleh
+luas lahan, lama periode tanam, serta faktor emisi yang telah
+disesuaikan dengan kondisi lokal.</p>
+<p>Dalam pedoman IPCC 2006 (Volume 4, Chapter 5 – Cropland), konsep ini
+dijelaskan pada:</p>
 <ul>
-<li><em>N_applied</em>: jumlah nitrogen yang diberikan (kg N)<br />
-</li>
-<li><em>EF_N₂O</em>: faktor emisi default (0.01 atau 1%)</li>
-</ul></li>
-<li><strong>Konversi ke CO₂-eq</strong><br />
-Menggunakan <strong>GWP</strong> (IPCC AR5):
+<li>Equation 5.1 → perhitungan total emisi CH₄ dari sawah</li>
+<li>Equation 5.2 → penyesuaian faktor emisi (scaling factors)</li>
+</ul>
+<p>Faktor penyesuaian ini mencerminkan kondisi:</p>
 <ul>
-<li>CH₄ → 28<br />
-</li>
-<li>N₂O → 265</li>
-</ul></li>
-</ol>
+<li>Rejim pengairan (misalnya tergenang terus-menerus atau
+intermiten)</li>
+<li>Jenis tanah</li>
+<li>Pengelolaan residu tanaman (jerami)</li>
+<li>Praktik budidaya lainnya</li>
+</ul>
+<p>Dengan demikian, pendekatan yang digunakan dalam modul ini dapat
+dikategorikan sebagai Tier 1 yang disesuaikan (semi Tier 2) apabila
+menggunakan parameter lokal.</p>
+<p>Emisi N₂O dari lahan pertanian dihitung berdasarkan jumlah nitrogen
+yang diaplikasikan ke tanah melalui pupuk, baik pupuk tunggal maupun
+majemuk.</p>
+<p>Mengacu pada IPCC 2006 (Volume 4, Chapter 11 – N₂O from Managed
+Soils), perhitungan ini merujuk pada:</p>
+<ul>
+<li>Equation 11.1 → emisi langsung N₂O dari nitrogen yang
+diaplikasikan</li>
+</ul>
+<p>Pendekatan ini mengasumsikan bahwa sebagian nitrogen yang diberikan
+akan mengalami proses nitrifikasi dan denitrifikasi, menghasilkan emisi
+N₂O. Besaran emisi sangat dipengaruhi oleh:</p>
+<ul>
+<li>Dosis pupuk</li>
+<li>Jenis pupuk (kandungan nitrogen)</li>
+<li>Kondisi tanah dan kelembapan</li>
+<li>Intensitas penanaman</li>
+</ul>
+<p>Konversi ke CO₂-ekuivalen (CO₂-eq) dilakukan menggunakan nilai Global
+Warming Potential (GWP) sebagaimana direkomendasikan oleh IPCC (AR5/AR6
+atau referensi nasional).</p>
+<p>Konversi ini diperlukan agar berbagai jenis gas rumah kaca (CH₄ dan
+N₂O) dapat dibandingkan dalam satu satuan yang sama. Nilai GWP yang
+digunakan dalam modul mengikuti parameter pada tabel input (conversion
+table), sehingga dapat disesuaikan dengan referensi terbaru atau
+kebijakan nasional.</p>
+<p>Intensitas emisi dihitung sebagai rasio antara total emisi dan luas
+lahan pertanian pada setiap unit perencanaan.</p>
+<p>Indikator ini penting dalam konteks perencanaan pembangunan rendah
+karbon karena:</p>
+<ul>
+<li>Tidak hanya menunjukkan besarnya emisi, tetapi juga efisiensi
+penggunaan lahan</li>
+<li>Memungkinkan perbandingan antar wilayah dengan skala berbeda</li>
+<li>Membantu mengidentifikasi wilayah dengan emisi tinggi namun luas
+lahan relatif kecil (hotspot intensitas)</li>
+</ul>
+<p>Pendekatan ini sejalan dengan praktik dalam analisis Low Carbon
+Development Indonesia (LCDI) dan dokumen perencanaan daerah seperti
+Green Growth Plan.</p>
+<hr />
 </div>
 <div id="data-dan-variabel-input" class="section level1">
 <h1>Data dan Variabel Input</h1>
-<p>Sebelum menjalankan modul QUES-C Paddy, siapkan data berikut:</p>
 <ol style="list-style-type: decimal">
-<li><p><strong>Peta Tutupan Lahan – Sawah</strong><br />
-Raster kategorikal (GeoTIFF) dengan sistem proyeksi UTM, berisi kelas
-penggunaan lahan.<br />
-Modul akan memfilter piksel yang termasuk kategori <em>sawah</em> untuk
-analisis CH₄ dan N₂O.</p></li>
-<li><p><strong>Peta Unit Perencanaan (Planning Unit / PU)</strong><br />
-Raster atau shapefile yang mengelompokkan area ke dalam unit analisis
-(desa, kecamatan, grid, dll.).</p></li>
-<li><p><strong>Tabel Lookup Faktor Emisi CH₄</strong> (CSV)<br />
-Berisi:</p>
-<ul>
-<li>EF dasar (kg CH₄/ha/day)</li>
-<li>Faktor koreksi manajemen air (SFw)</li>
-<li>Faktor koreksi residu jerami (SFr)</li>
-<li>Faktor koreksi musim tanam (SFs)</li>
-<li>Lama tanam (t)</li>
-</ul></li>
-<li><p><strong>Tabel Lookup Emisi N₂O dari Pupuk</strong> (CSV)<br />
-Berisi:</p>
-<ul>
-<li>Jenis pupuk</li>
-<li>Kandungan nitrogen</li>
-<li>Dosis pupuk per ha</li>
-<li>Faktor emisi IPCC (EF_N2O)</li>
-</ul></li>
-<li><p><strong>Tabel Konversi Gas (CH₄ &amp; N₂O ke
-CO₂-eq)</strong><br />
-Mengikuti GWP IPCC (misal AR5).</p></li>
+<li>Peta Tutupan Lahan</li>
 </ol>
-<div id="cara-menggunakan-modul-ques-c-paddy" class="section level2">
-<h2>Cara Menggunakan Modul QUES-C Paddy</h2>
-<p>Ikuti langkah-langkah berikut:</p>
-<ol style="list-style-type: decimal">
-<li>Unggah seluruh data input (raster dan CSV).</li>
-<li>Tentukan tipe <em>Planning Unit</em>: raster atau shapefile.</li>
-<li>Jalankan fungsi <code>preprocess_data()</code> untuk:
 <ul>
-<li>membaca raster,</li>
-<li>merasterisasi shapefile (jika ada),</li>
-<li>menghitung luas piksel,</li>
-<li>membuat tabel frekuensi per PU.</li>
-</ul></li>
-<li>Modul secara otomatis:
-<ul>
-<li>menerapkan faktor emisi CH₄,</li>
-<li>menghitung emisi N₂O berdasarkan pupuk,</li>
-<li>mengonversi total emisi menjadi CO₂-eq,</li>
-<li>merangkum hasil per PU,</li>
-<li>membuat grafik interaktif CH₄ + N₂O.</li>
-</ul></li>
+<li>Format: GeoTIFF<br />
+</li>
+<li>Memiliki klasifikasi lahan<br />
+</li>
+<li>Kolom <strong>paddy (0/1)</strong> untuk identifikasi sawah</li>
+</ul>
+<ol start="2" style="list-style-type: decimal">
+<li>Peta Unit Perencanaan (PU)</li>
 </ol>
-<video controls style="max-width:80%;height:auto;">
-<source src="ta-paddy.mp4" type="video/mp4">
-<p>Browser Anda tidak mendukung pemutar video. </video></p>
+<ul>
+<li>Raster atau shapefile<br />
+</li>
+<li>Contoh: desa, kecamatan, grid</li>
+</ul>
+<ol start="3" style="list-style-type: decimal">
+<li>Tabel Lookup Tutupan Lahan</li>
+</ol>
+<p>Kolom wajib:</p>
+<ul>
+<li><strong>ID</strong><br />
+</li>
+<li><strong>LC</strong><br />
+</li>
+<li><strong>paddy</strong></li>
+</ul>
+<ol start="4" style="list-style-type: decimal">
+<li>Tabel Parameter Emisi (Conversion Table)</li>
+</ol>
+<p>Berisi:</p>
+<ul>
+<li>EF CH₄<br />
+</li>
+<li>SFw, SFs, SFr<br />
+</li>
+<li>GWP CH₄ &amp; N₂O<br />
+</li>
+<li>Faktor nitrogen (misal: N_UREA, N_NPK)</li>
+</ul>
+<ol start="5" style="list-style-type: decimal">
+<li>Tabel Dosis Pupuk</li>
+</ol>
+<p>Berisi:</p>
+<ul>
+<li>ID unit perencanaan<br />
+</li>
+<li>Jenis pupuk<br />
+</li>
+<li>Dosis (kg/ha)</li>
+</ul>
+<hr />
 </div>
+<div id="cara-menggunakan-modul" class="section level1">
+<h1>Cara Menggunakan Modul</h1>
+<ol style="list-style-type: decimal">
+<li>Unggah seluruh data input<br />
+</li>
+<li>Pilih tipe unit perencanaan (raster/shapefile)<br />
+</li>
+<li>Jalankan analisis</li>
+</ol>
+<p>Proses yang dilakukan sistem:</p>
+<ul>
+<li>Membaca dan harmonisasi data spasial<br />
+</li>
+<li>Menghitung luas lahan<br />
+</li>
+<li>Menghitung emisi CH₄<br />
+</li>
+<li>Menghitung emisi N₂O<br />
+</li>
+<li>Konversi ke CO₂-eq<br />
+</li>
+<li>Menghitung intensitas emisi<br />
+</li>
+<li>Menyusun hasil per PU<br />
+</li>
+<li>Membuat visualisasi</li>
+</ul>
+<hr />
 </div>
 <div id="hasil-analisis" class="section level1">
 <h1>Hasil Analisis</h1>
-<p>Setelah analisis selesai, modul akan menghasilkan beberapa
-output:</p>
-<ol style="list-style-type: decimal">
-<li><p><strong>Peta Identifikasi Sawah</strong><br />
-Raster GeoTIFF yang menunjukkan area sawah yang digunakan dalam
-perhitungan.</p></li>
-<li><p><strong>Peta Emisi CH₄ + N₂O per PU</strong><br />
-File raster atau shapefile yang menampilkan total emisi dalam CO₂-eq
-pada setiap unit perencanaan.</p></li>
-<li><p><strong>Ringkasan Statistik per PU</strong><br />
-Tabel CSV berisi:</p>
-<ul>
-<li>Emisi CH₄ (ton CH₄/tahun)</li>
-<li>Emisi N₂O (ton N₂O/tahun)</li>
-<li>Total CO₂-eq</li>
-</ul></li>
-<li><p><strong>Grafik Interaktif Emisi</strong><br />
-Diagram batang (ggplotly) yang membandingkan kontribusi CH₄ dan N₂O pada
-tiap PU.</p></li>
-<li><p><strong>Laporan HTML QUES-C Paddy</strong><br />
-Berisi:</p>
-<ul>
-<li>Penjelasan metode IPCC<br />
-</li>
-<li>Tabel input dan faktor emisi<br />
-</li>
-<li>Visualisasi peta<br />
-</li>
-<li>Perhitungan CH₄ dan N₂O<br />
-</li>
-<li>Interpretasi hasil untuk pengambil keputusan</li>
-</ul></li>
-</ol>
+<p>Output utama dari modul ini mencakup beberapa bentuk hasil yang
+saling melengkapi.</p>
+<p>Pengguna akan mendapatkan <strong>peta distribusi lahan
+padi</strong>, yang menunjukkan lokasi spasial area yang menjadi dasar
+perhitungan emisi. Selain itu, tersedia grafik yang menggambarkan
+distribusi luas lahan pertanian per unit perencanaan.</p>
+<p>Dalam bentuk tabel, modul menghasilkan ringkasan emisi per PU yang
+mencakup emisi CH₄, emisi N₂O, serta total emisi dalam CO₂-ekuivalen.
+Dari hasil ini, pengguna dapat melihat kontribusi masing-masing wilayah
+terhadap total emisi.</p>
+<p>Salah satu output penting adalah <strong>intensitas emisi</strong>,
+yang memberikan gambaran efisiensi emisi per hektar. Nilai ini sangat
+berguna untuk membandingkan kinerja antar wilayah dan mengidentifikasi
+area yang memerlukan intervensi.</p>
+<p>Selain itu, tersedia grafik interaktif yang memvisualisasikan
+perbandingan emisi CH₄ dan N₂O antar unit perencanaan, sehingga pola
+distribusi emisi dapat dipahami dengan lebih mudah.</p>
+<p>Seluruh hasil tersebut dirangkum dalam laporan HTML yang berisi
+metodologi, data input, hasil analisis, serta interpretasi yang dapat
+langsung digunakan untuk pengambilan keputusan.</p>
+<hr />
 </div>
 <div id="referensi-utama" class="section level1">
 <h1>Referensi Utama</h1>
-<p>Sumber resmi IPCC Guideline 2006 Volume 4:<br />
-<a href="https://www.ipcc-nggip.iges.or.jp/public/2006gl/vol4.html" class="uri">https://www.ipcc-nggip.iges.or.jp/public/2006gl/vol4.html</a></p>
+<ul>
+<li>IPCC (2006, 2019 Refinement) – Pedoman Inventarisasi GRK<br />
+</li>
+<li>Bappenas – Low Carbon Development Indonesia (LCDI)<br />
+</li>
+<li>KLHK – Enhanced Nationally Determined Contribution (NDC)<br />
+</li>
+<li>CIFOR-ICRAF – Green Growth Plan<br />
+</li>
+<li>Kementerian Pertanian – Emisi sektor pertanian</li>
+</ul>
 <hr />
 <p>Untuk informasi lebih detail atau pemecahan masalah, lihat
 dokumentasi lengkap Analisis Profitabilitas di sini <a href="https://help.lumens.or.id/07-profitability.html" class="uri">https://help.lumens.or.id/07-profitability.html</a> atau

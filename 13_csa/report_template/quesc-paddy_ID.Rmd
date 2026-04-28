@@ -37,6 +37,20 @@ format_dt <- function(dt, data) {
       dec.mark = ","
     )
 }
+
+read_lookup <- function(path) {
+    ext <- tools::file_ext(path)
+    
+    if (ext == "csv") {
+      return(readr::read_csv(path, show_col_types = FALSE))
+      
+    } else if (ext %in% c("xlsx", "xls")) {
+      return(readxl::read_excel(path))
+      
+    } else {
+      stop(paste("Format file tidak didukung:", ext))
+    }
+  }
 ```
 
 <details><summary>Klik di sini untuk Log Analisis</summary>
@@ -187,7 +201,7 @@ if (!is.null(params$result$lookupPU)) {
 
 ## Tabel Acuan Konversi CO2
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
-conversion_table <- read.csv(params$paths$pathLookupConversion)
+conversion_table <- read_lookup(params$paths$pathLookupConversion)
 
 # join NPV + Carbon
 conversion_table <- conversion_table |>
@@ -220,16 +234,13 @@ datatable(
 
 ## Tabel Acuan Dosis Pupuk
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
-pupuk_table <- read.csv(params$paths$pathLookupPupuk)
+pupuk_table <- read_lookup(params$paths$pathLookupPupuk)
+
+pupuk_table <- pupuk_table %>% 
+  select(-ID)
 
 # join NPV + Carbon
-pupuk_table <- pupuk_table |>
-  rename(
-    `Kabupaten` = KABUPATEN,
-    `Kecamatan` = KECAMATAN
-  )
-
-datatable(
+format_dt(datatable(
   pupuk_table,
   extensions = c('Buttons', 'Responsive'),
   rownames = FALSE,
@@ -247,10 +258,59 @@ datatable(
     )
   ),
   class = "display stripe hover"
-)
+), pupuk_table)
 ```
 
 # Distribusi Lahan Tahun `r params$year` {.tabset}
+
+## Komposisi Tutupan/Penggunaan Lahan
+```{r}
+format_dt(datatable(
+  params$result$lc_comp_total,
+  extensions = c('Buttons', 'Responsive'),
+  rownames = FALSE,
+  options = list(
+    paging = TRUE,
+    searching = TRUE,
+    fixedColumns = TRUE,
+    autoWidth = TRUE,
+    ordering = TRUE,
+    dom = 'Blfrtip',
+    buttons = list(
+      list(extend = "copy",  className = "btn btn-light btn-sm"),
+      list(extend = "csv",   className = "btn btn-light btn-sm"),
+      list(extend = "excel", className = "btn btn-light btn-sm")
+    )
+  ),
+  class = "display stripe hover"
+), params$result$lc_comp_total)
+```
+
+## Komposisi Tutupan/Penggunaan Lahan Pertanian 
+```{r}
+composition_table_PU <- params$result$lc_comp_per_PU %>% 
+  select(-n_pixel, -area_ha)
+  
+format_dt(datatable(
+  composition_table_PU,
+  extensions = c('Buttons', 'Responsive'),
+  rownames = FALSE,
+  options = list(
+    paging = TRUE,
+    searching = TRUE,
+    fixedColumns = TRUE,
+    autoWidth = TRUE,
+    ordering = TRUE,
+    dom = 'Blfrtip',
+    buttons = list(
+      list(extend = "copy",  className = "btn btn-light btn-sm"),
+      list(extend = "csv",   className = "btn btn-light btn-sm"),
+      list(extend = "excel", className = "btn btn-light btn-sm")
+    )
+  ),
+  class = "display stripe hover"
+),composition_table_PU)
+```
 
 ## Lahan Padi
 
@@ -273,6 +333,35 @@ params$result$plot_paddy_bar_interactive
 ```
 
 # Hasil Perhitungan Emisi {.tabset}
+
+## Tabel Ringkasan Emisi per PU
+
+Tabel ringkasan ini menggabungkan total emisi CH₄ dan N₂O pada masing-masing unit perencanaan dalam satuan CO₂-ekuivalen. Nilai ini memberikan gambaran kontribusi total emisi gas rumah kaca dari sektor pertanian padi.
+
+Perbandingan antar PU dapat digunakan untuk mengidentifikasi wilayah prioritas dalam upaya mitigasi emisi.
+
+```{r}
+format_dt(datatable(
+params$result$PU_emission_table,
+extensions = c('Buttons', 'Responsive'),
+options = list(
+paging = TRUE,
+searching = TRUE,
+fixedColumns = TRUE,
+autoWidth = FALSE,
+ordering = TRUE,
+scrollX = TRUE,  
+dom = 'Blfrtip',
+buttons = list(
+list(extend = "copy", className = "btn btn-light btn-sm"),
+list(extend = "csv",  className = "btn btn-light btn-sm"),
+list(extend = "excel",className = "btn btn-light btn-sm")
+)
+),
+class = "display stripe hover"
+), params$result$PU_emission_table)
+```
+
 
 ## Tabel Emisi CH4 per PU
 
@@ -330,34 +419,6 @@ format_dt(datatable(
   ),
   class = "display stripe hover nowrap"
 ), params$result$N2O_emission_table)
-```
-
-## Tabel Ringkasan Emisi per PU
-
-Tabel ringkasan ini menggabungkan total emisi CH₄ dan N₂O pada masing-masing unit perencanaan dalam satuan CO₂-ekuivalen. Nilai ini memberikan gambaran kontribusi total emisi gas rumah kaca dari sektor pertanian padi.
-
-Perbandingan antar PU dapat digunakan untuk mengidentifikasi wilayah prioritas dalam upaya mitigasi emisi.
-
-```{r}
-format_dt(datatable(
-params$result$PU_emission_table,
-extensions = c('Buttons', 'Responsive'),
-options = list(
-paging = TRUE,
-searching = TRUE,
-fixedColumns = TRUE,
-autoWidth = FALSE,
-ordering = TRUE,
-scrollX = TRUE,  
-dom = 'Blfrtip',
-buttons = list(
-list(extend = "copy", className = "btn btn-light btn-sm"),
-list(extend = "csv",  className = "btn btn-light btn-sm"),
-list(extend = "excel",className = "btn btn-light btn-sm")
-)
-),
-class = "display stripe hover"
-), params$result$PU_emission_table)
 ```
 
 # Visualisasi Emisi
