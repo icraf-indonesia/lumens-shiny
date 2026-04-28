@@ -5,7 +5,7 @@ ID,Name,Variable,Value,Satuan,Keterangan
 4,Tidak ditanami padi,rotasi0,15635,Ha,Luas lahan yang tidak ditanami padi
 5,Rotasi padi 1 kali,rotasi1,173243,Ha,Luas lahan yang ditanami padi 1 kali
 6,Rotasi padi 2-3 kali,rotasi2,403316,Ha,Luas lahan yang ditanami padi 2-3 kali
-7,N Urea,N_Urea,0.46,unitless,Tanpa keterangan
+7,N UREA,N_UREA,0.46,unitless,Tanpa keterangan
 8,N NPK 15-10-12,N_NPK,0.15,unitless,Tanpa keterangan
 9,GWP CO1,GWP_CO2,1,unitless,Berdasarkan IPCC 2021
 10,GWP CH4,GWP_CH4,27.2,unitless,Berdasarkan IPCC 2021
