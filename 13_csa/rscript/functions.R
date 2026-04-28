@@ -153,19 +153,23 @@ preprocess_data <- function(
   library(ggplot2)
   library(plotly)
   library(tidyterra)
+  library(scales)
+  library(readxl)
   
   # -------------------------------
   # 1. READ INPUT DATA
   # -------------------------------
-  LULCT <- rast(pathLULCT)
-  LookupLC <- read_csv(pathLookupLC)
-  LookupConversion <- read_csv(pathLookupConversion)
-  LookupPupuk <- read_csv(pathLookupPupuk)
-
   get_lookup_value <- function(tbl, variable_name) {
-    tbl %>%
-      filter(Variable == variable_name) %>%
+    result <- tbl %>%
+      mutate(Variable_clean = toupper(trimws(Variable))) %>%
+      filter(Variable_clean == toupper(variable_name)) %>%
       pull(Value)
+    
+    if (length(result) == 0) {
+      stop(paste("Variable tidak ditemukan di lookup:", variable_name))
+    }
+    
+    return(result)
   }
   
   get_rotation_factor <- function(tbl, var_name, rotation_vars) {
@@ -177,6 +181,25 @@ preprocess_data <- function(
     
     value / total
   }
+  
+  read_lookup <- function(path) {
+    ext <- tools::file_ext(path)
+    
+    if (ext == "csv") {
+      return(readr::read_csv(path, show_col_types = FALSE))
+      
+    } else if (ext %in% c("xlsx", "xls")) {
+      return(readxl::read_excel(path))
+      
+    } else {
+      stop(paste("Format file tidak didukung:", ext))
+    }
+  }
+  
+  LULCT <- rast(pathLULCT)
+  LookupLC <- read_lookup(pathLookupLC)
+  LookupConversion <- read_lookup(pathLookupConversion)
+  LookupPupuk <- read_lookup(pathLookupPupuk)
   
   # Set names and levels for LULCT
   name_rast <- names(LULCT)
@@ -195,7 +218,7 @@ preprocess_data <- function(
   if (zone_type == "raster") {
     
     PU <- rast(pathPU)
-    LookupPU <- read_csv(pathLookupPU)
+    LookupPU <- read_lookup(pathLookupPU)
     
     name_PU <- names(PU)
     levels(PU) <- LookupPU
@@ -230,7 +253,7 @@ preprocess_data <- function(
   combinedRaster <- c(PU, LULCT)
   
   # -------------------------------
-  # 3. BUILD FREQUENCY TABLE
+  # 3A. BUILD FREQUENCY TABLE
   # -------------------------------
   res_m <- terra::res(LULCT)
   area_ha_per_pixel <- (res_m[1] * res_m[2]) / 10000
@@ -245,6 +268,55 @@ preprocess_data <- function(
     ungroup() %>%
     distinct() %>%
     mutate(Ha = Freq * area_ha_per_pixel)
+  
+  # -------------------------------
+  # 3B. LULC COMPOSITION TABLES
+  # -------------------------------
+  
+  # Full LULC (tanpa filter "Pertanian")
+  lc_table <- combinedRaster %>%
+    as_tibble() %>%
+    tidyr::drop_na() %>%
+    setNames(c("PU", "LC")) %>%
+    group_by(PU, LC) %>%
+    summarise(n_pixel = n(), .groups = "drop") %>%
+    mutate(area_ha = n_pixel * area_ha_per_pixel)
+  
+  # -------------------------------
+  # 3B.1 KOMPOSISI PER PU
+  # -------------------------------
+  lc_comp_per_PU <- lc_table %>%
+    group_by(PU) %>%
+    mutate(
+      total_area = sum(area_ha),
+      percentage = (area_ha / total_area) * 100
+    ) %>%
+    ungroup()
+  
+  lc_comp_per_PU_tbl <- lc_comp_per_PU %>%
+    mutate(
+      area_ha = round(area_ha, 2),
+      percentage = round(percentage, 2)
+    )
+  
+  # -------------------------------
+  # 3B.2 KOMPOSISI TOTAL AREA
+  # -------------------------------
+  lc_comp_total <- lc_table %>%
+    group_by(LC) %>%
+    summarise(
+      total_area = sum(area_ha),
+      .groups = "drop"
+    ) %>%
+    mutate(
+      percentage = (total_area / sum(total_area)) * 100
+    )
+  
+  lc_comp_total_tbl <- lc_comp_total %>%
+    mutate(
+      total_area = round(total_area, 2),
+      percentage = round(percentage, 2)
+    )
   
   # -------------------------------
   # 4. PREPARE LOOKUP TABLES
@@ -273,18 +345,31 @@ preprocess_data <- function(
     )
   
   #### PERHITUNGAN N2O ####
-  # Hitung N tunggal (rata-rata Urea)
-  n_table <- LookupPupuk %>%
-    group_by(KABUPATEN) %>%
-    summarise(
-      `N Urea` = mean(PT_UREA, na.rm = TRUE)
-    )
+  # Ambil hanya kolom pupuk (berdasarkan pola nama)
+  fertilizer_names <- names(LookupPupuk) %>%
+    grep("^(Tunggal|Majemuk)_", ., value = TRUE)
   
-  # Mengalikan untuk mendapatkan N2O
-  n_urea_factor  <- get_lookup_value(LookupConversion, "N_Urea")
-  n_table <- n_table %>%
+  # Default: pupuk pertama
+  selected_fertilizer <- fertilizer_names[1]
+  
+  # Ambil N factor
+  fert_name_clean <- sub("^(Tunggal|Majemuk)_", "", selected_fertilizer)
+  
+  lookup_key <- paste0("N_", fert_name_clean)
+  
+  n_factor <- tryCatch(
+    get_lookup_value(LookupConversion, lookup_key),
+    error = function(e) NA_real_
+  )
+  
+  if (is.na(n_factor)) {
+    stop(paste("N factor tidak ditemukan untuk:", selected_fertilizer))
+  }
+  
+  # Hitung N
+  n_table <- LookupPupuk %>%
     mutate(
-      `N Tunggal` = `N Urea` * n_urea_factor
+      N_selected = .data[[selected_fertilizer]] * n_factor
     )
   
   # Lookup factor names
@@ -316,21 +401,25 @@ preprocess_data <- function(
   
   N2O_emission_CO2 <- N2O_emission %>%
     mutate(
-      N2O_emission_CO2_100_1 = ((N2O_area_100_1 * n_table$`N Tunggal` * EF_N2O * GWP_N2O) + (N2O_area_100_1 * n_table$`N Tunggal` * EF_CO2))/1000,
-      N2O_emission_CO2_100_2 = ((N2O_area_100_2 * n_table$`N Tunggal` * 2.5 * EF_N2O * GWP_N2O) + (N2O_area_100_2 * n_table$`N Tunggal` * 2.5 * EF_CO2))/1000,
-      N2O_emission_CO2_50_1  = ((N2O_area_50_1 * n_table$`N Tunggal` * 0.5 * EF_N2O * GWP_N2O) + (N2O_area_50_1 * n_table$`N Tunggal` * 0.5 * EF_CO2))/1000,
-      N2O_emission_CO2_50_2  = ((N2O_area_50_2 * n_table$`N Tunggal` * 2.5 * 0.5 * EF_N2O * GWP_N2O) + (N2O_area_50_2 * n_table$`N Tunggal` * 2.5 * 0.5 * EF_CO2))/1000,
+      N_selected = n_table$N_selected
+    ) %>%
+    mutate(
       # Total N2O emissions across all scenarios (Ton CO2-eq/tahun)
       N2O_emission_CO2_total =
         (N2O_emission_CO2_100_1 +
            N2O_emission_CO2_100_2 +
            N2O_emission_CO2_50_1  +
-           N2O_emission_CO2_50_2)
+           N2O_emission_CO2_50_2),
+      N2O_emission_CO2_100_1 = ((N2O_area_100_1 * N_selected * EF_N2O * GWP_N2O) + (N2O_area_100_1 * N_selected * EF_CO2))/1000,
+      N2O_emission_CO2_100_2 = ((N2O_area_100_2 * N_selected  * 2.5 * EF_N2O * GWP_N2O) + (N2O_area_100_2 * N_selected * 2.5 * EF_CO2))/1000,
+      N2O_emission_CO2_50_1  = ((N2O_area_50_1 * N_selected  * 0.5 * EF_N2O * GWP_N2O) + (N2O_area_50_1 * N_selected * 0.5 * EF_CO2))/1000,
+      N2O_emission_CO2_50_2  = ((N2O_area_50_2 * N_selected  * 2.5 * 0.5 * EF_N2O * GWP_N2O) + (N2O_area_50_2 * N_selected * 2.5 * 0.5 * EF_CO2))/1000
     )
   
   N2O_emission_table <- N2O_emission_CO2 %>%
     select(-Freq, -CH4_emission, -CH4_emission_CO2) %>%
     rename(
+      `Total Emisi N2O (Ton CO2-eq/tahun)` = N2O_emission_CO2_total,
       `Luasan Sawah 100% Pemupukan 1x Rotasi (Ha)` = N2O_area_100_1,
       `Luasan Sawah 100% Pemupukan 2-3x Rotasi (Ha)` = N2O_area_100_2,
       `Luasan Sawah 50% Pemupukan 1x Rotasi (Ha)` = N2O_area_50_1,
@@ -338,8 +427,7 @@ preprocess_data <- function(
       `Emisi 100% Pemupukan 1x Rotasi (Ton CO2-eq/tahun)` = N2O_emission_CO2_100_1,
       `Emisi 100% Pemupukan 2-3x Rotasi (Ton CO2-eq/tahun)` = N2O_emission_CO2_100_2,
       `Emisi 50% Pemupukan 1x Rotasi (Ton CO2-eq/tahun)` = N2O_emission_CO2_50_1,
-      `Emisi 50% Pemupukan 2-3x Rotasi (Ton CO2-eq/tahun)` = N2O_emission_CO2_50_2,
-      `Total Emisi N2O (Ton CO2-eq/tahun)` = N2O_emission_CO2_total
+      `Emisi 50% Pemupukan 2-3x Rotasi (Ton CO2-eq/tahun)` = N2O_emission_CO2_50_2
     )
   
   # -------------------------------
@@ -348,9 +436,9 @@ preprocess_data <- function(
   summary_by_PU <- N2O_emission_CO2 %>%
     group_by(PU) %>%
     summarise(
+      `Total Emisi (Ton CO2-eq/tahun)` = CH4_emission_CO2 + N2O_emission_CO2_total,
       CH4_emission_CO2 = sum(CH4_emission_CO2, na.rm = TRUE),
       N2O_emission_CO2_total = sum(N2O_emission_CO2_total, na.rm = TRUE),
-      `Total Emisi (Ton CO2-eq/tahun)` = CH4_emission_CO2 + N2O_emission_CO2_total,
       .groups = "drop"
     )
   
@@ -387,65 +475,6 @@ preprocess_data <- function(
   # -------------------------------
   # 7. PLOT
   # -------------------------------
-  # p <- ggplot(summary_long,
-  #             aes(
-  #               x = reorder(PU, Value),
-  #               y = Value,
-  #               fill = Gas,
-  #               text = paste0(
-  #                 "PU: ", PU, "<br>",
-  #                 "Gas: ", Gas, "<br>",
-  #                 "Emisi: ", round(Value, 2), "Ton CO₂-eq/tahun"
-  #               )
-  #             )) +
-  #   geom_col() +
-  #   scale_fill_manual(
-  #     values = c(
-  #       "CH4" = "#1b9e77",
-  #       "N2O" = "#d95f02"
-  #     )
-  #   ) +
-  #   scale_y_continuous(
-  #     labels = function(x) abs(x)
-  #   ) +
-  #   labs(
-  #     title = "Perbandingan Emisi CH₄ dan N₂O per PU",
-  #     x = "Unit Perencanaan",
-  #     y = "Ton CO₂-eq / tahun",
-  #     fill = "Jenis Gas"
-  #   ) +
-  #   geom_hline(yintercept = 0, color = "black") +
-  #   theme_minimal() +
-  #   coord_flip()
-  
-  # p <- ggplot(summary_long,
-  #             aes(
-  #               x = reorder(PU, Value),
-  #               y = Value,
-  #               fill = Gas,
-  #               text = paste0(
-  #                 "PU: ", PU, "<br>",
-  #                 "Gas: ", Gas, "<br>",
-  #                 "Emisi: ", scales::comma(Value, accuracy = 0.01), " Ton CO₂-eq/tahun"
-  #               )
-  #             )) +
-  #   geom_col(position = "dodge") +  # penting biar CH4 & N2O sejajar
-  #   scale_fill_manual(
-  #     values = c(
-  #       "CH4" = "#1b9e77",
-  #       "N2O" = "#d95f02"
-  #     )
-  #   ) +
-  #   scale_y_log10(labels = scales::comma, na.value = NA) +
-  #   labs(
-  #     title = "Perbandingan Emisi CH₄ dan N₂O per PU (Log Scale)",
-  #     x = "Unit Perencanaan",
-  #     y = "Ton CO₂-eq / tahun (log scale)",
-  #     fill = "Jenis Gas"
-  #   ) +
-  #   theme_minimal() +
-  #   coord_flip()
-  
   label_inverse_log <- function(x) {
     scales::comma(10^x, accuracy = 0.01)
   }
@@ -535,25 +564,44 @@ preprocess_data <- function(
   # Convert PADDY=0/1 to labels
   paddy_table$Class <- ifelse(paddy_table$PADDY == 1, "Paddy", "Non-Paddy")
   
+  paddy_table <- paddy_table %>%
+    group_by(PU) %>%
+    mutate(total_area = sum(area_ha)) %>%
+    ungroup()
+  
   # -------------------------------
   # 10. PLOT STACKED BAR CHART
   # -------------------------------
   plot_paddy_bar <- ggplot(
     paddy_table,
     aes(
-      x = factor(PU),
+      x = reorder(PU, -total_area),  # ✅ ascending by total area
       y = area_ha,
       fill = Class,
       text = paste0(
         "Unit Perencanaan: ", PU, "<br>",
         "Kelas: ", Class, "<br>",
-        "Area (Ha): ", round(area_ha, 2)
+        "Area (Ha): ", scales::number(
+          area_ha,
+          accuracy = 0.01,
+          big.mark = ".",
+          decimal.mark = ","
+        )
+        )
       )
-    )
-  ) +
+    ) +
     geom_col() +
-    scale_fill_manual(values = c("Non-Paddy" = "orange",
-                                 "Paddy" = "darkgreen")) +
+    scale_fill_manual(values = c(
+      "Non-Paddy" = "orange",
+      "Paddy" = "darkgreen"
+    )) +
+    scale_y_continuous(
+      labels = scales::label_comma(
+        accuracy = 1,
+        big.mark = ".",
+        decimal.mark = ","
+      )
+    ) +
     labs(
       title = "Paddy vs Non-Paddy Area per PU",
       x = "Planning Unit (PU)",
@@ -586,6 +634,8 @@ preprocess_data <- function(
     lookup_Conversion = LookupConversion,
     combinedRaster = combinedRaster,
     combinedRasterTable = combinedRasterTable,
+    lc_comp_per_PU = lc_comp_per_PU_tbl,
+    lc_comp_total = lc_comp_total_tbl,
     CH4_table = CH4_table,
     N2O_emission_table = N2O_emission_table,
     summary_by_PU = summary_by_PU,
