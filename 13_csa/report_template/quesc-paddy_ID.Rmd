@@ -102,6 +102,7 @@ fill_scale <- ggplot2::scale_fill_manual(
     "#D9D9D9", "#BC80BD", "#CCEBC5", "#FFED6F", "#E41A1C"
   ),
   na.value = "white",
+  na.translate = FALSE,   
   name = "Tutupan Lahan",
   labels = function(x) stringr::str_wrap(x, width = 20)
 )
@@ -144,6 +145,7 @@ fill_scale <- ggplot2::scale_fill_manual(
     "#D9D9D9", "#BC80BD", "#CCEBC5", "#FFED6F", "#E41A1C"
   ),
   na.value = "white",
+  na.translate = FALSE,   
   name = "Unit Perencanaan",
   labels = function(x) stringr::str_wrap(x, width = 20)
 )
@@ -265,8 +267,14 @@ format_dt(datatable(
 
 ## Komposisi Tutupan/Penggunaan Lahan
 ```{r}
+composition_table_total <- params$result$lc_comp_total %>% 
+    rename(
+      `Total Area (Ha)` = total_area,
+      `Persentase (%)` = percentage
+    )
+
 format_dt(datatable(
-  params$result$lc_comp_total,
+  composition_table_total,
   extensions = c('Buttons', 'Responsive'),
   rownames = FALSE,
   options = list(
@@ -283,13 +291,17 @@ format_dt(datatable(
     )
   ),
   class = "display stripe hover"
-), params$result$lc_comp_total)
+), composition_table_total)
 ```
 
 ## Komposisi Tutupan/Penggunaan Lahan Pertanian 
 ```{r}
 composition_table_PU <- params$result$lc_comp_per_PU %>% 
-  select(-n_pixel, -area_ha)
+  select(-n_pixel, -area_ha)  %>%
+    rename(
+      `Total Area (Ha)` = total_area,
+      `Persentase (%)` = percentage
+    )
   
 format_dt(datatable(
   composition_table_PU,
@@ -342,7 +354,13 @@ Perbandingan antar PU dapat digunakan untuk mengidentifikasi wilayah prioritas d
 
 ```{r}
 format_dt(datatable(
-params$result$PU_emission_table,
+  params$result$PU_emission_table %>%
+    dplyr::select(
+      PU,
+      `Total Emisi (Ton CO2-eq/tahun)`,
+      `Emisi CH4 (Ton CO2-eq/tahun)`,
+      `Emisi N2O (Ton CO2-eq/tahun)`
+    ),
 extensions = c('Buttons', 'Responsive'),
 options = list(
 paging = TRUE,
@@ -421,7 +439,7 @@ format_dt(datatable(
 ), params$result$N2O_emission_table)
 ```
 
-# Visualisasi Emisi
+# Visualisasi Emisi {.tabset}
 
 ## Grafik Emisi CH₄ dan N₂O per PU
 
@@ -431,6 +449,11 @@ Variasi antar PU menunjukkan adanya perbedaan karakteristik wilayah, baik dari s
 
 ```{r}
 params$result$plot
+```
+
+## Sebaran Emisi CH₄ dan N₂O per PU
+```{r}
+params$result$plot_map_bar
 ```
 
 # Kesimpulan

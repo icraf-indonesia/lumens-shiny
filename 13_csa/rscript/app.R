@@ -25,10 +25,6 @@ jscode <- "shinyjs.closeWindow = function() { window.close(); }"
 # UI Definition
 ui <- fluidPage(
   useShinyjs(),
-  withMathJax(),
-  tags$head(
-    tags$script(src = "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js")
-  ),
   theme = bs_theme(version = 5),
   extendShinyjs(text = jscode, functions = c("closeWindow")),
   tags$head(
@@ -450,14 +446,26 @@ server <- function(input, output, session) {
       need(rv$conversion_table, "Silakan unggah tabel parameter emisi dan konversi"),
       need(rv$pupuk_table, "Silakan unggah tabel dosis pupuk"),
       need(rv$wd != "", "Silakan pilih direktori keluaran"))
+    TRUE
   })
   
   observeEvent(input$process, {
+    print("BUTTON CLICKED")
+    
+    print("STEP 1: before validation")
+    validate_inputs()
+    print("STEP 2: after validation")
+    
+    rv$wd <- parseDirPath(volumes, input$wd)
+    req(rv$wd)
+    
+    print("STEP 3: before preprocess")
+    
     rv$wd <- parseDirPath(volumes, input$wd)
     req(validate_inputs(), rv$wd)
     showNotification("Analisis sedang berjalan, mohon tunggu...", type = "message", duration = NULL, id = "running_notification")
     
-    withProgress(message = 'Menjalankan Analisis QUES-C Paddy', value = 0, {
+    withProgress(message = 'Menjalankan Analisis', value = 0, {
       tryCatch({
         incProgress(0.1, detail = "Memulai analisis...")
         

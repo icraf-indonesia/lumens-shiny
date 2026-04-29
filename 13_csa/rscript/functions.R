@@ -196,10 +196,12 @@ preprocess_data <- function(
     }
   }
   
-  LULCT <- rast(pathLULCT)
   LookupLC <- read_lookup(pathLookupLC)
   LookupConversion <- read_lookup(pathLookupConversion)
   LookupPupuk <- read_lookup(pathLookupPupuk)
+  
+  LULCT <- rast(pathLULCT)
+  LULCT[LULCT == 0] <- NA
   
   # Set names and levels for LULCT
   name_rast <- names(LULCT)
@@ -404,16 +406,16 @@ preprocess_data <- function(
       N_selected = n_table$N_selected
     ) %>%
     mutate(
+      N2O_emission_CO2_100_1 = ((N2O_area_100_1 * N_selected * EF_N2O * GWP_N2O) + (N2O_area_100_1 * N_selected * EF_CO2))/1000,
+      N2O_emission_CO2_100_2 = ((N2O_area_100_2 * N_selected  * 2.5 * EF_N2O * GWP_N2O) + (N2O_area_100_2 * N_selected * 2.5 * EF_CO2))/1000,
+      N2O_emission_CO2_50_1  = ((N2O_area_50_1 * N_selected  * 0.5 * EF_N2O * GWP_N2O) + (N2O_area_50_1 * N_selected * 0.5 * EF_CO2))/1000,
+      N2O_emission_CO2_50_2  = ((N2O_area_50_2 * N_selected  * 2.5 * 0.5 * EF_N2O * GWP_N2O) + (N2O_area_50_2 * N_selected * 2.5 * 0.5 * EF_CO2))/1000,
       # Total N2O emissions across all scenarios (Ton CO2-eq/tahun)
       N2O_emission_CO2_total =
         (N2O_emission_CO2_100_1 +
            N2O_emission_CO2_100_2 +
            N2O_emission_CO2_50_1  +
-           N2O_emission_CO2_50_2),
-      N2O_emission_CO2_100_1 = ((N2O_area_100_1 * N_selected * EF_N2O * GWP_N2O) + (N2O_area_100_1 * N_selected * EF_CO2))/1000,
-      N2O_emission_CO2_100_2 = ((N2O_area_100_2 * N_selected  * 2.5 * EF_N2O * GWP_N2O) + (N2O_area_100_2 * N_selected * 2.5 * EF_CO2))/1000,
-      N2O_emission_CO2_50_1  = ((N2O_area_50_1 * N_selected  * 0.5 * EF_N2O * GWP_N2O) + (N2O_area_50_1 * N_selected * 0.5 * EF_CO2))/1000,
-      N2O_emission_CO2_50_2  = ((N2O_area_50_2 * N_selected  * 2.5 * 0.5 * EF_N2O * GWP_N2O) + (N2O_area_50_2 * N_selected * 2.5 * 0.5 * EF_CO2))/1000
+           N2O_emission_CO2_50_2)
     )
   
   N2O_emission_table <- N2O_emission_CO2 %>%
@@ -424,21 +426,30 @@ preprocess_data <- function(
       `Luasan Sawah 100% Pemupukan 2-3x Rotasi (Ha)` = N2O_area_100_2,
       `Luasan Sawah 50% Pemupukan 1x Rotasi (Ha)` = N2O_area_50_1,
       `Luasan Sawah N2O 50% Pemupukan 2-3x Rotasi (Ha)` = N2O_area_50_2,
+      `N Terpilih` = N_selected,
       `Emisi 100% Pemupukan 1x Rotasi (Ton CO2-eq/tahun)` = N2O_emission_CO2_100_1,
       `Emisi 100% Pemupukan 2-3x Rotasi (Ton CO2-eq/tahun)` = N2O_emission_CO2_100_2,
       `Emisi 50% Pemupukan 1x Rotasi (Ton CO2-eq/tahun)` = N2O_emission_CO2_50_1,
       `Emisi 50% Pemupukan 2-3x Rotasi (Ton CO2-eq/tahun)` = N2O_emission_CO2_50_2
+    ) %>%
+    select(
+      PU,
+      LC,
+      Ha,
+      `Total Emisi N2O (Ton CO2-eq/tahun)`,
+      everything()
     )
   
   # -------------------------------
-  # 6. SUM BY PU
+  # 6A. SUM BY PU
   # -------------------------------
   summary_by_PU <- N2O_emission_CO2 %>%
     group_by(PU) %>%
     summarise(
-      `Total Emisi (Ton CO2-eq/tahun)` = CH4_emission_CO2 + N2O_emission_CO2_total,
       CH4_emission_CO2 = sum(CH4_emission_CO2, na.rm = TRUE),
       N2O_emission_CO2_total = sum(N2O_emission_CO2_total, na.rm = TRUE),
+      `Total Emisi (Ton CO2-eq/tahun)` = 
+        CH4_emission_CO2 + N2O_emission_CO2_total,
       .groups = "drop"
     )
   
@@ -470,10 +481,94 @@ preprocess_data <- function(
     mutate(
       Value_log = log10(Value + epsilon)
     )
-
-
+  
   # -------------------------------
-  # 7. PLOT
+  # 6B. PREPARE SPATIAL DATA FOR MAP BAR
+  # -------------------------------
+  # Convert raster PU ke polygon
+  PU_poly <- as.polygons(PU, dissolve = TRUE)
+  PU_sf <- sf::st_as_sf(PU_poly)
+  
+  # Ambil centroid tiap PU
+  PU_centroid <- sf::st_centroid(PU_sf)
+  
+  # Join dengan data emisi
+  PU_centroid <- PU_centroid %>%
+    rename(PU = planning_unit) %>%
+    left_join(summary_by_PU, by = "PU")
+  
+  # Ubah ke long format untuk bar
+  coords <- sf::st_coordinates(PU_centroid)
+  
+  # summary_long_map <- PU_centroid %>%
+  #   mutate(
+  #     X = coords[,1],
+  #     Y = coords[,2]
+  #   ) %>%
+  #   select(PU, CH4_emission_CO2, N2O_emission_CO2_total, X, Y) %>%
+  #   pivot_longer(
+  #     cols = c(CH4_emission_CO2, N2O_emission_CO2_total),
+  #     names_to = "Gas",
+  #     values_to = "Value"
+  #   ) %>%
+  #   mutate(
+  #     Gas = recode(Gas,
+  #                  "CH4_emission_CO2" = "CH4",
+  #                  "N2O_emission_CO2_total" = "N2O")
+  #   )
+
+  # bar_width <- 5000
+  # scale_factor <- max(summary_long_map$Value) / 50000
+  
+  # summary_long_map <- summary_long_map %>%
+  #   mutate(
+  #     height = Value / scale_factor,
+  #     xmin = X - bar_width,
+  #     xmax = X + bar_width,
+  #     ymin = Y,
+  #     ymax = Y + height
+  #   )
+  
+  summary_long_map <- PU_centroid %>%
+    mutate(
+      X = coords[,1],
+      Y = coords[,2]
+    ) %>%
+    select(PU, CH4_emission_CO2, N2O_emission_CO2_total, X, Y) %>%
+    pivot_longer(
+      cols = c(CH4_emission_CO2, N2O_emission_CO2_total),
+      names_to = "Gas",
+      values_to = "Value"
+    ) %>%
+    mutate(
+      Gas = recode(
+        Gas,
+        "CH4_emission_CO2" = "CH4",
+        "N2O_emission_CO2_total" = "N2O"
+      ),
+      Value_log = log10(Value + epsilon)
+    )
+  
+  min_log <- min(summary_long_map$Value_log, na.rm = TRUE)
+  
+  summary_long_map <- summary_long_map %>%
+    mutate(
+      Value_log = log10(Value + 1e-6),
+      height = rescale(Value_log, to = c(0, 50000))
+    )
+  
+  bar_width <- 5000
+  
+  summary_long_map <- summary_long_map %>%
+    mutate(
+      xmin = X - bar_width,
+      xmax = X + bar_width,
+      ymin = Y,
+      ymax = Y + height
+    )
+  
+  # -------------------------------
+  # 7A. PLOT
   # -------------------------------
   label_inverse_log <- function(x) {
     scales::comma(10^x, accuracy = 0.01)
@@ -513,6 +608,41 @@ preprocess_data <- function(
     coord_flip()
 
   plot_interactive <- ggplotly(p, tooltip = "text")
+  
+  # -------------------------------
+  # 7B. MAP WITH BAR CHART
+  # -------------------------------
+  plot_map_bar <- ggplot() +
+    
+    # base map
+    geom_sf(data = PU_sf, fill = "grey90", color = "white") +
+    
+    # bars
+    geom_rect(
+      data = summary_long_map,
+      aes(
+        xmin = xmin,
+        xmax = xmax,
+        ymin = ymin,
+        ymax = ymax,
+        fill = Gas
+      ),
+      alpha = 0.8
+    ) +
+    
+    scale_fill_manual(values = c(
+      "CH4" = "#1b9e77",
+      "N2O" = "#d95f02"
+    )) +
+    
+    coord_sf() +
+    
+    labs(
+      title = "Emisi CH4 dan N2O per PU",
+      fill = "Gas"
+    ) +
+    
+    theme_minimal()
   
   # -------------------------------
   # 8. PADDY AND NON-PADDY MAP
@@ -643,6 +773,7 @@ preprocess_data <- function(
     summary_long = summary_long,
     plot = plot_interactive,
     plot_paddy_map = plot_paddy_map,
-    plot_paddy_bar_interactive = plot_paddy_bar_interactive
+    plot_paddy_bar_interactive = plot_paddy_bar_interactive,
+    plot_map_bar = plot_map_bar
   ))
 }
