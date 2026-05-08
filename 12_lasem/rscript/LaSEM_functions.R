@@ -55,12 +55,12 @@ perform_suitability_analysis <-
         )
       )
     
-    sutability_attr_pot <-
+    suitability_attr_pot <-
       Reduce(function(x, y)
         left_join(x, y, by = "ID"), intervention_table)
     
     suitability_polygon <- suitability_map$suitability_polygon |>
-      left_join(sutability_attr_pot, by = "ID") |>
+      left_join(suitability_attr_pot, by = "ID") |>
       mutate(
         suitability_potential_low  = case_when(suitability == "S1" ~ "S1", .default = suitability_potential_low),
         suitability_potential_med  = case_when(suitability == "S1" ~ "S1", .default = suitability_potential_med),

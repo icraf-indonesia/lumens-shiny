@@ -35,12 +35,19 @@ check_and_install_packages <- function(packages) {
 check_and_install_packages(required_packages)
 
 # Source LaSEM functions
-if (file.exists("LaSEM_functions.R")){
+if (file.exists("LaSEM_functions.R")) {
   source("LaSEM_functions.R")
-} else if (file.exists("12_lasem/rscript/LaSEM_functions.R")){
+} else if (file.exists("12_lasem/rscript/LaSEM_functions.R")) {
   source("12_lasem/rscript/LaSEM_functions.R")
 } else {
   stop("LaSEM_functions.R file not found.")
+}
+
+# Source refactored function modules (overrides old process_suitability)
+if (file.exists("functions_all.R")) {
+  source("functions_all.R")
+} else if (file.exists("12_lasem/rscript/functions_all.R")) {
+  source("12_lasem/rscript/functions_all.R")
 }
 
 # JavaScript code for closing window
