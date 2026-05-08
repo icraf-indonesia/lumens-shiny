@@ -33,8 +33,8 @@ format_dt <- function(dt, data) {
       columns = num_cols,
       currency = "",
       interval = 3,
-      mark = ".",
-      dec.mark = ","
+      mark = ",",
+      dec.mark = "."
     )
 }
 
@@ -80,13 +80,14 @@ analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
 </details>
 
 # Pendahuluan
-Laporan ini menyajikan hasil analisis spasial lahan sawah berdasarkan peta tutupan lahan serta unit perencanaan (Planning Unit/PU) pada tahun `r params$year`. Analisis ini mencakup identifikasi distribusi lahan padi, estimasi luas area, serta perhitungan emisi gas rumah kaca berupa metana (CH₄) dan dinitrogen oksida (N₂O).
+Laporan ini menyajikan hasil analisis spasial lahan sawah berdasarkan peta tutupan lahan serta unit perencanaan (Planning Unit/PU) pada tahun `r params$year`. Analisis ini mencakup identifikasi distribusi lahan sawah, estimasi luas area, serta perhitungan emisi gas rumah kaca berupa metana (CH₄) dan dinitrogen oksida (N₂O).
 
-Pendekatan yang digunakan mengintegrasikan data raster tutupan lahan dengan data unit perencanaan, serta berbagai faktor emisi dan skenario pemupukan. Hasil analisis ini diharapkan dapat mendukung perencanaan wilayah berbasis emisi serta pengelolaan lahan pertanian yang lebih berkelanjutan.
+Pendekatan yang digunakan mengintegrasikan data raster tutupan lahan dengan data unit perencanaan, serta berbagai faktor emisi dan skenario pemupukan. Hasil analisis ini diharapkan dapat mendukung perencanaan wilayah berbasis emisi serta pengelolaan lahan sawah yang lebih berkelanjutan.
 
-# Data yang Digunakan {.tabset}
+# Data yang Digunakan
 
-## Peta Tutupan/Penggunaan Lahan pada `r params$year`
+## Tutupan/Penggunaan Lahan pada `r params$year` {.tabset}
+### Peta Tutupan/Penggunaan Lahan pada `r params$year`
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 fill_scale <- ggplot2::scale_fill_manual(
   values = c(
@@ -127,6 +128,35 @@ lc_map <- ggplot() +
   )
 
 lc_map
+```
+
+### Komposisi Tutupan/Penggunaan Lahan pada `r params$year`
+```{r}
+composition_table_total <- params$result$lc_comp_total %>% 
+    rename(
+      `Total Area (Ha)` = total_area,
+      `Persentase (%)` = percentage
+    )
+
+format_dt(datatable(
+  composition_table_total,
+  extensions = c('Buttons', 'Responsive'),
+  rownames = FALSE,
+  options = list(
+    paging = TRUE,
+    searching = TRUE,
+    fixedColumns = TRUE,
+    autoWidth = TRUE,
+    ordering = TRUE,
+    dom = 'Blfrtip',
+    buttons = list(
+      list(extend = "copy",  className = "btn btn-light btn-sm"),
+      list(extend = "csv",   className = "btn btn-light btn-sm"),
+      list(extend = "excel", className = "btn btn-light btn-sm")
+    )
+  ),
+  class = "display stripe hover"
+), composition_table_total)
 ```
 
 ## Peta Unit Perencanaan
@@ -201,7 +231,7 @@ if (!is.null(params$result$lookupPU)) {
 }
 ```
 
-## Tabel Acuan Konversi CO2
+## Tabel Acuan Konversi dan Parameter
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 conversion_table <- read_lookup(params$paths$pathLookupConversion)
 
@@ -234,7 +264,7 @@ datatable(
 )
 ```
 
-## Tabel Acuan Dosis Pupuk
+## Tabel Acuan Dosis Pupuk Setiap Unit Perencanaan
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 pupuk_table <- read_lookup(params$paths$pathLookupPupuk)
 
@@ -263,43 +293,37 @@ format_dt(datatable(
 ), pupuk_table)
 ```
 
-# Distribusi Lahan Tahun `r params$year` {.tabset}
+# Sebaran dan Komposisi Lahan Sawah di `r params$year` {.tabset}
 
-## Komposisi Tutupan/Penggunaan Lahan
+## Peta Sebaran Lahan Sawah
+
+Peta ini menunjukkan distribusi spasial antara lahan sawah dan non-sawah pada wilayah studi. Area dengan warna hijau merepresentasikan lahan sawah, sedangkan area lainnya menunjukkan penggunaan lahan non-sawah.
+
+Distribusi ini menjadi dasar dalam perhitungan emisi, karena hanya area dengan kategori sawah yang diperhitungkan dalam estimasi emisi CH₄ dan N₂O. Pola spasial yang terbentuk juga dapat mengindikasikan konsentrasi aktivitas lahan sawah pada unit perencanaan tertentu.
+
 ```{r}
-composition_table_total <- params$result$lc_comp_total %>% 
-    rename(
-      `Total Area (Ha)` = total_area,
-      `Persentase (%)` = percentage
-    )
-
-format_dt(datatable(
-  composition_table_total,
-  extensions = c('Buttons', 'Responsive'),
-  rownames = FALSE,
-  options = list(
-    paging = TRUE,
-    searching = TRUE,
-    fixedColumns = TRUE,
-    autoWidth = TRUE,
-    ordering = TRUE,
-    dom = 'Blfrtip',
-    buttons = list(
-      list(extend = "copy",  className = "btn btn-light btn-sm"),
-      list(extend = "csv",   className = "btn btn-light btn-sm"),
-      list(extend = "excel", className = "btn btn-light btn-sm")
-    )
-  ),
-  class = "display stripe hover"
-), composition_table_total)
+params$result$plot_paddy_map
 ```
 
-## Komposisi Tutupan/Penggunaan Lahan Pertanian 
+## Grafik Area Sawah dan Non Sawah per Unit Perencanaan
+
+Grafik ini menunjukkan perbandingan luas area sawah dan non-sawah pada masing-masing unit perencanaan (PU). Perbedaan luas ini mencerminkan intensitas penggunaan lahan untuk sawah di setiap wilayah.
+
+PU dengan dominasi area sawah yang tinggi berpotensi memberikan kontribusi emisi yang lebih besar, terutama untuk emisi CH₄ yang sangat dipengaruhi oleh kondisi lahan sawah.
+
+```{r}
+params$result$plot_paddy_bar_interactive
+```
+
+## Komposisi Tutupan/Penggunaan Lahan Sawah 
 ```{r}
 composition_table_PU <- params$result$lc_comp_per_PU %>% 
-  select(-n_pixel, -area_ha)  %>%
+  select(PU, LC, area_ha, total_area, percentage)  %>%
     rename(
-      `Total Area (Ha)` = total_area,
+      `Unit Perencanaan` = PU,
+      `Tutupan Lahan` = LC,
+      `Area Lahan Sawah per Unit Perencanaan (Ha)` = area_ha,
+      `Total Area per Unit Perencanaan (Ha)` = total_area,
       `Persentase (%)` = percentage
     )
   
@@ -324,101 +348,131 @@ format_dt(datatable(
 ),composition_table_PU)
 ```
 
-## Lahan Padi
+# Hasil Perhitungan Emisi
 
-Peta ini menunjukkan distribusi spasial antara lahan padi (sawah) dan non-padi pada wilayah studi. Area dengan warna hijau merepresentasikan lahan padi, sedangkan area lainnya menunjukkan penggunaan lahan non-padi.
+## Total Emisi di `r params$year`
 
-Distribusi ini menjadi dasar dalam perhitungan emisi, karena hanya area dengan kategori padi yang diperhitungkan dalam estimasi emisi CH₄ dan N₂O. Pola spasial yang terbentuk juga dapat mengindikasikan konsentrasi aktivitas pertanian pada unit perencanaan tertentu.
 
+
+## Emisi CH₄ dan N₂O per Unit Perencanaan {.tabset}
+
+### Sebaran Emisi CH₄ dan N₂O per Unit Perencanaan
 ```{r}
-params$result$plot_paddy_map
+params$result$plot_choropleth
 ```
 
-## Area Padi dan Non Padi
+### Grafik Komposisi Emisi CH₄ dan N₂O per Unit Perencanaan
 
-Grafik ini menunjukkan perbandingan luas area padi dan non-padi pada masing-masing unit perencanaan (PU). Perbedaan luas ini mencerminkan intensitas penggunaan lahan untuk pertanian padi di setiap wilayah.
+Grafik ini menampilkan distribusi emisi CH₄ dan N₂O pada masing-masing unit perencanaan. Perbedaan kontribusi antar gas dapat terlihat secara visual, di mana umumnya emisi CH₄ mendominasi total emisi dari lahan sawah.
 
-PU dengan dominasi area padi yang tinggi berpotensi memberikan kontribusi emisi yang lebih besar, terutama untuk emisi CH₄ yang sangat dipengaruhi oleh kondisi lahan sawah.
+Variasi antar PU menunjukkan adanya perbedaan karakteristik wilayah, baik dari sisi luas lahan maupun praktik pengelolaan sawah.
 
 ```{r}
-params$result$plot_paddy_bar_interactive
+params$result$plot
 ```
 
-# Hasil Perhitungan Emisi {.tabset}
+### Tabel Ringkasan Emisi per Unit Perencanaan
 
-## Tabel Ringkasan Emisi per PU
-
-Tabel ringkasan ini menggabungkan total emisi CH₄ dan N₂O pada masing-masing unit perencanaan dalam satuan CO₂-ekuivalen. Nilai ini memberikan gambaran kontribusi total emisi gas rumah kaca dari sektor pertanian padi.
+Tabel ringkasan ini menggabungkan total emisi CH₄ dan N₂O pada masing-masing unit perencanaan dalam satuan CO₂-ekuivalen. Nilai ini memberikan gambaran kontribusi total emisi gas rumah kaca dari lahan sawah.
 
 Perbandingan antar PU dapat digunakan untuk mengidentifikasi wilayah prioritas dalam upaya mitigasi emisi.
 
 ```{r}
+pu_table_clean <- params$result$PU_emission_table %>%
+  dplyr::rename(
+    `Total Emisi (Ton CO₂-eq/tahun)` = `Total Emisi (Ton CO2-eq/tahun)`,
+    `Emisi CH₄ (Ton CO₂-eq/tahun)`   = `Emisi CH4 (Ton CO2-eq/tahun)`,
+    `Emisi N₂O (Ton CO₂-eq/tahun)`   = `Emisi N2O (Ton CO2-eq/tahun)`
+  ) %>%
+  dplyr::select(
+    PU,
+    `Total Emisi (Ton CO₂-eq/tahun)`,
+    `Emisi CH₄ (Ton CO₂-eq/tahun)`,
+    `Emisi N₂O (Ton CO₂-eq/tahun)`
+  )
+
 format_dt(datatable(
-  params$result$PU_emission_table %>%
-    dplyr::select(
-      PU,
-      `Total Emisi (Ton CO2-eq/tahun)`,
-      `Emisi CH4 (Ton CO2-eq/tahun)`,
-      `Emisi N2O (Ton CO2-eq/tahun)`
-    ),
-extensions = c('Buttons', 'Responsive'),
-options = list(
-paging = TRUE,
-searching = TRUE,
-fixedColumns = TRUE,
-autoWidth = FALSE,
-ordering = TRUE,
-scrollX = TRUE,  
-dom = 'Blfrtip',
-buttons = list(
-list(extend = "copy", className = "btn btn-light btn-sm"),
-list(extend = "csv",  className = "btn btn-light btn-sm"),
-list(extend = "excel",className = "btn btn-light btn-sm")
-)
-),
-class = "display stripe hover"
-), params$result$PU_emission_table)
+  pu_table_clean,
+  extensions = c('Buttons', 'Responsive'),
+  options = list(
+    paging = TRUE,
+    searching = TRUE,
+    fixedColumns = TRUE,
+    autoWidth = FALSE,
+    ordering = TRUE,
+    scrollX = TRUE,  
+    dom = 'Blfrtip',
+    buttons = list(
+      list(extend = "copy", className = "btn btn-light btn-sm"),
+      list(extend = "csv",  className = "btn btn-light btn-sm"),
+      list(extend = "excel",className = "btn btn-light btn-sm")
+    )
+  ),
+  class = "display stripe hover"
+), pu_table_clean)
+
 ```
 
+## Tabel Emisi CH₄ per Unit Perencanaan
 
-## Tabel Emisi CH4 per PU
+Tabel ini menyajikan estimasi emisi CH₄ berdasarkan luas lahan sawah pada masing-masing unit perencanaan. Emisi dihitung menggunakan faktor emisi yang telah disesuaikan dengan kondisi lingkungan dan praktik pengelolaan lahan.
 
-Tabel ini menyajikan estimasi emisi CH₄ berdasarkan luas lahan padi pada masing-masing unit perencanaan. Emisi dihitung menggunakan faktor emisi yang telah disesuaikan dengan kondisi lingkungan dan praktik pengelolaan lahan.
-
-Nilai emisi CH₄ umumnya berbanding lurus dengan luas lahan sawah, sehingga unit perencanaan dengan luas area padi yang lebih besar akan menghasilkan emisi CH₄ yang lebih tinggi.
+Nilai emisi CH₄ umumnya berbanding lurus dengan luas lahan sawah, sehingga unit perencanaan dengan luas area sawah yang lebih besar akan menghasilkan emisi CH₄ yang lebih tinggi.
 
 
 ```{r}
+ch4_table_clean <- params$result$CH4_table %>%
+  select(PU, LC, Ha, `CH4_emission (Gg CH4/th)`, `CH4_emission_CO2 (ton CO2-eq/tahun)`) %>% 
+  dplyr::rename(
+    `Unit Perencanaan` = PU,
+    `Tutupan Lahan` = LC,
+    `Luas (Ha)` = Ha,
+    `Emisi CH₄ (Gg CH₄/tahun)` = `CH4_emission (Gg CH4/th)`,
+    `Emisi CH₄ (Ton CO₂-eq/tahun)` = `CH4_emission_CO2 (ton CO2-eq/tahun)`
+  )
+
 format_dt(datatable(
-params$result$CH4_table,
-extensions = c('Buttons', 'Responsive'),
-options = list(
-paging = TRUE,
-searching = TRUE,
-fixedColumns = TRUE,
-autoWidth = FALSE,
-ordering = TRUE,
-scrollX = TRUE,  
-dom = 'Blfrtip',
-buttons = list(
-list(extend = "copy", className = "btn btn-light btn-sm"),
-list(extend = "csv",  className = "btn btn-light btn-sm"),
-list(extend = "excel",className = "btn btn-light btn-sm")
-)
-),
-class = "display stripe hover"
-), params$result$CH4_table)
+  ch4_table_clean,
+  extensions = c('Buttons', 'Responsive'),
+  options = list(
+    paging = TRUE,
+    searching = TRUE,
+    fixedColumns = TRUE,
+    autoWidth = FALSE,
+    ordering = TRUE,
+    scrollX = TRUE,  
+    dom = 'Blfrtip',
+    buttons = list(
+      list(extend = "copy", className = "btn btn-light btn-sm"),
+      list(extend = "csv",  className = "btn btn-light btn-sm"),
+      list(extend = "excel",className = "btn btn-light btn-sm")
+    )
+  ),
+  class = "display stripe hover"
+), ch4_table_clean)
 ```
 
-## Tabel Emisi N2O per PU
+## Tabel Emisi N₂O per Unit Perencanaan
 
-Tabel ini menunjukkan estimasi emisi N₂O berdasarkan berbagai skenario pemupukan dan rotasi tanam padi. Perhitungan dilakukan dengan mempertimbangkan variasi dosis pupuk (100% dan 50%) serta frekuensi rotasi tanam.
+Tabel ini menunjukkan estimasi emisi N₂O berdasarkan berbagai skenario pemupukan dan rotasi tanam. Perhitungan dilakukan dengan mempertimbangkan variasi dosis pupuk (100% dan 50%) serta frekuensi rotasi tanam.
 
 Emisi N₂O cenderung lebih sensitif terhadap praktik pemupukan dibandingkan luas lahan semata. Oleh karena itu, variasi nilai antar skenario mencerminkan potensi mitigasi emisi melalui pengelolaan pupuk yang lebih efisien.
 
 ```{r}
+n2o_table_clean <- params$result$N2O_emission_table %>%
+  dplyr::rename(
+    `Unit Perencanaan` = PU,
+    `Tutupan Lahan` = LC,
+    `Luas (Ha)` = Ha,
+    `Total Emisi N₂O (Ton CO₂-eq/tahun)` = `Total Emisi N2O (Ton CO2-eq/tahun)`,
+    `Emisi 100% Pemupukan 1x Rotasi (Ton CO₂-eq/tahun)` = `Emisi 100% Pemupukan 1x Rotasi (Ton CO2-eq/tahun)`,
+    `Emisi 100% Pemupukan 2–3x Rotasi (Ton CO₂-eq/tahun)` = `Emisi 100% Pemupukan 2-3x Rotasi (Ton CO2-eq/tahun)`,
+    `Emisi 50% Pemupukan 1x Rotasi (Ton CO₂-eq/tahun)` = `Emisi 50% Pemupukan 1x Rotasi (Ton CO2-eq/tahun)`,
+    `Emisi 50% Pemupukan 2–3x Rotasi (Ton CO₂-eq/tahun)` = `Emisi 50% Pemupukan 2-3x Rotasi (Ton CO2-eq/tahun)`
+  )
+
 format_dt(datatable(
-  params$result$N2O_emission_table,
+  n2o_table_clean,
   extensions = c('Buttons', 'FixedColumns'),
   options = list(
     paging = TRUE,
@@ -436,31 +490,14 @@ format_dt(datatable(
     )
   ),
   class = "display stripe hover nowrap"
-), params$result$N2O_emission_table)
-```
-
-# Visualisasi Emisi {.tabset}
-
-## Grafik Emisi CH₄ dan N₂O per PU
-
-Grafik ini menampilkan distribusi emisi CH₄ dan N₂O pada masing-masing unit perencanaan. Perbedaan kontribusi antar gas dapat terlihat secara visual, di mana umumnya emisi CH₄ mendominasi total emisi dari lahan sawah.
-
-Variasi antar PU menunjukkan adanya perbedaan karakteristik wilayah, baik dari sisi luas lahan maupun praktik pengelolaan pertanian.
-
-```{r}
-params$result$plot
-```
-
-## Sebaran Emisi CH₄ dan N₂O per PU
-```{r}
-params$result$plot_map_bar
+), n2o_table_clean)
 ```
 
 # Kesimpulan
 
-Analisis menunjukkan bahwa distribusi lahan padi memiliki pengaruh signifikan terhadap besaran emisi gas rumah kaca, khususnya CH₄. Unit perencanaan dengan luas lahan padi yang lebih besar cenderung menghasilkan emisi yang lebih tinggi.
+Analisis menunjukkan bahwa distribusi lahan sawah memiliki pengaruh signifikan terhadap besaran emisi gas rumah kaca, khususnya CH₄. Unit perencanaan dengan luas lahan sawah yang lebih besar cenderung menghasilkan emisi yang lebih tinggi.
 
-Di sisi lain, emisi N₂O dipengaruhi oleh praktik pemupukan dan rotasi tanam, sehingga memberikan peluang intervensi melalui pengelolaan input pertanian yang lebih efisien.
+Di sisi lain, emisi N₂O dipengaruhi oleh praktik pemupukan dan rotasi tanam, sehingga memberikan peluang intervensi melalui pengelolaan input yang lebih efisien.
 
 Secara keseluruhan, hasil ini dapat digunakan untuk:
 
@@ -468,6 +505,6 @@ Secara keseluruhan, hasil ini dapat digunakan untuk:
 
 - Mendukung perencanaan tata guna lahan berbasis emisi
 
-- Merancang strategi pengelolaan pertanian rendah emisi
+- Merancang strategi pengelolaan lahan sawah rendah emisi
 
-Integrasi antara informasi spasial dan perhitungan emisi memberikan dasar yang kuat dalam pengambilan keputusan berbasis data untuk sektor pertanian berkelanjutan.
+Integrasi antara informasi spasial dan perhitungan emisi memberikan dasar yang kuat dalam pengambilan keputusan berbasis data untuk lahan sawah berkelanjutan.

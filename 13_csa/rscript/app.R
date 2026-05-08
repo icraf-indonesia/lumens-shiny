@@ -359,7 +359,7 @@ server <- function(input, output, session) {
     df <- data.frame(matrix(NA, nrow = length(pu_ids), ncol = length(cols)))
     colnames(df) <- cols
     
-    df$ID <- pu_ids
+    df$ID <- pu_ids #tambahkan variable UNIT PERENCANAAN diisi dengan Nama PU dari input
     df$SATUAN <- "Kg/Ha"
     
     df
@@ -367,10 +367,10 @@ server <- function(input, output, session) {
   
   output$download_template <- downloadHandler(
     filename = function() {
-      "fertilizer_template.csv"
+      "fertilizer_template.csv" #Ubah ke .xlsx
     },
     content = function(file) {
-      write.csv(template_data(), file, row.names = FALSE)
+      write.csv(template_data(), file, row.names = FALSE) #Ubah ke .xlsx
     }
   )
   

@@ -155,6 +155,9 @@ preprocess_data <- function(
   library(tidyterra)
   library(scales)
   library(readxl)
+  library(leaflet)
+  library(sf)
+  library(htmltools)
   
   # -------------------------------
   # 1. READ INPUT DATA
@@ -264,8 +267,12 @@ preprocess_data <- function(
     as_tibble() %>%
     tidyr::drop_na() %>%
     setNames(c("PU", "LC")) %>%
-    dplyr::filter(LC == "Pertanian") %>%
-    group_by(across(everything())) %>%
+    left_join(
+      LookupLC,
+      by = c("LC" = "LC")
+    ) %>%
+    dplyr::filter(sawah == 1) %>%
+    group_by(across(c(PU, LC))) %>%
     mutate(Freq = n()) %>%
     ungroup() %>%
     distinct() %>%
@@ -275,7 +282,7 @@ preprocess_data <- function(
   # 3B. LULC COMPOSITION TABLES
   # -------------------------------
   
-  # Full LULC (tanpa filter "Pertanian")
+  # Full LULC (tanpa filter "Sawah")
   lc_table <- combinedRaster %>%
     as_tibble() %>%
     tidyr::drop_na() %>%
@@ -293,11 +300,17 @@ preprocess_data <- function(
       total_area = sum(area_ha),
       percentage = (area_ha / total_area) * 100
     ) %>%
+    left_join(
+      LookupLC,
+      by = c("LC" = "LC")
+    ) %>%
+    dplyr::filter(sawah == 1) %>% 
     ungroup()
   
   lc_comp_per_PU_tbl <- lc_comp_per_PU %>%
     mutate(
       area_ha = round(area_ha, 2),
+      total_area = round(total_area, 2),
       percentage = round(percentage, 2)
     )
   
@@ -425,7 +438,7 @@ preprocess_data <- function(
       `Luasan Sawah 100% Pemupukan 1x Rotasi (Ha)` = N2O_area_100_1,
       `Luasan Sawah 100% Pemupukan 2-3x Rotasi (Ha)` = N2O_area_100_2,
       `Luasan Sawah 50% Pemupukan 1x Rotasi (Ha)` = N2O_area_50_1,
-      `Luasan Sawah N2O 50% Pemupukan 2-3x Rotasi (Ha)` = N2O_area_50_2,
+      `Luasan Sawah 50% Pemupukan 2-3x Rotasi (Ha)` = N2O_area_50_2,
       `N Terpilih` = N_selected,
       `Emisi 100% Pemupukan 1x Rotasi (Ton CO2-eq/tahun)` = N2O_emission_CO2_100_1,
       `Emisi 100% Pemupukan 2-3x Rotasi (Ton CO2-eq/tahun)` = N2O_emission_CO2_100_2,
@@ -483,92 +496,92 @@ preprocess_data <- function(
     )
   
   # -------------------------------
-  # 6B. PREPARE SPATIAL DATA FOR MAP BAR
+  # 6B. INTERACTIVE CHOROPLETH MAP
   # -------------------------------
-  # Convert raster PU ke polygon
-  PU_poly <- as.polygons(PU, dissolve = TRUE)
+  
+  # Convert raster PU menjadi polygon
+  PU_poly <- terra::as.polygons(PU, dissolve = TRUE)
+  
+  # Convert ke sf
   PU_sf <- sf::st_as_sf(PU_poly)
   
-  # Ambil centroid tiap PU
-  PU_centroid <- sf::st_centroid(PU_sf)
+  # Rename kolom pertama menjadi PU
+  names(PU_sf)[1] <- "PU"
   
-  # Join dengan data emisi
-  PU_centroid <- PU_centroid %>%
-    rename(PU = planning_unit) %>%
+  # Rapikan tipe data join
+  PU_sf$PU <- trimws(as.character(PU_sf$PU))
+  summary_by_PU$PU <- trimws(as.character(summary_by_PU$PU))
+  
+  # Join data emisi
+  PU_sf <- PU_sf %>%
     left_join(summary_by_PU, by = "PU")
   
-  # Ubah ke long format untuk bar
-  coords <- sf::st_coordinates(PU_centroid)
+  # IMPORTANT:
+  # Transform ke WGS84
+  PU_sf <- sf::st_transform(PU_sf, 4326)
   
-  # summary_long_map <- PU_centroid %>%
-  #   mutate(
-  #     X = coords[,1],
-  #     Y = coords[,2]
-  #   ) %>%
-  #   select(PU, CH4_emission_CO2, N2O_emission_CO2_total, X, Y) %>%
-  #   pivot_longer(
-  #     cols = c(CH4_emission_CO2, N2O_emission_CO2_total),
-  #     names_to = "Gas",
-  #     values_to = "Value"
-  #   ) %>%
-  #   mutate(
-  #     Gas = recode(Gas,
-  #                  "CH4_emission_CO2" = "CH4",
-  #                  "N2O_emission_CO2_total" = "N2O")
-  #   )
-
-  # bar_width <- 5000
-  # scale_factor <- max(summary_long_map$Value) / 50000
+  # Palette warna
+  pal <- leaflet::colorNumeric(
+    palette = "YlOrRd",
+    domain = PU_sf$`Total Emisi (Ton CO2-eq/tahun)`,
+    na.color = "transparent"
+  )
   
-  # summary_long_map <- summary_long_map %>%
-  #   mutate(
-  #     height = Value / scale_factor,
-  #     xmin = X - bar_width,
-  #     xmax = X + bar_width,
-  #     ymin = Y,
-  #     ymax = Y + height
-  #   )
+  # Tooltip
+  popup_text <- paste0(
+    "<strong>Unit Perencanaan:</strong> ", PU_sf$PU, "<br>",
+    
+    "<strong>Total Emisi:</strong> ",
+    scales::comma(
+      round(PU_sf$`Total Emisi (Ton CO2-eq/tahun)`, 2)
+    ),
+    " Ton CO₂-eq/tahun<br>",
+    
+    "<strong>Emisi CH₄:</strong> ",
+    scales::comma(
+      round(PU_sf$CH4_emission_CO2, 2)
+    ),
+    " Ton CO₂-eq/tahun<br>",
+    
+    "<strong>Emisi N₂O:</strong> ",
+    scales::comma(
+      round(PU_sf$N2O_emission_CO2_total, 2)
+    ),
+    " Ton CO₂-eq/tahun"
+  )
   
-  summary_long_map <- PU_centroid %>%
-    mutate(
-      X = coords[,1],
-      Y = coords[,2]
+  # Interactive map
+  plot_choropleth <- leaflet::leaflet(PU_sf) %>%
+    
+    leaflet::addProviderTiles(
+      leaflet::providers$CartoDB.Positron
     ) %>%
-    select(PU, CH4_emission_CO2, N2O_emission_CO2_total, X, Y) %>%
-    pivot_longer(
-      cols = c(CH4_emission_CO2, N2O_emission_CO2_total),
-      names_to = "Gas",
-      values_to = "Value"
-    ) %>%
-    mutate(
-      Gas = recode(
-        Gas,
-        "CH4_emission_CO2" = "CH4",
-        "N2O_emission_CO2_total" = "N2O"
+    
+    leaflet::addPolygons(
+      fillColor = ~pal(`Total Emisi (Ton CO2-eq/tahun)`),
+      color = "white",
+      weight = 1,
+      fillOpacity = 0.8,
+      
+      highlightOptions = leaflet::highlightOptions(
+        weight = 2,
+        color = "#666",
+        fillOpacity = 0.9,
+        bringToFront = TRUE
       ),
-      Value_log = log10(Value + epsilon)
-    )
-  
-  min_log <- min(summary_long_map$Value_log, na.rm = TRUE)
-  
-  summary_long_map <- summary_long_map %>%
-    mutate(
-      Value_log = log10(Value + 1e-6),
-      height = rescale(Value_log, to = c(0, 50000))
-    )
-  
-  bar_width <- 5000
-  
-  summary_long_map <- summary_long_map %>%
-    mutate(
-      xmin = X - bar_width,
-      xmax = X + bar_width,
-      ymin = Y,
-      ymax = Y + height
+      
+      label = lapply(popup_text, htmltools::HTML)
+    ) %>%
+    
+    leaflet::addLegend(
+      pal = pal,
+      values = ~`Total Emisi (Ton CO2-eq/tahun)`,
+      title = "Total Emisi<br>(Ton CO₂-eq/tahun)",
+      position = "bottomright"
     )
   
   # -------------------------------
-  # 7A. PLOT
+  # 7. PLOT
   # -------------------------------
   label_inverse_log <- function(x) {
     scales::comma(10^x, accuracy = 0.01)
@@ -599,7 +612,7 @@ preprocess_data <- function(
       }
     ) +
     labs(
-      title = "Komposisi Emisi CH₄ dan N₂O per PU",
+      title = "Komposisi Emisi CH₄ dan N₂O per Unit Perencanaan",
       x = "Unit Perencanaan",
       y = "Emisi (Ton CO₂-eq/tahun, skala log)",
       fill = "Jenis Gas"
@@ -610,45 +623,10 @@ preprocess_data <- function(
   plot_interactive <- ggplotly(p, tooltip = "text")
   
   # -------------------------------
-  # 7B. MAP WITH BAR CHART
-  # -------------------------------
-  plot_map_bar <- ggplot() +
-    
-    # base map
-    geom_sf(data = PU_sf, fill = "grey90", color = "white") +
-    
-    # bars
-    geom_rect(
-      data = summary_long_map,
-      aes(
-        xmin = xmin,
-        xmax = xmax,
-        ymin = ymin,
-        ymax = ymax,
-        fill = Gas
-      ),
-      alpha = 0.8
-    ) +
-    
-    scale_fill_manual(values = c(
-      "CH4" = "#1b9e77",
-      "N2O" = "#d95f02"
-    )) +
-    
-    coord_sf() +
-    
-    labs(
-      title = "Emisi CH4 dan N2O per PU",
-      fill = "Gas"
-    ) +
-    
-    theme_minimal()
-  
-  # -------------------------------
   # 8. PADDY AND NON-PADDY MAP
   # -------------------------------
   paddy_values <- LookupLC %>% 
-    filter(paddy == 1) %>% 
+    filter(sawah == 1) %>% 
     pull(ID)
   
   paddy_map <- reclassify_to_binary(LULCT, paddy_values)
@@ -657,11 +635,11 @@ preprocess_data <- function(
   paddy_map_factor <- as.factor(paddy_map)
   
   fill_scale <- scale_fill_manual(
-    values = c("0" = "orange",   # non-paddy
-               "1" = "darkgreen"  # paddy
+    values = c("0" = "orange",   # non-sawah
+               "1" = "darkgreen"  # sawah
     ),
     na.value = "white",
-    labels = c("Non-Paddy", "Paddy"),
+    labels = c("Non-Sawah", "Sawah"),
     na.translate = FALSE
   )
   
@@ -686,13 +664,13 @@ preprocess_data <- function(
   
   # Convert raster stack to table
   paddy_table <- terra::as.data.frame(combined_paddy, na.rm = TRUE) %>%
-    setNames(c("PU", "PADDY")) %>%
-    group_by(PU, PADDY) %>%
+    setNames(c("PU", "sawah")) %>%
+    group_by(PU, sawah) %>%
     summarise(n_pixel = n(), .groups = "drop") %>%
     mutate(area_ha = n_pixel * area_ha_per_pixel)
   
   # Convert PADDY=0/1 to labels
-  paddy_table$Class <- ifelse(paddy_table$PADDY == 1, "Paddy", "Non-Paddy")
+  paddy_table$Class <- ifelse(paddy_table$sawah == 1, "Sawah", "Non-Sawah")
   
   paddy_table <- paddy_table %>%
     group_by(PU) %>%
@@ -714,27 +692,27 @@ preprocess_data <- function(
         "Area (Ha): ", scales::number(
           area_ha,
           accuracy = 0.01,
-          big.mark = ".",
-          decimal.mark = ","
+          big.mark = ",",
+          decimal.mark = "."
         )
         )
       )
     ) +
     geom_col() +
     scale_fill_manual(values = c(
-      "Non-Paddy" = "orange",
-      "Paddy" = "darkgreen"
+      "Non-Sawah" = "orange",
+      "Sawah" = "darkgreen"
     )) +
     scale_y_continuous(
       labels = scales::label_comma(
         accuracy = 1,
-        big.mark = ".",
-        decimal.mark = ","
+        big.mark = ",",
+        decimal.mark = "."
       )
     ) +
     labs(
-      title = "Paddy vs Non-Paddy Area per PU",
-      x = "Planning Unit (PU)",
+      title = "Area Sawah vs Non-Sawah per Unit Perencanaan",
+      x = "Unit Perencanaan",
       y = "Area (Ha)",
       fill = "Class"
     ) +
@@ -774,6 +752,6 @@ preprocess_data <- function(
     plot = plot_interactive,
     plot_paddy_map = plot_paddy_map,
     plot_paddy_bar_interactive = plot_paddy_bar_interactive,
-    plot_map_bar = plot_map_bar
+    plot_choropleth = plot_choropleth
   ))
 }
