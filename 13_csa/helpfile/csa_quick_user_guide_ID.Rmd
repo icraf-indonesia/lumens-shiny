@@ -12,6 +12,9 @@ output:
 ```{r, include=FALSE}
 options(rmarkdown.html_vignette.check_title = FALSE)
 ```
+Kemudian buatkan juga untuk Quick User Guide:
+1. Gambaran Umum
+2. Konsep utama
 
 # Gambaran Umum
 
@@ -160,7 +163,7 @@ Seluruh hasil tersebut dirangkum dalam laporan HTML yang berisi metodologi, data
 
 ---
 
-# Referensi Utama
+# Referensi
 
 - IPCC (2006, 2019 Refinement) 
 – Pedoman Inventarisasi GRK  
