@@ -1,3 +1,5 @@
+# LaSEM Shiny App - Refactored UI with 3-step guided workflow
+
 # Define the list of required packages
 required_packages <- c(
   "terra",
@@ -9,29 +11,26 @@ required_packages <- c(
   "tibble",
   "stringr",
   "readr",
-  "magrittr",
   "shiny",
-  "shinydashboard",
   "shinyjs",
   "shinyFiles",
   "bslib",
   "rmarkdown",
-  "kableExtra",
-  "htmlTable",
-  "knitr"
+  "knitr",
+  "DT",
+  "leaflet"
 )
 
 # Function to check and install required packages
 check_and_install_packages <- function(packages) {
   invisible(lapply(packages, function(pkg) {
     if (!require(pkg, character.only = TRUE, quietly = TRUE)) {
-      install.packages(pkg, dependencies = TRUE, quiet = TRUE)  
-      library(pkg, character.only = TRUE, quietly = TRUE)  
+      install.packages(pkg, dependencies = TRUE, quiet = TRUE)
+      library(pkg, character.only = TRUE, quietly = TRUE)
     }
   }))
 }
 
-# Check and install packages
 check_and_install_packages(required_packages)
 
 # Source LaSEM functions
@@ -43,7 +42,7 @@ if (file.exists("LaSEM_functions.R")) {
   stop("LaSEM_functions.R file not found.")
 }
 
-# Source refactored function modules (overrides old process_suitability)
+# Source refactored function modules
 if (file.exists("functions_all.R")) {
   source("functions_all.R")
 } else if (file.exists("12_lasem/rscript/functions_all.R")) {
@@ -53,311 +52,748 @@ if (file.exists("functions_all.R")) {
 # JavaScript code for closing window
 jscode <- "shinyjs.closeWindow = function() { window.close(); }"
 
-# UI
+# UI ---------------------------------------------------------------------
 ui <- fluidPage(
   useShinyjs(),
-  theme = bs_theme(version = 5),
+  theme = bs_theme(
+    version = 5,
+    primary = "#1B5E45",
+    secondary = "#E8A838",
+    base_font = font_google("Inter")
+  ),
   extendShinyjs(text = jscode, functions = c("closeWindow")),
-  titlePanel("Land Suitability Evaluation Module (LaSEM)"),
+
+  # Header with logo
+  tags$div(
+    class = "d-flex align-items-center mb-3 mt-2",
+    tags$img(src = "lumens_logo/logo.png", height = "40px", class = "me-3"),
+    tags$h4("Land Suitability Evaluation Module (LaSEM)", class = "mb-0 text-primary")
+  ),
   sidebarLayout(
     sidebarPanel(
-      fileInput("raster_inputs_csv", "Raster Inputs CSV", accept = c(".csv"), placeholder = "Upload raster inputs CSV"),
-      fileInput("crop_suitability_csv", "Crop Suitability CSV", accept = c(".csv"), placeholder = "Upload crop suitability CSV"),
-      fileInput("intervention_csv", "Intervention Lookup CSV", accept = c(".csv"), placeholder = "Upload intervention lookup CSV"),
-      div(style = "display: flex; flex-direction: column; gap: 10px;",
-          shinyDirButton("output_dir", "Select Output Directory", "Please select a directory"),
-          verbatimTextOutput("print_output_dir", placeholder = TRUE),
-          actionButton("run_analysis", "Run LaSEM Analysis",
-                       style = "font-size: 18px; padding: 10px 15px; background-color: #4CAF50; color: white;"),
-          hidden(
-            actionButton("open_report", "Open Report",
-                         style = "font-size: 18px; padding: 10px 15px; background-color: #008CBA; color: white;")
-          ),
-          hidden(
-            actionButton("open_output_folder", "Open Output Folder",
-                         style = "font-size: 18px; padding: 10px 15px; background-color: #008CBA; color: white;")
-          ),
-          actionButton("returnButton", "Return to Main Menu",
-                       style = "font-size: 18px; padding: 10px 15px; background-color: #FA8072; color: white;")
+      width = 3,
+      h5("Step 1: Upload Inputs", class = "text-primary"),
+      fileInput("raster_inputs_csv", "Raster Inputs CSV",
+        accept = c(".csv"), placeholder = "Upload CSV"
+      ),
+      fileInput("crop_suitability_csv", "Crop Suitability CSV",
+        accept = c(".csv"), placeholder = "Upload CSV"
+      ),
+      fileInput("intervention_csv", "Intervention Lookup CSV",
+        accept = c(".csv"), placeholder = "Upload CSV"
+      ),
+      hr(),
+      h5("Output", class = "text-primary"),
+      shinyDirButton(
+        "output_dir", "Select Output Directory",
+        "Please select a directory"
+      ),
+      verbatimTextOutput("print_output_dir", placeholder = TRUE),
+      hr(),
+      div(
+        id = "run_section",
+        actionButton("run_analysis", "Run LaSEM Analysis",
+          class = "btn btn-primary w-100",
+          icon = icon("play")
+        ),
+        hidden(
+          actionButton("open_report", "Open Report",
+            class = "btn btn-secondary w-100 mt-2",
+            icon = icon("file-alt")
+          )
+        ),
+        hidden(
+          actionButton("open_output_folder", "Open Output Folder",
+            class = "btn btn-secondary w-100 mt-2",
+            icon = icon("folder-open")
+          )
+        )
+      ),
+      hr(),
+      actionButton("returnButton", "Return to Main Menu",
+        class = "btn btn-outline-danger w-100",
+        icon = icon("arrow-left")
       )
     ),
     mainPanel(
-      tabsetPanel(
-        tabPanel("User Guide",
-                 div(
-                   style = "height: 800px; overflow-y: scroll; padding: 15px; border: 1px solid #ddd; border-radius: 5px;",
-                   uiOutput("user_guide")
-                 )
+      width = 9,
+      navset_card_tab(
+        id = "main_tabs",
+
+        # Tab 1: Upload & Preview
+        nav_panel(
+          title = tagList(icon("upload"), " Upload & Preview"),
+          card(
+            card_header("Input Validation"),
+            uiOutput("validation_panel")
+          ),
+          card(
+            card_header("Raster Inputs Preview"),
+            DTOutput("preview_raster_inputs")
+          ),
+          card(
+            card_header("Crop Suitability Preview"),
+            DTOutput("preview_crop_suitability")
+          ),
+          card(
+            card_header("Intervention Lookup Preview"),
+            DTOutput("preview_intervention")
+          )
         ),
-        tabPanel("Log",
-                 textOutput("selected_dir"),
-                 verbatimTextOutput("status_messages"),
-                 verbatimTextOutput("error_messages"),
-                 verbatimTextOutput("success_message")
+
+        # Tab 2: Inspect Factors
+        nav_panel(
+          title = tagList(icon("search"), " Inspect Factors"),
+          value = "inspect_tab",
+          card(
+            card_header("Factor Inspection"),
+            p("Optionally review input rasters before running analysis. Flag issues to document them in the report."),
+            selectInput("inspect_factor", "Select Factor to Inspect:",
+              choices = NULL, width = "300px"
+            ),
+            uiOutput("factor_inspection_status"),
+            plotOutput("factor_map", height = "400px"),
+            uiOutput("factor_criteria"),
+            radioButtons("factor_verdict", "Verification:",
+              choices = c("Looks Good" = "good", "Flag Issue" = "issue"),
+              inline = TRUE
+            ),
+            conditionalPanel(
+              condition = "input.factor_verdict == 'issue'",
+              textInput("factor_note", "Note:", placeholder = "Describe the issue...")
+            ),
+            actionButton("save_verdict", "Save Verdict",
+              class = "btn btn-primary mt-2"
+            )
+          ),
+          card(
+            card_header("Inspection Summary"),
+            tableOutput("inspection_summary")
+          )
+        ),
+
+        # Tab 3: Results
+        nav_panel(
+          title = tagList(icon("chart-bar"), " Results"),
+          value = "results_tab",
+          card(
+            card_header("Suitability Map"),
+            leafletOutput("results_map", height = "500px")
+          ),
+          card(
+            card_header("Area by Suitability Class"),
+            tableOutput("area_summary")
+          )
         )
       )
     )
   )
 )
 
+# Server -----------------------------------------------------------------
 server <- function(input, output, session) {
-  
-  # Define volumes first
+  # Add resource path for LUMENS logo
+  logo_dirs <- c(
+    file.path(getwd(), "..", "..", "www", "images"),
+    file.path(getwd(), "..", "..", "..", "www", "images"),
+    file.path(getwd(), "www", "images")
+  )
+  logo_found <- FALSE
+  for (logo_dir in logo_dirs) {
+    if (dir.exists(logo_dir)) {
+      shiny::addResourcePath("lumens_logo", logo_dir)
+      logo_found <- TRUE
+      break
+    }
+  }
+  if (!logo_found) {
+    warning("LUMENS logo directory not found")
+  }
+
+  # Volumes for directory chooser
   volumes <- c(
     Home = fs::path_home(),
     "R Installation" = R.home(),
     shinyFiles::getVolumes()()
   )
-  
-  # Initialize shinyDirChoose
   shinyDirChoose(input, "output_dir", roots = volumes, session = session)
-  
-  # Reactive value to store selected output directory
+
   selected_output_dir <- reactiveVal(value = NULL)
-  
-  # Check if the app is running in test mode
   is_testing <- isTRUE(getOption("shiny.testmode"))
-  
-  # Single observer to set selected_output_dir based on testing mode
+
   observe({
     if (is_testing) {
-      # Set to the test output directory
       selected_output_dir("../../tests/testthat/output/shinytest2_lasem")
-    } else {
-      if (!is.null(input$output_dir)) {
-        selected_output_dir(parseDirPath(volumes, input$output_dir))
-      }
+    } else if (!is.null(input$output_dir)) {
+      selected_output_dir(parseDirPath(volumes, input$output_dir))
     }
   })
-  
-  # Display selected output directory
-  output$selected_dir <- renderText({
-    if (!is.null(selected_output_dir())) {
-      paste("Selected output directory:", selected_output_dir())
-    } else {
-      "No output directory selected"
-    }
-  })
-  
+
   output$print_output_dir <- renderPrint({
     if (!is.null(selected_output_dir())) {
-      cat(paste(selected_output_dir()))
+      cat(selected_output_dir())
     } else {
       cat("No output directory selected")
     }
   })
-  
-  # User Guide
-  output$user_guide <- renderUI({
-    guide_paths <- c(
-      "12_lasem/helpfile/lasem_quick_user_guide.Rmd",
-      "../helpfile/lasem_quick_user_guide.Rmd"
-    )
-    
-    for (path in guide_paths) {
-      if (file.exists(path)) {
-        html_content <- rmarkdown::render(path, output_format = "html_fragment", quiet = TRUE)
-        return(HTML(readLines(html_content)))
+
+  # Reactive values
+  rv <- reactiveValues(
+    raster_inputs = NULL,
+    crop_suitability = NULL,
+    intervention = NULL,
+    validation = list(valid = FALSE, errors = dplyr::tibble(field = character(), message = character())),
+    inspection_status = list(), # Named list: factor -> list(status, note)
+    report_file = NULL,
+    analysis_results = NULL
+  )
+
+  # Helper to validate raster paths - does NOT auto-resolve, just reports errors
+  validate_raster_paths <- function(raster_inputs, csv_dir) {
+    # Check each raster path that should be available
+    available_rows <- raster_inputs |>
+      dplyr::filter(availability %in% c("Yes", "yes"))
+
+    invalid_paths <- c()
+
+    for (i in seq_len(nrow(available_rows))) {
+      path <- available_rows$raster_path[i]
+
+      # Check if path exists as-is
+      if (!file.exists(path)) {
+        # Check relative to CSV directory
+        rel_path <- file.path(csv_dir, path)
+        if (!file.exists(rel_path)) {
+          invalid_paths <- c(invalid_paths, available_rows$parameter[i])
+        }
       }
     }
-    
-    HTML("<p>User guide file not found.</p>")
+
+    invalid_paths
+  }
+
+  # Load and validate CSVs when uploaded
+  observeEvent(input$raster_inputs_csv, {
+    req(input$raster_inputs_csv)
+    rv$raster_inputs <- readr::read_csv(input$raster_inputs_csv$datapath)
+    updateValidation()
   })
-  
-  # Create reactive values for inputs
-  rv <- reactiveValues(
-    raster_inputs_csv = NULL,
-    crop_suitability_csv = NULL,
-    intervention_csv = NULL,
-    report_file = NULL
-  )
-  
-  # Update reactive values when inputs change
-  observe({
-    rv$raster_inputs_csv <- input$raster_inputs_csv
-    rv$crop_suitability_csv <- input$crop_suitability_csv
-    rv$intervention_csv <- input$intervention_csv
+
+  observeEvent(input$crop_suitability_csv, {
+    req(input$crop_suitability_csv)
+    rv$crop_suitability <- readr::read_csv(input$crop_suitability_csv$datapath)
+    updateValidation()
   })
-  
-  # Input validation
-  validate_inputs <- reactive({
-    validate(
-      need(rv$raster_inputs_csv, "Please upload Raster Inputs CSV file"),
-      need(rv$crop_suitability_csv, "Please upload Crop Suitability CSV file"),
-      need(rv$intervention_csv, "Please upload Intervention Lookup CSV file"),
-      need(selected_output_dir(), "Please select an output directory")
-    )
-    return(TRUE)
+
+  observeEvent(input$intervention_csv, {
+    req(input$intervention_csv)
+    rv$intervention <- readr::read_csv(input$intervention_csv$datapath)
+    updateValidation()
   })
-  
-  # Run analysis
-  observeEvent(input$run_analysis, {
-    req(validate_inputs())
-    
-    showNotification("Analysis is running. Please wait...", type = "message", duration = NULL, id = "running_notification")
-    withProgress(message = 'Running LaSEM Analysis', value = 0, {
-      tryCatch({
-        
-        # Read inputs
-        path_lookup_raster_inputs <- rv$raster_inputs_csv$datapath
-        path_lookup_crop_suitability <- rv$crop_suitability_csv$datapath
-        path_lookup_intervention <- rv$intervention_csv$datapath
-        path_output <- selected_output_dir()
-        
-        # Handle path_report_template based on testing mode
-        if (is_testing) {
-          path_report_template <- "../../tests/testthat/report_template/LaSEM_report.Rmd"
+
+  # Validation logic
+  updateValidation <- function() {
+    errors <- dplyr::tibble(field = character(), message = character())
+    valid <- TRUE
+
+    # Check all files uploaded
+    if (is.null(rv$raster_inputs)) {
+      valid <- FALSE
+      errors <- dplyr::bind_rows(errors, dplyr::tibble(
+        field = "raster_inputs", message = "Raster inputs CSV not uploaded"
+      ))
+    } else {
+      # Check for either parameter_name or name_parameter column
+      raster_cols <- names(rv$raster_inputs)
+      has_param_col <- "parameter_name" %in% raster_cols || "name_parameter" %in% raster_cols
+
+      if (!has_param_col) {
+        valid <- FALSE
+        errors <- dplyr::bind_rows(errors, dplyr::tibble(
+          field = "raster_inputs",
+          message = "Missing required column: parameter_name (or name_parameter)"
+        ))
+      }
+
+      schema <- validate_csv_schema(
+        rv$raster_inputs,
+        c("ID", "parameter", "availability", "raster_path")
+      )
+      if (!schema$valid) {
+        valid <- FALSE
+        errors <- dplyr::bind_rows(errors, schema$errors)
+      }
+
+      # Validate raster file paths
+      if ("raster_path" %in% names(rv$raster_inputs)) {
+        csv_dir <- dirname(input$raster_inputs_csv$datapath)
+        invalid_rasters <- validate_raster_paths(rv$raster_inputs, csv_dir)
+
+        if (length(invalid_rasters) > 0) {
+          valid <- FALSE
+          errors <- dplyr::bind_rows(errors, dplyr::tibble(
+            field = "raster_files",
+            message = paste0(
+              "Invalid raster paths for: ", paste(invalid_rasters, collapse = ", "),
+              ". Please check that raster_path values in your CSV are correct ",
+              "relative to the CSV file location, or use absolute paths."
+            )
+          ))
+        }
+      }
+    }
+
+    if (is.null(rv$crop_suitability)) {
+      valid <- FALSE
+      errors <- dplyr::bind_rows(errors, dplyr::tibble(
+        field = "crop_suitability", message = "Crop suitability CSV not uploaded"
+      ))
+    } else {
+      schema <- validate_csv_schema(
+        rv$crop_suitability,
+        c("name_common", "name_sp", "class", "name_parameter", "value", "unit")
+      )
+      if (!schema$valid) {
+        valid <- FALSE
+        errors <- dplyr::bind_rows(errors, schema$errors)
+      }
+    }
+
+    if (is.null(rv$intervention)) {
+      valid <- FALSE
+      errors <- dplyr::bind_rows(errors, dplyr::tibble(
+        field = "intervention", message = "Intervention CSV not uploaded"
+      ))
+    }
+
+    if (is.null(selected_output_dir())) {
+      valid <- FALSE
+      errors <- dplyr::bind_rows(errors, dplyr::tibble(
+        field = "output", message = "Output directory not selected"
+      ))
+    }
+
+    rv$validation <- list(valid = valid, errors = errors)
+  }
+
+  # Validation panel display
+  output$validation_panel <- renderUI({
+    val <- rv$validation
+
+    if (val$valid) {
+      div(
+        class = "alert alert-success",
+        icon("check-circle"), " All inputs valid. Ready to inspect factors or run analysis."
+      )
+    } else {
+      div(
+        lapply(seq_len(nrow(val$errors)), function(i) {
+          div(
+            class = "alert alert-danger",
+            icon("exclamation-triangle"),
+            strong(val$errors$field[i]), ": ", val$errors$message[i]
+          )
+        })
+      )
+    }
+  })
+
+  # CSV Previews
+  output$preview_raster_inputs <- renderDT({
+    req(rv$raster_inputs)
+    datatable(rv$raster_inputs, options = list(pageLength = 5, scrollX = TRUE))
+  })
+
+  output$preview_crop_suitability <- renderDT({
+    req(rv$crop_suitability)
+    datatable(rv$crop_suitability, options = list(pageLength = 5, scrollX = TRUE))
+  })
+
+  output$preview_intervention <- renderDT({
+    req(rv$intervention)
+    datatable(rv$intervention, options = list(pageLength = 5, scrollX = TRUE))
+  })
+
+  # Factor inspection - populate dropdown when crop suitability loaded
+  observeEvent(rv$crop_suitability, {
+    req(rv$crop_suitability)
+    factors <- rv$crop_suitability |>
+      dplyr::pull(name_parameter) |>
+      unique()
+    updateSelectInput(session, "inspect_factor", choices = factors)
+  })
+
+  # Factor inspection status
+  output$factor_inspection_status <- renderUI({
+    req(input$inspect_factor)
+    status <- rv$inspection_status[[input$inspect_factor]]
+
+    if (is.null(status)) {
+      div(class = "alert alert-warning", "Not yet inspected")
+    } else if (status$status == "good") {
+      div(class = "alert alert-success", icon("check"), " Looks Good")
+    } else {
+      div(class = "alert alert-danger", icon("flag"), " Issue flagged: ", status$note)
+    }
+  })
+
+  # Factor map preview - show actual raster data
+  output$factor_map <- renderPlot({
+    req(input$inspect_factor, rv$raster_inputs)
+
+    tryCatch(
+      {
+        # Find the raster path for this factor - handle either column name
+        raster_cols <- names(rv$raster_inputs)
+        has_param_name <- "parameter_name" %in% raster_cols
+        has_name_param <- "name_parameter" %in% raster_cols
+
+        if (has_param_name && has_name_param) {
+          factor_row <- rv$raster_inputs |>
+            dplyr::filter(parameter_name == input$inspect_factor | name_parameter == input$inspect_factor)
+        } else if (has_param_name) {
+          factor_row <- rv$raster_inputs |>
+            dplyr::filter(parameter_name == input$inspect_factor)
+        } else if (has_name_param) {
+          factor_row <- rv$raster_inputs |>
+            dplyr::filter(name_parameter == input$inspect_factor)
         } else {
-          if (file.exists(normalizePath("12_lasem/report_template/LaSEM_report.Rmd"))) {
-            path_report_template <- normalizePath("12_lasem/report_template/LaSEM_report.Rmd")
-          } else if (file.exists(normalizePath("../report_template/LaSEM_report.Rmd"))) {
-            path_report_template <- normalizePath("../report_template/LaSEM_report.Rmd")
-          } else {
-            stop("Report template file is not found.")
+          plot.new()
+          text(0.5, 0.5, "No parameter name column found in raster inputs CSV",
+            cex = 1.2, col = "red"
+          )
+          return()
+        }
+
+        if (nrow(factor_row) == 0) {
+          plot.new()
+          text(0.5, 0.5, paste("No raster found for factor:", input$inspect_factor),
+            cex = 1.2, col = "red"
+          )
+          return()
+        }
+
+        # Get the raster path and check if it exists
+        raster_path <- factor_row$raster_path[1]
+
+        # If not absolute, try relative to CSV directory
+        if (!file.exists(raster_path) && !is.null(input$raster_inputs_csv)) {
+          csv_dir <- dirname(input$raster_inputs_csv$datapath)
+          rel_path <- file.path(csv_dir, raster_path)
+          if (file.exists(rel_path)) {
+            raster_path <- rel_path
           }
         }
-        
-        # Check if the report template exists
-        if (!file.exists(path_report_template)) {
-          stop(paste("Report template file does not exist at:", path_report_template))
+
+        if (!file.exists(raster_path)) {
+          plot.new()
+          text(0.5, 0.5, paste("Raster file not found:\n", basename(raster_path)),
+            cex = 1.2, col = "red"
+          )
+          return()
         }
-        
-        # Load Biophysical Raster Inputs -------------------------------------------
-        start_time <- Sys.time()
-        cat("Started at:", format(start_time, "%Y-%m-%d %H:%M:%S"), "\n")
-        incProgress(0.1, detail = "Loading raster inputs")
-        input_paths <-
-          read_csv(path_lookup_raster_inputs) %>%
-          dplyr::filter(availability %in% "Yes")
-        
-        input_suit_factors <- input_paths %>% read_raster_files()
-        
-        stackedRasters <- stack_raster_layers(input_suit_factors,
-                                              input_paths[["name_parameter"]])
-        
-        # Load Crop Suitability Table ---------------------------------------------
-        incProgress(0.2, detail = "Loading crop suitability data")
-        cropSuitabilityData <- read_csv(path_lookup_crop_suitability)
-        
-        # Load Intervention Table -------------------------------------------------
-        incProgress(0.3, detail = "Loading intervention data")
-        interventionTable <- read_csv(path_lookup_intervention)
-        
-        # Run suitability analysis ------------------------------------------------
-        incProgress(0.5, detail = "Performing suitability analysis")
-        suitability_results <- perform_suitability_analysis(
-          harmonised_rasters = stackedRasters,
-          suitability_parameter = cropSuitabilityData,
-          lookup_intervention = interventionTable
+
+        # Read and plot the raster
+        r <- terra::rast(raster_path)
+        terra::plot(r,
+          main = paste("Input raster:", input$inspect_factor),
+          col = terrain.colors(20)
         )
-        
-        # 4. Export files ------------------------------------------------------------
-        incProgress(0.7, detail = "Exporting results")
-        dir.create(path_output, recursive = TRUE, showWarnings = FALSE)
-        
-        # a. harmonised raster for report generating reports
-        file_name_soil_climate_factors_rds <- paste0(path_output,"/soil_climatic_factors.rds")
-        stackedRasters |>
-          terra::wrap() |>
-          saveRDS(file_name_soil_climate_factors_rds)
-        
-        # b. actual and potential suitability in rds format
-        file_name_land_suit_rds <- paste0(path_output,"/land_suitability.rds")
-        suitability_results[["suitability_polygon"]] |>
-          saveRDS(file_name_land_suit_rds)
-        
-        # c. Actual and potential suitability polygon (should be checked and tidied up)
-        file_name_land_suit_shp <- paste0(path_output,"/land_suitability.shp")
-        suitability_results[["suitability_polygon"]] %>%
-          mutate(across(where(is.list) & !geometry, ~sapply(., function(x) paste(x, collapse = ", ")))) %>%
-          sf::st_make_valid() %>%
-          rename(
-            cat = categories,
-            suit = suitability,
-            lmt_fact_a = limiting_factor_actual,
-            lmt_fact_p = limiting_factor_potential,
-            suit_pot_l = suitability_potential_low,
-            suit_pot_m = suitability_potential_med,
-            suit_pot_h = suitability_potential_high
-          ) %>%
-          rename_with(~substr(gsub("[^a-zA-Z0-9]", "", .), 1, 10)) %>%
-          sf::st_write(.,
-                       file_name_land_suit_shp,
-                       append = FALSE,
-                       driver = "ESRI Shapefile")
-        
-        # d. Actual suitability raster map
-        file_name_land_suit_tif  <- paste0(path_output, "/land_suitability.tif")
-        writeRaster(suitability_results[["suitability_raster"]], file_name_land_suit_tif, overwrite = TRUE)
-        
-        # e. Actual suitability raster lookup table
-        file_name_land_suit_lookup_csv  <- paste0(path_output,"/land_suitability_lookup.csv")
-        write_csv(suitability_results[["lookup_suitability_factors"]], file_name_land_suit_lookup_csv)
-        
-        # f. suitability layers for a certain crop for each soil and climatic factors
-        file_name_suit_factors_tif  <- paste0(path_output, "/land_suitability_factors.tif")
-        writeRaster(suitability_results[["suitability_by_factors"]], file_name_suit_factors_tif, overwrite = TRUE)
-        
-        # End of the script
-        end_time <- Sys.time()
-        cat("Ended at:", format(end_time, "%Y-%m-%d %H:%M:%S"), "\n")
-        
-        # 5. Reporting ---------------------------------------------------------------
-        incProgress(0.9, detail = "Generating report")
-        session_log <- format_session_info_table()
-        
-        report_params <- list(
-          start_time = as.character(format(start_time, "%Y-%m-%d %H:%M:%S")),
-          end_time = as.character(format(end_time, "%Y-%m-%d %H:%M:%S")),
-          file_name_soil_climate_factors_rds =file_name_soil_climate_factors_rds,
-          file_name_land_suit_rds =  file_name_land_suit_rds,
-          file_name_land_suit_tif = file_name_land_suit_tif,
-          file_name_land_suit_shp = file_name_land_suit_shp,
-          file_name_land_suit_lookup_csv = file_name_land_suit_lookup_csv,
-          file_name_suit_factors_tif = file_name_suit_factors_tif,
-          path_lookup_raster_inputs = path_lookup_raster_inputs,
-          path_lookup_crop_suitability = path_lookup_crop_suitability,
-          path_lookup_intervention = path_lookup_intervention,
-          path_output = path_output,
-          session_log = session_log
+      },
+      error = function(e) {
+        plot.new()
+        text(0.5, 0.5, paste("Error loading raster:\n", conditionMessage(e)),
+          cex = 1.0, col = "red"
         )
-        
-        # Render the R Markdown report
-        if (!rmarkdown::pandoc_available()) {
-          Sys.setenv(RSTUDIO_PANDOC = paste0(getwd(), "/pandoc"))
+      }
+    )
+  })
+
+  # Factor criteria display
+  output$factor_criteria <- renderUI({
+    req(rv$crop_suitability, input$inspect_factor)
+
+    criteria <- rv$crop_suitability |>
+      dplyr::filter(name_parameter == input$inspect_factor) |>
+      dplyr::select(class, value, unit)
+
+    if (nrow(criteria) == 0) {
+      return(NULL)
+    }
+
+    tagList(
+      h6("Classification Criteria:"),
+      tableOutput("factor_criteria_table")
+    )
+  })
+
+  output$factor_criteria_table <- renderTable({
+    req(rv$crop_suitability, input$inspect_factor)
+    rv$crop_suitability |>
+      dplyr::filter(name_parameter == input$inspect_factor) |>
+      dplyr::select(Class = class, Range = value, Unit = unit)
+  })
+
+  # Save verdict
+  observeEvent(input$save_verdict, {
+    req(input$inspect_factor)
+    rv$inspection_status[[input$inspect_factor]] <- list(
+      status = input$factor_verdict,
+      note = ifelse(input$factor_verdict == "issue", input$factor_note, NA)
+    )
+    showNotification("Verdict saved", type = "message")
+  })
+
+  # Inspection summary
+  output$inspection_summary <- renderTable({
+    if (length(rv$inspection_status) == 0) {
+      return(data.frame(Message = "No factors inspected yet"))
+    }
+
+    data.frame(
+      Factor = names(rv$inspection_status),
+      Status = sapply(rv$inspection_status, function(x) x$status),
+      Note = sapply(rv$inspection_status, function(x) ifelse(is.na(x$note), "", x$note))
+    )
+  })
+
+  # Run analysis
+  observeEvent(input$run_analysis, {
+    if (!rv$validation$valid) {
+      showNotification("Please fix validation errors first.", type = "error")
+      return()
+    }
+
+    showNotification("Analysis is running...",
+      type = "message", duration = NULL,
+      id = "running_notification"
+    )
+    start_time <- Sys.time()
+
+    withProgress(message = "Running LaSEM Analysis", value = 0, {
+      tryCatch(
+        {
+          path_output <- selected_output_dir()
+
+          # Load raster inputs
+          incProgress(0.1, detail = "Loading raster inputs")
+          input_paths <- rv$raster_inputs |>
+            dplyr::filter(availability %in% c("Yes", "yes"))
+
+          # Determine parameter column name
+          param_col <- if ("parameter_name" %in% names(input_paths)) {
+            "parameter_name"
+          } else if ("name_parameter" %in% names(input_paths)) {
+            "name_parameter"
+          } else {
+            stop("Raster inputs CSV must have 'parameter_name' or 'name_parameter' column")
+          }
+
+          # Validate paths exist before proceeding
+          csv_dir <- dirname(input$raster_inputs_csv$datapath)
+          invalid <- validate_raster_paths(input_paths, csv_dir)
+          if (length(invalid) > 0) {
+            stop("Invalid raster paths detected. Please fix the CSV file before running analysis.")
+          }
+
+          input_suit_factors <- input_paths |>
+            read_raster_files()
+
+          stacked_rasters <- stack_raster_layers(
+            input_suit_factors,
+            input_paths[[param_col]]
+          )
+
+          # Load crop suitability
+          incProgress(0.2, detail = "Loading crop suitability data")
+          crop_suit_data <- rv$crop_suitability
+
+          # Load intervention
+          incProgress(0.3, detail = "Loading intervention data")
+          intervention_table <- rv$intervention
+
+          # Run analysis
+          incProgress(0.5, detail = "Performing suitability analysis")
+          results <- perform_suitability_analysis(
+            harmonised_rasters = stacked_rasters,
+            suitability_parameter = crop_suit_data,
+            lookup_intervention = intervention_table
+          )
+
+          rv$analysis_results <- results
+
+          # Export files
+          incProgress(0.7, detail = "Exporting results")
+          dir.create(path_output, recursive = TRUE, showWarnings = FALSE)
+
+          # Save input CSVs to output dir
+          file.copy(input$raster_inputs_csv$datapath,
+            file.path(path_output, "raster_inputs.csv"),
+            overwrite = TRUE
+          )
+          file.copy(input$crop_suitability_csv$datapath,
+            file.path(path_output, "crop_suitability.csv"),
+            overwrite = TRUE
+          )
+          file.copy(input$intervention_csv$datapath,
+            file.path(path_output, "intervention.csv"),
+            overwrite = TRUE
+          )
+
+          # Save harmonised rasters (wrapped for RDS)
+          file_name_soil_climate_factors_rds <- file.path(path_output, "soil_climate_factors.rds")
+          saveRDS(terra::wrap(stacked_rasters), file_name_soil_climate_factors_rds)
+
+          # Save suitability raster as TIFF
+          file_name_land_suit_tif <- file.path(path_output, "land_suitability.tif")
+          terra::writeRaster(results[["suitability_raster"]], file_name_land_suit_tif,
+            overwrite = TRUE
+          )
+
+          # Save suitability polygon as RDS
+          file_name_land_suit_rds <- file.path(path_output, "land_suitability.rds")
+          saveRDS(results[["suitability_polygon"]], file_name_land_suit_rds)
+
+          # Save factor rasters as TIFF
+          file_name_suit_factors_tif <- file.path(path_output, "suitability_factors.tif")
+          terra::writeRaster(results[["suitability_by_factors"]], file_name_suit_factors_tif,
+            overwrite = TRUE
+          )
+
+          # Save lookup
+          file_name_land_suit_lookup_csv <- file.path(path_output, "suitability_lookup.csv")
+          readr::write_csv(results[["lookup_suitability_factors"]], file_name_land_suit_lookup_csv)
+
+          # Generate report
+          incProgress(0.85, detail = "Generating report")
+          path_report <- NULL
+          if (file.exists("12_lasem/report_template/LaSEM_report.Rmd")) {
+            path_report <- "12_lasem/report_template/LaSEM_report.Rmd"
+          } else if (file.exists("../report_template/LaSEM_report.Rmd")) {
+            path_report <- "../report_template/LaSEM_report.Rmd"
+          } else if (file.exists("report_template/LaSEM_report.Rmd")) {
+            path_report <- "report_template/LaSEM_report.Rmd"
+          }
+
+          if (!is.null(path_report)) {
+            report_params <- list(
+              start_time = format(start_time, "%Y-%m-%d %H:%M:%S"),
+              end_time = format(Sys.time(), "%Y-%m-%d %H:%M:%S"),
+              file_name_soil_climate_factors_rds = file_name_soil_climate_factors_rds,
+              file_name_land_suit_rds = file_name_land_suit_rds,
+              file_name_land_suit_tif = file_name_land_suit_tif,
+              file_name_land_suit_shp = NA,
+              file_name_land_suit_lookup_csv = file_name_land_suit_lookup_csv,
+              file_name_suit_factors_tif = file_name_suit_factors_tif,
+              path_lookup_raster_inputs = file.path(path_output, "raster_inputs.csv"),
+              path_lookup_crop_suitability = file.path(path_output, "crop_suitability.csv"),
+              path_lookup_intervention = file.path(path_output, "intervention.csv"),
+              path_output = path_output,
+              session_log = format_session_info_table(),
+              validation_results = rv$validation,
+              inspection_log = rv$inspection_status
+            )
+
+            output_file <- "LaSEM_report.html"
+            rmarkdown::render(
+              input = path_report,
+              output_file = output_file,
+              output_dir = path_output,
+              params = report_params,
+              quiet = TRUE
+            )
+            rv$report_file <- file.path(path_output, output_file)
+          } else {
+            warning("Report template not found")
+          }
+
+          incProgress(0.95, detail = "Complete")
+          shinyjs::show("open_output_folder")
+          shinyjs::show("open_report")
+          removeNotification("running_notification")
+          showNotification("Analysis completed successfully!", type = "message", duration = NULL)
+        },
+        error = function(e) {
+          err_msg <- conditionMessage(e)
+          message("LaSEM Analysis Error: ", err_msg)
+          removeNotification("running_notification")
+          showNotification(paste("Analysis failed:", err_msg), type = "error", duration = NULL)
         }
-        
-        output_file <- paste0("LaSEM_report_", format(Sys.time(), "%Y-%m-%d_%H-%M-%S"), ".html")
-        
-        rmarkdown::render(
-          input = path_report_template,
-          output_file = output_file,
-          output_dir = path_output,
-          params = report_params
-        )
-        
-        rv$report_file <- file.path(path_output, output_file)
-        
-        # Set success messages
-        output$status_messages <- renderText("Analysis completed successfully!")
-        output$success_message <- renderText("Analysis completed successfully! You can now open the output folder or view the report.")
-        output$error_messages <- renderText(NULL)
-        shinyjs::show("open_output_folder")
-        shinyjs::show("open_report")
-        removeNotification("running_notification")
-        showNotification("Analysis completed successfully!", type = "message")
-        
-      }, error = function(e) {
-        # Handle errors by setting error messages
-        output$status_messages <- renderText(paste("Error in analysis:", e$message))
-        output$error_messages <- renderText(paste("Error in analysis:", e$message))
-        output$success_message <- renderText(NULL)
-        removeNotification("running_notification")
-        showNotification("Error in analysis. Please check the error messages.", type = "error")
-      })
+      )
     })
   })
-  
+
+  # Results map
+  output$results_map <- renderLeaflet({
+    req(rv$analysis_results)
+    polygon <- rv$analysis_results$suitability_polygon
+    if (is.null(polygon) || nrow(polygon) == 0) {
+      return(leaflet() |> addTiles())
+    }
+
+    # Leaflet tiles and markers require WGS84 (EPSG:4326).
+    # The analysis pipeline preserves the raster's original CRS, so we
+    # reproject the polygon on the fly before rendering.
+    if (sf::st_crs(polygon)$epsg != 4326) {
+      polygon <- sf::st_transform(polygon, crs = 4326)
+    }
+
+    suit_colors <- c(
+      "S1" = "#228B22",
+      "S2" = "#90EE90",
+      "S3" = "#FFA500",
+      "N"  = "#DC143C"
+    )
+
+    # Use the same rendering style as the report's interactive map:
+    # nearly-invisible grey borders (weight 0.1) with full fill opacity
+    # so polygons blend together smoothly instead of appearing speckled.
+    leaflet(polygon) |>
+      addTiles() |>
+      addPolygons(
+        fillColor = ~ suit_colors[suitability],
+        fillOpacity = 1,
+        color = "grey",
+        weight = 0.1,
+        smoothFactor = 1,
+        popup = ~ paste(
+          "<strong>Suitability:</strong>", suitability,
+          "<br><strong>Limiting factor:</strong>",
+          ifelse(is.na(limiting_factor_actual), "None", limiting_factor_actual)
+        )
+      ) |>
+      addLegend(
+        position = "bottomright",
+        colors = suit_colors,
+        labels = c(
+          "S1 - Highly Suitable", "S2 - Moderately Suitable",
+          "S3 - Marginally Suitable", "N - Not Suitable"
+        ),
+        title = "Suitability Class"
+      )
+  })
+
+  # Area summary
+  output$area_summary <- renderTable({
+    req(rv$analysis_results)
+    polygon <- rv$analysis_results$suitability_polygon
+    if (is.null(polygon)) {
+      return(data.frame(Message = "No results available"))
+    }
+
+    polygon |>
+      sf::st_drop_geometry() |>
+      dplyr::group_by(suitability) |>
+      dplyr::summarise(
+        pixel_count = sum(count, na.rm = TRUE),
+        .groups = "drop"
+      ) |>
+      dplyr::mutate(
+        percentage = round(pixel_count / sum(pixel_count) * 100, 1)
+      ) |>
+      dplyr::arrange(match(suitability, c("S1", "S2", "S3", "N")))
+  })
+
   # Open output folder
   observeEvent(input$open_output_folder, {
     if (!is.null(selected_output_dir())) {
@@ -368,31 +804,26 @@ server <- function(input, output, session) {
       }
     }
   })
-  
+
   # Open report
   observeEvent(input$open_report, {
     if (!is.null(rv$report_file) && file.exists(rv$report_file)) {
-      showNotification("Opening report...", type = "message")
       utils::browseURL(rv$report_file)
     } else {
       showNotification("Report file not found.", type = "error")
     }
   })
-  
-  session$onSessionEnded(function() {
-    stopApp()
-  })
-  
+
   # Return to main menu
   observeEvent(input$returnButton, {
     js$closeWindow()
     message("Return to main menu!")
-    # You can add additional code here to handle returning to the main menu if needed
+  })
+
+  session$onSessionEnded(function() {
+    stopApp()
   })
 }
 
-
 # Run the app
 shinyApp(ui, server)
-
-

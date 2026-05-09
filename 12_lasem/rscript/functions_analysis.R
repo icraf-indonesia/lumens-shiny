@@ -296,7 +296,7 @@ build_suitability_attributes <- function(suitability_raster, freq, lookup) {
     rename(limiting_factor_actual = names) |>
     group_by(ID, categories, class_category, suitability, count) |>
     summarise(limiting_factor_actual = list(pick(limiting_factor_actual)), .groups = "drop") |>
-    unnest_longer(col = class_category) |>
+    tidyr::unnest_longer(col = class_category) |>
     group_by(ID) |>
     mutate(id_factor = seq_along(class_category)) |>
     left_join(lookup, by = c("id_factor" = "ID")) |>

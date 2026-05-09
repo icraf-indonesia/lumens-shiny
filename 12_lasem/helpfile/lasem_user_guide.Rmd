@@ -1,0 +1,173 @@
+---
+title: "LaSEM User Guide"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+---
+
+# Land Suitability Evaluation Module (LaSEM) - User Guide
+
+## Overview
+
+LaSEM evaluates biophysical land suitability for agricultural commodities using the **maximum limitation method** (Liebig's Law of the Minimum). For each pixel, the factor with the lowest suitability class determines the final suitability rating.
+
+The module produces:
+- A land suitability map (classes S1, S2, S3, N)
+- Factor-level classification maps showing which factors limit suitability
+- Intervention scenario maps (low, medium, high management improvement)
+- A comprehensive HTML report with static maps and summary tables
+
+## Required Inputs
+
+LaSEM requires three CSV files and a set of raster (GeoTIFF) files:
+
+### 1. Raster Inputs CSV
+
+Lists all available biophysical raster layers with metadata.
+
+| Column | Description | Example |
+|--------|-------------|---------|
+| `ID` | Numeric identifier | `1` |
+| `parameter` | Human-readable name (Indonesian) | `Temperatur Rata-rata Tahunan` |
+| `parameter_name` | Machine-readable name matching rasters | `clim_temperature_avg` |
+| `availability` | `Yes` or `No` | `Yes` |
+| `raster_path` | Path to raster file (absolute or relative to CSV) | `/data/rasters/clim_temperature_avg.tif` |
+
+**Important:** The `parameter_name` values must match both the raster file layer names AND the `name_parameter` column in the crop suitability CSV. Mismatches will cause parameters to be excluded from analysis.
+
+Supported raster formats: GeoTIFF (`.tif`), any format readable by GDAL.
+
+### 2. Crop Suitability CSV
+
+Defines crop-specific thresholds for each biophysical factor.
+
+| Column | Description | Example |
+|--------|-------------|---------|
+| `name_common` | Common name | `Jagung` |
+| `name_sp` | Scientific name | `Zea mays L.` |
+| `class` | Suitability class | `S1`, `S2`, `S3`, `N` |
+| `name_parameter` | Parameter name (must match raster layer) | `clim_temperature_avg` |
+| `value` | Threshold range | `>20`, `20-30`, `<15` |
+| `unit` | Unit of measurement | `°C` |
+
+**Value format conventions:**
+- `>20` - greater than 20
+- `<15` - less than 15 
+- `20-30` - range from 20 to 30 (inclusive)
+- For soil texture: use USDA texture codes
+
+### 3. Intervention Lookup CSV
+
+Defines how management interventions can improve each factor.
+
+| Column | Description | Example |
+|--------|-------------|---------|
+| `no` | Numeric identifier | `1` |
+| `karakteristik_lahan` | Land characteristic (Indonesian) | `Temperatur` |
+| `name_parameter` | Parameter name matching rasters | `clim_temperature_avg` |
+| `low` | Low intervention potential (classes improved) | `1` |
+| `med` | Medium intervention potential | `1+2` |
+| `high` | High intervention potential | `1+2+3` |
+
+The intervention values indicate how many suitability classes can be improved:
+- `1` - improve by 1 class (e.g., N → S3)
+- `1+2` - improve by up to 2 classes (e.g., N → S2)
+- `1+2+3` - improve by up to 3 classes (e.g., N → S1)
+
+## Application Interface
+
+LaSEM uses a 3-tab guided workflow:
+
+### Tab 1: Upload & Preview
+
+**Step 1:** Upload your three CSV files using the sidebar file inputs:
+- Raster Inputs CSV
+- Crop Suitability CSV
+- Intervention Lookup CSV
+
+**Step 2:** Select an output directory for results.
+
+**Step 3:** Review the validation panel. Green = all inputs valid. Red = errors detected.
+
+The preview tables show your uploaded data for verification.
+
+### Tab 2: Inspect Factors
+
+Optional: review individual input rasters before analysis.
+
+- Select a factor from the dropdown
+- View the raster map preview
+- Review classification criteria for that factor
+- Mark factor as "Looks Good" or "Flag Issue" (with optional note)
+
+Inspection results appear in the report's Data Quality section. This step is **optional** - you can proceed directly to analysis if validation passes.
+
+### Tab 3: Results
+
+After clicking "Run LaSEM Analysis":
+
+- **Status messages** - success or error information
+- **Suitability Map** - interactive Leaflet map colored by suitability class (S1 green, S2 light green, S3 orange, N red). Click polygons for details including limiting factors.
+- **Area Summary** - table showing pixel counts and percentages by suitability class
+
+## Output Files
+
+Analysis produces these files in your selected output directory:
+
+| File | Format | Description |
+|------|--------|-------------|
+| `land_suitability.tif` | GeoTIFF | Final suitability raster |
+| `land_suitability.rds` | RDS | Suitability polygons (sf object) |
+| `suitability_factors.tif` | GeoTIFF | Individual factor classifications |
+| `soil_climate_factors.rds` | RDS | Harmonised input rasters (wrapped) |
+| `suitability_lookup.csv` | CSV | Suitability category lookup table |
+| `raster_inputs.csv` | CSV | Copy of uploaded raster inputs |
+| `crop_suitability.csv` | CSV | Copy of uploaded crop suitability |
+| `intervention.csv` | CSV | Copy of uploaded intervention lookup |
+| `LaSEM_report.html` | HTML | Comprehensive analysis report |
+
+## Interpreting Results
+
+### Suitability Classes
+
+| Class | Description | Map Color |
+|-------|-------------|-----------|
+| **S1** | Highly Suitable - no significant limitations | Dark Green |
+| **S2** | Moderately Suitable - minor limitations, manageable | Light Green |
+| **S3** | Marginally Suitable - significant limitations | Orange |
+| **N** | Not Suitable - severe limitations | Red |
+
+### Limiting Factors
+
+Each polygon in the results map shows its **actual limiting factor(s)** - the parameters that restrict the land to its current suitability class. Hover over or click polygons to see which factors are limiting.
+
+### Potential Suitability
+
+The polygon attributes include three potential suitability columns:
+- `suitability_potential_low` - achievable with low intervention
+- `suitability_potential_med` - achievable with medium intervention
+- `suitability_potential_high` - achievable with high intervention
+
+These are based on the intervention lookup table assumptions.
+
+## Troubleshooting
+
+### "Invalid raster paths" error
+
+Check that raster_path values in your CSV are either:
+- Absolute paths (e.g., `/home/user/data/rasters/clim_temperature_avg.tif`)
+- Relative paths resolvable from the CSV file location
+
+### "No matching parameters" error
+
+Ensure `parameter_name` values in the raster inputs CSV match `name_parameter` values in the crop suitability CSV exactly (case-sensitive).
+
+### Factor map shows error in Inspect tab
+
+The raster file may be corrupted, unsupported format, or have incorrect extent/CRS. Try loading the raster in QGIS or using `terra::rast()` in R to verify.
+
+### Empty results map
+
+If analysis completes but the map is empty, check that your rasters overlap spatially (same extent and CRS). Use `terra::compareGeom()` to verify.

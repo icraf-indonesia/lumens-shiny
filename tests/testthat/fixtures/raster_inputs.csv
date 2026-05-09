@@ -1,0 +1,4 @@
+ID,parameter,name_parameter,availability,raster_path
+1,pH tanah,soil_ph,Yes,tests/testthat/fixtures/rasters/soil_ph.tif
+2,Suhu rata-rata,clim_temperature_avg,Yes,tests/testthat/fixtures/rasters/clim_temperature_avg.tif
+3,Kedalaman tanah,soil_depth,Yes,tests/testthat/fixtures/rasters/soil_depth.tif

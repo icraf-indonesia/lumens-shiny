@@ -1,0 +1,12 @@
+name_common,name_sp,class,name_parameter,value,unit
+Test Crop,Testus cropus,S1,soil_ph,5.5-6.5,pH
+Test Crop,Testus cropus,S2,soil_ph,5.0-5.5,pH
+Test Crop,Testus cropus,S2,soil_ph,6.5-7.0,pH
+Test Crop,Testus cropus,S3,soil_ph,4.5-5.0,pH
+Test Crop,Testus cropus,S3,soil_ph,7.0-7.5,pH
+Test Crop,Testus cropus,N,soil_ph,<4.5,pH
+Test Crop,Testus cropus,S1,clim_temperature_avg,16-20,°C
+Test Crop,Testus cropus,S2,clim_temperature_avg,15-16,°C
+Test Crop,Testus cropus,S2,clim_temperature_avg,20-22,°C
+Test Crop,Testus cropus,S3,clim_temperature_avg,22-24,°C
+Test Crop,Testus cropus,N,clim_temperature_avg,>24,°C

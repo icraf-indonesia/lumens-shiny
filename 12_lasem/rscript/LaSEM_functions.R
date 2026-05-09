@@ -21,17 +21,17 @@
 #'
 #' @examples
 #' \dontrun{
-#'   # Assuming harmonised_rasters, suitability_parameter,
-#'   # and path_lookup_intervention are predefined
-#'   result <- perform_suitability_analysis(harmonised_rasters,
-#'   suitability_parameter, path_lookup_intervention)
+#' # Assuming harmonised_rasters, suitability_parameter,
+#' # and path_lookup_intervention are predefined
+#' result <- perform_suitability_analysis(
+#'   harmonised_rasters,
+#'   suitability_parameter, path_lookup_intervention
+#' )
 #' }
 perform_suitability_analysis <-
   function(harmonised_rasters,
            suitability_parameter,
            lookup_intervention) {
-    
-    
     # Check input classes
     stopifnot(
       inherits(harmonised_rasters, "SpatRaster"),
@@ -41,11 +41,13 @@ perform_suitability_analysis <-
 
     # 3a. Suitability Analysis Actual
     suitability_map <-
-      process_suitability(suitability_factors = harmonised_rasters,
-                          crop_suitability = suitability_parameter)
-    
+      process_suitability(
+        suitability_factors = harmonised_rasters,
+        crop_suitability = suitability_parameter
+      )
+
     # 3b. Suitability Analysis Potential
-    intervention_table <- list("low", "med", "high") %>%
+    intervention_table <- list("low", "med", "high") |>
       map(
         ~ calculate_suitability_potential_table(
           lookup_intervention = lookup_intervention,
@@ -54,25 +56,25 @@ perform_suitability_analysis <-
           lookup_suitability_layer = suitability_map[["lookup_suitability_factors"]]
         )
       )
-    
+
     suitability_attr_pot <-
-      Reduce(function(x, y)
-        left_join(x, y, by = "ID"), intervention_table)
-    
+      Reduce(function(x, y) {
+        left_join(x, y, by = "ID")
+      }, intervention_table)
+
     suitability_polygon <- suitability_map$suitability_polygon |>
       left_join(suitability_attr_pot, by = "ID") |>
       mutate(
-        suitability_potential_low  = case_when(suitability == "S1" ~ "S1", .default = suitability_potential_low),
-        suitability_potential_med  = case_when(suitability == "S1" ~ "S1", .default = suitability_potential_med),
-        suitability_potential_high  = case_when(suitability == "S1" ~ "S1", .default = suitability_potential_high)
+        suitability_potential_low = case_when(suitability == "S1" ~ "S1", .default = suitability_potential_low),
+        suitability_potential_med = case_when(suitability == "S1" ~ "S1", .default = suitability_potential_med),
+        suitability_potential_high = case_when(suitability == "S1" ~ "S1", .default = suitability_potential_high)
       ) |>
       st_transform(crs = 4326)
-    
+
     suitability_map$suitability_polygon <- suitability_polygon
-    
+
     return(suitability_map)
   }
-
 
 
 #' Process Suitability Factors for Crop Suitability Analysis
@@ -105,30 +107,31 @@ perform_suitability_analysis <-
 #'
 #' @examples
 #' \dontrun{
-#'   # Assuming suitability_factors and crop_suitability are already defined
-#'   suitability_results <- process_suitability(suitability_factors, crop_suitability)
-#'   View(suitability_results$suitability_raster)
-#'   View(suitability_results$suitability_polygon)
-#'   View(suitability_results$suitability_attr)
-#'   # Explore individual factor suitability rasters
-#'   lapply(suitability_results$suitability_by_factors, View)
+#' # Assuming suitability_factors and crop_suitability are already defined
+#' suitability_results <- process_suitability(suitability_factors, crop_suitability)
+#' View(suitability_results$suitability_raster)
+#' View(suitability_results$suitability_polygon)
+#' View(suitability_results$suitability_attr)
+#' # Explore individual factor suitability rasters
+#' lapply(suitability_results$suitability_by_factors, View)
 #' }
 # Function to Process Suitability Data for Crop Suitability Analysis
 process_suitability <- function(suitability_factors, crop_suitability) {
-  
   # Step 1: Create a DataFrame for Layer Lookup
   # This step involves creating a DataFrame that maps each layer in the suitability_factors to a name.
   lookup_suitability_factors <- create_layer_dataframe(suitability_factors)
   lookup_suitability_factors_names <- lookup_suitability_factors |> pull(names)
-  
+
   # Step 2: Identify and List Crop Parameters
   # Extracts unique parameter names from the crop_suitability DataFrame.
-  crop_suitability_param_names <- crop_suitability |> pull(name_parameter) |> unique()
-  
+  crop_suitability_param_names <- crop_suitability |>
+    pull(name_parameter) |>
+    unique()
+
   # Step 3: Identify Names Not in Crop Suitability
   # Finds layer names in lookup_suitability_factors that are not in crop_suitability parameters.
   names_not_in_crop_suitability <- setdiff(lookup_suitability_factors_names, crop_suitability_param_names)
-  
+
   # Step 4: Subset Suitability Factors
   # If there are names not in crop suitability, subset the suitability factors to exclude them.
   if (!is.null(names_not_in_crop_suitability)) {
@@ -137,22 +140,23 @@ process_suitability <- function(suitability_factors, crop_suitability) {
       filter(!names %in% names_not_in_crop_suitability) |>
       dplyr::mutate(ID = row_number())
   }
-  
+
   # Step 5: Cross-Check and Print Names Analysed
   # Intersects the names of the suitability factors with the crop suitability parameters and prints them.
   names_analysed <- intersect(names(suitability_factors), crop_suitability_param_names)
   print_names_analysed_info(names_analysed)
-  
+
   # Step 6: Classify Suitability of Each Predictor
   # Applies predefined functions to classify and stack suitability factors.
   suitability_factors_reclass <- classify_and_stack_suitability_factors(
     stacked_raster = suitability_factors,
-    suitability_data = crop_suitability)
-  
+    suitability_data = crop_suitability
+  )
+
   # Step 7: Combine Suitability Rasters
   # Concatenates the levels of all the suitability rasters into one.
   suitability_raster <- concat_rasters(suitability_factors_reclass)
-  
+
   # Step 8: Create Frequency Table for Suitability Raster
   # Generates a frequency table for the combined suitability raster.
   suitability_raster_freq <- terra::freq(suitability_raster) |> dplyr::select(categories = value, count)
@@ -171,7 +175,7 @@ process_suitability <- function(suitability_factors, crop_suitability) {
     left_join(lookup_suitability_factors, by = c("limiting_factor_id" = "ID")) |>
     rename(limiting_factor_actual = names) |>
     group_by(ID, categories, class_category, suitability, count) |>
-    summarise(limiting_factor_actual = list(pick(limiting_factor_actual)), .groups = 'drop') |>
+    summarise(limiting_factor_actual = list(pick(limiting_factor_actual)), .groups = "drop") |>
     unnest_longer(col = class_category) |>
     group_by(ID) |>
     mutate(id_factor = seq_along(class_category)) |>
@@ -179,39 +183,41 @@ process_suitability <- function(suitability_factors, crop_suitability) {
     mutate(names = ifelse(class_category %in% "S1", NA, names)) |>
     group_by(ID, categories, suitability, count, limiting_factor_actual) |>
     rename(limiting_factor_potential = names) |>
-    summarise(limiting_factor_potential = list(na.omit(pick(limiting_factor_potential))), .groups = 'drop') |>
+    summarise(limiting_factor_potential = list(na.omit(pick(limiting_factor_potential))), .groups = "drop") |>
     mutate(limiting_factor_potential = map2(limiting_factor_actual, limiting_factor_potential, ~ {
       potential_unique <- setdiff(.y$limiting_factor_potential, .x$limiting_factor_actual)
-      
+
       if (length(potential_unique) == 0) {
         return(NA)
       } else {
         return(tibble(limiting_factor_potential = potential_unique))
       }
     })) |>
-    mutate(limiting_factor_actual = map(limiting_factor_actual, ~unlist(.x, use.names=FALSE))) |>
-    mutate(limiting_factor_potential = map(limiting_factor_potential, ~unlist(.x, use.names=FALSE)))
-  
-  
+    mutate(limiting_factor_actual = map(limiting_factor_actual, ~ unlist(.x, use.names = FALSE))) |>
+    mutate(limiting_factor_potential = map(limiting_factor_potential, ~ unlist(.x, use.names = FALSE)))
+
+
   # Step 10: Update Levels of the Suitability Raster
   # Updates the categorical levels of the suitability raster based on the attribute table.
   levels(suitability_raster) <- as.data.frame(suitability_attr)
   terra::activeCat(suitability_raster) <- "ID"
-  
+
   # Step 11: Convert Raster to Polygons and Join with Attribute Table
   # Converts the raster data into polygon format and merges it with the attribute table.
   suitability_polygon <- suitability_raster |>
     as.polygons() |>
     sf::st_as_sf() |>
     left_join(suitability_attr, by = "ID")
-  
+
   # Step 12: Return Results
   # Returns a list containing the processed data in various formats.
-  return(list(suitability_raster = suitability_raster,
-              suitability_polygon = suitability_polygon,
-              suitability_attr = suitability_attr,
-              suitability_by_factors = suitability_factors_reclass,
-              lookup_suitability_factors = lookup_suitability_factors))
+  return(list(
+    suitability_raster = suitability_raster,
+    suitability_polygon = suitability_polygon,
+    suitability_attr = suitability_attr,
+    suitability_by_factors = suitability_factors_reclass,
+    lookup_suitability_factors = lookup_suitability_factors
+  ))
 }
 
 #' Create Layer Dataframe from SpatRaster
@@ -239,13 +245,13 @@ process_suitability <- function(suitability_factors, crop_suitability) {
 create_layer_dataframe <- function(spatraster) {
   # Extract the names of the layers
   layer_names <- names(spatraster)
-  
+
   # Create a sequence of IDs
   ids <- seq_along(layer_names)
-  
+
   # Combine into a dataframe
   dataframe <- data.frame(ID = ids, names = layer_names)
-  
+
   return(dataframe)
 }
 
@@ -262,162 +268,25 @@ create_layer_dataframe <- function(spatraster) {
 #'
 #' @examples
 #' \dontrun{
-#' names_analysed <- c("clim_temperature_avg", "clim_precipitation_tot",
-#'                     "clim_humidity", "soil_coarse_fragments", "soil_depth",
-#'                     "soil_cec", "soil_base_saturation", "soil_ph",
-#'                     "soil_organic_c", "soil_nitrogen", "soil_salinity",
-#'                     "soil_esp", "soil_slope")
+#' names_analysed <- c(
+#'   "clim_temperature_avg", "clim_precipitation_tot",
+#'   "clim_humidity", "soil_coarse_fragments", "soil_depth",
+#'   "soil_cec", "soil_base_saturation", "soil_ph",
+#'   "soil_organic_c", "soil_nitrogen", "soil_salinity",
+#'   "soil_esp", "soil_slope"
+#' )
 #' print_names_analysed_info(names_analysed)
 #' }
 #'
 print_names_analysed_info <- function(names_analysed) {
   # Find the number of names
   num_names <- length(names_analysed)
-  
+
   # Create the message
   message <- paste("Number of objects:", num_names, "\nNames of objects:", paste(names_analysed, collapse = ", "))
-  
+
   # Print the message
   print(message)
-}
-
-#' Process Suitability Factors for Crop Suitability Analysis
-#'
-#' This function integrates environmental suitability factors with crop suitability parameters to produce
-#' a comprehensive analysis of crop suitability. It involves reclassifying raster layers based on
-#' suitability parameters, creating a frequency table, and converting rasters to spatial polygons.
-#' This function relies on specific functions from terra, dplyr, tidyr, and sf packages.
-#'
-#' @param suitability_factors A SpatRaster object from the terra package representing environmental factors
-#' affecting crop growth such as soil quality, climate conditions, etc.
-#' @param crop_suitability A dataframe with crop suitability parameters, each row representing a different
-#' parameter and its associated suitability conditions.
-#'
-#' @return A list containing four elements:
-#' \itemize{
-#'   \item{suitability_raster}{A SpatRaster object representing the combined suitability analysis.}
-#'   \item{suitability_polygon}{An sf object representing suitability areas as polygons.}
-#'   \item{suitability_attr}{A dataframe containing attributes for each suitability category.}
-#'   \item{suitability_by_factors}{A list of SpatRaster objects for individual suitability factors.}
-#' }
-#' @importFrom terra freq cats as.polygons subset activeCat levels
-#' @importFrom dplyr select left_join mutate group_by summarise pull filter row_number rowwise rename pick
-#' @importFrom tidyr unnest_wider unnest_longer
-#' @importFrom sf st_as_sf
-#' @importFrom purrr map map2
-#' @importFrom rlang .data
-#' @importFrom tibble as_tibble tibble
-#' @export
-#'
-#' @examples
-#' \dontrun{
-#'   # Assuming suitability_factors and crop_suitability are already defined
-#'   suitability_results <- process_suitability(suitability_factors, crop_suitability)
-#'   View(suitability_results$suitability_raster)
-#'   View(suitability_results$suitability_polygon)
-#'   View(suitability_results$suitability_attr)
-#'   # Explore individual factor suitability rasters
-#'   lapply(suitability_results$suitability_by_factors, View)
-#' }
-# Function to Process Suitability Data for Crop Suitability Analysis
-process_suitability <- function(suitability_factors, crop_suitability) {
-  
-  # Step 1: Create a DataFrame for Layer Lookup
-  # This step involves creating a DataFrame that maps each layer in the suitability_factors to a name.
-  lookup_suitability_factors <- create_layer_dataframe(suitability_factors)
-  lookup_suitability_factors_names <- lookup_suitability_factors |> pull(names)
-  
-  # Step 2: Identify and List Crop Parameters
-  # Extracts unique parameter names from the crop_suitability DataFrame.
-  crop_suitability_param_names <- crop_suitability |> pull(name_parameter) |> unique()
-  
-  # Step 3: Identify Names Not in Crop Suitability
-  # Finds layer names in lookup_suitability_factors that are not in crop_suitability parameters.
-  names_not_in_crop_suitability <- setdiff(lookup_suitability_factors_names, crop_suitability_param_names)
-  
-  # Step 4: Subset Suitability Factors
-  # If there are names not in crop suitability, subset the suitability factors to exclude them.
-  if (!is.null(names_not_in_crop_suitability)) {
-    suitability_factors <- terra::subset(suitability_factors, names_not_in_crop_suitability, negate = TRUE)
-    lookup_suitability_factors <- lookup_suitability_factors |>
-      filter(!names %in% names_not_in_crop_suitability) |>
-      dplyr::mutate(ID = row_number())
-  }
-  
-  # Step 5: Cross-Check and Print Names Analysed
-  # Intersects the names of the suitability factors with the crop suitability parameters and prints them.
-  names_analysed <- intersect(names(suitability_factors), crop_suitability_param_names)
-  print_names_analysed_info(names_analysed)
-  
-  # Step 6: Classify Suitability of Each Predictor
-  # Applies predefined functions to classify and stack suitability factors.
-  suitability_factors_reclass <- classify_and_stack_suitability_factors(
-    stacked_raster = suitability_factors,
-    suitability_data = crop_suitability)
-  
-  # Step 7: Combine Suitability Rasters
-  # Concatenates the levels of all the suitability rasters into one.
-  suitability_raster <- concat_rasters(suitability_factors_reclass)
-  
-  # Step 8: Create Frequency Table for Suitability Raster
-  # Generates a frequency table for the combined suitability raster.
-  suitability_raster_freq <- terra::freq(suitability_raster) |> dplyr::select(categories = value, count)
-  # Step 9: Extract and Process Attribute Table
-  # Processes the attribute table of the suitability raster for further analysis.
-  suitability_attr <- terra::levels(suitability_raster)[[1]] |>
-    as_tibble() |>
-    rename(categories = 2) |>
-    left_join(suitability_raster_freq, by = "categories") |>
-    mutate(class_category = strsplit(as.character(categories), "_")) |>
-    rowwise() |>
-    mutate(class = list(determine_suitability(class_category))) |>
-    tidyr::unnest_wider(class) |>
-    mutate(limiting_factor_id = limiting_factor) |>
-    tidyr::unnest_longer(limiting_factor_id, keep_empty = TRUE) |>
-    left_join(lookup_suitability_factors, by = c("limiting_factor_id" = "ID")) |>
-    rename(limiting_factor_actual = names) |>
-    group_by(ID, categories, class_category, suitability, count) |>
-    summarise(limiting_factor_actual = list(pick(limiting_factor_actual)), .groups = 'drop') |>
-    unnest_longer(col = class_category) |>
-    group_by(ID) |>
-    mutate(id_factor = seq_along(class_category)) |>
-    left_join(lookup_suitability_factors, by = c("id_factor" = "ID")) |>
-    mutate(names = ifelse(class_category %in% "S1", NA, names)) |>
-    group_by(ID, categories, suitability, count, limiting_factor_actual) |>
-    rename(limiting_factor_potential = names) |>
-    summarise(limiting_factor_potential = list(na.omit(pick(limiting_factor_potential))), .groups = 'drop') |>
-    mutate(limiting_factor_potential = map2(limiting_factor_actual, limiting_factor_potential, ~ {
-      potential_unique <- setdiff(.y$limiting_factor_potential, .x$limiting_factor_actual)
-      
-      if (length(potential_unique) == 0) {
-        return(NA)
-      } else {
-        return(tibble(limiting_factor_potential = potential_unique))
-      }
-    })) |>
-    mutate(limiting_factor_actual = map(limiting_factor_actual, ~unlist(.x, use.names=FALSE))) |>
-    mutate(limiting_factor_potential = map(limiting_factor_potential, ~unlist(.x, use.names=FALSE)))
-  
-  
-  # Step 10: Update Levels of the Suitability Raster
-  # Updates the categorical levels of the suitability raster based on the attribute table.
-  levels(suitability_raster) <- as.data.frame(suitability_attr)
-  terra::activeCat(suitability_raster) <- "ID"
-  
-  # Step 11: Convert Raster to Polygons and Join with Attribute Table
-  # Converts the raster data into polygon format and merges it with the attribute table.
-  suitability_polygon <- suitability_raster |>
-    as.polygons() |>
-    sf::st_as_sf() |>
-    left_join(suitability_attr, by = "ID")
-  
-  # Step 12: Return Results
-  # Returns a list containing the processed data in various formats.
-  return(list(suitability_raster = suitability_raster,
-              suitability_polygon = suitability_polygon,
-              suitability_attr = suitability_attr,
-              suitability_by_factors = suitability_factors_reclass,
-              lookup_suitability_factors = lookup_suitability_factors))
 }
 
 #' Classify and Stack Suitability Factors
@@ -432,24 +301,25 @@ process_suitability <- function(suitability_factors, crop_suitability) {
 #'
 #' @examples
 #' \dontrun{
-#'   # Assuming you have suitability_factors
-#'   # as a SpatRaster and crop_suitability as a data frame
-#'   stacked_suitability <- classify_and_stack_suitability_factors(
-#'                               suitability_factors, crop_suitability)
+#' # Assuming you have suitability_factors
+#' # as a SpatRaster and crop_suitability as a data frame
+#' stacked_suitability <- classify_and_stack_suitability_factors(
+#'   suitability_factors, crop_suitability
+#' )
 #' }
 #' @importFrom terra rast nlyr
 #' @export
 classify_and_stack_suitability_factors <- function(stacked_raster, suitability_data) {
   # Apply the classify_suitability_predictors function to each layer using lapply
-  
+
   reclassified_rasters <- lapply(1:nlyr(stacked_raster), function(i) {
-    #print(names(stacked_raster[[i]]))
+    # print(names(stacked_raster[[i]]))
     classify_suitability_predictors(stacked_raster[[i]], suitability_data)
   })
-  
+
   # Stack the reclassified rasters
   stacked_suitability <- rast(reclassified_rasters)
-  
+
   # Return the stacked raster
   return(stacked_suitability)
 }
@@ -483,8 +353,9 @@ concat_rasters <- function(rasters) {
 #' @examples
 #' \dontrun{
 #' classified_raster <- classify_suitability_predictors(
-#'                       raster_input = clim_temperature_avg,
-#'                       suitability_data = crop_suitability)
+#'   raster_input = clim_temperature_avg,
+#'   suitability_data = crop_suitability
+#' )
 #' }
 #' @importFrom terra classify droplevels
 #' @importFrom dplyr filter select mutate case_when
@@ -492,33 +363,32 @@ concat_rasters <- function(rasters) {
 #' @importFrom purrr map
 #' @importFrom readr read_csv
 #' @importFrom tidyr unnest_longer replace_na
-#' @importFrom magrittr %>%
 #' @export
 classify_suitability_predictors <- function(raster_input, suitability_data) {
   # Check if raster_input is of the correct type
   if (!inherits(raster_input, "SpatRaster")) {
     stop("raster_input must be a SpatRaster object")
   }
-  
+
   # Check if suitability_data is of the correct type
   if (!is.data.frame(suitability_data)) {
     stop("suitability_data must be a data.frame")
   }
-  
+
   # Check if the necessary columns exist in suitability_data
   required_columns <- c("value", "class", "name_parameter")
   if (!all(required_columns %in% names(suitability_data))) {
     stop(paste("suitability_data must contain the following columns:", paste(required_columns, collapse = ", ")))
   }
-  
+
   # Check if the name of raster_input exists in the name_parameter column of suitability_data
   if (!(names(raster_input) %in% suitability_data$name_parameter)) {
     stop(paste("The name of raster_input must exist in the name_parameter column of suitability_data. Please check your inputs."))
   }
   # Filter suitability_data to match raster_input
-  suitability_data <- suitability_data %>%
+  suitability_data <- suitability_data |>
     filter(name_parameter %in% names(raster_input))
-  
+
   if (suitability_data[["name_parameter"]][1] == "soil_texture") {
     if (file.exists(system.file("extdata/lookup_tables/lookup_texture_usda.csv", package = "LaSEM"))) {
       texture_lookup <- readr::read_csv(
@@ -527,32 +397,29 @@ classify_suitability_predictors <- function(raster_input, suitability_data) {
           package = "LaSEM"
         )
       ) |> select(texture_kemtan, TEXTURE_USDA)
-      
     } else {
       texture_lookup <- tibble(
         texture_kemtan = c("sh", "h", "ah", "ah", "s", "s", "h", "s", "ah", "ak", "k", "k"),
         TEXTURE_USDA = c(1, 2, 5, 4, 10, 8, 3, 7, 6, 9, 11, 12)
       )
-    } 
-    
+    }
+
     # Apply the mapping function to each element in the value list
-    suitability_data <- suitability_data %>%
-      mutate(value = map(value, ~ str_split(.x, pattern = "_", simplify = TRUE))) %>%
+    suitability_data <- suitability_data |>
+      mutate(value = map(value, ~ str_split(.x, pattern = "_", simplify = TRUE))) |>
       mutate(value = map(value, ~ map(.x, map_texture_code, lookup_table = texture_lookup))) |>
       mutate(value = map(value, unlist)) |>
       mutate(class = factor(class, levels = c("S1", "S2", "S3", "N")))
-    
+
     reclass_matrix <- suitability_data |>
       select(value, class) |>
       unnest_longer(value) |>
       mutate(class = as.numeric(class)) |>
       as.matrix()
-    
   } else {
-    
     # Pre-process the suitability data frame
     suppressWarnings({
-      suitability_data <- suitability_data %>%
+      suitability_data <- suitability_data |>
         mutate(
           lower = case_when(
             str_starts(value, ">") ~ as.numeric(str_extract(value, "\\d+\\.?\\d*$")),
@@ -562,46 +429,45 @@ classify_suitability_predictors <- function(raster_input, suitability_data) {
           upper = ifelse(str_ends(value, "<"), as.numeric(str_extract(
             value, "\\d+\\.?\\d*"
           )), NA)
-        ) %>%
+        ) |>
         mutate(
           upper = ifelse(is.na(upper), ifelse(
             str_starts(value, ">"), Inf, as.numeric(str_extract(value, "\\d+\\.?\\d*$"))
           ), upper),
-          lower = replace_na(lower,-Inf),
+          lower = replace_na(lower, -Inf),
           class = factor(class, levels = c("S1", "S2", "S3", "N"))
         )
-      
     })
-    
-    
-    
+
+
     # Define the reclassification matrix
-    reclass_matrix <- suitability_data %>%
-      dplyr::select(lower, upper, class) %>%
-      mutate(class = as.numeric(class)) %>%
+    reclass_matrix <- suitability_data |>
+      dplyr::select(lower, upper, class) |>
+      mutate(class = as.numeric(class)) |>
       as.matrix()
   }
-  
+
   rast_name <- names(raster_input)
-  
+
   # Reclassify the raster
-  r_reclassified <- terra::classify(raster_input, rcl = reclass_matrix,
-                                    include.lowest = TRUE)
-  
+  r_reclassified <- terra::classify(raster_input,
+    rcl = reclass_matrix,
+    include.lowest = TRUE
+  )
+
   # Create the lookup data frame
   lookup_df <- data.frame(
     class = 1:4,
     level = c("S1", "S2", "S3", "N")
   )
-  
+
   # Reassign raster values to predefined levels
-  levels(r_reclassified)<- lookup_df
+  levels(r_reclassified) <- lookup_df
   names(r_reclassified) <- rast_name
-  r_reclassified<- terra::droplevels(r_reclassified)
-  
+  r_reclassified <- terra::droplevels(r_reclassified)
+
   return(r_reclassified)
 }
-
 
 
 soil_texture <- tibble::tribble(
@@ -644,21 +510,21 @@ soil_texture <- tibble::tribble(
 determine_suitability <- function(class_vector) {
   # Define the order of priority for the suitability classes
   priority_order <- c("N", "S3", "S2", "S1")
-  
+
   # Determine the highest priority class present in the vector
   lowest_class <- priority_order |>
-    purrr::map_chr(~ifelse(any(class_vector == .x), .x, NA_character_)) |>
+    purrr::map_chr(~ ifelse(any(class_vector == .x), .x, NA_character_)) |>
     na.omit() |>
     (\(.) .[1])()
-  
+
   # Determine the positions of the highest priority class
   limiting_factor <- which(class_vector == lowest_class)
-  
+
   # If the highest class is "S1", set limiting_factor to NA
   if (lowest_class == "S1") {
     limiting_factor <- NULL
   }
-  
+
   # Return a list containing suitability and limiting factors
   return(list(suitability = lowest_class, limiting_factor = limiting_factor))
 }
@@ -686,37 +552,49 @@ determine_suitability <- function(class_vector) {
 #'
 #' @examples
 #' \dontrun{
-#'   path <- "data/lookup_tables/lookup_intervention.csv"
-#'   level <- "high"
-#'   attr <- readr::read_csv("output/kesesuaian_jagung_aktual.csv")
-#'   calculate_suitability_potential_table(path, level, attr)
+#' path <- "data/lookup_tables/lookup_intervention.csv"
+#' level <- "high"
+#' attr <- readr::read_csv("output/kesesuaian_jagung_aktual.csv")
+#' calculate_suitability_potential_table(path, level, attr)
 #' }
 calculate_suitability_potential_table <- function(lookup_intervention, intervention_level, suitability_attr, lookup_suitability_layer) {
-  
-  
   if (!is.data.frame(lookup_intervention)) {
     stop("File specified in lookup_intervention is not a data frame.")
   }
-  
+
   if (!is.character(intervention_level) || length(intervention_level) != 1) {
     stop("intervention_level must be a single object string.")
   }
-  
+
   if (!is_tibble(suitability_attr) ||
-      !all(c( "ID",  "limiting_factor_actual", "suitability") %in% names(suitability_attr))) {
+    !all(c("ID", "limiting_factor_actual", "suitability") %in% names(suitability_attr))) {
     stop("suitability_attr must be a data frame with specific columns.")
   }
-  
+
   # Reading and processing the lookup intervention data
+  # Handle both English and Indonesian column names
+  land_char_col <- if ("land_characteristics" %in% names(lookup_intervention)) {
+    "land_characteristics"
+  } else if ("karakteristik_lahan" %in% names(lookup_intervention)) {
+    "karakteristik_lahan"
+  } else {
+    NULL
+  }
+
+  cols_to_drop <- c("no")
+  if (!is.null(land_char_col)) {
+    cols_to_drop <- c(cols_to_drop, land_char_col)
+  }
+
   lookup_intervention <- lookup_intervention |>
-    select(-c("no", "land_characteristics")) |>
+    select(-all_of(cols_to_drop)) |>
     mutate(
       low = ifelse(is.na(low), 0, str_count(low, pattern = fixed("+"))),
       med = ifelse(is.na(med), 0, str_count(med, pattern = fixed("+"))),
       high = ifelse(is.na(high), 0, str_count(high, pattern = fixed("+")))
     ) |>
     group_by(name_parameter, intervention)
-  
+
   # Filtering and renaming
   lookup_intervention_filtered <- lookup_intervention |>
     dplyr::select(all_of(intervention_level)) |>
@@ -726,8 +604,8 @@ calculate_suitability_potential_table <- function(lookup_intervention, intervent
   # Add a check if maximum is higher or equal with the list of uncontrolled limiting factor then update limiting_factor_name, also update the intervention_potential
   suitability_potential_table <- suitability_attr |>
     mutate(class_category = strsplit(as.character(categories), "_")) |>
-    dplyr::select(all_of(c("ID", "suitability", "class_category" ))) |> # take it from class_category instead, do not use limiting factor name, then unnest longer class_category, join with the lookup_suitability_factors, the rest are fine
-    #mutate(limiting_factor_name = str_split(limiting_factor_name, ", ")) |>
+    dplyr::select(all_of(c("ID", "suitability", "class_category"))) |> # take it from class_category instead, do not use limiting factor name, then unnest longer class_category, join with the lookup_suitability_factors, the rest are fine
+    # mutate(limiting_factor_name = str_split(limiting_factor_name, ", ")) |>
     unnest_longer(col = class_category) |>
     group_by(ID) |>
     mutate(id_factor = seq_along(class_category)) |>
@@ -738,12 +616,12 @@ calculate_suitability_potential_table <- function(lookup_intervention, intervent
         class_category == "S1" ~ 1,
         class_category == "S2" ~ 2,
         class_category == "S3" ~ 3,
-        class_category == "N"  ~ 4,
+        class_category == "N" ~ 4,
         TRUE ~ NA_real_
       )
     ) |>
     filter(!suitability %in% "S1") |>
-    filter(!class_category  %in% "S1") |>
+    filter(!class_category %in% "S1") |>
     mutate(
       dummy_suitability_pot_id = dummy_suitability - dummy_intervention,
       dummy_suitability_pot_id = case_when(dummy_suitability_pot_id < 1 ~ 1, TRUE ~ dummy_suitability_pot_id)
@@ -751,13 +629,14 @@ calculate_suitability_potential_table <- function(lookup_intervention, intervent
     group_by(ID, suitability) |>
     summarise(
       dummy_suitability_potential = max(dummy_suitability_pot_id, na.rm = FALSE),
-      #limiting_factors_complete =  list(pick(names)),
+      # limiting_factors_complete =  list(pick(names)),
       # intervention_potential = case_when(
       #   all(intervention == TRUE) ~ "all",
       #   any(intervention == TRUE) & any(intervention == FALSE) ~ "partial",
       #   !any(intervention == TRUE) ~ "none"
       # ),
-      .groups = "drop") |>
+      .groups = "drop"
+    ) |>
     mutate(
       suitability_potential = paste0("S", dummy_suitability_potential),
       suitability_potential = case_when(suitability_potential %in% "S4" ~ "N", TRUE ~ suitability_potential),
@@ -765,7 +644,7 @@ calculate_suitability_potential_table <- function(lookup_intervention, intervent
     ) |>
     dplyr::select(-contains("dummy"), -suitability) |>
     rename_with(~ paste(., intervention_level, sep = "_"), -c("ID"))
-  
+
   return(suitability_potential_table)
 }
 
@@ -787,19 +666,19 @@ calculate_suitability_potential_table <- function(lookup_intervention, intervent
 #'   TEXTURE_USDA = c("Sandy", "Loamy", "Clayey")
 #' )
 #'
-#' map_texture_code("1", lookup_table)  # Returns "Sandy"
-#' map_texture_code("4", lookup_table)  # Returns NA
+#' map_texture_code("1", lookup_table) # Returns "Sandy"
+#' map_texture_code("4", lookup_table) # Returns NA
 #'
 #' @export
 map_texture_code <- function(texture_code, lookup_table) {
-  texture_usda <- lookup_table %>%
-    filter(texture_kemtan == texture_code) %>%
+  texture_usda <- lookup_table |>
+    filter(texture_kemtan == texture_code) |>
     pull(TEXTURE_USDA)
-  
+
   if (length(texture_usda) == 0) {
     return(NA)
   }
-  
+
   return(texture_usda)
 }
 
@@ -825,16 +704,16 @@ stack_raster_layers <- function(raster_list, parameter_names) {
   if (!is.list(raster_list) || !is.vector(parameter_names) || length(raster_list) != length(parameter_names)) {
     stop("raster_list must be a list and parameter_names must be a vector of the same length as raster_list")
   }
-  
+
   # Set names of raster objects based on parameter names
   named_raster_list <- setNames(raster_list, parameter_names)
-  
+
   # Stack the raster layers
   stacked_raster_factors <- rast(named_raster_list)
-  
+
   # Set variable names of the stacked raster object
-  #varnames(stacked_raster_factors) <- names(stacked_raster_factors)
-  
+  # varnames(stacked_raster_factors) <- names(stacked_raster_factors)
+
   return(stacked_raster_factors)
 }
 
@@ -862,9 +741,9 @@ read_raster_files <- function(climate_soil_data) {
   if (!is.data.frame(climate_soil_data) || !("raster_path" %in% names(climate_soil_data))) {
     stop("climate_soil_data must be a data frame with a 'raster_path' column")
   }
-  
+
   # Load raster objects from file paths
-  climate_soil_data <- climate_soil_data %>%
+  climate_soil_data <- climate_soil_data |>
     mutate(raster_object = map(raster_path, ~ {
       if (file.exists(.x)) {
         rast(.x)
@@ -873,7 +752,7 @@ read_raster_files <- function(climate_soil_data) {
         rast(system.file(.x, package = "ALSA"))
       }
     }))
-  
+
   # Return the list of raster objects
   return(pull(climate_soil_data, raster_object))
 }
@@ -881,7 +760,7 @@ read_raster_files <- function(climate_soil_data) {
 
 format_session_info_table <- function() {
   si <- sessionInfo()
-  
+
   # Extract R version info
   r_version <- si$R.version[c("major", "minor", "year", "month", "day", "nickname")]
   r_version <- paste0(
@@ -889,23 +768,23 @@ format_session_info_table <- function() {
     " (", r_version$year, "-", r_version$month, "-", r_version$day, ")",
     " '", r_version$nickname, "'"
   )
-  
+
   # Extract platform and OS info
   platform_os <- paste(si$platform, "|", si$running)
-  
+
   # Extract locale info
   locale_info <- strsplit(si[["locale"]], ";")[[1]]
   locale_info <- paste(locale_info, collapse = "<br>")
-  
+
   # Extract .libpaths, accomodate multiple library paths
-  lib_paths <- .libPaths() |> paste( collapse = "<br>")
-  
+  lib_paths <- .libPaths() |> paste(collapse = "<br>")
+
   # Combine all info into a single tibble
   session_summary <- tibble(
     Category = c("R Version", "Platform | OS", ".libPaths", "Locale"),
     Details = c(r_version, platform_os, lib_paths, locale_info)
   )
-  
+
   return(session_summary)
 }
 
@@ -913,28 +792,36 @@ format_session_info_table <- function() {
 plot_suitability_factors <- function(raster_data) {
   # Convert the raster data to a tidy data frame for ggplot
   raster_df <- as.data.frame(raster_data, xy = TRUE, na.rm = TRUE)
-  
+
   # Tidy up the data, ensure proper variable names
-  raster_df <- raster_df %>%
-    pivot_longer(cols = -c(x, y),  # Keep the 'x' and 'y' columns, pivot the rest
-                 names_to = "variable", 
-                 values_to = "suitability") %>%
-    filter(!is.na(suitability)) %>%
+  raster_df <- raster_df |>
+    pivot_longer(
+      cols = -c(x, y), # Keep the 'x' and 'y' columns, pivot the rest
+      names_to = "variable",
+      values_to = "suitability"
+    ) |>
+    filter(!is.na(suitability)) |>
     mutate(suitability = factor(suitability, levels = c("S1", "S2", "S3", "N")))
-  
-  
+
+
   ggplot(raster_df, aes(x = x, y = y, fill = suitability)) +
-    geom_raster() +  
-    scale_fill_manual(values = c("S1" = "darkgreen", 
-                                 "S2" = "lightgreen", 
-                                 "S3" = "darkorange", 
-                                 "N" = "darkred"), 
-                      name = "Suitability") +  
-    facet_wrap(~ variable, ncol = 4) +  
-    theme_minimal() +  
-    theme(legend.position = "right",
-          strip.text = element_text(size = 10, face = "bold"),
-          axis.text = element_blank(),
-          axis.ticks = element_blank()) +
-    labs( x = "Longitude", y = "Latitude")
+    geom_raster() +
+    scale_fill_manual(
+      values = c(
+        "S1" = "darkgreen",
+        "S2" = "lightgreen",
+        "S3" = "darkorange",
+        "N" = "darkred"
+      ),
+      name = "Suitability"
+    ) +
+    facet_wrap(~variable, ncol = 4) +
+    theme_minimal() +
+    theme(
+      legend.position = "right",
+      strip.text = element_text(size = 10, face = "bold"),
+      axis.text = element_blank(),
+      axis.ticks = element_blank()
+    ) +
+    labs(x = "Longitude", y = "Latitude")
 }

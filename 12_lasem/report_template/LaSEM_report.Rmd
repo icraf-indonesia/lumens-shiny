@@ -1,6 +1,6 @@
 ---
 title: "Land Suitability Evaluation Module (LaSEM) Report"
-output: 
+output:
   html_document:
     toc: true
     toc_float: true
@@ -20,38 +20,68 @@ params:
   path_lookup_intervention: NA
   path_output: NA
   session_log: NA
+  validation_results: NA
+  inspection_log: NA
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(
-	echo = FALSE,
-	message = FALSE,
-	warning = FALSE
+  echo = FALSE,
+  message = FALSE,
+  warning = FALSE
 )
 library(readr)
 library(dplyr)
 library(terra)
 library(sf)
-library(leaflet)
-library(htmltools)
 library(knitr)
 library(kableExtra)
 library(DT)
 library(tidyterra)
-source("../../12_lasem/rscript/LaSEM_functions.R")
+library(ggplot2)
+library(patchwork)
+library(stringr)
+library(htmltools)
+library(leaflet)
 
+# Load data
 suitability_parameter <- read_csv(params$path_lookup_crop_suitability)
 climate_soil_data <- read_csv(params$path_lookup_raster_inputs)
-harmonised_rasters <- readRDS(params$file_name_soil_climate_factors_rds)
+harmonised_rasters <- terra::unwrap(readRDS(params$file_name_soil_climate_factors_rds))
 suitability_polygon <- readRDS(params$file_name_land_suit_rds)
 intervention_lookup <- read_csv(params$path_lookup_intervention)
-suit_by_factors <- rast(file_name_suit_factors_tif)
+suit_by_factors <- terra::rast(params$file_name_suit_factors_tif)
+
+# Color scheme for suitability classes
+suit_colors <- c(
+  "S1" = "#228B22",  # Forest green
+  "S2" = "#90EE90",  # Light green
+  "S3" = "#FFA500",  # Orange
+  "N"  = "#DC143C"   # Crimson
+)
+
+suit_labels <- c(
+  "S1" = "S1 - Highly Suitable",
+  "S2" = "S2 - Moderately Suitable",
+  "S3" = "S3 - Marginally Suitable",
+  "N"  = "N - Not Suitable"
+)
 ```
 
-<details><summary>Click here for Analysis Log</summary>
+---
 
-```{r analysis-log, echo=FALSE}
-analysis_log <- tribble(
+**Species:** `r suitability_parameter[["name_sp"]][1]`
+
+**Common name:** `r suitability_parameter[["name_common"]][1]`
+
+**Analysis period:** `r params$start_time` to `r params$end_time`
+
+---
+
+<details open><summary><strong>Analysis Log</strong></summary>
+
+```{r analysis-log}
+analysis_log <- tibble::tribble(
   ~Category, ~Details,
   "Analysis Start", params$start_time,
   "Analysis End", params$end_time,
@@ -62,94 +92,227 @@ analysis_log <- tribble(
   "Outputs", "",
   "1. Land suitability map (raster)", params$file_name_land_suit_tif,
   "2. Land suitability map lookup table", params$file_name_land_suit_lookup_csv,
-  "3. Land suitability map (polygon)", params$file_name_land_suit_shp,
+  "3. Land suitability map (polygon RDS)", params$file_name_land_suit_rds,
+  "4. Soil and climate factors (RDS)", params$file_name_soil_climate_factors_rds,
+  "5. Suitability by factors (GeoTIFF)", params$file_name_suit_factors_tif,
   "Output Workspace", params$path_output,
   "Session Summary", ""
-) %>% rbind(params$session_log)
-analysis_log %>%
-kbl(caption = "Analysis Log", escape = FALSE) %>%
-kable_paper("hover", full_width = F)
+) |>
+  dplyr::bind_rows(params$session_log)
+
+analysis_log |>
+  kbl(caption = "Analysis Log", escape = FALSE) |>
+  kable_paper("hover", full_width = FALSE)
 ```
+
 </details>
 
-# Intro
+---
 
-The primary output of this module is a map that displays areas according to their biophysical suitability for a given crop or farming system. This land suitability map informs users about land suitability and the potential for addressing biophysical limiting factors. However, the map strictly considers biophysical factors and does not account for land allocation maps or maps resulting from specific policies or rules. In this analysis, it is assumed that according to Liebig's law of the minimum, the factor that is at the most limiting level will determine the final suitability level.
+# Introduction
 
-**Species:** `r suitability_parameter[["name_sp"]][1]`
+The primary output of this module is a map that displays areas according to their biophysical suitability for a given crop or farming system. This land suitability map informs users about land suitability and the potential for addressing biophysical limiting factors. However, the map strictly considers biophysical factors and does not account for land allocation maps or maps resulting from specific policies or rules.
 
-**Common name:** `r suitability_parameter[["name_common"]][1]`
+In this analysis, it is assumed that according to **Liebig's law of the minimum**, the factor that is at the most limiting level will determine the final suitability level.
 
-# Crop environmental requirements
+<details><summary><strong>Methodology</strong></summary>
+
+### How LaSEM Works
+
+1. **Input Data**: Biophysical raster data (climate, soil, terrain) are classified into suitability classes (S1, S2, S3, N) based on crop-specific thresholds.
+
+2. **Maximum Limitation Method**: For each pixel, the most limiting factor (lowest suitability class) determines the final suitability. This follows Liebig's Law of the Minimum.
+
+3. **Intervention Scenarios**: Potential suitability is calculated by assuming management interventions can improve certain factors by 1-2 classes.
+
+### Key Limitations
+
+- Considers biophysical factors only; socioeconomic factors are excluded.
+- The categorical approach does not account for uncertainty in data or interactions between factors.
+- Output is semi-quantitative and does not show land productivity in weight per unit area.
+- Cannot consider potential impacts of extreme weather events.
+
+</details>
+
+---
+
+# Data Quality
+
+<details><summary><strong>Input Validation Results</strong></summary>
+
+```{r validation-results}
+if (!is.null(params$validation_results)) {
+  val <- params$validation_results
+  if (val$valid) {
+    div(class = "alert alert-success", "All input validations passed.")
+  } else {
+    kable(val$errors, caption = "Validation Errors") |>
+      kable_styling(bootstrap_options = c("striped", "hover"))
+  }
+}
+```
+
+</details>
+
+<details><summary><strong>Factor Inspection Log</strong></summary>
+
+```{r inspection-log}
+if (!is.null(params$inspection_log) && length(params$inspection_log) > 0) {
+  inspection_df <- do.call(rbind, lapply(names(params$inspection_log), function(f) {
+    data.frame(
+      Factor = f,
+      Status = params$inspection_log[[f]]$status,
+      Note = ifelse(is.na(params$inspection_log[[f]]$note), "",
+                    params$inspection_log[[f]]$note)
+    )
+  }))
+  kable(inspection_df, caption = "Factor Inspection Status") |>
+    kable_styling(bootstrap_options = c("striped", "hover"))
+}
+```
+
+</details>
+
+---
+
+# Crop Environmental Requirements
 
 ```{r crop-requirements}
-suitability_parameter %>% 
-  select(-c("name_common", "name_sp")) %>%
-  #kable() %>%
-  #datatable(bootstrap_options = c("striped", "hover"))
-  datatable()
+suitability_parameter |>
+  select(-c("name_common", "name_sp")) |>
+  datatable(options = list(pageLength = 10))
 ```
 
-# Agroclimatic, soil, and terrain conditions
+---
 
-## List of agroclimatic, soil, and terrain data
+# Agroclimatic, Soil, and Terrain Conditions
+
+## Input Data Summary
 
 ```{r climate-soil-data}
-climate_soil_data %>% 
-  select(-c("raster_path", "name_parameter")) %>%
-  datatable()
+climate_soil_data |>
+  select(-c("raster_path")) |>
+  datatable(options = list(pageLength = 10))
 ```
 
-## Maps of agroclimatic, soil, and terrain conditions
+## Input Maps
 
-```{r agroclimatic-maps, fig.height=8, fig.width=16}
-plot(harmonised_rasters)
+```{r input-maps, fig.height=10, fig.width=14}
+# Create small multiples of input rasters using tidyterra
+n_layers <- terra::nlyr(harmonised_rasters)
+n_cols <- min(3, n_layers)
+n_rows <- ceiling(n_layers / n_cols)
+
+plot_list <- lapply(seq_len(n_layers), function(i) {
+  ggplot() +
+    tidyterra::geom_spatraster(data = harmonised_rasters[[i]]) +
+    scale_fill_viridis_c(name = names(harmonised_rasters)[i]) +
+    labs(title = names(harmonised_rasters)[i]) +
+    theme_minimal() +
+    theme(
+      plot.title = element_text(size = 10, face = "bold"),
+      axis.text = element_blank(),
+      axis.title = element_blank()
+    )
+})
+
+# Use patchwork to arrange
+wrap_plots(plot_list, ncol = n_cols, nrow = n_rows)
 ```
 
-# Crop suitability Map
+---
 
-```{r suitability-map}
-# Color palette for suitability levels
-colors <- colorFactor(palette = c("olivedrab","olivedrab2","orange", "red"),
-                      levels = c("S1", "S2", "S3", "N"), ordered = FALSE)
+# Crop Suitability Map
 
-# Create labels for polygons
-suitability_polygon$label_content <- with(
-  suitability_polygon,
-  paste0(
-    "<strong>Suitability Actual:</strong> ", suitability,
-    "<br><strong>Max Potential:</strong> ", suitability_potential_high,
-    "<br><strong>Primary Limiting Factor:</strong> ", limiting_factor_actual,
-    "<br><strong>Secondary Limiting Factor:</strong> ", limiting_factor_potential
+## Actual Suitability
+
+```{r suitability-map-static, fig.height=8, fig.width=12}
+# Static map using tidyterra with polygon data.
+# The GeoTIFF raster does not preserve the active categorical category
+# (suitability class) when written and re-read, so we use the polygon
+# object which retains the suitability column explicitly.
+
+ggplot() +
+  tidyterra::geom_spatvector(data = suitability_polygon, aes(fill = suitability)) +
+  scale_fill_manual(
+    values = suit_colors,
+    labels = suit_labels,
+    name = "Suitability",
+    na.value = "grey80"
+  ) +
+  labs(
+    title = "Land Suitability Map",
+    subtitle = paste(suitability_parameter[["name_common"]][1])
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    legend.position = "right"
   )
-) %>% lapply(htmltools::HTML)
+```
 
-# Create the leaflet map
-suitability_map <- leaflet(suitability_polygon) %>% 
-  addTiles(group = "OSM (default)") %>% 
-  addProviderTiles(providers$CyclOSM, group = "CyclOSM") %>% 
-  addPolygons(
-    fillColor = ~colors(suitability),
-    fillOpacity = 1,
-    color = "grey",
-    weight = 0.1,
-    smoothFactor = 1, 
-    label = ~label_content,
-    labelOptions = labelOptions(
-      style = list("font-weight" = "normal", "color" = "black"),
-      textsize = "13px",
-      direction = "auto"),
-    group = "Actual"
-  ) %>% 
-   addPolygons(
-      fillColor = ~ colors(suitability_potential_low),
-      # Set the fill color based on 'suitability'
+## Interactive Suitability Map
+
+```{r suitability-map-interactive, fig.height=8, fig.width=12}
+# Interactive Leaflet map with layer control for intervention scenarios
+if (all(c("suitability_potential_low", "suitability_potential_med", "suitability_potential_high") %in% names(suitability_polygon))) {
+  colors_fact <- colorFactor(
+    palette = suit_colors,
+    levels = c("S1", "S2", "S3", "N"),
+    ordered = FALSE
+  )
+
+  # Build label content
+  suit_poly <- suitability_polygon |>
+    sf::st_transform(crs = 4326) |>
+    dplyr::mutate(
+      label_content = purrr::pmap(
+        list(suitability, suitability_potential_high, limiting_factor_actual, limiting_factor_potential),
+        function(suit, pot_high, lim_act, lim_pot) {
+          lim_act_str <- if (is.null(lim_act) || length(lim_act) == 0 || all(is.na(lim_act))) {
+            "None"
+          } else {
+            paste(unlist(lim_act), collapse = ", ")
+          }
+          lim_pot_str <- if (is.null(lim_pot) || length(lim_pot) == 0 || all(is.na(lim_pot))) {
+            "None"
+          } else {
+            paste(unlist(lim_pot), collapse = ", ")
+          }
+          HTML(paste0(
+            "<strong>Suitability Actual:</strong> ", suit,
+            "<br><strong>Max Potential:</strong> ", pot_high,
+            "<br><strong>Primary Limiting Factor:</strong> ", lim_act_str,
+            "<br><strong>Secondary Limiting Factor:</strong> ", lim_pot_str
+          ))
+        }
+      )
+    )
+
+  leaflet(suit_poly) |>
+    addTiles(group = "OSM (default)") |>
+    addProviderTiles(leaflet::providers$CyclOSM, group = "CyclOSM") |>
+    addPolygons(
+      fillColor = ~ colors_fact(suitability),
       fillOpacity = 1,
       color = "grey",
       weight = 0.1,
       smoothFactor = 1,
       label = ~ label_content,
-      # Add labels to polygons
+      labelOptions = labelOptions(
+        style = list("font-weight" = "normal", "color" = "black"),
+        textsize = "13px",
+        direction = "auto"
+      ),
+      group = "Actual"
+    ) |>
+    addPolygons(
+      fillColor = ~ colors_fact(suitability_potential_low),
+      fillOpacity = 1,
+      color = "grey",
+      weight = 0.1,
+      smoothFactor = 1,
+      label = ~ label_content,
       labelOptions = labelOptions(
         style = list("font-weight" = "normal", "color" = "black"),
         textsize = "13px",
@@ -158,65 +321,181 @@ suitability_map <- leaflet(suitability_polygon) %>%
       group = "Low Intervention"
     ) |>
     addPolygons(
-      fillColor = ~ colors(suitability_potential_med),
-      # Set the fill color based on 'suitability'
+      fillColor = ~ colors_fact(suitability_potential_med),
       fillOpacity = 1,
       color = "grey",
       weight = 0.1,
       smoothFactor = 1,
       label = ~ label_content,
-      # Add labels to polygons
       labelOptions = labelOptions(
         style = list("font-weight" = "normal", "color" = "black"),
         textsize = "13px",
-        direction = "auto"),
-        group = "Medium Intervention") |>
-  addPolygons(
-    fillColor = ~colors(suitability_potential_high),
-    fillOpacity = 1,
-    color = "grey",
-    weight = 0.1,
-    smoothFactor = 1,
-    label = ~label_content,
-    labelOptions = labelOptions(
-      style = list("font-weight" = "normal", "color" = "black"),
-      textsize = "13px",
-      direction = "auto"),
-    group = "High Intervention"
-  ) %>%
-  addLegend(
-    "bottomright",
-    pal = colors,
-    values = ~factor(c(suitability, suitability_potential_high), levels = c("S1", "S2", "S3", "N")),
-    title = "Suitability Level",
-    opacity = 0.7
-  ) %>%
-  addLayersControl(
-    baseGroups = c("Actual", "Low Intervention", "Medium Intervention", "High Intervention"),
-    options = layersControlOptions(collapsed = FALSE)
-  )
-
-suitability_map
+        direction = "auto"
+      ),
+      group = "Medium Intervention"
+    ) |>
+    addPolygons(
+      fillColor = ~ colors_fact(suitability_potential_high),
+      fillOpacity = 1,
+      color = "grey",
+      weight = 0.1,
+      smoothFactor = 1,
+      label = ~ label_content,
+      labelOptions = labelOptions(
+        style = list("font-weight" = "normal", "color" = "black"),
+        textsize = "13px",
+        direction = "auto"
+      ),
+      group = "High Intervention"
+    ) |>
+    addLegend(
+      position = "bottomright",
+      pal = colors_fact,
+      values = ~ factor(c(suitability, suitability_potential_high), levels = c("S1", "S2", "S3", "N")),
+      title = "Suitability Level",
+      opacity = 0.7
+    ) |>
+    addLayersControl(
+      baseGroups = c("Actual", "Low Intervention", "Medium Intervention", "High Intervention"),
+      options = layersControlOptions(collapsed = FALSE)
+    )
+} else {
+  # Fallback message
+  p("Interactive map requires potential scenario columns. Please run the full analysis pipeline.")
+}
 ```
 
-# Land suitability according to each climate or edaphic factor
+## Intervention Scenarios
 
-```{r suitability-factors, fig.height=8, fig.width=16}
-plot_suitability_factors(suit_by_factors)
+```{r intervention-maps, fig.height=10, fig.width=14}
+# Small multiples for intervention scenarios
+pot_cols <- c("suitability_potential_low", "suitability_potential_med",
+              "suitability_potential_high")
+
+if (all(pot_cols %in% names(suitability_polygon))) {
+  scenario_names <- c("Low Intervention", "Medium Intervention", "High Intervention")
+
+  plot_list <- lapply(seq_along(pot_cols), function(i) {
+    col <- pot_cols[i]
+
+    ggplot() +
+      tidyterra::geom_spatvector(data = suitability_polygon, aes(fill = !!sym(col))) +
+      scale_fill_manual(
+        values = suit_colors,
+        labels = suit_labels,
+        name = "Suitability"
+      ) +
+      labs(title = scenario_names[i]) +
+      theme_minimal() +
+      theme(
+        plot.title = element_text(size = 12, face = "bold"),
+        axis.text = element_blank(),
+        axis.title = element_blank()
+      )
+  })
+
+  wrap_plots(plot_list, ncol = 2, nrow = 2) +
+    plot_annotation(
+      title = "Suitability Under Different Intervention Scenarios",
+      theme = theme(plot.title = element_text(size = 14, face = "bold"))
+    )
+} else {
+  # Fallback message
+  ggplot() +
+    annotate("text", x = 0.5, y = 0.5,
+             label = "Intervention scenario data not available") +
+    theme_void()
+}
 ```
 
-# Land suitability improvements
+---
+
+# Land Suitability by Factor
+
+```{r suitability-factors, fig.height=10, fig.width=14}
+# Plot individual factor classifications using a facet grid for consistent legend
+raster_df <- as.data.frame(suit_by_factors, xy = TRUE, na.rm = TRUE)
+
+if (ncol(raster_df) > 2) {
+  raster_long <- raster_df |>
+    tidyr::pivot_longer(
+      cols = -c(x, y),
+      names_to = "variable",
+      values_to = "suitability"
+    ) |>
+    dplyr::filter(!is.na(suitability)) |>
+    dplyr::mutate(
+      suitability = factor(suitability, levels = c("S1", "S2", "S3", "N")),
+      variable = stringr::str_replace_all(variable, "_", " ")
+    )
+
+  ggplot(raster_long, aes(x = x, y = y, fill = suitability)) +
+    geom_raster() +
+    scale_fill_manual(
+      values = suit_colors,
+      labels = suit_labels,
+      name = "Suitability Class",
+      na.value = "grey80"
+    ) +
+    facet_wrap(~ variable, ncol = min(4, length(unique(raster_long$variable)))) +
+    coord_equal() +
+    theme_minimal() +
+    theme(
+      axis.text = element_blank(),
+      axis.title = element_blank(),
+      strip.text = element_text(size = 10, face = "bold"),
+      panel.spacing = unit(2, "mm")
+    )
+} else {
+  ggplot() +
+    annotate("text", x = 0.5, y = 0.5,
+             label = "No factor classification data available") +
+    theme_void()
+}
+```
+
+---
+
+# Land Suitability Improvements
 
 Assumptions regarding the extent to which actual land suitability can be improved to reach its potential based on the level of management.
 
 ```{r intervention-lookup}
-intervention_lookup %>% 
-  select(-c("name_parameter")) %>%
-  datatable()
-  # kable(caption = "Intervention Lookup Table") %>%
-  # kable_styling(bootstrap_options = c("striped", "hover"))
+intervention_lookup |>
+  select(-c("name_parameter")) |>
+  datatable(options = list(pageLength = 10))
 ```
 
-------------------------------------------------------------------------
+---
 
-<font size="1"> LUMENS is free software and comes with ABSOLUTELY NO WARRANTY. Users are responsible for the results generated. Results depend on the quality of the input data ("garbage in, garbage out") and may vary or be sensitive to the parameters used. Please report any problems encountered while using LUMENS as [a GitHub issue](https://github.com/icraf-indonesia/lumens-shiny/issues). Feedback and questions are welcome [Contact Us URL]. </font size>
+# Summary Statistics
+
+```{r area-summary}
+if ("suitability" %in% names(suitability_polygon)) {
+  area_summary <- suitability_polygon |>
+    sf::st_drop_geometry() |>
+    group_by(suitability) |>
+    summarise(count = n(), .groups = "drop") |>
+    mutate(percentage = round(count / sum(count) * 100, 1))
+
+  kable(area_summary,
+        col.names = c("Suitability Class", "Pixel Count", "Percentage (%)"),
+        caption = "Area Distribution by Suitability Class") |>
+    kable_styling(bootstrap_options = c("striped", "hover"))
+}
+```
+
+---
+
+<details><summary><strong>Session Information</strong></summary>
+
+```{r session-info}
+kable(params$session_log, caption = "R Session Information") |>
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+</details>
+
+---
+
+<font size="1">LUMENS is free software and comes with ABSOLUTELY NO WARRANTY. Users are responsible for the results generated. Results depend on the quality of the input data ("garbage in, garbage out") and may vary or be sensitive to the parameters used. Please report any problems encountered while using LUMENS as [a GitHub issue](https://github.com/icraf-indonesia/lumens-shiny/issues).</font>
