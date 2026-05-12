@@ -43,6 +43,7 @@ library(patchwork)
 library(stringr)
 library(htmltools)
 library(leaflet)
+library(tidyr)
 
 # Load data
 suitability_parameter <- read_csv(params$path_lookup_crop_suitability)
@@ -472,16 +473,79 @@ intervention_lookup |>
 
 ```{r area-summary}
 if ("suitability" %in% names(suitability_polygon)) {
-  area_summary <- suitability_polygon |>
-    sf::st_drop_geometry() |>
-    group_by(suitability) |>
-    summarise(count = n(), .groups = "drop") |>
-    mutate(percentage = round(count / sum(count) * 100, 1))
+  # Calculate area in hectares with CRS awareness
+  if (sf::st_is_longlat(suitability_polygon)) {
+    prev_s2 <- sf::sf_use_s2()
+    sf::sf_use_s2(TRUE)
+    area_m2 <- as.numeric(sf::st_area(suitability_polygon))
+    sf::sf_use_s2(prev_s2)
+  } else {
+    area_m2 <- as.numeric(sf::st_area(suitability_polygon))
+  }
 
-  kable(area_summary,
-        col.names = c("Suitability Class", "Pixel Count", "Percentage (%)"),
-        caption = "Area Distribution by Suitability Class") |>
-    kable_styling(bootstrap_options = c("striped", "hover"))
+  area_data <- suitability_polygon |>
+    sf::st_drop_geometry() |>
+    dplyr::mutate(area_ha = round(area_m2 / 10000, 2))
+
+  has_intervention <- all(c(
+    "suitability_potential_low", "suitability_potential_med",
+    "suitability_potential_high"
+  ) %in% names(area_data))
+
+  if (has_intervention) {
+    area_stats <- area_data |>
+      dplyr::rename(
+        Actual = "suitability",
+        Low    = "suitability_potential_low",
+        Medium = "suitability_potential_med",
+        High   = "suitability_potential_high"
+      ) |>
+      dplyr::select(area_ha, Actual, Low, Medium, High) |>
+      tidyr::pivot_longer(
+        cols      = c(Actual, Low, Medium, High),
+        names_to  = "scenario",
+        values_to = "class"
+      ) |>
+      dplyr::group_by(scenario, class) |>
+      dplyr::summarise(area_ha = sum(area_ha, na.rm = TRUE), .groups = "drop") |>
+      dplyr::group_by(scenario) |>
+      dplyr::mutate(percentage = round(area_ha / sum(area_ha) * 100, 1)) |>
+      dplyr::ungroup()
+
+    all_classes <- tidyr::expand_grid(
+      scenario = c("Actual", "Low", "Medium", "High"),
+      class = c("S1", "S2", "S3", "N")
+    )
+
+    area_stats <- all_classes |>
+      dplyr::left_join(area_stats, by = c("scenario", "class")) |>
+      dplyr::mutate(
+        area_ha    = tidyr::replace_na(area_ha, 0),
+        percentage = tidyr::replace_na(percentage, 0)
+      ) |>
+      dplyr::arrange(scenario, match(class, c("S1", "S2", "S3", "N"))) |>
+      dplyr::mutate(`Area (ha)` = round(area_ha, 1)) |>
+      dplyr::select(Scenario = scenario, Class = class, `Area (ha)`, Percentage = percentage)
+
+    kable(area_stats,
+          caption = "Area Distribution by Suitability Class and Intervention Scenario") |>
+      kable_styling(bootstrap_options = c("striped", "hover")) |>
+      column_spec(1, bold = TRUE) |>
+      collapse_rows(columns = 1, valign = "top")
+  } else {
+    area_stats <- area_data |>
+      dplyr::group_by(class = suitability) |>
+      dplyr::summarise(area_ha = sum(area_ha, na.rm = TRUE), .groups = "drop") |>
+      dplyr::mutate(percentage = round(area_ha / sum(area_ha) * 100, 1)) |>
+      dplyr::mutate(`Area (ha)` = round(area_ha, 1)) |>
+      dplyr::select(Class = class, `Area (ha)`, Percentage = percentage) |>
+      dplyr::arrange(match(Class, c("S1", "S2", "S3", "N")))
+
+    kable(area_stats,
+          col.names = c("Suitability Class", "Area (ha)", "Percentage (%)"),
+          caption = "Area Distribution by Suitability Class") |>
+      kable_styling(bootstrap_options = c("striped", "hover"))
+  }
 }
 ```
 

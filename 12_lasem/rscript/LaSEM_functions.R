@@ -63,12 +63,14 @@ perform_suitability_analysis <-
       }, intervention_table)
 
     suitability_polygon <- suitability_map$suitability_polygon |>
+      rename(suitability_actual = suitability) |>
       left_join(suitability_attr_pot, by = "ID") |>
       mutate(
-        suitability_potential_low = case_when(suitability == "S1" ~ "S1", .default = suitability_potential_low),
-        suitability_potential_med = case_when(suitability == "S1" ~ "S1", .default = suitability_potential_med),
-        suitability_potential_high = case_when(suitability == "S1" ~ "S1", .default = suitability_potential_high)
+        suitability_potential_low = case_when(suitability_actual == "S1" ~ "S1", .default = suitability_potential_low),
+        suitability_potential_med = case_when(suitability_actual == "S1" ~ "S1", .default = suitability_potential_med),
+        suitability_potential_high = case_when(suitability_actual == "S1" ~ "S1", .default = suitability_potential_high)
       ) |>
+      rename(suitability = suitability_actual) |>
       st_transform(crs = 4326)
 
     suitability_map$suitability_polygon <- suitability_polygon

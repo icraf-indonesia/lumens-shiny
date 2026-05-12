@@ -176,14 +176,7 @@ ui <- fluidPage(
         nav_panel(
           title = tagList(icon("chart-bar"), " Results"),
           value = "results_tab",
-          card(
-            card_header("Suitability Map"),
-            leafletOutput("results_map", height = "500px")
-          ),
-          card(
-            card_header("Area by Suitability Class"),
-            tableOutput("area_summary")
-          )
+          uiOutput("results_content")
         )
       )
     )
@@ -723,6 +716,36 @@ server <- function(input, output, session) {
     })
   })
 
+  # Results content (conditional on analysis completion)
+  output$results_content <- renderUI({
+    if (is.null(rv$analysis_results)) {
+      card(
+        card_header("Results"),
+        div(
+          style = "text-align: center; padding: 50px; color: #666;",
+          icon("chart-bar", style = "font-size: 3em; margin-bottom: 20px;"),
+          h4("No analysis results yet"),
+          p("Run the LaSEM analysis to view suitability maps and area summaries.")
+        )
+      )
+    } else {
+      tagList(
+        card(
+          card_header(
+            "Suitability Map",
+            span(class = "text-muted fw-normal fs-6 ms-2",
+                 "(Actual / Low / Medium / High)")
+          ),
+          leafletOutput("results_map", height = "500px")
+        ),
+        card(
+          card_header("Area Summary by Scenario (ha)"),
+          tableOutput("area_summary")
+        )
+      )
+    }
+  })
+
   # Results map
   output$results_map <- renderLeaflet({
     req(rv$analysis_results)
@@ -738,38 +761,100 @@ server <- function(input, output, session) {
       polygon <- sf::st_transform(polygon, crs = 4326)
     }
 
-    suit_colors <- c(
-      "S1" = "#228B22",
-      "S2" = "#90EE90",
-      "S3" = "#FFA500",
-      "N"  = "#DC143C"
+    # Define suitability colors using colorFactor (Leaflet-native approach)
+    # This matches the working report template and avoids formula evaluation issues
+    colors_fact <- leaflet::colorFactor(
+      palette = c("S1" = "#228B22", "S2" = "#90EE90", "S3" = "#FFA500", "N" = "#DC143C"),
+      levels = c("S1", "S2", "S3", "N"),
+      ordered = FALSE
     )
+
+    # Convert list columns to character strings for proper Leaflet rendering
+    polygon <- polygon |>
+      dplyr::mutate(
+        limiting_factor_actual = sapply(limiting_factor_actual, function(x) {
+          if (is.null(x) || length(x) == 0 || all(is.na(x))) {
+            "None"
+          } else {
+            paste(x, collapse = ", ")
+          }
+        }),
+        limiting_factor_potential = sapply(limiting_factor_potential, function(x) {
+          if (is.null(x) || length(x) == 0 || all(is.na(x))) {
+            "None"
+          } else {
+            paste(x, collapse = ", ")
+          }
+        })
+      )
 
     # Use the same rendering style as the report's interactive map:
     # nearly-invisible grey borders (weight 0.1) with full fill opacity
     # so polygons blend together smoothly instead of appearing speckled.
+    # Four layers for intervention scenarios, controllable via layer control
     leaflet(polygon) |>
       addTiles() |>
       addPolygons(
-        fillColor = ~ suit_colors[suitability],
+        fillColor = ~ colors_fact(suitability),
         fillOpacity = 1,
         color = "grey",
         weight = 0.1,
         smoothFactor = 1,
         popup = ~ paste(
           "<strong>Suitability:</strong>", suitability,
-          "<br><strong>Limiting factor:</strong>",
-          ifelse(is.na(limiting_factor_actual), "None", limiting_factor_actual)
-        )
+          "<br><strong>Limiting factor:</strong>", limiting_factor_actual
+        ),
+        group = "Actual"
+      ) |>
+      addPolygons(
+        fillColor = ~ colors_fact(suitability_potential_low),
+        fillOpacity = 1,
+        color = "grey",
+        weight = 0.1,
+        smoothFactor = 1,
+        popup = ~ paste(
+          "<strong>Suitability:</strong>", suitability_potential_low,
+          "<br><strong>Limiting factor:</strong>", limiting_factor_actual
+        ),
+        group = "Low"
+      ) |>
+      addPolygons(
+        fillColor = ~ colors_fact(suitability_potential_med),
+        fillOpacity = 1,
+        color = "grey",
+        weight = 0.1,
+        smoothFactor = 1,
+        popup = ~ paste(
+          "<strong>Suitability:</strong>", suitability_potential_med,
+          "<br><strong>Limiting factor:</strong>", limiting_factor_actual
+        ),
+        group = "Medium"
+      ) |>
+      addPolygons(
+        fillColor = ~ colors_fact(suitability_potential_high),
+        fillOpacity = 1,
+        color = "grey",
+        weight = 0.1,
+        smoothFactor = 1,
+        popup = ~ paste(
+          "<strong>Suitability:</strong>", suitability_potential_high,
+          "<br><strong>Limiting factor:</strong>", limiting_factor_actual
+        ),
+        group = "High"
       ) |>
       addLegend(
         position = "bottomright",
-        colors = suit_colors,
-        labels = c(
-          "S1 - Highly Suitable", "S2 - Moderately Suitable",
-          "S3 - Marginally Suitable", "N - Not Suitable"
+        pal = colors_fact,
+        values = ~ factor(
+          c(suitability, suitability_potential_high),
+          levels = c("S1", "S2", "S3", "N")
         ),
-        title = "Suitability Class"
+        title = "Suitability Class",
+        opacity = 1
+      ) |>
+      addLayersControl(
+        baseGroups = c("Actual", "Low", "Medium", "High"),
+        options = layersControlOptions(collapsed = FALSE)
       )
   })
 
@@ -777,21 +862,87 @@ server <- function(input, output, session) {
   output$area_summary <- renderTable({
     req(rv$analysis_results)
     polygon <- rv$analysis_results$suitability_polygon
-    if (is.null(polygon)) {
+    if (is.null(polygon) || nrow(polygon) == 0) {
       return(data.frame(Message = "No results available"))
     }
 
-    polygon |>
+    has_intervention <- all(c(
+      "suitability_potential_low", "suitability_potential_med",
+      "suitability_potential_high"
+    ) %in% names(sf::st_drop_geometry(polygon)))
+
+    # Calculate area in hectares with CRS awareness
+    # Enable s2 spherical geometry if polygon is in WGS84 (geographic)
+    if (sf::st_is_longlat(polygon)) {
+      prev_s2 <- sf::sf_use_s2()
+      sf::sf_use_s2(TRUE)
+      area_m2 <- as.numeric(sf::st_area(polygon))
+      sf::sf_use_s2(prev_s2)
+    } else {
+      area_m2 <- as.numeric(sf::st_area(polygon))
+    }
+
+    stats <- polygon |>
       sf::st_drop_geometry() |>
-      dplyr::group_by(suitability) |>
-      dplyr::summarise(
-        pixel_count = sum(count, na.rm = TRUE),
-        .groups = "drop"
-      ) |>
-      dplyr::mutate(
-        percentage = round(pixel_count / sum(pixel_count) * 100, 1)
-      ) |>
-      dplyr::arrange(match(suitability, c("S1", "S2", "S3", "N")))
+      dplyr::mutate(area_ha = round(area_m2 / 10000, 2))
+
+    # Build multi-scenario statistics
+    if (has_intervention) {
+      stats_long <- stats |>
+        dplyr::rename(
+          Actual = "suitability",
+          Low    = "suitability_potential_low",
+          Medium = "suitability_potential_med",
+          High   = "suitability_potential_high"
+        ) |>
+        dplyr::select(area_ha, Actual, Low, Medium, High) |>
+        tidyr::pivot_longer(
+          cols      = c(Actual, Low, Medium, High),
+          names_to  = "scenario",
+          values_to = "class"
+        ) |>
+        dplyr::group_by(scenario, class) |>
+        dplyr::summarise(area_ha = sum(area_ha, na.rm = TRUE), .groups = "drop") |>
+        dplyr::group_by(scenario) |>
+        dplyr::mutate(percentage = round(area_ha / sum(area_ha) * 100, 1)) |>
+        dplyr::ungroup()
+
+      # Ensure all 4 classes present even with 0 area
+      all_classes <- tidyr::expand_grid(
+        scenario = c("Actual", "Low", "Medium", "High"),
+        class = c("S1", "S2", "S3", "N")
+      )
+
+      stats_long <- all_classes |>
+        dplyr::left_join(stats_long, by = c("scenario", "class")) |>
+        dplyr::mutate(
+          area_ha    = tidyr::replace_na(area_ha, 0),
+          percentage = tidyr::replace_na(percentage, 0)
+        ) |>
+        dplyr::arrange(scenario, match(class, c("S1", "S2", "S3", "N")))
+    } else {
+      stats_long <- stats |>
+        dplyr::group_by(class = suitability) |>
+        dplyr::summarise(area_ha = sum(area_ha, na.rm = TRUE), .groups = "drop") |>
+        dplyr::mutate(percentage = round(area_ha / sum(area_ha) * 100, 1)) |>
+        dplyr::mutate(scenario = "Actual", .before = 1)
+
+      all_classes <- data.frame(class = c("S1", "S2", "S3", "N"))
+      stats_long <- all_classes |>
+        dplyr::left_join(stats_long, by = "class") |>
+        dplyr::mutate(
+          scenario   = "Actual",
+          area_ha    = tidyr::replace_na(area_ha, 0),
+          percentage = tidyr::replace_na(percentage, 0)
+        ) |>
+        dplyr::arrange(match(class, c("S1", "S2", "S3", "N")))
+    }
+
+    stats_long |>
+      dplyr::mutate(`Area (ha)` = round(area_ha, 1)) |>
+      dplyr::mutate(Percentage = percentage) |>
+      dplyr::select(Scenario = scenario, Class = class,
+                    `Area (ha)`, Percentage)
   })
 
   # Open output folder
