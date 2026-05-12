@@ -15,6 +15,7 @@ library(kableExtra)
 library(shinyFiles)
 library(pkgdown)
 library(sf)
+library(openxlsx)
 
 # Source the functions
 source("functions.R")
@@ -82,8 +83,13 @@ ui <- fluidPage(
         
         actionButton("generate_template", "Buat Template",
                      style = "background-color:#FFA500; color:white; font-size: 18px; padding: 10px 15px; margin-bottom: 15px;"),
-        downloadButton("download_template", "Unduh Template",
-                       style = "font-size: 18px; padding: 10px 15px; margin-bottom: 15px;"),
+        hidden(
+          downloadButton(
+            "download_template",
+            "Unduh Template",
+            style = "font-size: 18px; padding: 10px 15px; margin-bottom: 15px;"
+          )
+        ),
         br()
       ),
       
@@ -184,7 +190,7 @@ server <- function(input, output, session) {
     pupuk_table = NULL
   )
   
-  get_pu_ids <- function(input, LULCT = NULL) {
+  get_pu_ids <- function(input) {
     
     # ======================
     # SHAPEFILE
@@ -194,14 +200,13 @@ server <- function(input, output, session) {
       sf_object <- read_shapefile(input$zone_shapefile)
       
       if (is.null(sf_object)) {
-        stop("Gagal membaca shapefile. Silakan periksa kembali file yang diunggah.")
+        stop("Gagal membaca shapefile.")
       }
       
-      # Rename kolom (safe)
       cols <- names(sf_object)
       
       if (length(cols) < 2) {
-        stop("Shapefile minimal harus memiliki 2 kolom (ID dan nama unit perencanaan).")
+        stop("Shapefile minimal harus memiliki 2 kolom.")
       }
       
       sf_object <- sf_object %>%
@@ -210,34 +215,51 @@ server <- function(input, output, session) {
           planning_unit = all_of(cols[2])
         )
       
-      # Lookup table
-      LookupPU <- sf::st_drop_geometry(sf_object)
+      lookup_df <- sf_object %>%
+        sf::st_drop_geometry() %>%
+        dplyr::select(Value, planning_unit) %>%
+        distinct()
       
-      # Kalau hanya butuh PU ID → return di sini
-      if (is.null(LULCT)) {
-        return(unique(sf_object$Value))
-      }
-      
-      # Kalau mau langsung rasterize (full pipeline)
-      lc_res <- terra::res(LULCT)
-      
-      PU <- rasterise_multipolygon(
-        sf_object,
-        raster_res = lc_res,
-        field = "Value"
-      )
-      
-      levels(PU) <- LookupPU
-      
-      return(list(
-        PU = PU,
-        LookupPU = LookupPU,
-        PU_ID = unique(sf_object$Value)
-      ))
+      return(lookup_df)
     }
     
     # ======================
-    # RASTER
+    # RASTER + LOOKUP TABLE
+    # ======================
+    if (!is.null(input$zone_raster) &&
+        !is.null(input$lookup_zone)) {
+      
+      ext <- tools::file_ext(input$lookup_zone$name)
+      
+      lookup_df <- switch(
+        tolower(ext),
+        
+        csv = readr::read_csv(
+          input$lookup_zone$datapath,
+          show_col_types = FALSE
+        ),
+        
+        xlsx = openxlsx::read.xlsx(
+          input$lookup_zone$datapath
+        ),
+        
+        stop("Format lookup table tidak didukung.")
+      )
+      
+      colnames(lookup_df)[1:2] <- c(
+        "Value",
+        "planning_unit"
+      )
+      
+      return(
+        lookup_df %>%
+          dplyr::select(Value, planning_unit) %>%
+          distinct()
+      )
+    }
+    
+    # ======================
+    # RASTER ONLY
     # ======================
     if (!is.null(input$zone_raster)) {
       
@@ -245,15 +267,30 @@ server <- function(input, output, session) {
       
       PU_ID <- unique(terra::values(PU))
       
-      return(list(
-        PU = PU,
-        LookupPU = NULL,
-        PU_ID = PU_ID
-      ))
+      return(
+        data.frame(
+          Value = PU_ID,
+          planning_unit = paste0("PU_", PU_ID)
+        )
+      )
     }
     
     return(NULL)
   }
+  
+  observeEvent(
+    list(
+      input$zone_type,
+      input$zone_raster,
+      input$zone_shapefile,
+      input$lookup_zone
+    ),
+    {
+      
+      shinyjs::hide("download_template")
+      
+    }
+  )
   
   observe({
     req(input$use_single == "yes", input$n_single)
@@ -308,69 +345,136 @@ server <- function(input, output, session) {
     })
   })
   
-  template_data <- reactive({
+  template_data <- eventReactive(input$generate_template, {
     
-    req(input$generate_template)
-    
-    pu_ids <- get_pu_ids(input)
+    pu_table <- get_pu_ids(input)
     
     validate(
-      need(!is.null(pu_ids) && length(pu_ids) > 0, 
-           "Unit Perencanaan tidak terdeteksi. Tolong unggah data yang valid.")
+      need(
+        !is.null(pu_table) && nrow(pu_table) > 0,
+        "Unit Perencanaan tidak terdeteksi."
+      )
     )
     
     # ======================
     # BASE COLUMNS
     # ======================
-    cols <- c("ID", "UNIT_PERENCANAAN", "SATUAN")
+    cols <- c(
+      "ID",
+      "UNIT_PERENCANAAN",
+      "SATUAN"
+    )
     
     # ======================
     # SINGLE FERTILIZER
     # ======================
-    if (!is.null(input$use_single) && input$use_single == "yes") {
+    if (input$use_single == "yes") {
       
-      single_names <- sapply(1:input$n_single, function(i) {
-        input[[paste0("single_name_", i)]]
-      })
+      single_names <- sapply(
+        1:input$n_single,
+        function(i) input[[paste0("single_name_", i)]]
+      )
       
-      # bersihin NA / kosong
-      single_names <- single_names[!is.na(single_names) & single_names != ""]
+      single_names <- single_names[
+        single_names != ""
+      ]
       
-      cols <- c(cols, paste0("Tunggal_", single_names))
+      cols <- c(
+        cols,
+        paste0("Tunggal_", single_names)
+      )
     }
     
     # ======================
     # COMPOUND FERTILIZER
     # ======================
-    if (!is.null(input$use_compound) && input$use_compound == "yes") {
+    if (input$use_compound == "yes") {
       
-      compound_names <- sapply(1:input$n_compound, function(i) {
-        input[[paste0("compound_name_", i)]]
-      })
+      compound_names <- sapply(
+        1:input$n_compound,
+        function(i) input[[paste0("compound_name_", i)]]
+      )
       
-      compound_names <- compound_names[!is.na(compound_names) & compound_names != ""]
+      compound_names <- compound_names[
+        compound_names != ""
+      ]
       
-      cols <- c(cols, paste0("Majemuk_", compound_names))
+      cols <- c(
+        cols,
+        paste0("Majemuk_", compound_names)
+      )
     }
     
     # ======================
-    # BUILD DATAFRAME
+    # BUILD TEMPLATE
     # ======================
-    df <- data.frame(matrix(NA, nrow = length(pu_ids), ncol = length(cols)))
+    df <- data.frame(
+      matrix(
+        NA,
+        nrow = nrow(pu_table),
+        ncol = length(cols)
+      )
+    )
+    
     colnames(df) <- cols
     
-    df$ID <- pu_ids #tambahkan variable UNIT PERENCANAAN diisi dengan Nama PU dari input
+    df$ID <- pu_table$Value
+    df$UNIT_PERENCANAAN <- pu_table$planning_unit
     df$SATUAN <- "Kg/Ha"
     
     df
+    
+  })
+  
+  observeEvent(input$generate_template, {
+    
+    req(template_data())
+    
+    shinyjs::show("download_template")
+    
+    showNotification(
+      "Template berhasil dibuat.",
+      type = "message"
+    )
+    
   })
   
   output$download_template <- downloadHandler(
+    
     filename = function() {
-      "fertilizer_template.csv" #Ubah ke .xlsx
+      paste0(
+        "fertilizer_template_",
+        Sys.Date(),
+        ".xlsx"
+      )
     },
+    
     content = function(file) {
-      write.csv(template_data(), file, row.names = FALSE) #Ubah ke .xlsx
+      
+      req(input$generate_template > 0)
+      
+      template <- template_data()
+      
+      req(nrow(template) > 0)
+      
+      wb <- openxlsx::createWorkbook()
+      
+      openxlsx::addWorksheet(
+        wb,
+        "Template_Pupuk"
+      )
+      
+      openxlsx::writeData(
+        wb,
+        sheet = "Template_Pupuk",
+        x = template
+      )
+      
+      openxlsx::saveWorkbook(
+        wb,
+        file,
+        overwrite = TRUE
+      )
     }
   )
   

@@ -158,6 +158,7 @@ preprocess_data <- function(
   library(leaflet)
   library(sf)
   library(htmltools)
+  library(ggtext)
   
   # -------------------------------
   # 1. READ INPUT DATA
@@ -416,13 +417,13 @@ preprocess_data <- function(
   
   N2O_emission_CO2 <- N2O_emission %>%
     mutate(
-      N_selected = n_table$N_selected
+      N_selected_PU = n_table$N_selected
     ) %>%
     mutate(
-      N2O_emission_CO2_100_1 = ((N2O_area_100_1 * N_selected * EF_N2O * GWP_N2O) + (N2O_area_100_1 * N_selected * EF_CO2))/1000,
-      N2O_emission_CO2_100_2 = ((N2O_area_100_2 * N_selected  * 2.5 * EF_N2O * GWP_N2O) + (N2O_area_100_2 * N_selected * 2.5 * EF_CO2))/1000,
-      N2O_emission_CO2_50_1  = ((N2O_area_50_1 * N_selected  * 0.5 * EF_N2O * GWP_N2O) + (N2O_area_50_1 * N_selected * 0.5 * EF_CO2))/1000,
-      N2O_emission_CO2_50_2  = ((N2O_area_50_2 * N_selected  * 2.5 * 0.5 * EF_N2O * GWP_N2O) + (N2O_area_50_2 * N_selected * 2.5 * 0.5 * EF_CO2))/1000,
+      N2O_emission_CO2_100_1 = ((N2O_area_100_1 * N_selected_PU * EF_N2O * GWP_N2O) + (N2O_area_100_1 * N_selected_PU * EF_CO2))/1000,
+      N2O_emission_CO2_100_2 = ((N2O_area_100_2 * N_selected_PU  * 2.5 * EF_N2O * GWP_N2O) + (N2O_area_100_2 * N_selected_PU * 2.5 * EF_CO2))/1000,
+      N2O_emission_CO2_50_1  = ((N2O_area_50_1 * N_selected_PU  * 0.5 * EF_N2O * GWP_N2O) + (N2O_area_50_1 * N_selected_PU * 0.5 * EF_CO2))/1000,
+      N2O_emission_CO2_50_2  = ((N2O_area_50_2 * N_selected_PU  * 2.5 * 0.5 * EF_N2O * GWP_N2O) + (N2O_area_50_2 * N_selected_PU * 2.5 * 0.5 * EF_CO2))/1000,
       # Total N2O emissions across all scenarios (Ton CO2-eq/tahun)
       N2O_emission_CO2_total =
         (N2O_emission_CO2_100_1 +
@@ -432,14 +433,14 @@ preprocess_data <- function(
     )
   
   N2O_emission_table <- N2O_emission_CO2 %>%
-    select(-Freq, -CH4_emission, -CH4_emission_CO2) %>%
+    select(-Freq, -CH4_emission, -CH4_emission_CO2, -ID, - ID_Traj, - Trajectory, -color_palette, -sawah) %>%
     rename(
       `Total Emisi N2O (Ton CO2-eq/tahun)` = N2O_emission_CO2_total,
       `Luasan Sawah 100% Pemupukan 1x Rotasi (Ha)` = N2O_area_100_1,
       `Luasan Sawah 100% Pemupukan 2-3x Rotasi (Ha)` = N2O_area_100_2,
       `Luasan Sawah 50% Pemupukan 1x Rotasi (Ha)` = N2O_area_50_1,
       `Luasan Sawah 50% Pemupukan 2-3x Rotasi (Ha)` = N2O_area_50_2,
-      `N Terpilih` = N_selected,
+      `N Terpilih` = N_selected_PU,
       `Emisi 100% Pemupukan 1x Rotasi (Ton CO2-eq/tahun)` = N2O_emission_CO2_100_1,
       `Emisi 100% Pemupukan 2-3x Rotasi (Ton CO2-eq/tahun)` = N2O_emission_CO2_100_2,
       `Emisi 50% Pemupukan 1x Rotasi (Ton CO2-eq/tahun)` = N2O_emission_CO2_50_1,
@@ -472,19 +473,40 @@ preprocess_data <- function(
       `Emisi N2O (Ton CO2-eq/tahun)`= N2O_emission_CO2_total
     )
   
-  # Convert to long format
+  # -------------------------------
+  # PERCENTAGE CONTRIBUTION
+  # -------------------------------
+  summary_by_PU <- summary_by_PU %>%
+    mutate(
+      CH4_percent =
+        (CH4_emission_CO2 /
+           `Total Emisi (Ton CO2-eq/tahun)`) * 100,
+      
+      N2O_percent =
+        (N2O_emission_CO2_total /
+           `Total Emisi (Ton CO2-eq/tahun)`) * 100
+    )
+  
+  # -------------------------------
+  # CONVERT TO LONG FORMAT
+  # -------------------------------
   summary_long <- summary_by_PU %>%
-    select(-`Total Emisi (Ton CO2-eq/tahun)`) %>%
     pivot_longer(
       cols = c(CH4_emission_CO2, N2O_emission_CO2_total),
       names_to = "Gas",
       values_to = "Value"
     ) %>%
+    
     mutate(
       Gas = dplyr::recode(
         Gas,
-        "CH4_emission_CO2" = "CH4",
-        "N2O_emission_CO2_total" = "N2O"
+        "CH4_emission_CO2" = "CH₄",
+        "N2O_emission_CO2_total" = "N₂O"
+      ),
+      
+      Percentage = dplyr::case_when(
+        Gas == "CH₄" ~ CH4_percent,
+        Gas == "N₂O" ~ N2O_percent
       )
     )
   
@@ -514,7 +536,16 @@ preprocess_data <- function(
   
   # Join data emisi
   PU_sf <- PU_sf %>%
-    left_join(summary_by_PU, by = "PU")
+    left_join(summary_by_PU, by = "PU") %>%
+    mutate(
+      CH4_percent =
+        (CH4_emission_CO2 /
+           `Total Emisi (Ton CO2-eq/tahun)`) * 100,
+      
+      N2O_percent =
+        (N2O_emission_CO2_total /
+           `Total Emisi (Ton CO2-eq/tahun)`) * 100
+    )
   
   # IMPORTANT:
   # Transform ke WGS84
@@ -529,25 +560,33 @@ preprocess_data <- function(
   
   # Tooltip
   popup_text <- paste0(
-    "<strong>Unit Perencanaan:</strong> ", PU_sf$PU, "<br>",
+    "<strong>Unit Perencanaan:</strong> ", PU_sf$PU, "<br><br>",
     
     "<strong>Total Emisi:</strong> ",
     scales::comma(
       round(PU_sf$`Total Emisi (Ton CO2-eq/tahun)`, 2)
     ),
-    " Ton CO₂-eq/tahun<br>",
+    " Ton CO₂-eq/tahun<br><br>",
     
     "<strong>Emisi CH₄:</strong> ",
     scales::comma(
       round(PU_sf$CH4_emission_CO2, 2)
     ),
-    " Ton CO₂-eq/tahun<br>",
+    " Ton CO₂-eq/tahun",
+    
+    " (",
+    round(PU_sf$CH4_percent, 2),
+    "%)<br>",
     
     "<strong>Emisi N₂O:</strong> ",
     scales::comma(
       round(PU_sf$N2O_emission_CO2_total, 2)
     ),
-    " Ton CO₂-eq/tahun"
+    " Ton CO₂-eq/tahun",
+    
+    " (",
+    round(PU_sf$N2O_percent, 2),
+    "%)"
   )
   
   # Interactive map
@@ -583,44 +622,85 @@ preprocess_data <- function(
   # -------------------------------
   # 7. PLOT
   # -------------------------------
-  label_inverse_log <- function(x) {
-    scales::comma(10^x, accuracy = 0.01)
-  }
+  min_log <- floor(min(summary_long$Value_log, na.rm = TRUE))
+  max_log <- ceiling(max(summary_long$Value_log, na.rm = TRUE))
+ 
+  log_breaks <- seq(min_log, max_log, by = 1)
   
-  p <- ggplot(summary_long,
-              aes(
-                x = reorder(PU, Value),
-                y = Value_log,
-                fill = Gas,
-                text = paste0(
-                  "PU: ", PU, "<br>",
-                  "Gas: ", Gas, "<br>",
-                  "Emisi: ", scales::comma(Value, accuracy = 0.01), " Ton CO₂-eq/tahun"
-                )
-              )) +
-    geom_col(position = "stack") +  # ✅ tetap stacked
+  log_labels <- paste0(
+    "10<sup>",
+    log_breaks,
+    "</sup>"
+  )
+  
+  p <- ggplot(
+    summary_long,
+    
+    aes(
+      x = reorder(PU, Value),
+      y = Value,
+      fill = Gas,
+      
+      text = paste0(
+        "<b>Unit Perencanaan:</b> ", PU, "<br>",
+        "<b>Gas:</b> ", Gas, "<br>",
+        "<b>Emisi:</b> ",
+        scales::comma(Value, accuracy = 0.01),
+        " Ton CO₂-eq/tahun<br>",
+        "<b>Kontribusi:</b> ",
+        round(Percentage, 2),
+        "%"
+      )
+    )
+  ) +
+    
+    geom_col(position = "stack") +
+    
+    scale_y_log10(
+      breaks = 10^log_breaks,
+      labels = log_labels
+    ) +
+    
+    annotation_logticks(
+      sides = "b",
+      
+      short = unit(0.08, "cm"),
+      mid   = unit(0.12, "cm"),
+      long  = unit(0.18, "cm")
+    ) +
+    
     scale_fill_manual(
       values = c(
-        "CH4" = "#1b9e77",
-        "N2O" = "#d95f02"
+        "CH₄" = "#1b9e77",
+        "N₂O" = "#d95f02"
       )
     ) +
-    scale_y_continuous(
-      breaks = scales::pretty_breaks(n = 6),
-      labels = function(x) {
-        paste0("10^", round(x, 1))
-      }
-    ) +
+    
     labs(
       title = "Komposisi Emisi CH₄ dan N₂O per Unit Perencanaan",
       x = "Unit Perencanaan",
       y = "Emisi (Ton CO₂-eq/tahun, skala log)",
       fill = "Jenis Gas"
     ) +
-    theme_minimal() +
+    
+    theme_bw() +
+    
+    theme(
+      axis.text.y = ggtext::element_markdown(),
+      legend.text = ggtext::element_markdown(),
+      
+      panel.grid.minor = element_blank(),
+      
+      axis.ticks.y = element_blank(),
+      axis.ticks.length = unit(0.25, "cm")
+    ) +
+    
     coord_flip()
-
-  plot_interactive <- ggplotly(p, tooltip = "text")
+  
+  plot_interactive <- ggplotly(
+    p,
+    tooltip = "text"
+  )
   
   # -------------------------------
   # 8. PADDY AND NON-PADDY MAP

@@ -23,6 +23,8 @@ library(kableExtra)
 library(DT)
 library(dplyr)
 library(plotly)
+library(htmltools)
+library(scales)
 
 format_dt <- function(dt, data) {
   num_cols <- names(data)[sapply(data, is.numeric)]
@@ -50,7 +52,13 @@ read_lookup <- function(path) {
     } else {
       stop(paste("Format file tidak didukung:", ext))
     }
-  }
+}
+
+sawah_label <- params$result$lookup_LC %>%
+  dplyr::filter(sawah == 1) %>%
+  dplyr::pull(LC)
+
+sawah_label <- paste(sawah_label, collapse = ", ")
 ```
 
 <details><summary>Klik di sini untuk Log Analisis</summary>
@@ -88,6 +96,9 @@ Pendekatan yang digunakan mengintegrasikan data raster tutupan lahan dengan data
 
 ## Tutupan/Penggunaan Lahan pada `r params$year` {.tabset}
 ### Peta Tutupan/Penggunaan Lahan pada `r params$year`
+Peta tutupan/penggunaan lahan berikut menunjukkan distribusi spasial berbagai kategori penggunaan lahan pada wilayah studi tahun `r params$year`. Setiap warna merepresentasikan jenis tutupan lahan yang berbeda berdasarkan data raster input yang digunakan dalam analisis.
+
+Informasi ini menjadi dasar utama dalam proses identifikasi area sawah, perhitungan luas lahan, serta estimasi emisi gas rumah kaca. Pola distribusi tutupan lahan juga membantu memahami karakteristik wilayah dan dominasi penggunaan lahan pada masing-masing area studi.
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 fill_scale <- ggplot2::scale_fill_manual(
   values = c(
@@ -131,6 +142,11 @@ lc_map
 ```
 
 ### Komposisi Tutupan/Penggunaan Lahan pada `r params$year`
+
+Tabel berikut menyajikan komposisi total tutupan/penggunaan lahan pada wilayah studi berdasarkan luas area dan persentasenya terhadap keseluruhan wilayah analisis.
+
+Informasi ini memberikan gambaran umum mengenai dominasi jenis penggunaan lahan pada tahun analisis, termasuk proporsi area sawah dibandingkan kategori tutupan lahan lainnya. Komposisi ini juga menjadi dasar dalam memahami distribusi spasial emisi yang dihasilkan.
+
 ```{r}
 composition_table_total <- params$result$lc_comp_total %>% 
     rename(
@@ -159,7 +175,13 @@ format_dt(datatable(
 ), composition_table_total)
 ```
 
-## Peta Unit Perencanaan
+## Unit Perencanaan {.tabset}
+
+### Peta Unit Perencanaan
+Peta unit perencanaan (Planning Unit/PU) menunjukkan pembagian wilayah analisis ke dalam unit-unit administratif atau zona pengelolaan tertentu yang digunakan dalam proses perhitungan emisi.
+
+Setiap unit perencanaan menjadi dasar agregasi data luas sawah, komposisi penggunaan lahan, serta estimasi emisi CH₄ dan N₂O. Pembagian ini memungkinkan analisis dilakukan secara lebih terstruktur dan mendukung identifikasi wilayah prioritas mitigasi emisi.
+
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 fill_scale <- ggplot2::scale_fill_manual(
   values = c(
@@ -202,6 +224,52 @@ pu_map <- ggplot() +
 pu_map
 ```
 
+### Komposisi Unit Perencanaan
+Tabel berikut menunjukkan komposisi luas masing-masing unit perencanaan terhadap total area wilayah studi. Informasi ini memberikan gambaran mengenai dominasi spasial setiap unit perencanaan dalam area analisis.
+
+Unit perencanaan dengan proporsi area yang lebih besar umumnya memiliki kontribusi yang lebih signifikan terhadap distribusi penggunaan lahan maupun total emisi gas rumah kaca.
+```{r}
+# Hitung komposisi PU
+pu_composition <- params$result$lc_comp_per_PU %>%
+  
+  # Ambil total area unik per PU
+  dplyr::select(PU, total_area) %>%
+  distinct() %>%
+  
+  # Hitung persentase terhadap total area
+  mutate(
+    percentage_total =
+      (total_area / sum(total_area, na.rm = TRUE)) * 100
+  ) %>%
+  
+  # Rename kolom
+  rename(
+    `Unit Perencanaan` = PU,
+    `Total Area per Unit Perencanaan (Ha)` = total_area,
+    `Persentase terhadap Total Area Keseluruhan (%)` = percentage_total
+  )
+
+format_dt(datatable(
+  pu_composition,
+  extensions = c('Buttons', 'Responsive'),
+  rownames = FALSE,
+  options = list(
+    paging = TRUE,
+    searching = TRUE,
+    fixedColumns = TRUE,
+    autoWidth = TRUE,
+    ordering = TRUE,
+    dom = 'Blfrtip',
+    buttons = list(
+      list(extend = "copy",  className = "btn btn-light btn-sm"),
+      list(extend = "csv",   className = "btn btn-light btn-sm"),
+      list(extend = "excel", className = "btn btn-light btn-sm")
+    )
+  ),
+  class = "display stripe hover"
+), pu_composition)
+```
+
 ```{r echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
 if (!is.null(params$result$lookupPU)) {
 
@@ -232,16 +300,22 @@ if (!is.null(params$result$lookupPU)) {
 ```
 
 ## Tabel Acuan Konversi dan Parameter
+
+Tabel berikut memuat parameter dan faktor konversi yang digunakan dalam proses perhitungan emisi gas rumah kaca, termasuk faktor emisi, nilai Global Warming Potential (GWP), serta parameter pendukung lainnya.
+
+Nilai-nilai pada tabel ini menjadi komponen utama dalam mengonversi aktivitas lahan sawah menjadi estimasi emisi CH₄ dan N₂O dalam satuan CO₂-ekuivalen.
+
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 conversion_table <- read_lookup(params$paths$pathLookupConversion)
 
 # join NPV + Carbon
-conversion_table <- conversion_table |>
+conversion_table <- conversion_table %>% 
   rename(
     `Nama` = Name,
     `Variabel` = Variable,
     `Nilai` = Value
-  )
+  ) %>% 
+  select(-Variabel)
 
 datatable(
   conversion_table,
@@ -265,6 +339,11 @@ datatable(
 ```
 
 ## Tabel Acuan Dosis Pupuk Setiap Unit Perencanaan
+
+Tabel dosis pupuk menunjukkan informasi penggunaan pupuk pada masing-masing unit perencanaan yang digunakan dalam estimasi emisi N₂O.
+
+Variasi dosis pupuk antar wilayah dapat memengaruhi besaran emisi yang dihasilkan, sehingga data ini menjadi salah satu parameter penting dalam skenario perhitungan emisi berbasis praktik pengelolaan lahan sawah.
+
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 pupuk_table <- read_lookup(params$paths$pathLookupPupuk)
 
@@ -293,9 +372,9 @@ format_dt(datatable(
 ), pupuk_table)
 ```
 
-# Sebaran dan Komposisi Lahan Sawah di `r params$year` {.tabset}
+# Sebaran dan Komposisi Lahan `r sawah_label` di `r params$year` {.tabset}
 
-## Peta Sebaran Lahan Sawah
+## Peta Sebaran Lahan `r sawah_label`
 
 Peta ini menunjukkan distribusi spasial antara lahan sawah dan non-sawah pada wilayah studi. Area dengan warna hijau merepresentasikan lahan sawah, sedangkan area lainnya menunjukkan penggunaan lahan non-sawah.
 
@@ -305,7 +384,7 @@ Distribusi ini menjadi dasar dalam perhitungan emisi, karena hanya area dengan k
 params$result$plot_paddy_map
 ```
 
-## Grafik Area Sawah dan Non Sawah per Unit Perencanaan
+## Grafik Area `r sawah_label` dan Non `r sawah_label` per Unit Perencanaan
 
 Grafik ini menunjukkan perbandingan luas area sawah dan non-sawah pada masing-masing unit perencanaan (PU). Perbedaan luas ini mencerminkan intensitas penggunaan lahan untuk sawah di setiap wilayah.
 
@@ -315,7 +394,12 @@ PU dengan dominasi area sawah yang tinggi berpotensi memberikan kontribusi emisi
 params$result$plot_paddy_bar_interactive
 ```
 
-## Komposisi Tutupan/Penggunaan Lahan Sawah 
+## Komposisi Tutupan/Penggunaan Lahan `r sawah_label` 
+
+Tabel berikut menampilkan komposisi penggunaan lahan sawah pada setiap unit perencanaan berdasarkan luas area dan persentasenya terhadap total area sawah di unit tersebut.
+
+Informasi ini membantu mengidentifikasi distribusi spasial sawah antar wilayah serta memberikan konteks terhadap variasi emisi yang dihasilkan pada masing-masing unit perencanaan.
+
 ```{r}
 composition_table_PU <- params$result$lc_comp_per_PU %>% 
   select(PU, LC, area_ha, total_area, percentage)  %>%
@@ -324,7 +408,7 @@ composition_table_PU <- params$result$lc_comp_per_PU %>%
       `Tutupan Lahan` = LC,
       `Area Lahan Sawah per Unit Perencanaan (Ha)` = area_ha,
       `Total Area per Unit Perencanaan (Ha)` = total_area,
-      `Persentase (%)` = percentage
+      `Persentase Area Lahan Sawah (%)` = percentage
     )
   
 format_dt(datatable(
@@ -348,15 +432,164 @@ format_dt(datatable(
 ),composition_table_PU)
 ```
 
-# Hasil Perhitungan Emisi
+# Hasil Perhitungan Emisi Lahan `r sawah_label`
+Bagian ini menyajikan hasil estimasi total emisi gas rumah kaca dari lahan sawah pada wilayah studi tahun `r params$year`, yang terdiri atas emisi CH₄ dan N₂O dalam satuan CO₂-ekuivalen.
 
-## Total Emisi di `r params$year`
+Analisis dilakukan dengan mengintegrasikan informasi luas sawah, faktor emisi, skenario pemupukan, dan unit perencanaan untuk menghasilkan distribusi emisi secara spasial maupun tabular.
 
+## Total Emisi Lahan `r sawah_label` di `r params$year`
 
+Tabel berikut menunjukkan total agregat emisi gas rumah kaca dari seluruh unit perencanaan pada wilayah studi. Nilai total emisi merupakan akumulasi emisi CH₄ dan N₂O dalam satuan CO₂-ekuivalen.
 
-## Emisi CH₄ dan N₂O per Unit Perencanaan {.tabset}
+Perbandingan antara kontribusi CH₄ dan N₂O dapat memberikan gambaran mengenai sumber dominan emisi dari aktivitas lahan sawah pada wilayah analisis.
 
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+# =========================
+# SUMMARY TOTAL EMISSION
+# =========================
+summary_total_emission <- params$result$summary_by_PU %>%
+  summarise(
+    total_emission =
+      sum(`Total Emisi (Ton CO2-eq/tahun)`, na.rm = TRUE),
+
+    total_ch4 =
+      sum(CH4_emission_CO2, na.rm = TRUE),
+
+    total_n2o =
+      sum(N2O_emission_CO2_total, na.rm = TRUE)
+  )
+
+# Ambil nilai
+total_emission <- summary_total_emission$total_emission
+total_ch4 <- summary_total_emission$total_ch4
+total_n2o <- summary_total_emission$total_n2o
+
+# =========================
+# VALUE BOX STYLE
+# =========================
+value_box <- function(title, value, color = "#2C3E50") {
+
+  div(
+    style = paste0(
+      "
+      background:", color, ";
+      color:white;
+      padding:20px;
+      border-radius:12px;
+      text-align:center;
+      margin-bottom:15px;
+      box-shadow:0 2px 6px rgba(0,0,0,0.2);
+      "
+    ),
+
+    tags$div(
+      style = "font-size:16px; font-weight:600;",
+      title
+    ),
+
+    tags$div(
+      style = "font-size:20px; font-weight:bold; margin-top:10px;",
+      paste0(comma(round(value, 2)), " Ton CO₂-eq/tahun")
+    )
+  )
+}
+
+# =========================
+# DISPLAY VALUE BOXES
+# =========================
+
+browsable(
+
+  tagList(
+
+    # TOTAL EMISSION
+    div(
+      style = "width:100%;",
+      value_box(
+        "Total Emisi Keseluruhan",
+        total_emission,
+        "#34495E"
+      )
+    ),
+
+    # CH4 + N2O
+    div(
+      style = "
+      display:flex;
+      gap:15px;
+      width:100%;
+      ",
+
+      div(
+        style = "flex:1;",
+        value_box(
+          "Total Emisi CH₄",
+          total_ch4,
+          "#1b9e77"
+        )
+      ),
+
+      div(
+        style = "flex:1;",
+        value_box(
+          "Total Emisi N₂O",
+          total_n2o,
+          "#d95f02"
+        )
+      )
+    )
+  )
+)
+
+# =========================
+# DONUT CHART
+# =========================
+
+donut_data <- data.frame(
+  Gas = c("CH₄", "N₂O"),
+  Emission = c(total_ch4, total_n2o)
+)
+
+plot_ly(
+  donut_data,
+  labels = ~Gas,
+  values = ~Emission,
+  type = "pie",
+  hole = 0.6,
+  textinfo = "label+percent",
+  hovertemplate = paste(
+    "<b>%{label}</b><br>",
+    "Emisi: %{value:,.2f} Ton CO₂-eq/tahun<br>",
+    "Persentase: %{percent}<extra></extra>"
+  )
+) %>% 
+  layout(
+    margin = list(
+      t = 120
+    ))
+  # layout(
+  #   title = list(
+  #     text = paste0(
+  #       "Komposisi Total Emisi GRK", 
+  #       "<br>dengan Total: ",
+  #       comma(round(total_emission, 2)),
+  #       " Ton CO₂-eq/tahun"
+  #     ),
+  #     x = 0.5,
+  #     y = 0.95
+  #   ),
+  #   margin = list(
+  #     t = 120
+  #   ),
+  #   showlegend = TRUE
+  # )
+```
+
+## Emisi CH₄ dan N₂O Lahan `r sawah_label` per Unit Perencanaan {.tabset}
 ### Sebaran Emisi CH₄ dan N₂O per Unit Perencanaan
+Peta interaktif berikut menunjukkan distribusi total emisi gas rumah kaca pada masing-masing unit perencanaan. Intensitas warna merepresentasikan besaran total emisi dalam satuan CO₂-ekuivalen.
+
+Informasi detail mengenai total emisi, emisi CH₄, dan emisi N₂O dapat dilihat melalui fitur hover pada setiap polygon unit perencanaan. Visualisasi ini membantu mengidentifikasi wilayah dengan kontribusi emisi tertinggi secara spasial.
 ```{r}
 params$result$plot_choropleth
 ```
@@ -371,7 +604,7 @@ Variasi antar PU menunjukkan adanya perbedaan karakteristik wilayah, baik dari s
 params$result$plot
 ```
 
-### Tabel Ringkasan Emisi per Unit Perencanaan
+### Tabel Ringkasan Emisi Lahan `r sawah_label` per Unit Perencanaan
 
 Tabel ringkasan ini menggabungkan total emisi CH₄ dan N₂O pada masing-masing unit perencanaan dalam satuan CO₂-ekuivalen. Nilai ini memberikan gambaran kontribusi total emisi gas rumah kaca dari lahan sawah.
 
@@ -413,12 +646,11 @@ format_dt(datatable(
 
 ```
 
-## Tabel Emisi CH₄ per Unit Perencanaan
+## Tabel Emisi CH₄ Lahan `r sawah_label` per Unit Perencanaan
 
 Tabel ini menyajikan estimasi emisi CH₄ berdasarkan luas lahan sawah pada masing-masing unit perencanaan. Emisi dihitung menggunakan faktor emisi yang telah disesuaikan dengan kondisi lingkungan dan praktik pengelolaan lahan.
 
 Nilai emisi CH₄ umumnya berbanding lurus dengan luas lahan sawah, sehingga unit perencanaan dengan luas area sawah yang lebih besar akan menghasilkan emisi CH₄ yang lebih tinggi.
-
 
 ```{r}
 ch4_table_clean <- params$result$CH4_table %>%
@@ -452,7 +684,7 @@ format_dt(datatable(
 ), ch4_table_clean)
 ```
 
-## Tabel Emisi N₂O per Unit Perencanaan
+## Tabel Emisi N₂O Lahan `r sawah_label` per Unit Perencanaan
 
 Tabel ini menunjukkan estimasi emisi N₂O berdasarkan berbagai skenario pemupukan dan rotasi tanam. Perhitungan dilakukan dengan mempertimbangkan variasi dosis pupuk (100% dan 50%) serta frekuensi rotasi tanam.
 
