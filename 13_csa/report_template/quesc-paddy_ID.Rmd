@@ -565,7 +565,7 @@ plot_ly(
 ) %>% 
   layout(
     margin = list(
-      t = 120
+      t = 50
     ))
   # layout(
   #   title = list(
