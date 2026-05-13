@@ -100,7 +100,7 @@ Pendekatan ini sejalan dengan praktik dalam analisis Low Carbon Development Indo
 
 - Format: GeoTIFF  
 - Memiliki klasifikasi lahan  
-- Kolom **paddy (0/1)** untuk identifikasi sawah  
+- Kolom **sawah (0/1)** untuk identifikasi sawah  
 
 2. Peta Unit Perencanaan (PU)
 
@@ -111,7 +111,7 @@ Pendekatan ini sejalan dengan praktik dalam analisis Low Carbon Development Indo
 
 - **ID**  
 - **LC**  
-- **paddy**  
+- **sawah**  
 
 4. Tabel Parameter Emisi (Conversion Table)
 
@@ -160,17 +160,6 @@ Salah satu output penting adalah **intensitas emisi**, yang memberikan gambaran 
 Selain itu, tersedia grafik interaktif yang memvisualisasikan perbandingan emisi CH₄ dan N₂O antar unit perencanaan, sehingga pola distribusi emisi dapat dipahami dengan lebih mudah.
 
 Seluruh hasil tersebut dirangkum dalam laporan HTML yang berisi metodologi, data input, hasil analisis, serta interpretasi yang dapat langsung digunakan untuk pengambilan keputusan.
-
----
-
-# Referensi
-
-- IPCC (2006, 2019 Refinement) 
-– Pedoman Inventarisasi GRK  
-- Bappenas – Low Carbon Development Indonesia (LCDI)  
-- KLHK – Enhanced Nationally Determined Contribution (NDC)  
-- CIFOR-ICRAF – Green Growth Plan  
-- Kementerian Pertanian – Emisi sektor pertanian  
 
 ---
   
