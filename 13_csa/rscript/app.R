@@ -116,7 +116,7 @@ ui <- fluidPage(
         ),
         fileInput("lulc", "Peta Tutupan Lahan", accept = c(".tif", ".tiff")),
         textInput("year", "Tahun Peta", value = "1990"),
-        fileInput("lc_table", "Tabel Referensi Tutupan Lahan dengan Klasifikasi Padi", accept = c(".csv", ".xlsx")),
+        fileInput("lc_table", "Tabel Referensi Tutupan Lahan dengan Klasifikasi Sawah", accept = c(".csv", ".xlsx")),
         fileInput("conversion_table", "Tabel Parameter Emisi dan Konversi", accept = c(".csv", ".xlsx")),
         fileInput("pupuk_table", "Tabel Dosis Pupuk", accept = c(".csv", ".xlsx")),
         
