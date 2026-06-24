@@ -40,6 +40,8 @@ library(pkgdown)
 library(purrr)
 library(tidyverse)
 library(openxlsx)
+library(readxl)
+library(tools)
 
 #' Source Function Definitions
 #'
@@ -90,7 +92,22 @@ ui <- fluidPage(
       textInput("year2", "Year of T2", value = "2000"),
       fileInput("pu_raster", "Planning Unit Raster", accept = c("image/tiff", ".tif")),
       fileInput("pu_table", "Planning Unit lookup table", accept = c(".csv")),
-      fileInput("npv_table", "NPV lookup table", accept = c(".csv")),
+      fileInput("npv_table", "EAE lookup table", accept = c(".csv")),
+      selectInput(
+        inputId = "npv_table_year",
+        label = "Which year does your EAE table use?",
+        choices = c("T1", "T2", "Others"),
+        selected = "T1"
+      ),
+      conditionalPanel(
+        condition = "input.npv_table_year == 'Others'",
+        numericInput(
+          "npv_table_year_custom",
+          "Custom Year",
+          value = as.numeric(format(Sys.Date(), "%Y")),
+          min = 1900
+        )
+      ),
       fileInput("cstock_table", "Carbon lookup table", accept = c(".csv")),
       selectInput(
         inputId = "currency",
@@ -241,6 +258,18 @@ server <- function(input, output, session) {
     rv$currency <- input$currency
   })
   
+  # EAE table year selected by user
+  selected_eae_year <- reactive({
+    
+    switch(
+      input$npv_table_year,
+      "T1" = as.numeric(input$year1),
+      "T2" = as.numeric(input$year2),
+      "Others" = as.numeric(input$npv_table_year_custom)
+    )
+    
+  })
+  
   #' @section Input Validation:
   #' Validates all user inputs before running the analysis.
   #' Prevents execution if any required file or field is missing.
@@ -272,6 +301,8 @@ server <- function(input, output, session) {
     rv$wd <- parseDirPath(volumes, input$wd)
     req(validate_inputs(), rv$wd)
     
+    eae_year <- selected_eae_year()
+    
     showNotification("Analysis is running. Please wait...", type = "message", duration = NULL, id = "running_notification")
     
     withProgress(message = 'Running TA Profitability Analysis', value = 0, {
@@ -294,6 +325,7 @@ server <- function(input, output, session) {
         incProgress(0.5, detail = "Generating report...")
         
         end_time <- Sys.time()
+        
         paths <- list(
           pathLULCT1 = input$lulc_t1$datapath,
           pathLULCT2 = input$lulc_t2$datapath,
@@ -302,7 +334,14 @@ server <- function(input, output, session) {
           pathLookupPU = input$pu_table$datapath,
           pathLookupCstock = input$cstock_table$datapath
         )
-        times <- list(start_time = start_time, end_time = end_time, valueT1 = input$year1, valueT2 = input$year2)
+        
+        times <- list(
+          start_time = start_time, 
+          end_time = end_time, 
+          valueT1 = input$year1, 
+          valueT2 = input$year2,
+          eae_year = selected_eae_year()
+          )
         
         pu_list <- unique(result$combinedRasterTable$PU)
         pu_outputs <- list()
@@ -310,6 +349,8 @@ server <- function(input, output, session) {
           pu_data <- result$combinedRasterTable %>% filter(PU == pu_name)
           pu_outputs[[pu_name]] <- process_pu_data(pu_data, pu_name, input$currency)
         }  
+        
+        browser()
         
         # And update the main chart generation:
         params <- generate_report_params(
@@ -321,7 +362,7 @@ server <- function(input, output, session) {
           output_dir = rv$wd,
           currency = input$currency 
         )
-        
+
         output_file <- paste0("ta-profit_report_", format(Sys.time(), "%Y-%m-%d_%H-%M-%S"), ".html")
         report_path <- file.path(rv$wd, output_file)
         

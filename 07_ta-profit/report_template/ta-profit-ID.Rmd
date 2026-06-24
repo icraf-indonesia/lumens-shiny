@@ -1,6 +1,6 @@
 ---
 title: "Laporan Analisis Profitabilitas"
-output: 
+output:
   html_document:
     toc: true
     toc_float: true
@@ -10,32 +10,35 @@ params:
   session_log: NA
   start_time: NA
   end_time: NA
-  total_table : NA
-  npv1_table : NA
-  npv2_table : NA
-  deltaNPV_table : NA
-  npv1_chart : NA
-  npv2_chart : NA
-  deltaNPV_chart : NA
+  total_table: NA
+  npv1_table: NA
+  npv2_table: NA
+  deltaNPV_table: NA
+  npv1_chart: NA
+  npv2_chart: NA
+  deltaNPV_chart: NA
   npv1_map: NA
   npv2_map: NA
   deltaNPV_map: NA
   LULCT1: NA
   LULCT2: NA
   PU: NA
-  map1_file_path: NULL
-  map2_file_path: NULL
-  pu_file_path: NULL
-  npv_file_path: NULL
-  cstock_table_path: NULL
-  pu_table_path: NULL
-  year1: NULL
-  year2: NULL
-  pu_outputs: NULL
-  currency: NULL
-  abatement_main_plot: NULL
-  abatement_pu_plots: NULL
-  output_dir: NULL
+  map1_file_path: null
+  map2_file_path: null
+  pu_file_path: null
+  npv_file_path: null
+  cstock_table_path: null
+  pu_table_path: null
+  year1: null
+  year2: null
+  eae_year: null
+  pu_outputs: null
+  currency: null
+  abatement_main_plot: null
+  emission_plot : null
+  sequestration_plot : null
+  abatement_pu_plots: null
+  output_dir: null
 ---
 
 ```{r setup, include=FALSE}
@@ -67,6 +70,7 @@ analysis_log <- tribble(
   "Land Cover (t1)",      params$map1_file_path,
   "Land Cover (t2)",   params$map2_file_path,
   "Profitability data",   params$npv_file_path,
+  "Year of Profitability table", as.character(params$eae_year),
   "Planning Unit map",   params$pu_file_path,
   "Planning Unit data",   params$pu_table_path,
   "Year 1", as.character(params$year1),
@@ -85,16 +89,99 @@ analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
 # Pendahuluan
 
 ## Deskripsi Modul
-Laporan ini menyajikan hasil Analisis Profitabilitas berdasarkan skenario perubahan penggunaan lahan. Analisis berfokus pada penilaian Net Present Value (NPV) yang terkait dengan berbagai perubahan penggunaan lahan. Pendekatan ini membantu mengevaluasi implikasi keuangan dari transisi penggunaan lahan serta mendukung pengambilan keputusan yang terinformasi untuk menilai kelayakan ekonomi berbagai skenario penggunaan lahan.
+Laporan ini menyajikan hasil Analisis Profitabilitas berdasarkan skenario perubahan penggunaan lahan. Analisis berfokus pada penilaian keuntungan finansial atau profitabilitas dari setiap tutupan lahan. Pendekatan ini membantu mengevaluasi implikasi keuangan dari transisi penggunaan lahan berdasarkan manfaat bersih tahunan serta mendukung pengambilan keputusan yang terinformasi untuk menilai kelayakan ekonomi berbagai skenario penggunaan lahan.
+
+### Indikator Keuntungan
+
+Indikator ekonomi yang digunakan adalah Nilai Tahunan Ekuivalen atau Equal Annual Equivalent (EAE). EAE Adalah nilai tahunan yang setara dari Net Present Value (NPV) suatu tutupan lahan per satuan luas lahan. EAE mengubah seluruh nilai keuntungan bersih suatu tutupan lahan yang dihitung dalam bentuk NPV menjadi nilai rata-rata keuntungan tahunan yang ekuivalen yang telah terdiskonto. Indikator EAE digunakan untuk mengakomodir kemungkinan perbedaan siklus hidup tanaman di suatu tutupan lahan,  dengan rumus sebagai berikut:
+
+$$
+EAE = NPV \times \frac{i(1+i)^t}{(1+i)^t - 1}
+$$
+Keterangan:
+
+- $EAE$ = Equal Annual Equivalent (nilai tahunan ekuivalen)
+- $NPV$ = Net Present Value (nilai kini bersih)
+- $i$ = Tingkat suku bunga riil (faktor diskonto)
+- $t$ = Tahun ke-1, 2, 3, ..., $n$ selama periode analisis
+
+Sedangkan Net Present Value (NPV) merupakan keuntungan atau pendapatan bersih saat ini yang didapat dari selisih antara penerimaan dengan biaya selama periode tertentu. NPV adalah penerimaan yang terdiskonto, dalam perhitungannya menggunakan faktor diskonto karena menormalkan nilai keuntungan di masa depan ke masa kini. Suatu kegiatan dikatakan memiliki manfaat dan layak dijalankan bila NPV > 0. Rumus NPV adalah:  
+
+$$
+NPV = \sum_{t=0}^{n}
+\frac{B_t - C_t}{(1+i)^t}
+$$
+Keterangan:
+
+- $B_t$ = Manfaat atau penerimaan pada tahun ke-$t$
+- $C_t$ = Biaya pada tahun ke-$t$
+- $t$ = Tahun ke-1, 2, 3, ..., $n$ selama periode analisis
+- $i$ = Tingkat suku bunga riil (faktor diskonto)
+
+Tingkat diskonto (discount factor) menggunakan tingkat suku bunga riil, dengan rumusan sebagai berikut:
+
+$$
+i = \frac{1 + \text{Nominal Interest Rate}}
+{1 + \text{Inflation Rate}} - 1
+$$
+
+Nominal interest rate yang digunakan adalah suku bunga kredit bank umum untuk modal kerja, sedangkan inflation rate adalah tingkat inflasi tahunan. Asumsi harga input-output, suku bunga riil, dan tingkat inflasi tahunan yang digunakan adalah nilai dari tahun `r params$eae_year` baik untuk perhitungan T1 `r params$year1` maupun T2 `r params$year2`.
+
+### Abatement Cost
+
+Abatement cost adalah biaya yang harus dikeluarkan untuk mengurangi (meng-abate) satu unit emisi gas rumah kaca dibandingkan kondisi dasar (baseline).
+Dalam konteks ekonomi lingkungan dan perubahan penggunaan lahan, abatement cost sering digunakan untuk menghitung:
+
+•	biaya pengurangan emisi, 
+
+•	trade-off antara keuntungan ekonomi dan penurunan emisi, 
+
+Kurva biaya pengurangan emisi (abatement cost) menunjukkan perbandingan biaya peluang dari berbagai jenis perubahan penggunaan lahan dalam `r params$currency` per ton CO₂-eq dan menunjukkan kuantitas potensi pengurangan emisi per jenis perubahan penggunaan lahan, satuan yang digunakan adalah `r params$currency`/ton CO₂-eq. Kurva biaya pengurangan emisi (abatement cost) tidak menentukan siapa yang harus dibayar, tetapi memberikan perkiraan biaya peluang rata-rata dan marginal dari pengurangan emisi. Rumus untuk menghitung biaya peluang dalam `r params$currency`/ton CO₂-eq adalah:
+
+$$
+\frac{EAE_{T2} - EAE_{T1}}
+{3.67 \left( C_{stok,T1} - C_{stok,T2} \right)}
+=
+\frac{\text{Opportunity Cost}}
+{\text{Additional Carbon Stock}}
+$$
+Keterangan:
+
+- $EAE_{T2}$ = Equal Annual Equivalent pada tutupan lahan T2
+- $EAE_{T1}$ = Equal Annual Equivalent pada tutupan lahan T1
+- $C_{stok,T1}$ = Stok karbon pada tutupan lahan T1
+- $C_{stok,T2}$ = Stok karbon pada tutupan lahan T2
+
+Berikut contoh grafik abatement cost yang memiliki 4 kuadran:
+
+![](img/acc_quadrant.png)
+
+Sumbu X adalah abatement potential (ton CO₂-eq/tahun), dan sumbu Y adalah besarnya potensi pengurangan emisi per tahun (Semakin lebar balok, menandakan semakin besar kontribusi penurunan emisinya). Terdapat 4 kondisi yang akan disertakan contoh kasus untuk kempat hal ini:
+
+1. Nilai abatement cost positif dan abatement potential positif: Kuadran 1
+
+Kondisi yang memerlukan trade off analysis karena semakin tinggi abatement cost maka semakin kurang visible untuk project carbon, jika semakin rendah abatement cost maka semakin visible untuk suatu project carbon. 
+
+2. Nilai abatement cost positif dan abatement potential negatif: Kuadran 2
+
+Kondisi sequestrasi untuk carbon.
+
+3. Nilai abatement cost negatif dan abatement potential positif: Kuadran 3
+
+Sistem yang ditawarkan lebih menguntungkan sekaligus meningkatkan stok karbon atau dalam kata lain pengurangan emisi menghasilkan keuntungan ekonomi tambahan dimana ini adalah kondisi win-win scenario atau no regret mitigation sehingga tidak perlu ada trade off analysis.
+
+4. Nilai abatement cost negatif dan abatement potential negatif: Kuadran 4
+
+Sistem yang ditawarkan menawarkan ekonomi membaik tetapi lingkungan memburuk.
 
 ## Cara Kerja Analisis
 Alur kerja analisis melibatkan beberapa langkah kunci:
 
-1. **Pemrosesan Data NPV**: Data NPV diproses untuk membuat tabel referensi yang komprehensif.
+1. **Pemrosesan Data EAE**: Data EAE diproses untuk membuat tabel referensi yang komprehensif.
 
-2. **Analisis Perubahan Penggunaan Lahan**: Peta perubahan penggunaan lahan diproses untuk menilai perubahan dalam NPV.
+2. **Analisis Perubahan Penggunaan Lahan**: Peta perubahan penggunaan lahan diproses untuk menilai perubahan dalam EAE.
 
-3. **Visualisasi**: Peta dihasilkan untuk merepresentasikan secara visual sebaran spasial dari perubahan NPV.
+3. **Visualisasi**: Peta dihasilkan untuk merepresentasikan secara visual sebaran spasial dari perubahan EAE.
 
 ## Data yang Digunakan {.tabset}
 
@@ -201,7 +288,7 @@ fill_scale <- ggplot2::scale_fill_manual(
     "#D9D9D9", "#BC80BD", "#CCEBC5", "#FFED6F", "#E41A1C"
   ),
   na.value = "white",
-  name = "Tutupan Lahan"
+  name = "Unit Perencanaan"
 )
 
 pu_map <- ggplot() +
@@ -250,12 +337,14 @@ datatable(
 )
 ```
 
-### Tabel Acuan NPV
+### Tabel Acuan EAE
+
+Tabel berikut menampilkan nilai EAE dan emisi karbon untuk setiap hektare lahan setiap tutupan lahan yang ada.
 
 ```{r NPV Lookup Table, echo=FALSE, message=FALSE, warning=FALSE}
 # baca tabel NPV
 npv_tbl <- read.csv(params$npv_file_path) |>
-  select(LC, NPV)
+  select(LC, EAE)
 
 # baca tabel carbon stock
 carbon_tbl <- read.csv(params$cstock_table_path) |>
@@ -269,7 +358,7 @@ npv_carbon_tbl <- npv_tbl |>
   ) |>
   rename(
     `Tutupan Lahan` = LC,
-    !!glue("NPV ({params$currency})") := NPV,
+    !!glue("EAE ({params$currency}/Ha/tahun)") := EAE,
     `Karbon (ton C/ha)` = CARBON
   ) |>
   mutate(
@@ -299,7 +388,7 @@ datatable(
 
 # Hasil Analisis
 
-## Ringkasan Net Present Value (NPV)
+## Ringkasan Equal Annual Equivalent (EAE)
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 params$total_table %>%
   as.data.frame() %>%
@@ -307,8 +396,50 @@ params$total_table %>%
   DT::datatable()
 ```
 
-## NPV untuk Tahun `r params$year1` {.tabset}
-Bagian ini menyajikan sepuluh kategori tutupan lahan dengan total NPV tertinggi pada tahun `r params$year1`. NPV mewakili imbal hasil ekonomi kumulatif (dalam `r params$currency`) yang diperoleh dari kegiatan penggunaan lahan di atas suatu area, biasanya diukur dalam hektar. NPV adalah metrik kunci dalam perencanaan penggunaan lahan karena mencerminkan nilai kini dari manfaat masa depan yang terkait dengan penggunaan lahan yang berbeda pada tahun `r params$year1`.
+Tabel diatas menampilkan nilai ∆EAE (selisih EAE) dan total EAE untuk seluruh tutupan lahan pada tahun satu `r params$year1` (T1) dan total EAE untuk seluruh tutupan lahan pada tahun kedua `r params$year2` (T2). Tabel ini mengakomodir informasi jika terdapat perubahan luasan lahan pada setiap tutupan lahan diantara T1 (`r params$year1`) dengan T2 (`r params$year2`). Perubahan luasan lahan tersebut mempengaruhi besaran total EAE. Asumsi harga input-output, suku bunga riil, dan tingkat inflasi tahunan yang digunakan adalah nilai dari tahun `r params$eae_year`. baik untuk perhitungan T1 `r params$year1` maupun T2 `r params$year2`. Perbedaan luasan setiap tutupan lahan antara T1 dan T2 disajikan pada tabel dibawah ini:
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+eae_area_summary <- params$npv1_table %>%
+  rename(LC = LC1) %>%
+  full_join(
+    params$npv2_table %>%
+      rename(LC = LC2),
+    by = "LC"
+  ) %>%
+  arrange(LC)
+
+eae_area_summary %>%
+  mutate(
+    across(where(is.numeric), easy_to_read_numbers)
+  ) %>%
+  rename(
+    `Tutupan Lahan` = LC,
+    !!glue::glue("Total EAE T1 ({params$currency}/tahun)") := Total_NPV1,
+    !!glue::glue("Total Luas T1 ({params$year1}) (Ha)") := Total_Ha1,
+    !!glue::glue("Total EAE T2 ({params$currency}/tahun)") := Total_NPV2,
+    !!glue::glue("Total Luas T2 ({params$year2}) (Ha)") := Total_Ha2
+  ) %>%
+  DT::datatable(
+    rownames = FALSE,
+    extensions = c("Buttons", "Responsive"),
+    options = list(
+      paging = TRUE,
+      searching = TRUE,
+      fixedColumns = TRUE,
+      autoWidth = TRUE,
+      ordering = TRUE,
+      dom = "Blfrtip",
+      buttons = list(
+        list(extend = "copy", className = "btn btn-light btn-sm"),
+        list(extend = "csv",  className = "btn btn-light btn-sm"),
+        list(extend = "excel",className = "btn btn-light btn-sm")
+        )
+    )
+  )
+```
+
+## EAE untuk Tahun `r params$year1` {.tabset}
+Bagian ini menyajikan sepuluh kategori tutupan lahan dengan total EAE tertinggi pada tahun `r params$year1`. EAE mewakili indikator keuntungan bersih suatu tutupan lahan yang ekuivalen dengan rataan NPV per tahun yang terdiskonto. EAE untuk tahun T1: `r params$year1` merupakan hasil perhitungan yang didapat dari asumsi biaya input-output, suku bunga riil, dan tingkat inflasi tahunan dari tahun `r params$eae_year`.
 
 ### Grafik
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
@@ -323,7 +454,7 @@ mapview(
   npv1_map,
   maxpixels = ncell(npv1_map),
   na.color = "transparent",
-  layer.name = "NPV T1",
+  layer.name = "EAE T1",
   col.regions = colorRampPalette(c("lightgrey", "darkgreen"))
 )
 
@@ -357,7 +488,7 @@ params$npv1_table %>%
   dplyr::mutate(dplyr::across(where(is.numeric), easy_to_read_numbers)) %>%
   rename(
     `Tutupan Lahan 1` = LC1,
-    !!glue::glue("Total NPV ({params$currency})") := Total_NPV1,
+    !!glue::glue("Total EAE ({params$currency})") := Total_NPV1,
     `Total Luas (Ha)` = Total_Ha1
   ) %>%
   DT::datatable(
@@ -380,8 +511,8 @@ params$npv1_table %>%
     )
 ```
 
-## NPV untuk Tahun `r params$year2` {.tabset}
-Bagian ini menyajikan sepuluh kategori tutupan lahan dengan total NPV tertinggi pada tahun `r params$year2`. NPV mewakili imbal hasil ekonomi kumulatif (dalam `r params$currency`) yang diperoleh dari kegiatan penggunaan lahan di atas suatu area, biasanya diukur dalam hektar. NPV adalah metrik kunci dalam perencanaan penggunaan lahan karena mencerminkan nilai kini dari manfaat masa depan yang terkait dengan penggunaan lahan yang berbeda pada tahun `r params$year2`.
+## EAE untuk Tahun `r params$year2` {.tabset}
+Bagian ini menyajikan sepuluh kategori tutupan lahan dengan total EAE tertinggi pada tahun `r params$year2` EAE mewakili indikator keuntungan bersih suatu tutupan lahan yang ekuivalen dengan rataan NPV per tahun yang terdiskonto. EAE untuk tahun T2: `r params$year2` merupakan hasil perhitungan yang didapat dari asumsi biaya input-output, suku bunga riil, dan tingkat inflasi tahunan dari tahun `r params$eae_year`. 
 
 ### Grafik
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
@@ -396,7 +527,7 @@ mapview(
   npv2_map,
   maxpixels = ncell(npv2_map),
   na.color = "transparent",
-  layer.name = "NPV 2",
+  layer.name = "EAE T2",
   col.regions = colorRampPalette(c("lightgrey", "darkgreen"))
 )
 ```
@@ -407,7 +538,7 @@ params$npv2_table %>%
   dplyr::mutate(dplyr::across(where(is.numeric), easy_to_read_numbers)) %>%
   rename(
     `Tutupan Lahan 2` = LC2,
-    !!glue::glue("Total NPV ({params$currency})") := Total_NPV2,
+    !!glue::glue("Total EAE ({params$currency})") := Total_NPV2,
     `Total Luas (Ha)` = Total_Ha2
   ) %>%
   DT::datatable(
@@ -430,8 +561,8 @@ params$npv2_table %>%
     )
 ```
 
-## Delta NPV dari Tahun `r params$year1` to `r params$year2` {.tabset}
-Bagian ini menyajikan perubahan NPV (ΔNPV) antara tahun `r params$year1` dan `r params$year2`. ΔNPV mencerminkan perbedaan dalam proyeksi imbal hasil ekonomi dari penggunaan lahan di dua periode waktu. Nilai ΔNPV positif menunjukkan peningkatan profitabilitas dari waktu ke waktu, sementara nilai negatif menunjukkan penurunan.
+## Delta EAE dari Tahun `r params$year1` sampai `r params$year2` {.tabset}
+Bagian ini menyajikan 10 urutan tertinggi perubahan EAE (ΔEAE) antara tahun `r params$year1` dan `r params$year2`. ΔEAE mencerminkan perbedaan dalam proyeksi imbal hasil ekonomi dari penggunaan lahan di dua periode waktu. Nilai ΔEAE positif menunjukkan peningkatan profitabilitas dari perubahan suatu tutupan lahan pada T1 menjadi suatu tutupan lahan pada T2, sementara nilai negatif menunjukkan terdapat penurunan profitabilitas dari perubahan suatu tutupan lahan pada T1 menjadi suatu tutupan lahan pada T2.
 
 ### Grafik
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
@@ -465,7 +596,7 @@ mapview(
   deltaNPV_map,
   maxpixels = ncell(deltaNPV_map),
   na.color = "transparent",
-  layer.name = "Delta NPV",
+  layer.name = "Delta EAE",
   at = breaks,
   col.regions = colors
 )
@@ -477,8 +608,8 @@ params$deltaNPV_table %>%
   dplyr::mutate(dplyr::across(where(is.numeric), easy_to_read_numbers)) %>%
   rename(
     `Perubahan Penggunaan Lahan` = LULCC,
-    !!rlang::sym(glue::glue("ΔNPV ({params$currency})")) := Total_deltaNPV,
-    !!rlang::sym(glue::glue("|ΔNPV| ({params$currency})")) := Total_abs_deltaNPV,
+    !!rlang::sym(glue::glue("ΔEAE ({params$currency})")) := Total_deltaNPV,
+    !!rlang::sym(glue::glue("|ΔEAE| ({params$currency})")) := Total_abs_deltaNPV,
     `Total Luas (Ha)` = Total_Ha2
   ) %>%
   DT::datatable(
@@ -501,9 +632,14 @@ params$deltaNPV_table %>%
     )
 ```
 
-### Kurva Abatement Cost
+### Kurva Abatement Cost (Emisi)
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
-params$abatement_main_plot
+params$emission_plot
+```
+
+### Kurva Abatement Cost (Sekuestrasi)
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+params$sequestration_plot
 ```
 
 ## Analsis per Unit Perencanaan
@@ -520,7 +656,7 @@ render_child_pu <- function(results_list, pu_name, currency) {
   child_content <- c(
     paste0("### ", pu_name, " {.tabset}"),
     "",
-    paste0("#### Top 10 ΔNPV di ", pu_name),
+    paste0("#### Top 10 ΔEAE di ", pu_name),
     "```{r}",
     "#| echo: false",
     "results_list[[pu_name]][['lulcc_bar']]",
@@ -535,13 +671,13 @@ render_child_pu <- function(results_list, pu_name, currency) {
     "  kable_styling(bootstrap_options = c('striped', 'hover'))",
     "```",
     "",
-    paste0("#### Top 10 NPV berdasarkan Tutupan Lahan 1 di ", pu_name),
+    paste0("#### Top 10 EAE berdasarkan Tutupan Lahan 1 di ", pu_name),
     "```{r}",
     "#| echo: false",
     "results_list[[pu_name]][['lc1_bar']]",
     "```",
     "",
-    paste0("#### Top 10 NPV berdasarkan Tutupan Lahan 2 di ", pu_name),
+    paste0("#### Top 10 EAE berdasarkan Tutupan Lahan 2 di ", pu_name),
     "```{r}",
     "#| echo: false",
     "results_list[[pu_name]][['lc2_bar']]",
@@ -554,8 +690,8 @@ render_child_pu <- function(results_list, pu_name, currency) {
     "  dplyr::mutate(dplyr::across(where(is.numeric), easy_to_read_numbers)) %>%",
     "  dplyr::rename(",
     "    `Perubahan Penggunaan Lahan` = LULCC,",
-    sprintf("    `ΔNPV (%s)` = Total_deltaNPV,", currency),
-    sprintf("    `|ΔNPV| (%s)` = Total_abs_deltaNPV,", currency),
+    sprintf("    `ΔEAE (%s)` = Total_deltaNPV,", currency),
+    sprintf("    `|ΔEAE| (%s)` = Total_abs_deltaNPV,", currency),
     "    `Total Luas (Ha)` = Total_Ha2",
     "  ) %>%",
     "  DT::datatable(",

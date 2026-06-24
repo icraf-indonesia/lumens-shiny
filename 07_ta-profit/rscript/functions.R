@@ -29,6 +29,40 @@ format_session_info_table <- function() {
   return(session_summary)
 }
 
+#' Read Table
+read_lookup_file <- function(filepath, sheet = 1) {
+  
+  ext <- tolower(tools::file_ext(filepath))
+  
+  if (ext == "csv") {
+    
+    df <- readr::read_csv(
+      filepath,
+      show_col_types = FALSE
+    )
+    
+  } else if (ext %in% c("xlsx", "xls")) {
+    
+    df <- readxl::read_excel(
+      filepath,
+      sheet = sheet
+    )
+    
+  } else {
+    
+    stop(
+      paste(
+        "Unsupported file format:",
+        ext,
+        "\nSupported formats: .csv, .xlsx, .xls"
+      )
+    )
+    
+  }
+  
+  as.data.frame(df)
+}
+
 #' Plot Categorical Raster
 #'
 #' Generates a ggplot for categorical raster data, with either predefined or extracted color palettes.
@@ -119,7 +153,7 @@ preprocess_data <- function(pathLULCT1, pathLULCT2, pathPU,
   
   # Load and process LULC T1
   LULCT1 <- terra::rast(pathLULCT1)
-  LookupNPV <- readr::read_csv(pathLookupNPV)
+  LookupNPV <- read_lookup_file(pathLookupNPV)
   levels(LULCT1) <- LookupNPV
   LULCT1 <- setNames(LULCT1, "LC1")
   if (!is.null(valueT1)) terra::time(LULCT1, tstep = "years") <- as.numeric(valueT1)
@@ -132,7 +166,7 @@ preprocess_data <- function(pathLULCT1, pathLULCT2, pathPU,
   
   # Load and process PU
   PU <- terra::rast(pathPU)
-  LookupPU <- readr::read_csv(pathLookupPU)
+  LookupPU <- read_lookup_file(pathLookupPU)
   levels(PU) <- LookupPU
   PU <- terra::resample(PU, LULCT1, method="near")
   
@@ -152,7 +186,7 @@ preprocess_data <- function(pathLULCT1, pathLULCT2, pathPU,
   
   colnames(combinedRasterTable)[1:3] <- c("PU", "LC1", "LC2")
   
-  LookupCstock <- readr::read_csv(pathLookupCstock)
+  LookupCstock <- read_lookup_file(pathLookupCstock)
   LookupCstock <- LookupCstock %>% dplyr::select(ID = 1, LC = 2, Carbon = 3)
   
   # Join with NPV and CARBON data
@@ -165,8 +199,8 @@ preprocess_data <- function(pathLULCT1, pathLULCT2, pathPU,
     left_join(LookupCstock %>% rename(C_T2 = Carbon), by = c("LC2" = "LC")) %>%
     select(-ID.x, -ID.y) %>%
     mutate(
-      NPV1 = NPV_LC1 * Ha,
-      NPV2 = NPV_LC2 * Ha,
+      NPV1 = EAE_LC1 * Ha,
+      NPV2 = EAE_LC2 * Ha,
       deltaNPV = NPV2 - NPV1,
       LULCC = paste(LC1, "to", LC2)
     )
@@ -175,7 +209,7 @@ preprocess_data <- function(pathLULCT1, pathLULCT2, pathPU,
   period <- as.numeric(valueT2) - as.numeric(valueT1)
   
   # Create NPV maps
-  npv_matrix <- as.matrix(LookupNPV[, c("ID", "NPV")])
+  npv_matrix <- as.matrix(LookupNPV[, c("ID", "EAE")])
   npv1_map <- terra::classify(LULCT1, npv_matrix)
   npv2_map <- terra::classify(LULCT2, npv_matrix)
   deltaNPV_map <- npv2_map - npv1_map
@@ -194,10 +228,10 @@ preprocess_data <- function(pathLULCT1, pathLULCT2, pathPU,
 }
 
 generate_output_maps <- function(npv1_map, npv2_map, deltaNPV_map, npv_table, wd) {
-  writeRaster(npv1_map, file.path(wd, "npv1_distribution_map.tif"), overwrite = TRUE)
-  writeRaster(npv2_map, file.path(wd, "npv2_distribution_map.tif"), overwrite = TRUE)
-  writeRaster(deltaNPV_map, file.path(wd, "deltaNPV_distribution_map.tif"), overwrite = TRUE)
-  write.xlsx(npv_table, file.path(wd, "tabel_npv.xlsx"), overwrite = TRUE)
+  writeRaster(npv1_map, file.path(wd, "EAE_T1_distribution_map.tif"), overwrite = TRUE)
+  writeRaster(npv2_map, file.path(wd, "EAE_T2_distribution_map.tif"), overwrite = TRUE)
+  writeRaster(deltaNPV_map, file.path(wd, "deltaEAE_distribution_map.tif"), overwrite = TRUE)
+  write.xlsx(npv_table, file.path(wd, "tabel_EAE.xlsx"), overwrite = TRUE)
 }
 
 #' Build Opportunity Cost Table
@@ -385,7 +419,7 @@ prepare_final_dataset <- function(df_split, df_pu_dominance) {
     mutate(
       hover_text = paste0(
         "Perubahan Lahan: ", land_use_change, "<br>",
-        "Opportunity Cost: ", scales::comma(opportunity_cost), "<br>",
+        "Abatement Cost: ", scales::comma(opportunity_cost), "<br>",
         "Laju Emisi: ", scales::comma(emission_rate), "<br>",
         "Unit Perencanaan Dominan: ", planning_unit, " (", scales::percent(pct_of_largest_pu, accuracy = 0.1), ")"
       )
@@ -433,7 +467,7 @@ plot_abatement_curve <- function(df_s_final, currency) {
     ), color = "black") +
     labs(
       x = "Laju Emisi (ton CO<sub>2</sub>-eq/ha.tahun)",
-      y = paste0("Opportunity Cost (", currency, "/ton CO<sub>2</sub>-eq)"),
+      y = paste0("Abatement Cost (", currency, "/ton CO<sub>2</sub>-eq)"),
       title = "Kurva Abatement Cost"
     ) +
     scale_x_continuous(
@@ -625,7 +659,7 @@ all_dissolve_lulcc <- function(data) {
 #' @examples
 #' create_lc1_bar(lc1_data, "NPV by Land Cover T1", "USD")
 #' @export
-create_lc1_bar <- function(data, title = "Top 10 Total NPV by LC1", currency = "IDR") {
+create_lc1_bar <- function(data, title = "Top 10 Total EAE by LC1", currency = "IDR") {
   plotly::plot_ly(
     data = data,
     x = ~stringr::str_wrap(LC1, width = 25),
@@ -634,7 +668,7 @@ create_lc1_bar <- function(data, title = "Top 10 Total NPV by LC1", currency = "
     hoverinfo = "text",
     hovertext = ~paste(
       "Land Cover Class (LC 1):", LC1, "<br>", 
-      "Total NPV:", format(Total_NPV1, big.mark = ",", scientific = FALSE), " ", currency
+      "Total EAE:", format(Total_NPV1, big.mark = ",", scientific = FALSE), " ", currency
     ),
     marker = list(
       color = "lightblue"
@@ -643,7 +677,7 @@ create_lc1_bar <- function(data, title = "Top 10 Total NPV by LC1", currency = "
     plotly::layout(
       title = title,
       xaxis = list(title = "", categoryorder = "total descending", tickangle = -270),
-      yaxis = list(title = paste("Total NPV (", currency, ")"), type="log"),
+      yaxis = list(title = paste("Total EAE (", currency, ")"), type="log"),
       margin = list(b = 150),
       hoverlabel = list(bgcolor = "white", font = list(color = "black"))
     )
@@ -661,7 +695,7 @@ create_lc1_bar <- function(data, title = "Top 10 Total NPV by LC1", currency = "
 #' @examples
 #' create_lc2_bar(lc2_data, "NPV by Land Cover T2", "USD")
 #' @export
-create_lc2_bar <- function(data, title = "Top 10 Total NPV by LC2", currency = "IDR") {
+create_lc2_bar <- function(data, title = "Top 10 Total EAE by LC2", currency = "IDR") {
   plotly::plot_ly(
     data = data,
     x = ~stringr::str_wrap(LC2, width = 25),
@@ -670,7 +704,7 @@ create_lc2_bar <- function(data, title = "Top 10 Total NPV by LC2", currency = "
     hoverinfo = "text",
     hovertext = ~paste(
       "Land Cover Class (LC 2):", LC2, "<br>", 
-      "Total NPV:", format(Total_NPV2, big.mark = ",", scientific = FALSE), " ", currency
+      "Total EAE:", format(Total_NPV2, big.mark = ",", scientific = FALSE), " ", currency
     ),
     marker = list(
       color = "steelblue"
@@ -679,7 +713,7 @@ create_lc2_bar <- function(data, title = "Top 10 Total NPV by LC2", currency = "
     plotly::layout(
       title = title,
       xaxis = list(title = "", categoryorder = "total descending", tickangle = -270),
-      yaxis = list(title = paste("Total NPV (", currency, ")"), type="log"),
+      yaxis = list(title = paste("Total EAE (", currency, ")"), type="log"),
       margin = list(b = 150),
       hoverlabel = list(bgcolor = "white", font = list(color = "black"))
     )
@@ -697,7 +731,7 @@ create_lc2_bar <- function(data, title = "Top 10 Total NPV by LC2", currency = "
 #' @examples
 #' create_lulcc_bar(lulcc_data, "Land Use Change NPV Differences", "USD")
 #' @export
-create_lulcc_bar <- function(data, title = "Top 10 LULCC by ΔNPV", currency = "IDR") {
+create_lulcc_bar <- function(data, title = "Top 10 LULCC by ΔEAE", currency = "IDR") {
   data <- data %>%
     arrange(desc(Total_abs_deltaNPV)) %>%
     mutate(LULCC = factor(LULCC, levels = unique(LULCC)),
@@ -705,13 +739,13 @@ create_lulcc_bar <- function(data, title = "Top 10 LULCC by ΔNPV", currency = "
            negative = ifelse(Total_deltaNPV < 0, Total_deltaNPV, 0))
   
   plotly::plot_ly(data = data) %>%
-    add_bars(x = ~positive, y = ~LULCC, name = "Positive ΔNPV", 
+    add_bars(x = ~positive, y = ~LULCC, name = "Positive ΔEAE", 
              marker = list(color = "lightgreen"), orientation = "h") %>%
-    add_bars(x = ~negative, y = ~LULCC, name = "Negative ΔNPV", 
+    add_bars(x = ~negative, y = ~LULCC, name = "Negative ΔEAE", 
              marker = list(color = "red"), orientation = "h") %>%
     layout(
       title = title,
-      xaxis = list(title = paste("ΔNPV (", currency, ")")),
+      xaxis = list(title = paste("ΔEAE (", currency, ")")),
       yaxis = list(title = "", categoryorder = "array", categoryarray = rev(levels(data$LULCC))),
       barmode = "relative",
       margin = list(l = 150),
@@ -741,15 +775,15 @@ create_lulcc_bar <- function(data, title = "Top 10 LULCC by ΔNPV", currency = "
 process_pu_data <- function(pu_data, pu_name, currency = "IDR") {
   # Helper function to format column names with currency
   format_currency_col <- function(col_name, currency) {
-    paste0(col_name, " (", currency, ")")
+    paste0(col_name, " (", currency, "/tahun)")
   }
   
   total_values <- calculate_total_values(pu_data) %>% 
     as.data.frame() %>% 
     rename(
-      !!format_currency_col("Total NPV (Year 1)", currency) := Total_NPV1,
-      !!format_currency_col("Total NPV (Year 2)", currency) := Total_NPV2,
-      !!format_currency_col("Total ΔNPV", currency) := Total_Delta_NPV
+      !!format_currency_col("Total EAE T1", currency) := Total_NPV1,
+      !!format_currency_col("Total EAE T2", currency) := Total_NPV2,
+      !!format_currency_col("Total ΔEAE", currency) := Total_Delta_NPV
     ) %>% 
     t() %>% 
     `colnames<-`("Value")
@@ -759,9 +793,9 @@ process_pu_data <- function(pu_data, pu_name, currency = "IDR") {
   dissolved_lulcc <- dissolve_lulcc(pu_data, 10)
   all_dissolved_lulcc_pu <- all_dissolve_lulcc(pu_data)
   
-  lc1_bar <- create_lc1_bar(dissolved_lc1, paste("Top 10 NPV by LC 1 in PU:", pu_name), currency)
-  lc2_bar <- create_lc2_bar(dissolved_lc2, paste("Top 10 NPV by LC 2 in PU:", pu_name), currency)
-  lulcc_bar <- create_lulcc_bar(dissolved_lulcc, paste("Top 10 ΔNPV in PU:", pu_name), currency)
+  lc1_bar <- create_lc1_bar(dissolved_lc1, paste("Top 10 EAE by LC 1 in PU:", pu_name), currency)
+  lc2_bar <- create_lc2_bar(dissolved_lc2, paste("Top 10 EAE by LC 2 in PU:", pu_name), currency)
+  lulcc_bar <- create_lulcc_bar(dissolved_lulcc, paste("Top 10 ΔEAE in PU:", pu_name), currency)
   
   list(
     total_values = total_values,
@@ -804,7 +838,7 @@ process_unit <- function(df) {
     mutate(
       hover_text = paste0(
         "Perubahan Lahan: ", land_use_change, "<br>",
-        "Opportunity Cost: ", scales::comma(opportunity_cost), "<br>",
+        "Abatement Cost: ", scales::comma(opportunity_cost), "<br>",
         "Laju Emisi: ", scales::comma(emission_rate)
       )
     )
@@ -867,7 +901,7 @@ generate_plots_by_pu <- function(df_curve, currency) {
         ), color = "black") +
         labs(
           x = "Laju Emisi (ton CO<sub>2</sub>-eq/ha.tahun)",
-          y = paste0("Opportunity Cost (", currency, "/ton CO<sub>2</sub>-eq)"),
+          y = paste0("Abatement Cost (", currency, "/ton CO<sub>2</sub>-eq)"),
           title = paste("Kurva Abatement Cost -", unique(.x$planning_unit))
         ) +
         scale_x_continuous(
@@ -956,17 +990,186 @@ generate_plots_by_pu <- function(df_curve, currency) {
 #' @examples
 #' generate_abatement_outputs(opcost_data, "USD")
 #' @export
+# generate_abatement_outputs <- function(opcost_table, currency) {
+#   df_curve <- prepare_curve_data(opcost_table)
+#   df_grouped <- build_grouped_data(df_curve)
+#   df_split <- split_emission_direction(df_grouped)
+#   df_pu_dominance <- calculate_pu_dominance(df_curve)
+#   df_final <- prepare_final_dataset(df_split, df_pu_dominance)
+#   
+#   main_plot <- plot_abatement_curve(df_final, currency)
+#   pu_plots <- generate_plots_by_pu(df_curve, currency)
+#   
+#   return(list(main_plot = main_plot, pu_plots = pu_plots))
+# }
+
+prepare_curve_positions <- function(df) {
+  
+  df %>%
+    arrange(opportunity_cost_log) %>%
+    mutate(
+      xmin = lag(
+        cumsum(width),
+        default = 0
+      ),
+      xmax = cumsum(width)
+    )
+  
+}
+
+plot_emission_curve <- function(df, currency){
+  
+  df_emission <- df %>%
+    filter(emission_rate > 0) %>%
+    mutate(
+      width = emission_rate
+    ) %>%
+    prepare_curve_positions()
+  
+  p <- ggplot(df_emission) +
+    
+    geom_rect(
+      aes(
+        xmin = xmin,
+        xmax = xmax,
+        ymin = 0,
+        ymax = opportunity_cost_log,
+        fill = land_use_change,
+        text = hover_text
+      ),
+      color = "black"
+    ) +
+    
+    labs(
+      title = "Emission Cost Curve",
+      x = "Emission Rate (ton CO₂-eq/ha/year)",
+      y = paste0(
+        "Opportunity Cost (",
+        currency,
+        "/ton CO₂-eq)"
+      )
+    ) +
+    
+    scale_y_continuous(
+      breaks = function(x)
+        floor(min(x)):ceiling(max(x)),
+      labels = function(x){
+        
+        values <- ifelse(
+          x >= 0,
+          10^x,
+          -10^abs(x)
+        )
+        
+        scales::comma(values)
+      }
+    ) +
+    
+    theme_minimal() +
+    theme(
+      legend.position = "none"
+    )
+  
+  ggplotly(
+    p,
+    tooltip = "text"
+  )
+}
+
+plot_sequestration_curve <- function(df, currency){
+  
+  df_seq <- df %>%
+    filter(emission_rate < 0) %>%
+    mutate(
+      width = abs(emission_rate)
+    ) %>%
+    prepare_curve_positions()
+  
+  p <- ggplot(df_seq) +
+    
+    geom_rect(
+      aes(
+        xmin = xmin,
+        xmax = xmax,
+        ymin = 0,
+        ymax = opportunity_cost_log,
+        fill = land_use_change,
+        text = hover_text
+      ),
+      color = "black"
+    ) +
+    
+    labs(
+      title = "Sequestration Cost Curve",
+      x = "Sequestration Rate (ton CO₂-eq/ha/year)",
+      y = paste0(
+        "Opportunity Cost (",
+        currency,
+        "/ton CO₂-eq)"
+      )
+    ) +
+    
+    scale_y_continuous(
+      breaks = function(x)
+        floor(min(x)):ceiling(max(x)),
+      labels = function(x){
+        
+        values <- ifelse(
+          x >= 0,
+          10^x,
+          -10^abs(x)
+        )
+        
+        scales::comma(values)
+      }
+    ) +
+    
+    theme_minimal() +
+    theme(
+      legend.position = "none"
+    )
+  
+  ggplotly(
+    p,
+    tooltip = "text"
+  )
+}
+
 generate_abatement_outputs <- function(opcost_table, currency) {
+  
   df_curve <- prepare_curve_data(opcost_table)
+  
   df_grouped <- build_grouped_data(df_curve)
+  
   df_split <- split_emission_direction(df_grouped)
+  
   df_pu_dominance <- calculate_pu_dominance(df_curve)
-  df_final <- prepare_final_dataset(df_split, df_pu_dominance)
   
-  main_plot <- plot_abatement_curve(df_final, currency)
-  pu_plots <- generate_plots_by_pu(df_curve, currency)
+  df_final <- prepare_final_dataset(
+    df_split,
+    df_pu_dominance
+  )
   
-  return(list(main_plot = main_plot, pu_plots = pu_plots))
+  emission_plot <- plot_emission_curve(
+    df_final %>% filter(emission_rate > 0),
+    currency
+  )
+  
+  sequestration_plot <- plot_sequestration_curve(
+    df_final %>% filter(emission_rate < 0),
+    currency
+  )
+  
+  pu_plots <- generate_plots_by_pu(
+    df_curve,
+    currency
+  )
+  
+  list(
+    emission_plot = emission_plot,
+    sequestration_plot = sequestration_plot,
+    pu_plots = pu_plots
+  )
 }
 
 #' Generate Report Parameters
@@ -989,16 +1192,16 @@ generate_report_params <- function(data, maps, paths, times, output_dir, pu_outp
 
   # Helper function to format column names with currency
   format_currency_col <- function(col_name, currency) {
-    paste0(col_name, " (", currency, ")")
+    paste0(col_name, " (", currency, "/tahun)")
   }
   
   # --- Main NPV Summary Tables ---
   main_total_values <- calculate_total_values(data$combinedRasterTable) %>% 
     as.data.frame() %>% 
     rename(
-      !!format_currency_col("Total NPV (Year 1)", currency) := Total_NPV1,
-      !!format_currency_col("Total NPV (Year 2)", currency) := Total_NPV2,
-      !!format_currency_col("Total ΔNPV", currency) := Total_Delta_NPV
+      !!format_currency_col("Total EAE T1", currency) := Total_NPV1,
+      !!format_currency_col("Total EAE T2", currency) := Total_NPV2,
+      !!format_currency_col("Total ΔEAE", currency) := Total_Delta_NPV
     ) %>% 
     t() %>% 
     `colnames<-`("Value")
@@ -1013,7 +1216,7 @@ generate_report_params <- function(data, maps, paths, times, output_dir, pu_outp
   opcost_results <- build_opcost_table(data$combinedRasterTable, data$period, data$total_area)
   opcost_table <- opcost_results$opcost_all
   npv_output_table <- opcost_results$data_em_sel %>% 
-    select(-Freq, -ID_LC1, -ID_LC2, -C_T1, -C_T2, -NPV_LC1, -NPV_LC2) %>%
+    select(-Freq, -ID_LC1, -ID_LC2, -C_T1, -C_T2, -EAE_LC1, -EAE_LC2) %>%
     filter(!is.nan(opcost), !is.na(opcost))
   abatement_outputs <- generate_abatement_outputs(opcost_table, currency)
   
@@ -1045,10 +1248,13 @@ generate_report_params <- function(data, maps, paths, times, output_dir, pu_outp
     deltaNPV_map = maps$deltaNPV_map,
     year1 = times$valueT1,
     year2 = times$valueT2,
+    eae_year = times$eae_year,
     pu_outputs = pu_outputs,
     output_dir = output_dir,
     currency = currency,
-    abatement_main_plot = abatement_outputs$main_plot,
+    # abatement_main_plot = abatement_outputs$main_plot,
+    emission_plot = abatement_outputs$emission_plot,
+    sequestration_plot = abatement_outputs$sequestration_plot,
     abatement_pu_plots = abatement_outputs$pu_plots
   )
 }
