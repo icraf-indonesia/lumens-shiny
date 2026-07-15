@@ -218,7 +218,7 @@ ques_pre_trajectory <- function(lc_t1_,
       lookup_trajectory_complete = lookup_trajectory_complete,
       trajectory_column_name = trajectory_column_name
     )
-  
+
   # Create a cross-tabulation of land cover and administrative zones
   crosstab_traj <- create_crosstab(land_cover = luc_trajectory_map, zone = admin_)[["crosstab_long"]]
   names(crosstab_traj)[1]<- trajectory_column_name
@@ -248,7 +248,7 @@ ques_pre_trajectory <- function(lc_t1_,
   # Store results at landscape level
   landscape_level <- list(
     luc_trajectory_map = luc_trajectory_map,
-    #crosstab_traj  = crosstab_traj,
+    crosstab_traj  = crosstab_traj,
     table_traj_area = table_traj_area,
     barplot_traj = barplot_traj
   )
@@ -487,22 +487,29 @@ lcc_trajectory_by_pu <- function(crosstab_tbl, pu_column, pu_name){
 #' @importFrom dplyr select_if rename left_join select
 #' @importFrom purrr pluck
 #'
-reclass_raster_to_categories <- function(raster_map, reclass_table){
-  # Retrieve unique IDs from the raster and rename column to 'Value'
-  ID_check <- terra::droplevels(raster_map) |> terra::cats() |> pluck(1) |> select(1)
+reclass_raster_to_categories <- function(raster_map, reclass_table) {
+  df_cats <- terra::cats(raster_map)[[1]]
+  id_col <- colnames(df_cats)[1]
+
+  colnames(reclass_table)[1] <- id_col
+  target_col <- colnames(reclass_table)[3]
   
-  colnames(reclass_table)[1] <- colnames(ID_check)
+  overlap <- intersect(colnames(df_cats), colnames(reclass_table))
+  overlap <- overlap[overlap != id_col]
+  df_cats <- df_cats[, !(colnames(df_cats) %in% overlap), drop = FALSE]
+
+  df_cats_joined <- dplyr::left_join(df_cats, reclass_table, by = id_col)
+  raster_numeric <- raster_map + 0
   
-  # Join the reclassification table with the ID_check,
-  # keep only the numeric columns and convert to matrix
-  reclass_mat <- left_join(ID_check, reclass_table, by=colnames(ID_check)) %>% select_if(is.numeric) %>% as.matrix()
+  reclass_mat <- as.matrix(df_cats_joined[, c(id_col, target_col)])
+  class(reclass_mat) <- "numeric"
   
-  # Reclassify the raster using the reclassification matrix and convert to factor
-  raster_map_reclass <- classify(raster_map, reclass_mat) %>% as.factor()
+  raster_reclassed <- terra::classify(raster_numeric, reclass_mat, others = NA)
+  raster_map_reclass <- terra::as.factor(raster_reclassed)
+  names(raster_map_reclass) <- target_col
   
   return(raster_map_reclass)
 }
-
 
 # add_legend_to_categorical_raster ----------------------------------------
 
