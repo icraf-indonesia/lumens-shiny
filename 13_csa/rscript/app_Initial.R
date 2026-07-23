@@ -25,331 +25,134 @@ jscode <- "shinyjs.closeWindow = function() { window.close(); }"
 
 # UI Definition
 ui <- fluidPage(
-  
   useShinyjs(),
-  
   theme = bs_theme(version = 5),
-  
-  extendShinyjs(
-    text = jscode,
-    functions = c("closeWindow")
-  ),
-  
+  extendShinyjs(text = jscode, functions = c("closeWindow")),
   tags$head(
-    tags$link(
-      rel = "shortcut icon",
-      href = "favicon.ico"
-    )
+    tags$link(rel = "shortcut icon", href = "favicon.ico")  
   ),
-  
   titlePanel("Modul Emisi Karbon - Lahan Pertanian"),
-  
   sidebarLayout(
-    
-    ###########################################################
-    ## SIDEBAR
-    ###########################################################
-    
     sidebarPanel(
       
-      ###########################################################
-      ## STEP 1
-      ###########################################################
+      h4("Pengaturan Data Pupuk"),
       
-      h4("1. Unit Perencanaan"),
+      radioButtons("has_fertilizer", 
+                   "Apakah sudah punya data dosis pupuk?",
+                   choices = c("Ya" = "yes", "Tidak" = "no")),
       
-      radioButtons(
-        "zone_type",
-        "Tipe Input Unit Perencanaan",
-        choices = c(
-          "Raster" = "raster",
-          "Shapefile" = "shapefile"
-        ),
-        selected = "shapefile"
-      ),
-      
+      # =============================
+      # CASE: USER DOES NOT HAVE DATA
+      # =============================
       conditionalPanel(
+        condition = "input.has_fertilizer == 'no'",
         
-        condition = "input.zone_type == 'raster'",
+        h5("Langkah 1: Unggah Unit Perencanaan"),
         
-        fileInput(
-          "zone_raster",
-          "Peta Unit Perencanaan (Raster)",
-          accept = c(".tif", ".tiff")
+        radioButtons("zone_type", "Tipe Input Unit Perencanaan",
+                     choices = c("Raster" = "raster", "Shapefile" = "shapefile"), selected = "shapefile"),
+        conditionalPanel(
+          condition = "input.zone_type == 'raster'",
+          fileInput("zone_raster", "Unit Perencanaan (Raster)", accept = c(".tif", ".tiff")),
+          fileInput("lookup_zone", "Tabel Referensi Unit Perencanaan", accept = c(".csv", ".xlsx"))
+        ),
+        conditionalPanel(
+          condition = "input.zone_type == 'shapefile'",
+          fileInput("zone_shapefile", "Unit Perencanaan (Shapefile)",
+                    accept = c(".shp", ".dbf", ".prj", ".shx"), multiple = TRUE)
+        ),
+        h5("Langkah 2: Konfigurasi Pupuk"),
+        
+        radioButtons("use_single", "Apakah menggunakan pupuk tunggal?",
+                     choices = c("Ya" = "yes", "Tidak" = "no")),
+        
+        conditionalPanel(
+          condition = "input.use_single == 'yes'",
+          numericInput("n_single", "Jumlah Pupuk Tunggal", 1, min = 1),
+          uiOutput("single_fertilizer_names")
         ),
         
-        fileInput(
-          "lookup_zone",
-          "Tabel Referensi Unit Perencanaan",
-          accept = c(".csv", ".xlsx")
-        )
+        radioButtons("use_compound", "Apakah menggunakan pupuk majemuk?",
+                     choices = c("Ya" = "yes", "Tidak" = "no")),
         
-      ),
-      
-      conditionalPanel(
-        
-        condition = "input.zone_type == 'shapefile'",
-        
-        fileInput(
-          "zone_shapefile",
-          "Peta Unit Perencanaan (Shapefile)",
-          multiple = TRUE,
-          accept = c(
-            ".shp",
-            ".dbf",
-            ".prj",
-            ".shx"
-          )
-        )
-        
-      ),
-      
-      hr(),
-      
-      ###########################################################
-      ## STEP 2
-      ###########################################################
-      
-      conditionalPanel(
-        
-        condition = "
-          (input.zone_type == 'raster' && input.zone_raster != '') ||
-          (input.zone_type == 'shapefile' && input.zone_shapefile.length > 0)
-        ",
-        
-        h4("2. Generate Template Parameter Emisi & Konversi"),
-        
-        tags$p(
-          "Workbook akan dibuat dengan:",
-          tags$br(),
-          "\u2713 Satu sheet untuk setiap Unit Perencanaan",
-          tags$br(),
-          "\u2713 Seluruh parameter emisi dan konversi telah terisi nilai default"
+        conditionalPanel(
+          condition = "input.use_compound == 'yes'",
+          numericInput("n_compound", "Jumlah Pupuk Majemuk", 1, min = 1),
+          uiOutput("compound_fertilizer_names")
         ),
         
-        actionButton(
-          "generate_template",
-          "Generate Template",
-          style="
-            background-color:#FFA500;
-            color:white;
-            font-size:18px;
-            padding:10px 15px;
-            width:100%;
-          "
-        ),
-        
-        br(),
-        br(),
-        
+        actionButton("generate_template", "Buat Template",
+                     style = "background-color:#FFA500; color:white; font-size: 18px; padding: 10px 15px; margin-bottom: 15px;"),
         hidden(
-          
           downloadButton(
             "download_template",
-            "Download Template",
-            style="
-              font-size:18px;
-              padding:10px 15px;
-              width:100%;
-            "
+            "Unduh Template",
+            style = "font-size: 18px; padding: 10px 15px; margin-bottom: 15px;"
           )
-          
-        )
-        
+        ),
+        br()
       ),
       
-      hr(),
-      
-      ###########################################################
-      ## STEP 3
-      ###########################################################
-      
+      # =============================
+      # CASE: FINAL INPUT (AFTER TEMPLATE OR DIRECT)
+      # =============================
       conditionalPanel(
-        
-        condition = "input.generate_template > 0",
-        
-        h4("3. Data Analisis"),
-        
-        fileInput(
-          "lulc",
-          "Peta Tutupan Lahan",
-          accept = c(".tif", ".tiff")
+        condition = "input.has_fertilizer == 'yes' | input.generate_template > 0",
+        h4("Unggah Data Input"),
+        conditionalPanel(
+          condition = "input.has_fertilizer == 'yes'",
+          radioButtons("zone_type", "Tipe Input Unit Perencanaan",
+                       choices = c("Raster" = "raster", "Shapefile" = "shapefile"), selected = "shapefile"),
+          conditionalPanel(
+            condition = "input.zone_type == 'raster'",
+            fileInput("zone_raster", "Unit Perencanaan (Raster)", accept = c(".tif", ".tiff")),
+            fileInput("lookup_zone", "Tabel Referensi Unit Perencanaan", accept = c(".csv", ".xlsx"))
+          ),
+          conditionalPanel(
+            condition = "input.zone_type == 'shapefile'",
+            fileInput("zone_shapefile", "Unit Perencanaan (Shapefile)",
+                      accept = c(".shp", ".dbf", ".prj", ".shx"), multiple = TRUE)
+          )
         ),
+        fileInput("lulc", "Peta Tutupan Lahan", accept = c(".tif", ".tiff")),
+        textInput("year", "Tahun Peta", value = "1990"),
+        fileInput("lc_table", "Tabel Referensi Tutupan Lahan dengan Klasifikasi Sawah", accept = c(".csv", ".xlsx")),
+        fileInput("conversion_table", "Tabel Parameter Emisi dan Konversi", accept = c(".csv", ".xlsx")),
+        fileInput("pupuk_table", "Tabel Dosis Pupuk", accept = c(".csv", ".xlsx")),
         
-        textInput(
-          "year",
-          "Tahun Peta",
-          value = "2020"
-        ),
-        
-        fileInput(
-          "lc_table",
-          "Tabel Referensi Tutupan Lahan",
-          accept = c(".csv", ".xlsx")
-        ),
-        
-        fileInput(
-          "parameter_table",
-          "Template Parameter Emisi & Konversi",
-          accept = c(".xlsx")
-        ),
-        
-        verbatimTextOutput(
-          "validation_message"
-        )
-        
+        verbatimTextOutput("validation_message")
       ),
-      
-      hr(),
-      
-      ###########################################################
-      ## STEP 4
-      ###########################################################
-      
-      h4("4. Output"),
-      
-      shinyDirButton(
-        "wd",
-        "Pilih Direktori Keluaran",
-        "Pilih Direktori",
-        style="
-          font-size:18px;
-          padding:10px 15px;
-          width:100%;
-        "
-      ),
-      
-      textOutput(
-        "selected_directory"
-      ),
-      
-      br(),
-      
-      actionButton(
-        
-        "process",
-        
-        "Jalankan Analisis",
-        
-        style="
-          font-size:18px;
-          padding:10px 15px;
-          background-color:#4CAF50;
-          color:white;
-          width:100%;
-        "
-        
-      ),
-      
-      br(),
-      br(),
-      
-      hidden(
-        
-        actionButton(
-          
-          "open_report",
-          
-          "Buka Laporan",
-          
-          style="
-            font-size:18px;
-            padding:10px 15px;
-            background-color:#008CBA;
-            color:white;
-            width:100%;
-          "
-          
-        )
-        
-      ),
-      
-      br(),
-      
-      hidden(
-        
-        actionButton(
-          
-          "open_output_folder",
-          
-          "Buka Folder Keluaran",
-          
-          style="
-            font-size:18px;
-            padding:10px 15px;
-            background-color:#008CBA;
-            color:white;
-            width:100%;
-          "
-          
-        )
-        
-      ),
-      
-      br(),
-      
-      actionButton(
-        
-        "returnButton",
-        
-        "Kembali ke Menu Utama",
-        
-        style="
-          font-size:18px;
-          padding:10px 15px;
-          background-color:#FA8072;
-          color:white;
-          width:100%;
-        "
-        
+      div(style = "display: flex; flex-direction: column; gap: 10px;",
+          shinyDirButton("wd", "Pilih Direktori Keluaran", "Pilih Direktori", 
+                         style = "font-size: 18px; padding: 10px 15px; "),
+          textOutput("selected_directory"),
+          actionButton("process", "Jalankan Analisis",
+                       style = "font-size: 18px; padding: 10px 15px; background-color: #4CAF50; color: white;"),
+          hidden(
+            actionButton("open_report", "Buka Laporan",
+                         style = "font-size: 18px; padding: 10px 15px; background-color: #008CBA; color: white;")
+          ),
+          hidden(
+            actionButton("open_output_folder", "Buka Folder Keluaran",
+                         style = "font-size: 18px; padding: 10px 15px; background-color: #008CBA; color: white;")
+          ),
+          actionButton("returnButton", "Kembali ke Menu Utama", 
+                       style = "font-size: 18px; padding: 10px 15px; background-color: #FA8072; color: white;")
       )
-      
     ),
-    
-    ###########################################################
-    ## MAIN PANEL
-    ###########################################################
-    
     mainPanel(
-      
       tabsetPanel(
-        
-        tabPanel(
-          
-          "User Guide",
-          
-          uiOutput(
-            "user_guide"
-          )
-          
-        ),
-        
-        tabPanel(
-          
-          "Log",
-          
-          br(),
-          
-          textOutput(
-            "selected_dir"
-          ),
-          
-          verbatimTextOutput(
-            "status_messages"
-          ),
-          
-          verbatimTextOutput(
-            "error_messages"
-          )
-          
+        tabPanel("User Guide", 
+                 uiOutput("user_guide")),
+        tabPanel("Log",
+                 br(),
+                 textOutput("selected_dir"),
+                 verbatimTextOutput("status_messages"),
+                 verbatimTextOutput("error_messages")
         )
-        
       )
-      
     )
-    
   )
-  
 )
 
 # Server Logic
