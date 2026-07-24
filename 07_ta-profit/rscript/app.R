@@ -350,8 +350,6 @@ server <- function(input, output, session) {
           pu_outputs[[pu_name]] <- process_pu_data(pu_data, pu_name, input$currency)
         }  
         
-        browser()
-        
         # And update the main chart generation:
         params <- generate_report_params(
           data = result,
