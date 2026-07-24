@@ -1,0 +1,12 @@
+ID,Ternak,Laju_eksresi,TAM,Fraksi_ekskresi,Faktor_langsung
+1,Sapi pedaging,0.34,319,0.02,0.02
+2,Sapi perah,0.47,350,0.02,0.02
+3,Kerbau,0.32,380,0.02,0.02
+4,Domba,1.17,28,0.02,0.02
+5,Kambing,1.37,30,0.02,0.02
+6,Babi,0.5,28,0.02,0.02
+7,Kuda,0.46,238,0.02,0.01
+8,Ayam buras,0.82,1.5,0.02,0.01
+9,Ayam ras,1.1,1.5,0.02,0.01
+10,Ayam petelur,0.82,1.5,0.02,0.01
+11,Bebek,0.82,1.5,0.02,0.01

@@ -1,0 +1,8 @@
+ID,Ternak,Fraksi,Faktor_tak_langsung
+1,Sapi pedaging,0.2,0.01
+2,Sapi perah,0.3,0.01
+3,Kerbau,0.3,0.01
+4,Domba,0.12,0.01
+5,Kambing,0.12,0.01
+6,Babi,0.12,0.01
+7,Kuda,0.12,0.01

@@ -1,0 +1,8 @@
+ID,LC,ID_Traj,Trajectory,color_palette,sawah
+1,Hutan,1,Hutan,#006400,0
+2,Perkebunan,2,Perkebunan,#CD853F,0
+3,Agroforestri,3,Agroforestri,#8B4513,0
+4,"Belukar, padang rumput, dan lahan terbuka",4,"Belukar, padang rumput, dan lahan terbuka",#DAA520,0
+5,Pertanian,5,Pertanian,#ADFF2F,1
+6,Pemukiman,6,Lainnya,#FF0000,0
+7,Badan air,6,Lainnya,#0000FF,0
