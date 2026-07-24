@@ -117,14 +117,14 @@ ui <- fluidPage(
           (input.zone_type == 'shapefile' && input.zone_shapefile.length > 0)
         ",
         
-        h4("2. Generate Template Parameter Emisi & Konversi"),
+        h4("2. Generate Template Parameter Emisi & Konversi (Opsional)"),
         
         tags$p(
           "Workbook akan dibuat dengan:",
           tags$br(),
           "\u2713 Satu sheet untuk setiap Unit Perencanaan",
           tags$br(),
-          "\u2713 Seluruh parameter emisi dan konversi telah terisi nilai default"
+          "\u2713 Seluruh parameter emisi dan konversi telah terisi nilai default, silahkan mengubah nilainya jika diperlukan"
         ),
         
         actionButton(
@@ -208,100 +208,45 @@ ui <- fluidPage(
       
       h4("4. Output"),
       
-      shinyDirButton(
-        "wd",
-        "Pilih Direktori Keluaran",
-        "Pilih Direktori",
-        style="
-          font-size:18px;
-          padding:10px 15px;
-          width:100%;
-        "
-      ),
-      
-      textOutput(
-        "selected_directory"
-      ),
-      
-      br(),
-      
-      actionButton(
+      div(
+        style = "display: flex; flex-direction: column; gap: 10px;",
         
-        "process",
+        shinyDirButton(
+          "wd",
+          "Pilih Direktori Keluaran",
+          "Pilih Direktori",
+          style = "font-size:18px; padding:10px 15px;"
+        ),
         
-        "Jalankan Analisis",
-        
-        style="
-          font-size:18px;
-          padding:10px 15px;
-          background-color:#4CAF50;
-          color:white;
-          width:100%;
-        "
-        
-      ),
-      
-      br(),
-      br(),
-      
-      hidden(
+        textOutput("selected_directory"),
         
         actionButton(
-          
-          "open_report",
-          
-          "Buka Laporan",
-          
-          style="
-            font-size:18px;
-            padding:10px 15px;
-            background-color:#008CBA;
-            color:white;
-            width:100%;
-          "
-          
-        )
+          "process",
+          "Jalankan Analisis",
+          style = "font-size:18px; padding:10px 15px; background-color:#4CAF50; color:white;"
+        ),
         
-      ),
-      
-      br(),
-      
-      hidden(
+        hidden(
+          actionButton(
+            "open_report",
+            "Buka Laporan",
+            style = "font-size:18px; padding:10px 15px; background-color:#008CBA; color:white;"
+          )
+        ),
+        
+        hidden(
+          actionButton(
+            "open_output_folder",
+            "Buka Folder Keluaran",
+            style = "font-size:18px; padding:10px 15px; background-color:#008CBA; color:white;"
+          )
+        ),
         
         actionButton(
-          
-          "open_output_folder",
-          
-          "Buka Folder Keluaran",
-          
-          style="
-            font-size:18px;
-            padding:10px 15px;
-            background-color:#008CBA;
-            color:white;
-            width:100%;
-          "
-          
+          "returnButton",
+          "Kembali ke Menu Utama",
+          style = "font-size:18px; padding:10px 15px; background-color:#FA8072; color:white;"
         )
-        
-      ),
-      
-      br(),
-      
-      actionButton(
-        
-        "returnButton",
-        
-        "Kembali ke Menu Utama",
-        
-        style="
-          font-size:18px;
-          padding:10px 15px;
-          background-color:#FA8072;
-          color:white;
-          width:100%;
-        "
-        
       )
       
     ),
@@ -361,16 +306,12 @@ server <- function(input, output, session) {
     wd = "",  # Working directory for saving outputs
     report_file = NULL, 
     
-    single = list(),
-    compound = list(),
-    
     # Filepath
     lulc_file_path = NULL,
     pu_file_path = NULL,
     lookup_pu_file_path = NULL, 
     lookup_lc_file_path = NULL, 
-    lookup_conversion_file_path = NULL, 
-    lookup_pupuk_file_path = NULL, 
+    lookup_conversion_file_path = NULL,
     
     # Main inputs
     lulc = NULL,
@@ -383,8 +324,7 @@ server <- function(input, output, session) {
     
     # Lookup tables
     lc_table = NULL,
-    conversion_table = NULL,
-    pupuk_table = NULL
+    parameter_table = NULL
   )
   
   get_pu_ids <- function(input) {
@@ -489,60 +429,8 @@ server <- function(input, output, session) {
     }
   )
   
-  observe({
-    req(input$use_single == "yes", input$n_single)
-    
-    for (i in 1:input$n_single) {
-      rv$single[[i]] <- input[[paste0("single_name_", i)]]
-    }
-  })
   
-  
-  observe({
-    req(input$use_compound == "yes", input$n_compound)
-    
-    for (i in 1:input$n_compound) {
-      rv$compound[[i]] <- input[[paste0("compound_name_", i)]]
-    }
-  })
-  
-  output$single_fertilizer_names <- renderUI({
-    
-    req(input$use_single == "yes")
-    req(input$n_single)
-    
-    lapply(1:input$n_single, function(i) {
-      
-      value_old <- if (length(rv$single) >= i) rv$single[[i]] else ""
-      
-      textInput(
-        inputId = paste0("single_name_", i),
-        label = paste("Single Fertilizer", i, "Name"),
-        value = value_old,
-        placeholder = "e.g. UREA"
-      )
-    })
-  })
-  
-  output$compound_fertilizer_names <- renderUI({
-    
-    req(input$use_compound == "yes")
-    req(input$n_compound)
-    
-    lapply(1:input$n_compound, function(i) {
-      
-      value_old <- if (length(rv$compound) >= i) rv$compound[[i]] else ""
-      
-      textInput(
-        inputId = paste0("compound_name_", i),
-        label = paste("Compound Fertilizer", i, "Name"),
-        value = value_old,
-        placeholder = "e.g. NPK 15-10-12"
-      )
-    })
-  })
-  
-  template_data <- eventReactive(input$generate_template, {
+  parameter_template <- eventReactive(input$generate_template, {
     
     pu_table <- get_pu_ids(input)
     
@@ -553,84 +441,129 @@ server <- function(input, output, session) {
       )
     )
     
-    # ======================
-    # BASE COLUMNS
-    # ======================
-    cols <- c(
-      "ID",
-      "UNIT_PERENCANAAN",
-      "SATUAN"
+    template <- data.frame(
+      
+      ID = 1:19,
+      
+      Name = c(
+        "0% dosis pupuk",
+        "50% dosis pupuk",
+        "100% dosis pupuk",
+        "Tidak ditanami padi",
+        "Rotasi padi 1 kali",
+        "Rotasi padi 2-3 kali",
+        "N UREA",
+        "N NPK 15-10-12",
+        "GWP CO2",
+        "GWP CH4",
+        "GWP N2O",
+        "Faktor Emisi N2O Lahan Sawah",
+        "Faktor Emisi CO2",
+        "Faktor Emisi CH4 per luas panen",
+        "Scaling Factor Rejim Air",
+        "Scaling Factor Jenis Tanah",
+        "Scaling Factor Varietas Padi",
+        "Cultivation Period of Rice",
+        "Dosis Pupuk Tunggal Urea"
+      ),
+      
+      Variable = c(
+        "dosis0",
+        "dosis50",
+        "dosis100",
+        "rotasi0",
+        "rotasi1",
+        "rotasi2",
+        "N_UREA",
+        "N_NPK",
+        "GWP_CO2",
+        "GWP_CH4",
+        "GWP_N2O",
+        "EF_N2O",
+        "EF_CO2",
+        "EF",
+        "SFw",
+        "SFs",
+        "SFr",
+        "t",
+        "UREA"
+      ),
+      
+      Value = c(
+        0.0639,
+        0.9025,
+        0.0336,
+        15635,
+        173243,
+        403316,
+        0.46,
+        0.15,
+        1,
+        27.2,
+        273,
+        0.003,
+        0.2,
+        1.61,
+        1,
+        1,
+        1,
+        240,
+        300
+      ),
+      
+      Satuan = c(
+        rep("unitless",3),
+        rep("Ha",3),
+        rep("unitless",2),
+        rep("unitless",3),
+        "unitless",
+        "unitless",
+        "kg/Ha/hari",
+        rep("unitless",3),
+        "hari",
+        "kg/Ha/season"
+      ),
+      
+      Keterangan = c(
+        "Tidak menerima bantuan pupuk",
+        "Menerima bantuan pupuk dengan subsidi harga",
+        "Menerima bantuan pupuk gratis",
+        "Luas lahan yang tidak ditanami padi",
+        "Luas lahan yang ditanami padi 1 kali",
+        "Luas lahan yang ditanami padi 2-3 kali",
+        "",
+        "",
+        "Berdasarkan IPCC 2021",
+        "Berdasarkan IPCC 2021",
+        "Berdasarkan IPCC 2021",
+        "",
+        "",
+        "Baseline EF untuk Sawah tergenang tanpa BO",
+        "Scaling Faktor untuk Perbedaan Rejim Air",
+        "Scaling Faktor Jenis Tanah",
+        "Scaling Faktor Varietas Padi",
+        "Lama budidaya padi dalam setahun",
+        "Default dosis pupuk tunggal urea"
+      ),
+      
+      stringsAsFactors = FALSE
     )
     
-    # ======================
-    # SINGLE FERTILIZER
-    # ======================
-    if (input$use_single == "yes") {
-      
-      single_names <- sapply(
-        1:input$n_single,
-        function(i) input[[paste0("single_name_", i)]]
-      )
-      
-      single_names <- single_names[
-        single_names != ""
-      ]
-      
-      cols <- c(
-        cols,
-        paste0("Tunggal_", single_names)
-      )
-    }
-    
-    # ======================
-    # COMPOUND FERTILIZER
-    # ======================
-    if (input$use_compound == "yes") {
-      
-      compound_names <- sapply(
-        1:input$n_compound,
-        function(i) input[[paste0("compound_name_", i)]]
-      )
-      
-      compound_names <- compound_names[
-        compound_names != ""
-      ]
-      
-      cols <- c(
-        cols,
-        paste0("Majemuk_", compound_names)
-      )
-    }
-    
-    # ======================
-    # BUILD TEMPLATE
-    # ======================
-    df <- data.frame(
-      matrix(
-        NA,
-        nrow = nrow(pu_table),
-        ncol = length(cols)
-      )
+    list(
+      pu_table = pu_table,
+      template = template
     )
-    
-    colnames(df) <- cols
-    
-    df$ID <- pu_table$Value
-    df$UNIT_PERENCANAAN <- pu_table$planning_unit
-    df$SATUAN <- "Kg/Ha"
-    
-    df
     
   })
   
   observeEvent(input$generate_template, {
     
-    req(template_data())
+    req(parameter_template())
     
     shinyjs::show("download_template")
     
     showNotification(
-      "Template berhasil dibuat.",
+      "Template Parameter Emisi & Konversi berhasil dibuat.",
       type = "message"
     )
     
@@ -639,40 +572,51 @@ server <- function(input, output, session) {
   output$download_template <- downloadHandler(
     
     filename = function() {
+      
       paste0(
-        "fertilizer_template_",
+        "Parameter_Emisi_dan_Konversi_",
         Sys.Date(),
         ".xlsx"
       )
+      
     },
     
     content = function(file) {
       
-      req(input$generate_template > 0)
+      req(parameter_template())
       
-      template <- template_data()
-      
-      req(nrow(template) > 0)
+      data <- parameter_template()
       
       wb <- openxlsx::createWorkbook()
       
-      openxlsx::addWorksheet(
-        wb,
-        "Template_Pupuk"
-      )
-      
-      openxlsx::writeData(
-        wb,
-        sheet = "Template_Pupuk",
-        x = template
-      )
+      for(i in seq_len(nrow(data$pu_table))){
+        
+        sheet_name <- data$pu_table$planning_unit[i]
+        
+        ## maksimal 31 karakter (aturan Excel)
+        sheet_name <- substr(sheet_name,1,31)
+        
+        openxlsx::addWorksheet(
+          wb,
+          sheet_name
+        )
+        
+        openxlsx::writeData(
+          wb,
+          sheet = sheet_name,
+          x = data$template
+        )
+        
+      }
       
       openxlsx::saveWorkbook(
         wb,
         file,
         overwrite = TRUE
       )
+      
     }
+    
   )
   
   #' Directory selection
@@ -728,8 +672,7 @@ server <- function(input, output, session) {
     }
     rv$pu_table <- input$pu_table
     rv$lc_table <- input$lc_table
-    rv$conversion_table <- input$conversion_table
-    rv$pupuk_table <- input$pupuk_table
+    rv$parameter_table <- input$parameter_table
   })
   
   # Input validation
@@ -744,8 +687,10 @@ server <- function(input, output, session) {
         "Silakan unggah tabel referensi unit perencanaan (khusus raster)"
       ),
       need(rv$lc_table, "Silakan unggah tabel referensi tutupan lahan"),
-      need(rv$conversion_table, "Silakan unggah tabel parameter emisi dan konversi"),
-      need(rv$pupuk_table, "Silakan unggah tabel dosis pupuk"),
+      need(
+        rv$parameter_table,
+        "Silakan unggah Template Parameter Emisi & Konversi"
+      ),
       need(rv$wd != "", "Silakan pilih direktori keluaran"))
     TRUE
   })
@@ -775,11 +720,18 @@ server <- function(input, output, session) {
         result <- preprocess_data(
           pathLULCT = rv$lulc$datapath,
           zone_type = input$zone_type,
-          pathPU = if (input$zone_type == "raster") rv$zone_input$datapath else rv$zone_input,
-          pathLookupPU = if (input$zone_type == "raster") rv$lookup_zone$datapath else NULL,
+          pathPU = if (input$zone_type == "raster") {
+            rv$zone_input$datapath
+          } else {
+            rv$zone_input
+          },
+          pathLookupPU = if (input$zone_type == "raster") {
+            rv$lookup_zone$datapath
+          } else {
+            NULL
+          },
           pathLookupLC = rv$lc_table$datapath,
-          pathLookupConversion = rv$conversion_table$datapath,
-          pathLookupPupuk = rv$pupuk_table$datapath,
+          pathParameter = rv$parameter_table$datapath,
           year = rv$year
         )
         
@@ -789,11 +741,18 @@ server <- function(input, output, session) {
         
         paths <- list(
           pathLULCT = rv$lulc$datapath,
-          pathPU = rv$zone_input$datapath,
-          pathLookupPU = if (input$zone_type == "raster") rv$lookup_zone$datapath else NULL,
+          pathPU = if (input$zone_type == "raster") {
+            rv$zone_input$datapath
+          } else {
+            paste(sapply(rv$zone_input$datapath, basename), collapse = ", ")
+          },
+          pathLookupPU = if (input$zone_type == "raster") {
+            rv$lookup_zone$datapath
+          } else {
+            NULL
+          },
           pathLookupLC = rv$lc_table$datapath,
-          pathLookupConversion = rv$conversion_table$datapath,
-          pathLookupPupuk = rv$pupuk_table$datapath
+          pathParameter = rv$parameter_table$datapath
         )
         
         output_file <- paste0("quesc-paddy_report_log", format(Sys.time(), "%Y-%m-%d_%H-%M-%S"), ".html")

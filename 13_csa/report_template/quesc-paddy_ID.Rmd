@@ -25,6 +25,7 @@ library(dplyr)
 library(plotly)
 library(htmltools)
 library(scales)
+library(readxl)
 
 format_dt <- function(dt, data) {
   num_cols <- names(data)[sapply(data, is.numeric)]
@@ -74,8 +75,7 @@ analysis_log <- tribble(
   "Planning Unit Map", params$paths$pathPU,
   "Planning Unit Table", params$paths$pathLookupPU,
   "LULC Lookup Table", params$paths$pathLookupLC,
-  "Conversion Lookup Table", params$paths$pathLookupConversion,
-  "Pupuk Lookup Table", params$paths$pathLookupPupuk,
+  "Parameter Lookup Table", params$paths$pathParameter,
   "Year", as.character(params$year),
   "Output Files", "",
   "Output Workspace", paste0(getwd(), " | ", params$output_dir),
@@ -305,71 +305,55 @@ Tabel berikut memuat parameter dan faktor konversi yang digunakan dalam proses p
 
 Nilai-nilai pada tabel ini menjadi komponen utama dalam mengonversi aktivitas lahan sawah menjadi estimasi emisi CH₄ dan N₂O dalam satuan CO₂-ekuivalen.
 
-```{r echo=FALSE, message=FALSE, warning=FALSE}
-conversion_table <- read_lookup(params$paths$pathLookupConversion)
-
-# join NPV + Carbon
-conversion_table <- conversion_table %>% 
-  rename(
-    `Nama` = Name,
-    `Variabel` = Variable,
-    `Nilai` = Value
-  ) %>% 
-  select(-Variabel)
-
-datatable(
-  conversion_table,
-  extensions = c('Buttons', 'Responsive'),
-  rownames = FALSE,
-  options = list(
-    paging = TRUE,
-    searching = TRUE,
-    fixedColumns = TRUE,
-    autoWidth = TRUE,
-    ordering = TRUE,
-    dom = 'Blfrtip',
-    buttons = list(
-      list(extend = "copy",  className = "btn btn-light btn-sm"),
-      list(extend = "csv",   className = "btn btn-light btn-sm"),
-      list(extend = "excel", className = "btn btn-light btn-sm")
-    )
-  ),
-  class = "display stripe hover"
-)
-```
-
-## Tabel Acuan Dosis Pupuk Setiap Unit Perencanaan
-
 Tabel dosis pupuk menunjukkan informasi penggunaan pupuk pada masing-masing unit perencanaan yang digunakan dalam estimasi emisi N₂O.
 
 Variasi dosis pupuk antar wilayah dapat memengaruhi besaran emisi yang dihasilkan, sehingga data ini menjadi salah satu parameter penting dalam skenario perhitungan emisi berbasis praktik pengelolaan lahan sawah.
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
-pupuk_table <- read_lookup(params$paths$pathLookupPupuk)
+# Nama seluruh sheet
+sheet_names <- excel_sheets(params$paths$pathParameter)
 
-pupuk_table <- pupuk_table %>% 
-  select(-ID)
+# Membuat tab untuk setiap sheet
+tabs <- lapply(sheet_names, function(sheet){
 
-# join NPV + Carbon
-format_dt(datatable(
-  pupuk_table,
-  extensions = c('Buttons', 'Responsive'),
-  rownames = FALSE,
-  options = list(
-    paging = TRUE,
-    searching = TRUE,
-    fixedColumns = TRUE,
-    autoWidth = TRUE,
-    ordering = TRUE,
-    dom = 'Blfrtip',
-    buttons = list(
-      list(extend = "copy",  className = "btn btn-light btn-sm"),
-      list(extend = "csv",   className = "btn btn-light btn-sm"),
-      list(extend = "excel", className = "btn btn-light btn-sm")
+  tbl <- read_excel(
+    params$paths$pathParameter,
+    sheet = sheet
+  ) %>%
+    rename(
+      Nama = Name,
+      Variabel = Variable,
+      Nilai = Value
+    ) %>%
+    select(-Variabel)
+
+  bslib::nav_panel(
+    title = sheet,
+
+    DT::datatable(
+      tbl,
+      extensions = c("Buttons","Responsive"),
+      rownames = FALSE,
+      options = list(
+        paging = FALSE,
+        searching = FALSE,
+        ordering = FALSE,
+        scrollX = TRUE,
+        dom = "Bfrtip",
+        buttons = list(
+          list(extend = "copy", className = "btn btn-light btn-sm"),
+          list(extend = "csv", className = "btn btn-light btn-sm"),
+          list(extend = "excel", className = "btn btn-light btn-sm")
+        )
+      ),
+      class = "display stripe hover compact"
     )
-  ),
-  class = "display stripe hover"
-), pupuk_table)
+  )
+})
+
+bslib::navset_tab(
+  !!!tabs
+)
 ```
 
 # Sebaran dan Komposisi Lahan `r sawah_label` di `r params$year` {.tabset}

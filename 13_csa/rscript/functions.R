@@ -140,8 +140,7 @@ preprocess_data <- function(
     pathPU,
     pathLookupLC,
     pathLookupPU = NULL,
-    pathLookupConversion,
-    pathLookupPupuk,
+    pathParameter,
     year = NULL
 ) {
   
@@ -163,29 +162,6 @@ preprocess_data <- function(
   # -------------------------------
   # 1. READ INPUT DATA
   # -------------------------------
-  get_lookup_value <- function(tbl, variable_name) {
-    result <- tbl %>%
-      mutate(Variable_clean = toupper(trimws(Variable))) %>%
-      filter(Variable_clean == toupper(variable_name)) %>%
-      pull(Value)
-    
-    if (length(result) == 0) {
-      stop(paste("Variable tidak ditemukan di lookup:", variable_name))
-    }
-    
-    return(result)
-  }
-  
-  get_rotation_factor <- function(tbl, var_name, rotation_vars) {
-    value <- get_lookup_value(tbl, var_name)
-    total <- tbl %>%
-      filter(Name %in% rotation_vars) %>%
-      pull(Value) %>%
-      sum()
-    
-    value / total
-  }
-  
   read_lookup <- function(path) {
     ext <- tools::file_ext(path)
     
@@ -201,8 +177,49 @@ preprocess_data <- function(
   }
   
   LookupLC <- read_lookup(pathLookupLC)
-  LookupConversion <- read_lookup(pathLookupConversion)
-  LookupPupuk <- read_lookup(pathLookupPupuk)
+  
+  sheet_names <- openxlsx::getSheetNames(pathParameter)
+  
+  parameter_tables <- lapply(
+    sheet_names,
+    function(x){
+      
+      readxl::read_excel(
+        pathParameter,
+        sheet = x
+      )
+      
+    }
+  )
+  
+  names(parameter_tables) <- sheet_names
+  
+  parameter_all <-
+    purrr::imap_dfr(
+      parameter_tables,
+      function(tbl, pu){
+        
+        tbl %>%
+          mutate(PU = pu)
+        
+      }
+    )
+  
+  parameter_wide <-
+    parameter_all %>%
+    select(
+      PU,
+      Variable,
+      Value
+    ) %>%
+    tidyr::pivot_wider(
+      names_from = Variable,
+      values_from = Value
+    ) %>%
+    mutate(
+      Total_EF = EF * SFw * SFs * SFr,
+      N_selected = UREA * N_UREA
+    )
   
   LULCT <- rast(pathLULCT)
   LULCT[LULCT == 0] <- NA
@@ -337,20 +354,32 @@ preprocess_data <- function(
   # -------------------------------
   # 4. PREPARE LOOKUP TABLES
   # -------------------------------
-  Lookup_wide <- LookupConversion %>%
-    select(Variable, Value) %>%
-    pivot_wider(names_from = Variable, values_from = Value) %>%
-    mutate(
-      Total_EF = EF * SFw * SFs * SFr
+  
+  combinedRasterTable <-
+    combinedRasterTable %>%
+    left_join(
+      parameter_wide,
+      by = "PU"
     )
   
   # -------------------------------
   # 5. CALCULATE CH4 + N2O -> CO2-eq
   # -------------------------------
-  combinedRasterTable <- combinedRasterTable %>%
+  combinedRasterTable <-
+    combinedRasterTable %>%
     mutate(
-      CH4_emission = Lookup_wide$Total_EF * Lookup_wide$t * Ha * 1e-6,
-      CH4_emission_CO2 = CH4_emission * LookupConversion$Value[LookupConversion$Variable == "GWP_CH4"] * 1000
+      
+      CH4_emission =
+        Total_EF *
+        t *
+        Ha *
+        1e-6,
+      
+      CH4_emission_CO2 =
+        CH4_emission *
+        GWP_CH4 *
+        1000
+      
     )
   combinedRasterTable_clean <- combinedRasterTable
   CH4_table <- combinedRasterTable_clean %>%
@@ -361,69 +390,86 @@ preprocess_data <- function(
     )
   
   #### PERHITUNGAN N2O ####
-  # Ambil hanya kolom pupuk (berdasarkan pola nama)
-  fertilizer_names <- names(LookupPupuk) %>%
-    grep("^(Tunggal|Majemuk)_", ., value = TRUE)
-  
-  # Default: pupuk pertama
-  selected_fertilizer <- fertilizer_names[1]
-  
-  # Ambil N factor
-  fert_name_clean <- sub("^(Tunggal|Majemuk)_", "", selected_fertilizer)
-  
-  lookup_key <- paste0("N_", fert_name_clean)
-  
-  n_factor <- tryCatch(
-    get_lookup_value(LookupConversion, lookup_key),
-    error = function(e) NA_real_
-  )
-  
-  if (is.na(n_factor)) {
-    stop(paste("N factor tidak ditemukan untuk:", selected_fertilizer))
-  }
-  
-  # Hitung N
-  n_table <- LookupPupuk %>%
+  N2O_emission <-
+    combinedRasterTable %>%
     mutate(
-      N_selected = .data[[selected_fertilizer]] * n_factor
+      
+      N2O_area_100_1 =
+        Ha *
+        dosis100 *
+        (rotasi1 /
+           (rotasi0 + rotasi1 + rotasi2)),
+      
+      N2O_area_100_2 =
+        Ha *
+        dosis100 *
+        (rotasi2 /
+           (rotasi0 + rotasi1 + rotasi2)),
+      
+      N2O_area_50_1 =
+        Ha *
+        dosis50 *
+        (rotasi1 /
+           (rotasi0 + rotasi1 + rotasi2)),
+      
+      N2O_area_50_2 =
+        Ha *
+        dosis50 *
+        (rotasi2 /
+           (rotasi0 + rotasi1 + rotasi2))
+      
     )
-  
-  # Lookup factor names
-  rotation_vars <- c(
-    "Rotasi padi 1 kali",
-    "Rotasi padi 2-3 kali",
-    "Tidak ditanami padi"
-  )
-  
-  # Extract factors with helper functions
-  area100_factor <- get_lookup_value(LookupConversion, "dosis100")
-  area50_factor  <- get_lookup_value(LookupConversion, "dosis50")
-  
-  rotation1_factor <- get_rotation_factor(LookupConversion, "rotasi1", rotation_vars)
-  rotation2_factor <- get_rotation_factor(LookupConversion, "rotasi2", rotation_vars)
-  
-  N2O_emission <- combinedRasterTable %>%
-    mutate(
-      N2O_area_100_1 = Ha * area100_factor * rotation1_factor,
-      N2O_area_100_2 = Ha * area100_factor * rotation2_factor,
-      N2O_area_50_1  = Ha * area50_factor  * rotation1_factor,
-      N2O_area_50_2  = Ha * area50_factor  * rotation2_factor
-    )
-  
-  # Extract factors with helper functions
-  EF_N2O <- get_lookup_value(LookupConversion, "EF_N2O")
-  EF_CO2 <- get_lookup_value(LookupConversion, "EF_CO2")
-  GWP_N2O <- get_lookup_value(LookupConversion, "GWP_N2O")
   
   N2O_emission_CO2 <- N2O_emission %>%
     mutate(
-      N_selected_PU = n_table$N_selected
+      N_selected_PU =
+        N_selected
     ) %>%
     mutate(
-      N2O_emission_CO2_100_1 = ((N2O_area_100_1 * N_selected_PU * EF_N2O * GWP_N2O) + (N2O_area_100_1 * N_selected_PU * EF_CO2))/1000,
-      N2O_emission_CO2_100_2 = ((N2O_area_100_2 * N_selected_PU  * 2.5 * EF_N2O * GWP_N2O) + (N2O_area_100_2 * N_selected_PU * 2.5 * EF_CO2))/1000,
-      N2O_emission_CO2_50_1  = ((N2O_area_50_1 * N_selected_PU  * 0.5 * EF_N2O * GWP_N2O) + (N2O_area_50_1 * N_selected_PU * 0.5 * EF_CO2))/1000,
-      N2O_emission_CO2_50_2  = ((N2O_area_50_2 * N_selected_PU  * 2.5 * 0.5 * EF_N2O * GWP_N2O) + (N2O_area_50_2 * N_selected_PU * 2.5 * 0.5 * EF_CO2))/1000,
+      N2O_emission_CO2_100_1 =
+        (
+          N2O_area_100_1 *
+            N_selected_PU *
+            EF_N2O *
+            GWP_N2O
+          +
+            N2O_area_100_1 *
+            N_selected_PU *
+            EF_CO2
+        )/1000,
+      N2O_emission_CO2_100_2 =
+        (
+          N2O_area_100_2 *
+            N_selected_PU *
+            EF_N2O *
+            GWP_N2O
+          +
+            N2O_area_100_2 *
+            N_selected_PU *
+            EF_CO2
+        )/1000,
+      N2O_emission_CO2_50_1 =
+        (
+          N2O_area_50_1 *
+            N_selected_PU *
+            EF_N2O *
+            GWP_N2O
+          +
+            N2O_area_50_1 *
+            N_selected_PU *
+            EF_CO2
+        )/1000,
+      N2O_emission_CO2_50_2 =
+        (
+          N2O_area_50_2 *
+            N_selected_PU *
+            EF_N2O *
+            GWP_N2O
+          +
+            N2O_area_50_2 *
+            N_selected_PU *
+            EF_CO2
+        )/1000,
       # Total N2O emissions across all scenarios (Ton CO2-eq/tahun)
       N2O_emission_CO2_total =
         (N2O_emission_CO2_100_1 +
@@ -808,30 +854,59 @@ preprocess_data <- function(
   # RETURN ALL RESULTS
   # -------------------------------
   return(list(
+    
     session_log = format_session_info_table(),
+    
+    # -----------------------------
+    # INPUT FILES
+    # -----------------------------
     lulc_file_path = pathLULCT,
     pu_file_path = pathPU,
     lookup_pu_file_path = pathLookupPU,
     lookup_lc_file_path = pathLookupLC,
-    lookup_conversion_file_path = pathLookupConversion,
-    lookup_pupuk_file_path = pathLookupPupuk,
+    parameter_file_path = pathParameter,
+    
+    # -----------------------------
+    # INPUT DATA
+    # -----------------------------
     LULCT = LULCT,
     PU = PU,
+    
     lookup_LC = LookupLC,
     lookup_PU = LookupPU,
-    lookup_Conversion = LookupConversion,
+    
+    parameter_all = parameter_all,
+    parameter_wide = parameter_wide,
+    
+    # -----------------------------
+    # INTERMEDIATE
+    # -----------------------------
     combinedRaster = combinedRaster,
     combinedRasterTable = combinedRasterTable,
+    
+    # -----------------------------
+    # LULC
+    # -----------------------------
     lc_comp_per_PU = lc_comp_per_PU_tbl,
     lc_comp_total = lc_comp_total_tbl,
+    
+    # -----------------------------
+    # EMISSION TABLES
+    # -----------------------------
     CH4_table = CH4_table,
     N2O_emission_table = N2O_emission_table,
+    
     summary_by_PU = summary_by_PU,
     PU_emission_table = PU_emission_table,
     summary_long = summary_long,
+    
+    # -----------------------------
+    # PLOTS
+    # -----------------------------
     plot = plot_interactive,
     plot_paddy_map = plot_paddy_map,
     plot_paddy_bar_interactive = plot_paddy_bar_interactive,
     plot_choropleth = plot_choropleth
+    
   ))
 }
