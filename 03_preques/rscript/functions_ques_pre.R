@@ -218,7 +218,7 @@ ques_pre_trajectory <- function(lc_t1_,
       lookup_trajectory_complete = lookup_trajectory_complete,
       trajectory_column_name = trajectory_column_name
     )
-  
+
   # Create a cross-tabulation of land cover and administrative zones
   crosstab_traj <- create_crosstab(land_cover = luc_trajectory_map, zone = admin_)[["crosstab_long"]]
   names(crosstab_traj)[1]<- trajectory_column_name
@@ -248,7 +248,7 @@ ques_pre_trajectory <- function(lc_t1_,
   # Store results at landscape level
   landscape_level <- list(
     luc_trajectory_map = luc_trajectory_map,
-    #crosstab_traj  = crosstab_traj,
+    crosstab_traj  = crosstab_traj,
     table_traj_area = table_traj_area,
     barplot_traj = barplot_traj
   )
@@ -487,22 +487,29 @@ lcc_trajectory_by_pu <- function(crosstab_tbl, pu_column, pu_name){
 #' @importFrom dplyr select_if rename left_join select
 #' @importFrom purrr pluck
 #'
-reclass_raster_to_categories <- function(raster_map, reclass_table){
-  # Retrieve unique IDs from the raster and rename column to 'Value'
-  ID_check <- terra::droplevels(raster_map) |> terra::cats() |> pluck(1) |> select(1)
+reclass_raster_to_categories <- function(raster_map, reclass_table) {
+  df_cats <- terra::cats(raster_map)[[1]]
+  id_col <- colnames(df_cats)[1]
+
+  colnames(reclass_table)[1] <- id_col
+  target_col <- colnames(reclass_table)[3]
   
-  colnames(reclass_table)[1] <- colnames(ID_check)
+  overlap <- intersect(colnames(df_cats), colnames(reclass_table))
+  overlap <- overlap[overlap != id_col]
+  df_cats <- df_cats[, !(colnames(df_cats) %in% overlap), drop = FALSE]
+
+  df_cats_joined <- dplyr::left_join(df_cats, reclass_table, by = id_col)
+  raster_numeric <- raster_map + 0
   
-  # Join the reclassification table with the ID_check,
-  # keep only the numeric columns and convert to matrix
-  reclass_mat <- left_join(ID_check, reclass_table, by=colnames(ID_check)) %>% select_if(is.numeric) %>% as.matrix()
+  reclass_mat <- as.matrix(df_cats_joined[, c(id_col, target_col)])
+  class(reclass_mat) <- "numeric"
   
-  # Reclassify the raster using the reclassification matrix and convert to factor
-  raster_map_reclass <- classify(raster_map, reclass_mat) %>% as.factor()
+  raster_reclassed <- terra::classify(raster_numeric, reclass_mat, others = NA)
+  raster_map_reclass <- terra::as.factor(raster_reclassed)
+  names(raster_map_reclass) <- target_col
   
   return(raster_map_reclass)
 }
-
 
 # add_legend_to_categorical_raster ----------------------------------------
 
@@ -803,7 +810,7 @@ plot_lcc_freq_bar <- function(lcc_table, col_T1 = NULL, col_T2 = NULL, Freq = NU
 plot_categorical_raster <- function(raster_object, filename = "raster_plot.png", dpi = 300) {
   # Color palette
   if ("color_palette" %in% names(cats(raster_object)[[1]]) &&
-      all(grepl("^#[0-9A-Fa-f]{6}$", cats(raster_object)$color_pallete))) {
+      all(grepl("^#[0-9A-Fa-f]{6}$", cats(raster_object)[[1]]$color_palette))) {
     fill_scale <- scale_fill_manual(values = cats(raster_object)[[1]]$color_palette, na.value = "white")
   } else {
     fill_scale <- scale_fill_manual(values = c(
@@ -2135,7 +2142,6 @@ generate_outputs <- function(output_pre_ques, output_pre_ques_traj, #output_pre_
   # writeRaster(output_pre_ques_def$landscape_level$luc_trajectory_map,
   #             file.path(output_dir, "PreQuES_ForestChangeTrajectory_map.tif"),
   #             overwrite = TRUE)
-
   # Generate Pre-QuES report
   generate_preques_report(
     output_pre_ques,
@@ -2530,8 +2536,6 @@ render_dt_table <- function(data, caption = NULL, digits = 2, area_digits = 0, n
 #'   The **first column** must be the numeric codes (ID) and the
 #'   **second column** must be the category names. It may optionally
 #'   include a column named 'color_palette' with hex color codes for custom colors.
-#' @param yr Character or numeric value representing the year or time period
-#'   for the map. Used in the layer name and legend title.
 #' @param layer_title A character string for the layer name prefix in the legend
 #'   and layer control. Defaults to "Layer".
 #'
@@ -2569,7 +2573,7 @@ render_dt_table <- function(data, caption = NULL, digits = 2, area_digits = 0, n
 #' )
 #'
 #' # Create the interactive map
-#' cat_map <- plot_categorical_raster_mapview(class_raster, class_table, yr = 2025, layer_title = "Classification")
+#' cat_map <- plot_categorical_raster_mapview(class_raster, class_table, layer_title = "Classification")
 #' cat_map # Display the map
 #' }
 #'
@@ -2579,12 +2583,48 @@ render_dt_table <- function(data, caption = NULL, digits = 2, area_digits = 0, n
 #' @importFrom dplyr %>%
 #' @export
 plot_categorical_raster_mapview <- function(cat_raster, cat_table, layer_title = "Layer") {
+  
+  # Input validation
+  if (ncol(cat_table) < 2) {
+    stop("Error: cat_table must have at least 2 columns (ID and Category).")
+  }
+  
   names(cat_table)[1] <- "ID"
   names(cat_table)[2] <- "Category"
   
   cat_table$ID <- as.numeric(cat_table$ID)
   unique_values <- unique(values(cat_raster, na.rm = TRUE))
   cat_tbl_filtered <- cat_table[cat_table$ID %in% unique_values, ]
+  
+  # Check if no matching values found
+  if (nrow(cat_tbl_filtered) == 0) {
+    stop(paste0(
+      "Error: No matching values found between raster and category table.\n",
+      "Raster contains values: ", paste(head(unique_values, 10), collapse = ", "),
+      if (length(unique_values) > 10) "..." else "", "\n",
+      "Category table contains IDs: ", paste(head(cat_table$ID, 10), collapse = ", "),
+      if (nrow(cat_table) > 10) "..." else ""
+    ))
+  }
+  
+  # Check for duplicate categories
+  if (any(duplicated(cat_tbl_filtered$Category))) {
+    duplicated_cats <- unique(cat_tbl_filtered$Category[duplicated(cat_tbl_filtered$Category)])
+    stop("Duplicate category names detected: ", paste(duplicated_cats, collapse = ", "), 
+         ". Use a unique ID column instead or make category names unique.")
+  }
+  
+  # Check for invalid hex colors if color_palette exists
+  if ("color_palette" %in% names(cat_tbl_filtered)) {
+    invalid_colors <- !grepl("^#[0-9A-Fa-f]{6}$", cat_tbl_filtered$color_palette)
+    if (any(invalid_colors)) {
+      invalid_vals <- unique(cat_tbl_filtered$color_palette[invalid_colors])
+      warning("Invalid hex color codes detected: ", paste(invalid_vals, collapse = ", "), 
+              ". Must be format #RRGGBB. Using default colors instead.")
+      # Remove color_palette column to use default colors
+      cat_tbl_filtered$color_palette <- NULL
+    }
+  }
   
   reclass_from <- cat_tbl_filtered$ID
   reclass_to <- seq_along(cat_tbl_filtered$ID)
