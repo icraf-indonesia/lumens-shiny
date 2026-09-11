@@ -323,23 +323,33 @@ generate_egoml_simulate <- function(lc1_path, lusim_lc,
                                     zone_path, ers_path, n_rep,
                                     tm_path, dcf_path,
                                     output_dir, probability = FALSE,
-                                    egoml,
-                                    memory_allocation) {
+                                    egoml, memory_allocation = NULL,
+                                    allocate_transitions_temp = NULL,
+                                    percent  = NULL, exp_mean = NULL,
+                                    exp_var  = NULL, exp_iso  = NULL,
+                                    gen_mean = NULL, gen_var  = NULL,
+                                    gen_iso  = NULL,
+                                    override_df = NULL) {
   prob_path <- paste0(output_dir, "/probabilities.tif")
   landscape_path <- paste0(output_dir, "/landscape.tif")
+  
+  allocate_transitions <- build_allocate_transitions(
+    lusim_lc = lusim_lc,
+    percent  = percent,
+    exp_mean = exp_mean,
+    exp_var  = exp_var,
+    exp_iso  = exp_iso,
+    gen_mean = gen_mean,
+    gen_var  = gen_var,
+    gen_iso  = gen_iso,
+    override_df = override_df
+  )
   
   skeleton <- expand.grid(nT1 = lusim_lc[, 1], nT2 = lusim_lc[, 1])
   skeleton <- skeleton[skeleton$nT1 != skeleton$nT2, ]
   skeleton <- na.omit(skeleton)
-  
-  # rebuild the chunk
-  skeleton$char <- paste(skeleton$nT1, skeleton$nT2, sep = "-&gt;")
-  skeleton$char_fx <- paste0(skeleton$char, " 0.3,&#x0A;")
-  skeleton[nrow(skeleton), "char_fx"] <- gsub("3,&", "3&", skeleton[nrow(skeleton), "char_fx"])
-  
-  txt_skl <- paste(skeleton$char_fx, collapse = "    ")
-  txt_skl2 <- gsub("0.3", "2 1 1", txt_skl)
-  txt_skl3 <- gsub("2 1 1", "1 1 1", txt_skl2)
+  rownames(skeleton) <- NULL
+  skeleton$char <- paste(skeleton$nT1, skeleton$nT2, sep = "->")
   
   # begin writing tag
   con <- xmlOutputDOM(tag="script")
@@ -489,9 +499,10 @@ generate_egoml_simulate <- function(lc1_path, lusim_lc,
   con$addTag("inputport", attrs=c(name="lanscape", peerid="v13"))
   con$addTag("inputport", attrs=c(name="probabilities", peerid="v14"))
   con$addTag("inputport", attrs=c(name="transitionMatrix", peerid="v9"))
-  con$addTag("inputport", attrs=c(name="percentOfTransitionsByExpansion"), paste('[&#x0A;    ', txt_skl, ']', sep=''))
-  con$addTag("inputport", attrs=c(name="patchExpansionParameters"), paste('[&#x0A;    ', txt_skl2, ']', sep=''))
-  con$addTag("inputport", attrs=c(name="patchGenerationParameters"), paste('[&#x0A;    ', txt_skl3, ']', sep=''))
+  con$addTag("inputport", attrs=c(name="percentOfTransitionsByExpansion"), allocate_transitions$percentOfTransitionsByExpansion)
+  con$addTag("inputport", attrs=c(name="patchExpansionParameters"), allocate_transitions$patchExpansionParameters)
+  con$addTag("inputport", attrs=c(name="patchGenerationParameters"), allocate_transitions$patchGenerationParameters)
+  
   con$addTag("inputport", attrs=c(name="printTransitionInfo"), ".no")
   con$addTag("outputport", attrs=c(name="resultingLanscape", id="v11"))
   con$closeTag("functor")
@@ -540,7 +551,7 @@ generate_egoml_simulate <- function(lc1_path, lusim_lc,
   con$addTag("inputport", attrs=c(name="mapName"), paste('"static_var"', sep=''))
   con$closeTag("functor")
   
-  con$closeTag("containerfunctor") #    CalcWOfEProbabilityMap
+  con$closeTag("containerfunctor") # CalcWOfEProbabilityMap
   
   con$closeTag("containerfunctor") # ForEachCategory
   
@@ -617,8 +628,15 @@ run_dinamica_simulation <- function(dinamica_path = NULL, output_dir, egoml, mem
   }
 }
 
-run_sciendo_simulate_process <- function(lc_t1_path, initial_year, period_value, lc_lookup_table_path, lc_lookup_table, zone_lookup_table, zone_path, ers_path, 
-                                         n_rep, tm_path, dcf_path, dinamica_path = NULL, output_dir, memory_allocation, progress_callback = NULL) {
+run_sciendo_simulate_process <- function(lc_t1_path, initial_year, period_value,
+                                         lc_lookup_table_path, lc_lookup_table,
+                                         zone_lookup_table, zone_path, ers_path,
+                                         n_rep, tm_path, dcf_path,
+                                         dinamica_path = NULL, output_dir,
+                                         memory_allocation,
+                                         alloc_params = NULL,
+                                         alloc_override_df = NULL,
+                                         progress_callback = NULL) {
   start_time <- Sys.time()
   cat("Started at:", format(start_time, "%Y-%m-%d %H:%M:%S"), "\n")
   
@@ -641,10 +659,27 @@ run_sciendo_simulate_process <- function(lc_t1_path, initial_year, period_value,
   }
   
   if (!is.null(progress_callback)) progress_callback(0.3, "generate egoml: initialize simulation per region parameters")
-  out_sim <- generate_egoml_simulate(lc_t1_path, lc_lookup_table, 
-                                     zone_path, ers_path, n_rep,
-                                     tm_path, dcf_path, output_dir, 
-                                     probability = FALSE, egoml = "03_sciendo_simulation")
+  out_sim <- generate_egoml_simulate(
+    lc1_path     = lc_t1_path,
+    lusim_lc     = lc_lookup_table,
+    zone_path    = zone_path,
+    ers_path     = ers_path,
+    n_rep        = n_rep,
+    tm_path      = tm_path,
+    dcf_path     = dcf_path,
+    output_dir   = output_dir,
+    probability  = FALSE,
+    egoml        = "03_sciendo_simulation",
+    memory_allocation = memory_allocation,
+    percent      = if (!is.null(alloc_params)) alloc_params$percent  else NULL,
+    exp_mean     = if (!is.null(alloc_params)) alloc_params$exp_mean else NULL,
+    exp_var      = if (!is.null(alloc_params)) alloc_params$exp_var  else NULL,
+    exp_iso      = if (!is.null(alloc_params)) alloc_params$exp_iso  else NULL,
+    gen_mean     = if (!is.null(alloc_params)) alloc_params$gen_mean else NULL,
+    gen_var      = if (!is.null(alloc_params)) alloc_params$gen_var  else NULL,
+    gen_iso      = if (!is.null(alloc_params)) alloc_params$gen_iso  else NULL,
+    override_df  = alloc_override_df
+  )
   
   if (!is.null(progress_callback)) progress_callback(0.7, "run dinamica simulation per region")
   run_dinamica_simulation(dinamica_path, output_dir, out_sim$egoml_sim_file, memory_allocation)
@@ -675,7 +710,7 @@ run_sciendo_simulate_process <- function(lc_t1_path, initial_year, period_value,
   )
   
   if (!is.null(progress_callback)) progress_callback(0.9, "outputs generated and saved")
-
+  
   if (!is.null(progress_callback)) progress_callback(1, "generate report")
   generate_sciendo_simulate_report(output = out, dir = output_dir)
   
@@ -1881,4 +1916,317 @@ plot_categorical_raster_mapview <- function(cat_raster, cat_table, layer_title =
     )
   
   return(map_result)
+}
+
+# Create a template table for allocate transitions
+make_alloc_trans_template <- function(lusim_lc, path = NULL) {
+  
+  classes <- data.frame(
+    id   = lusim_lc[[1]],
+    name = as.character(lusim_lc[[2]]),
+    stringsAsFactors = FALSE
+  )
+  
+  skel <- expand.grid(from_id = classes$id, to_id = classes$id, stringsAsFactors = FALSE)
+  skel <- skel[skel$from_id != skel$to_id, , drop = FALSE]
+  rownames(skel) <- NULL
+  
+  tmpl <- skel
+  tmpl$from_name <- classes$name[match(tmpl$from_id, classes$id)]
+  tmpl$to_name   <- classes$name[match(tmpl$to_id,   classes$id)]
+  tmpl$percent  <- NA_real_
+  tmpl$exp_mean <- NA_real_; tmpl$exp_var <- NA_real_; tmpl$exp_iso <- NA_real_
+  tmpl$gen_mean <- NA_real_; tmpl$gen_var <- NA_real_; tmpl$gen_iso <- NA_real_
+  
+  tmpl <- tmpl[, c("from_id","from_name","to_id","to_name",
+                   "percent",
+                   "exp_mean","exp_var","exp_iso",
+                   "gen_mean","gen_var","gen_iso")]
+  
+  if (!is.null(path)) {
+    utils::write.csv(tmpl, path, row.names = FALSE, na = "")
+    message("Template ditulis di: ", normalizePath(path))
+  }
+  tmpl
+}
+
+#' Build AllocateTransitions parameter strings
+#'
+#' Prepares the three input-port strings required by the Dinamica EGO
+#' \code{AllocateTransitions} functor:
+#' \code{percentOfTransitionsByExpansion},
+#' \code{patchExpansionParameters}, and
+#' \code{patchGenerationParameters}.
+#'
+#' The function works in two modes:
+#' \enumerate{
+#'   \item \strong{Uniform mode} -- pass the same value for every transition
+#'         via the individual arguments (\code{percent}, \code{exp_mean}, ...).
+#'   \item \strong{Override mode} -- supply a data.frame (\code{override_df})
+#'         that specifies values for selected transitions. Only non-\code{NA}
+#'         cells in \code{override_df} are used; all other cells fall back to
+#'         the uniform values.
+#' }
+#'
+#' Missing (\code{NULL} or \code{NA}) individual arguments are automatically
+#' filled from \code{defaults}.
+#'
+#' @param lusim_lc A data.frame of LULC classes. Column 1 must be the numeric
+#'   class ID and column 2 the class name. Typical input from
+#'   \code{read.csv("lulc_reference.csv")}.
+#' @param percent Numeric scalar in \code{[0, 1]} or \code{NULL}. The share of
+#'   each transition handled by the Expander (growing existing patches) versus
+#'   the Patcher (creating new patches). \code{0} = all new patches,
+#'   \code{1} = all expansion. If \code{NULL} or \code{NA}, the value from
+#'   \code{defaults$percent} is used.
+#' @param exp_mean Numeric scalar \code{> 0} or \code{NULL}. Mean patch size
+#'   (in pixels) for expanded patches. Falls back to
+#'   \code{defaults$exp_mean}.
+#' @param exp_var Numeric scalar \code{>= 0} or \code{NULL}. Patch-size
+#'   variance for expanded patches. Falls back to \code{defaults$exp_var}.
+#' @param exp_iso Numeric scalar in \code{[0, 2]} or \code{NULL}. Patch
+#'   isometry for expanded patches: \code{0} = linear, \code{1} = neutral,
+#'   \code{2} = circular/compact. Falls back to \code{defaults$exp_iso}.
+#' @param gen_mean Numeric scalar \code{> 0} or \code{NULL}. Mean patch size
+#'   for newly generated patches. Falls back to \code{defaults$gen_mean}.
+#' @param gen_var Numeric scalar \code{>= 0} or \code{NULL}. Patch-size
+#'   variance for newly generated patches. Falls back to
+#'   \code{defaults$gen_var}.
+#' @param gen_iso Numeric scalar in \code{[0, 2]} or \code{NULL}. Patch
+#'   isometry for newly generated patches. Falls back to
+#'   \code{defaults$gen_iso}.
+#' @param override_df Optional data.frame with per-transition overrides.
+#'   Must contain the columns \code{from_id}, \code{to_id},
+#'   \code{percent}, \code{exp_mean}, \code{exp_var}, \code{exp_iso},
+#'   \code{gen_mean}, \code{gen_var}, \code{gen_iso}. Only cells that are
+#'   not \code{NA} override the uniform values. Duplicate transitions raise
+#'   an error; unknown transitions raise a warning and are ignored.
+#'   Use \code{\link{make_alloc_trans_template}} to produce a template.
+#' @param defaults Named list of fallback values used when an individual
+#'   argument is \code{NULL} or \code{NA}. Must contain \code{percent},
+#'   \code{exp_mean}, \code{exp_var}, \code{exp_iso}, \code{gen_mean},
+#'   \code{gen_var}, and \code{gen_iso}. See \strong{Details}.
+#' @param validate Logical. If \code{TRUE} (default), the resolved parameter
+#'   table is checked against the valid ranges. Invalid values raise an
+#'   error with a descriptive message.
+#'
+#' @return A named list of three character strings, each ready to be passed
+#'   to \code{XML::addTag} as the value of an \code{inputport}:
+#'   \describe{
+#'     \item{\code{percentOfTransitionsByExpansion}}{String for the
+#'       \code{percentOfTransitionsByExpansion} port.}
+#'     \item{\code{patchExpansionParameters}}{String for the
+#'       \code{patchExpansionParameters} port (Expander).}
+#'     \item{\code{patchGenerationParameters}}{String for the
+#'       \code{patchGenerationParameters} port (Patcher).}
+#'   }
+#'
+#' @details
+#' \strong{Value priority (highest to lowest):}
+#' \enumerate{
+#'   \item Non-\code{NA} cells in \code{override_df}.
+#'   \item Individual arguments (\code{percent}, \code{exp_mean}, ...).
+#'   \item \code{defaults}.
+#' }
+#'
+#' \strong{Default values:}
+#' \preformatted{
+#'   percent  = 0.5
+#'   exp_mean = 2, exp_var = 1, exp_iso = 1
+#'   gen_mean = 1, gen_var = 1, gen_iso = 1
+#' }
+#'
+#' \strong{Valid ranges:}
+#' \itemize{
+#'   \item \code{percent}: \code{[0, 1]}
+#'   \item \code{exp_mean}, \code{gen_mean}: \code{> 0}
+#'   \item \code{exp_var}, \code{gen_var}: \code{>= 0}
+#'   \item \code{exp_iso}, \code{gen_iso}: \code{[0, 2]}
+#' }
+#'
+#' \strong{Tip:} low \code{meanPatchSize} and low \code{percent} produce
+#' salt-and-pepper patterns. Increase both, and raise isometry toward 2,
+#' to obtain larger and more compact patches.
+#'
+#' @seealso \code{\link{make_alloc_trans_template}}
+#'
+#' @examples
+#' \dontrun{
+#' lusim_lc <- read.csv("lulc_reference.csv", fileEncoding = "UTF-8-BOM")
+#'
+#' ## 1. Uniform values ------------------------------------------------
+#' params <- build_allocate_transitions(
+#'   lusim_lc,
+#'   percent  = 0.7,
+#'   exp_mean = 8, exp_var = 3, exp_iso = 1.5,
+#'   gen_mean = 4, gen_var = 2, gen_iso = 1.5
+#' )
+#' params$percentOfTransitionsByExpansion
+#' params$patchExpansionParameters
+#' params$patchGenerationParameters
+#'
+#' ## 2. Only one parameter set; the rest come from defaults ----------
+#' params <- build_allocate_transitions(lusim_lc, percent = 0.8)
+#'
+#' ## 3. Custom defaults ----------------------------------------------
+#' params <- build_allocate_transitions(
+#'   lusim_lc,
+#'   percent  = 0.7,
+#'   defaults = list(
+#'     percent  = 0.5,
+#'     exp_mean = 6, exp_var = 2, exp_iso = 1.5,
+#'     gen_mean = 3, gen_var = 1, gen_iso = 1.5
+#'   )
+#' )
+#'
+#' ## 4. Override per transition --------------------------------------
+#' make_alloc_trans_template(lusim_lc, path = "alloc_template.csv")
+#' override <- read.csv("alloc_template.csv")
+#' # edit selected cells, then:
+#' params <- build_allocate_transitions(
+#'   lusim_lc,
+#'   exp_var     = 0.8,
+#'   override_df = override
+#' )
+#'
+#' ## 5. Insert into a Dinamica EGO model XML -------------------------
+#' con$addTag("inputport",
+#'            attrs = c(name = "percentOfTransitionsByExpansion"),
+#'            params$percentOfTransitionsByExpansion)
+#' con$addTag("inputport",
+#'            attrs = c(name = "patchExpansionParameters"),
+#'            params$patchExpansionParameters)
+#' con$addTag("inputport",
+#'            attrs = c(name = "patchGenerationParameters"),
+#'            params$patchGenerationParameters)
+#' }
+#'
+#' @export
+build_allocate_transitions <- function(
+    lusim_lc,
+    percent  = NULL, exp_mean = NULL, exp_var = NULL, exp_iso = NULL,
+    gen_mean = NULL, gen_var = NULL, gen_iso = NULL,
+    override_df = NULL,
+    defaults = list(
+      percent  = 0.5,
+      exp_mean = 2, exp_var = 1, exp_iso = 1,
+      gen_mean = 1, gen_var = 1, gen_iso = 1
+    ),
+    validate = TRUE
+) {
+  
+  # helpers
+  .fmt_num <- function(x)
+    ifelse(x == as.integer(x), as.character(as.integer(x)), as.character(x))
+  
+  .build_port_string <- function(from_id, to_id, values_list) {
+    n <- length(from_id)
+    lines <- character(n)
+    for (i in seq_len(n)) {
+      vals  <- paste(values_list[[i]], collapse = " ")
+      comma <- if (i < n) "," else ""
+      lines[i] <- sprintf("%d->%d %s%s&#x0A;", from_id[i], to_id[i], vals, comma)
+    }
+    paste0("[&#x0A;    ", paste(lines, collapse = "    "), "]")
+  }
+  
+  .validate_params <- function(df) {
+    errs <- character(0)
+    chk <- function(cond, msg) if (any(cond, na.rm = TRUE)) errs <<- c(errs, msg)
+    chk(df$percent  < 0 | df$percent  > 1, "percent must be in [0,1]")
+    chk(df$exp_mean <= 0,                  "exp_mean must be > 0")
+    chk(df$gen_mean <= 0,                  "gen_mean must be > 0")
+    chk(df$exp_var  < 0,                   "exp_var must be >= 0")
+    chk(df$gen_var  < 0,                   "gen_var must be >= 0")
+    chk(df$exp_iso  < 0 | df$exp_iso > 2,  "exp_iso must be in [0,2]")
+    chk(df$gen_iso  < 0 | df$gen_iso > 2,  "gen_iso must be in [0,2]")
+    if (length(errs) > 0) stop(paste(errs, collapse = "\n"), call. = FALSE)
+    invisible(TRUE)
+  }
+  
+  .pick <- function(x, d)
+    if (is.null(x) || (length(x) == 1 && is.na(x))) d else x
+  
+  # uniform list
+  uniform <- list(
+    percent  = .pick(percent,  defaults$percent),
+    exp_mean = .pick(exp_mean, defaults$exp_mean),
+    exp_var  = .pick(exp_var,  defaults$exp_var),
+    exp_iso  = .pick(exp_iso,  defaults$exp_iso),
+    gen_mean = .pick(gen_mean, defaults$gen_mean),
+    gen_var  = .pick(gen_var,  defaults$gen_var),
+    gen_iso  = .pick(gen_iso,  defaults$gen_iso)
+  )
+  
+  # LULC classes
+  classes <- data.frame(
+    id   = lusim_lc[[1]],
+    name = as.character(lusim_lc[[2]]),
+    stringsAsFactors = FALSE
+  )
+  
+  # skeleton
+  skel <- expand.grid(from_id = classes$id, to_id = classes$id,
+                      stringsAsFactors = FALSE)
+  skel <- skel[skel$from_id != skel$to_id, , drop = FALSE]
+  rownames(skel) <- NULL
+  
+  # uniform base
+  df <- skel
+  for (nm in names(uniform)) df[[nm]] <- uniform[[nm]]
+  
+  # override from data.frame
+  if (!is.null(override_df)) {
+    if (!is.data.frame(override_df))
+      stop("`override_df` must be a data.frame.", call. = FALSE)
+    
+    required <- c("from_id","to_id",
+                  "percent","exp_mean","exp_var","exp_iso",
+                  "gen_mean","gen_var","gen_iso")
+    miss <- setdiff(required, names(override_df))
+    if (length(miss) > 0)
+      stop("`override_df` is missing columns: ",
+           paste(miss, collapse = ", "), call. = FALSE)
+    
+    key_df <- sprintf("%d->%d", df$from_id,          df$to_id)
+    key_ov <- sprintf("%d->%d", override_df$from_id, override_df$to_id)
+    
+    if (anyDuplicated(key_ov))
+      stop("`override_df` contains duplicate transitions", call. = FALSE)
+    
+    unknown <- setdiff(key_ov, key_df)
+    if (length(unknown) > 0)
+      warning("`override_df` contains unknown transitions: ",
+              paste(unknown, collapse = ", "), call. = FALSE)
+    
+    cols <- c("percent","exp_mean","exp_var","exp_iso",
+              "gen_mean","gen_var","gen_iso")
+    idx <- match(key_df, key_ov)
+    for (col in cols) {
+      v <- override_df[[col]][idx]
+      if (is.null(v)) next
+      ok <- !is.na(v)
+      df[[col]][ok] <- v[ok]
+    }
+  }
+  
+  # validation
+  if (isTRUE(validate)) .validate_params(df)
+  
+  # output
+  list(
+    percentOfTransitionsByExpansion = .build_port_string(
+      df$from_id, df$to_id, lapply(df$percent, .fmt_num)
+    ),
+    patchExpansionParameters = .build_port_string(
+      df$from_id, df$to_id,
+      lapply(seq_len(nrow(df)), function(i)
+        c(.fmt_num(df$exp_mean[i]), .fmt_num(df$exp_var[i]), .fmt_num(df$exp_iso[i])))
+    ),
+    patchGenerationParameters = .build_port_string(
+      df$from_id, df$to_id,
+      lapply(seq_len(nrow(df)), function(i)
+        c(.fmt_num(df$gen_mean[i]), .fmt_num(df$gen_var[i]), .fmt_num(df$gen_iso[i])))
+    )
+  )
 }
