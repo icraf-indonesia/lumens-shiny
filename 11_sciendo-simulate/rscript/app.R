@@ -450,12 +450,14 @@ server <- function(input, output, session) {
       return()
     }
     
+    rv$lc_path <- rename_uploaded_file(f)
+    
     ext <- tolower(tools::file_ext(f$name))
     df_c <- tryCatch({
       if (ext == "csv") {
-        read.csv(f$datapath, stringsAsFactors = FALSE, check.names = FALSE)
+        read.csv(rv$lc_path, stringsAsFactors = FALSE, check.names = FALSE)
       } else if (ext == "xlsx") {
-        as.data.frame(openxlsx::read.xlsx(f$datapath, check.names = FALSE))
+        as.data.frame(openxlsx::read.xlsx(rv$lc_path, check.names = FALSE))
       } else {
         stop("Unsupported file format. Please upload a .csv or .xlsx file.")
       }
@@ -465,7 +467,7 @@ server <- function(input, output, session) {
       NULL
     })
     
-    if (is.null(df)) {
+    if (is.null(df_c)) {
       rv$lc_path <- NULL
       return()
     }

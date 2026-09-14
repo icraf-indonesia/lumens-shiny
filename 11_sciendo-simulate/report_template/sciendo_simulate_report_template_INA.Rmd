@@ -91,8 +91,16 @@ Hasil simulasi proyeksi perubahan tutupan/penggunaan lahan didasarkan pada masuk
 ## Peta Tutupan/Penggunaan Lahan Awal
 
 ```{r Land-Use/Cover Map T1, echo=FALSE, message=FALSE, warning=FALSE}
-df_lc <- read.csv(params$inputs$lc_lookup_table_path)
-#=Load landuse for two time periods
+lc_lookup_path <- params$inputs$lc_lookup_table_path
+lc_lookup_ext  <- tolower(tools::file_ext(lc_lookup_path))
+
+df_lc <- if (lc_lookup_ext %in% c("xlsx", "xls")) {
+  as.data.frame(openxlsx::read.xlsx(lc_lookup_path))
+} else {
+  read.csv(lc_lookup_path)
+}
+
+# Load landuse for two time periods
 lc_t1 <- params$inputs$lc_t1_path %>% rast() %>%
   add_legend_to_categorical_raster(., lookup_table = df_lc)
 plot_categorical_raster(lc_t1)
@@ -124,10 +132,15 @@ list_luc <- params$inputs$output_dir %>%
   list.files(full.names = TRUE, pattern = "^landscape\\d+\\.tif$")
 
 lc_tbl_path <- params$inputs$lc_lookup_table_path
-tmp <- read_csv(lc_tbl_path, skip = 1, n_max = 0)
-all_names <- c("ID", "LC", "ID_Traj", "Trajectory", "color_palette")
-col_names <- all_names[seq_along(names(tmp))]
-lc_table <- read_csv(lc_tbl_path, skip = 1, col_names = col_names)
+lc_tbl_ext  <- tolower(tools::file_ext(lc_tbl_path))
+all_names   <- c("ID", "LC", "ID_Traj", "Trajectory", "color_palette")
+
+lc_table <- if (lc_tbl_ext %in% c("xlsx", "xls")) {
+  as.data.frame(openxlsx::read.xlsx(lc_tbl_path, startRow = 2, colNames = FALSE))
+} else {
+  as.data.frame(readr::read_csv(lc_tbl_path, skip = 1, col_names = FALSE, show_col_types = FALSE))
+}
+names(lc_table) <- all_names[seq_len(ncol(lc_table))]
 
 
 list_luc <- list_luc[order(as.numeric(stringr::str_extract(basename(list_luc), "\\d+")))]

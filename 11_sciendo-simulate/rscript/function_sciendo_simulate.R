@@ -1729,12 +1729,12 @@ alloc_help_texts <- list(
     body = "<p>GeoTIFF (.tif) file containing the land cover/land use
             classification for the initial year (T1).</p> <p>Pixel values must correspond to the IDs defined in the
             Land Use/Cover Lookup Table.</p>"
-              ),
+  ),
   init_year = list(
     title = "Initial Year",
     body = "<p>Base year (T1) corresponding to the
             Initial Land Cover/Use Map.</p>"
-              ),
+  ),
   mapz_file = list(
     title = "Planning Unit Map",
     body = "<p>GeoTIFF (.tif) file delineating the planning units
@@ -1742,7 +1742,7 @@ alloc_help_texts <- list(
             partition the simulation into independent regions.</p> <p>Each pixel value corresponds to a planning unit ID.
             The simulation runs the allocation step region by region,
             so planning units should cover the entire study extent.</p>"
-              ),
+  ),
   lc_file = list(
     title = "Land Use/Cover Lookup Table",
     body = "<p>CSV/XLSX table file with two columns:</p> <ol> <li>Numeric land cover ID (integer)</li> <li>Class name (text)</li> </ol>"
@@ -1755,25 +1755,25 @@ alloc_help_texts <- list(
           the variable stack, the planning unit classes, and the
           simulation period value.</li> </ul> <p>Both files must be uploaded together. The app reads the XML
           file to extract the planning unit classes and the period value.</p>"
-            ),
+  ),
   repetition = list(
     title = "Simulation Periods",
     body = "<p>Number of simulation iterations to run.</p> <p>Each iteration produces its own projected landscape
             (<code>landscape2010.tif</code>, <code>landscape2015.tif</code>, ...).</p>"
-              ),
+  ),
   tm_path = list(
     title = "Transition Probability Matrix Folder",
     body = "<p>Folder from SCIENDO Train (Business As Usual) or SCIENDO Scenario Builder
             (Scenario) output containing the transition probability matrices:</p> <ul> <li>CSV table files containing the single-step transition matrix
             (<code>single_step000000.csv</code>), or</li> <li>XLSM table files containing macro-enabled Excel scenario
             matrices.</li> </ul>"
-              ),
+  ),
   dcf_path = list(
     title = "Weights of Evidence Folder",
     body = "<p>Folder containing the DCF files from the SCIENDO Train output
             (<code>woe000000.dcf</code> and its companion files) that store
             the Weights of Evidence coefficients.</p>"
-              ),
+  ),
   wd = list(
     title = "Output Directory",
     body = "<p>Folder where all simulation outputs will be written</p>"
@@ -1785,26 +1785,26 @@ alloc_help_texts <- list(
             under <code>Program Files</code> and use the latest version found.
             Provide it manually only if automatic detection fails or if you
             need to use a specific version.</p>"
-              ),
+  ),
   memory_allocation = list(
     title = "Memory Allocation Policy",
     body = "<p>Controls how DINAMICA EGO manages RAM and disk space when
             running the simulation.</p> <ul> <li>Balanced (default): input maps are kept in memory, while results
             are written to disk if RAM is limited.</li> <li>Prefer Memory: keep both inputs and results in RAM when possible.</li> <li>Prefer Disk: stream everything through disk.</li> <li>Memory Only: abort if there is insufficient RAM.</li> <li>Aggressive: inputs are kept on disk, while results are kept in RAM
             when possible.</li> </ul>"
-              ),
+  ),
   custom = list(
     title = "Parameterize Allocate Transitions",
     body = "<p>Enable this option to customize how DINAMICA EGO allocates transitions.</p> <p>Controls the balance between patch expansion
             (growing existing patches) and patch generation
             (seeding brand-new patches), including their size and shape.</p>"
-              ),
+  ),
   percent = list(
     title = "Percent of Transitions by Expansion",
     body = "<p>Share of each transition handled by the Expander
             (growing existing patches) and the Patcher
             (creating new patches).</p> <ul> <li><code>0</code> = all transitions create new patches</li> <li><code>1</code> = all transitions expand existing patches</li> </ul> <p>Value range: <code>0</code> - <code>1</code>.</p>"
-              ),
+  ),
   exp_mean = list(
     title = "Expansion Mean Patch Size",
     body = "<p>Average size (hectares) of an expanded patch.</p> <p>Must be > 0.</p>"
@@ -1833,7 +1833,7 @@ alloc_help_texts <- list(
     title = "Per-Transition Allocation (Optional)",
     body = "<p>Upload an Excel/CSV template to customize allocation
             transition parameters for individual transitions.</p>"
-              )
+  )
 )
 
 #' Clickable Help Icon for the Allocation UI
