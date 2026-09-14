@@ -35,12 +35,24 @@ ui <- fluidPage(
   titlePanel("SCIENDO Simulate"),
   sidebarLayout(
     sidebarPanel(
-      fileInput("map1_file", "Initial Land Cover/Use Map", accept = c("image/tiff")),
-      numericInput("init_year", "Initial Year", value = 2025),
-      fileInput("mapz_file", "Planning Unit", accept = c("image/tiff")),
-      fileInput("lc_file", "Land Use/Cover Lookup Table (CSV)", accept = c(".csv")),
-      fileInput("rc_file", "Raster Cube", accept = c(".tif", ".xml"), multiple=T),
-      numericInput("repetition", "Repetition", value = 2),
+      fileInput("map1_file",
+                label = label_with_help("Initial Land Cover/Use Map", "map1_file"),
+                accept = c("image/tiff"), placeholder = "Upload raster file (.tif)"),
+      numericInput("init_year",
+                   label = label_with_help("Initial Year", "init_year"),
+                   value = 2025),
+      fileInput("mapz_file",
+                label = label_with_help("Planning Unit Map", "mapz_file"),
+                accept = c("image/tiff"), placeholder = "Upload raster file (.tif)"),
+      fileInput("lc_file",
+                label = label_with_help("Land Use/Cover Lookup Table", "lc_file"),
+                accept = c(".csv", ".xlsx"), placeholder = "Upload table file (.csv/.xlsx)"),
+      fileInput("rc_file",
+                label = label_with_help("Raster Cube Map", "rc_file"),
+                accept = c(".tif", ".xml"), multiple = TRUE, placeholder = "Upload raster file (.tif & .xml)"),
+      numericInput("repetition",
+                   label = label_with_help("Simulation Periods", "repetition"),
+                   value = 2),
       
       tags$head(
         tags$style(HTML("
@@ -63,12 +75,39 @@ ui <- fluidPage(
         margin-bottom: 0;
         flex: 1;
       }
-      /* Force equal 2-line label height so inputs align across columns */
+      .alloc-label {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 4px;
+        width: 100%;
+      }
+      .alloc-help-icon {
+        display: inline-flex;
+        align-items: center;
+        color: #0d6efd;
+        cursor: pointer;
+        flex-shrink: 0;
+        margin-top: 2px;
+        line-height: 1;
+      }
+      .alloc-help-icon a,
+      .alloc-help-icon .action-button {
+        color: inherit !important;
+        text-decoration: none !important;
+        background: none !important;
+        border: none !important;
+        padding: 0 !important;
+        cursor: pointer !important;
+      }
+      .alloc-help-icon:hover,
+      .alloc-help-icon:hover a {
+        color: #0a58ca !important;
+      }
       .alloc-3col .form-group > label {
         min-height: 3em;
         display: block;
       }
-      /* Align generate + download buttons */
       .alloc-tmpl-row .btn {
         display: inline-flex;
         align-items: center;
@@ -78,29 +117,70 @@ ui <- fluidPage(
       .alloc-tmpl-row .form-group {
         margin-bottom: 0;
       }
+      .dir-btn-wrapper {
+        position: relative;
+        width: 100%;
+      }
+      .dir-btn-wrapper .btn {
+        width: 100%;
+        text-align: center;
+      }
+      .dir-help-overlay {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        z-index: 10;
+      }
+      /.form-group > label.control-label {
+      /  display: block;
+      /  width: 100%;
+      /}
     "))
       ),
       
       div(style = "display: flex; flex-direction: column; gap: 10px;",
-          shinyDirButton("tm_path", "Transition Matrix Folder Path", "Choose a folder contains CSV files"),
+          dir_button_with_help(
+            "tm_path",
+            "Transition Probability Matrix Folder Path",
+            "Choose a folder contains CSV files",
+            "tm_path"
+          ),
           verbatimTextOutput("print_tm_dir", placeholder = TRUE),
-          shinyDirButton("dcf_path", "Weights of Evidence Folder Path", "Choose a folder contains DCF files"),
+          
+          dir_button_with_help(
+            "dcf_path",
+            "Weights of Evidence Folder Path",
+            "Choose a folder contains DCF files",
+            "dcf_path"
+          ),
           verbatimTextOutput("print_dcf_dir", placeholder = TRUE),
-          shinyDirButton("wd", "Select output directory", "Please select a directory"),
+          
+          dir_button_with_help(
+            "wd",
+            "Select output directory",
+            "Please select a directory",
+            "wd"
+          ),
           verbatimTextOutput("print_output_dir", placeholder = TRUE),
-          shinyDirButton("dinamica_path", "DINAMICA EGO Path (Optional)", "(Optional)"),
+          
+          dir_button_with_help(
+            "dinamica_path",
+            "DINAMICA EGO Path (Optional)",
+            "(Optional)",
+            "dinamica_path"
+          ),
           verbatimTextOutput("print_dinamica_path", placeholder = TRUE),
           
-          tags$p(tags$i(class = "bi bi-gear me-1"), "Pengaturan Lanjutan",
-                 style = "font-weight: 600; margin-bottom: 4px;"),
           accordion(
             open = FALSE,
             accordion_panel(
-              title = "Pengaturan lanjutan",
+              title = "Advanced Settings",
               icon = icon("gear"),
-              value = "pengaturan_lanjutan",
+              value = "advanced_settings",
               
-              selectizeInput("memory_allocation", "Choose Memory Allocation",
+              selectizeInput("memory_allocation",
+                             label = label_with_help("Choose Memory Allocation", "memory_allocation"),
                              choices = c("Balanced" = 1, "Prefer Memory" = 0, "Prefer Disk" = 2, 
                                          "Memory Only" = 3, "Aggressive" = 4),
                              options = list(render = I("
@@ -121,58 +201,81 @@ ui <- fluidPage(
               
               tags$hr(),
               
-              # ---- Allocate Transitions Parameterization ----
               tags$div(
                 class = "alloc-info-row",
                 checkboxInput("alloc_custom",
                               "Parameterize Allocate Transitions",
                               value = FALSE),
-                actionLink("alloc_info_btn", NULL,
-                           icon = icon("circle-question"),
-                           title = "Click for description")
+                alloc_help_icon("custom")
               ),
               tags$div(
                 id = "alloc_params_wrapper",
                 class = "alloc-disabled",
                 
                 numericInput("alloc_percent",
-                             "Percent of Transitions by Expansion (0\u20131)",
+                             label = tags$div(
+                               class = "alloc-label",
+                               tags$span(HTML("Percent of Transitions by Expansion (0\u20131)")),
+                               alloc_help_icon("percent")
+                             ),
                              value = 0.5, min = 0, max = 1, step = 0.05),
                 
                 fluidRow(
                   class = "alloc-3col",
                   column(4, numericInput("alloc_exp_mean",
-                                         HTML("Expansion Mean<br>Patch Size (ha)"),
+                                         label = tags$div(
+                                           class = "alloc-label",
+                                           tags$span(HTML("Expansion Mean<br>Patch Size (ha)")),
+                                           alloc_help_icon("exp_mean")
+                                         ),
                                          value = 2, min = 0, step = 0.1)),
                   column(4, numericInput("alloc_exp_var",
-                                         HTML("Expansion Patch<br>Size Variance (ha)"),
+                                         label = tags$div(
+                                           class = "alloc-label",
+                                           tags$span(HTML("Expansion Patch<br>Size Variance (ha)")),
+                                           alloc_help_icon("exp_var")
+                                         ),
                                          value = 1, min = 0, step = 0.1)),
                   column(4, numericInput("alloc_exp_iso",
-                                         HTML("Expansion Patch<br>Isometry (0\u20132)"),
+                                         label = tags$div(
+                                           class = "alloc-label",
+                                           tags$span(HTML("Expansion Patch<br>Isometry (0\u20132)")),
+                                           alloc_help_icon("exp_iso")
+                                         ),
                                          value = 1, min = 0, max = 2, step = 0.1))
                 ),
+                
                 fluidRow(
                   class = "alloc-3col",
                   column(4, numericInput("alloc_gen_mean",
-                                         HTML("Generation Mean<br>Patch Size (ha)"),
+                                         label = tags$div(
+                                           class = "alloc-label",
+                                           tags$span(HTML("Generation Mean<br>Patch Size (ha)")),
+                                           alloc_help_icon("gen_mean")
+                                         ),
                                          value = 1, min = 0, step = 0.1)),
                   column(4, numericInput("alloc_gen_var",
-                                         HTML("Generation Patch<br>Size Variance (ha)"),
+                                         label = tags$div(
+                                           class = "alloc-label",
+                                           tags$span(HTML("Generation Patch<br>Size Variance (ha)")),
+                                           alloc_help_icon("gen_var")
+                                         ),
                                          value = 1, min = 0, step = 0.1)),
                   column(4, numericInput("alloc_gen_iso",
-                                         HTML("Generation Patch<br>Isometry (0\u20132)"),
+                                         label = tags$div(
+                                           class = "alloc-label",
+                                           tags$span(HTML("Generation Patch<br>Isometry (0\u20132)")),
+                                           alloc_help_icon("gen_iso")
+                                         ),
                                          value = 1, min = 0, max = 2, step = 0.1))
                 ),
                 
                 tags$hr(),
-                tags$p(tags$b("Per-Transition Override (optional)"),
-                       style = "margin-bottom: 4px;"),
+                
                 tags$p(
-                  "Use the template to customize parameters for individual transitions. ",
-                  "Values entered in the uploaded table will override both the numeric ",
-                  "inputs above and the built-in defaults for those specific transitions. ",
-                  "Empty/NA cells fall back to the numeric inputs above, then to the defaults.",
-                  style = "font-size: 0.85em; color: #555;"
+                  style = "margin-bottom: 8px; display: flex; align-items: center; gap: 6px;",
+                  tags$span("Per-Transition Allocation (optional)"),
+                  alloc_help_icon("override")
                 ),
                 
                 tags$div(
@@ -192,7 +295,7 @@ ui <- fluidPage(
                 
                 fileInput("alloc_override_file",
                           "Upload Filled Template (.csv or .xlsx)",
-                          accept = c(".csv", ".xlsx"),
+                          accept = c(".csv", ".xlsx"), placeholder = "Upload table file (.csv/.xlsx)",
                           width = "100%")
               )
             )
@@ -237,7 +340,6 @@ ui <- fluidPage(
 
 server <- function(input, output, session) {
   options(shiny.maxRequestSize = 100 * 1024^2)
-  #### Initialize all required reactive values ####
   rv <- reactiveValues(
     wd = NULL,
     dinamica_path = NULL,
@@ -267,7 +369,7 @@ server <- function(input, output, session) {
     return(!is.na(as.integer(as.character(s))))
   }
   
-  #### Read file inputs ####
+  # Read file inputs
   observeEvent(input$map1_file, {
     map1 <- input$map1_file
     if(is.null(map1))
@@ -284,12 +386,11 @@ server <- function(input, output, session) {
     rv$mapz_file <- rename_uploaded_file(mapz)
   })
   
-  #### Read file inputs ####
+  # Read file inputs
   observeEvent(input$rc_file, {
     rc <- input$rc_file
     if (is.null(rc)) return()
     
-    # check if both .tif and .xml are present
     has_tif <- any(grepl("\\.tif$", rc$name, ignore.case = TRUE))
     has_xml <- any(grepl("\\.xml$", rc$name, ignore.case = TRUE))
     
@@ -341,11 +442,34 @@ server <- function(input, output, session) {
   
   
   
-  #### Read lc lookup table ####
+  # Read lc lookup table
   observeEvent(input$lc_file, {
     f <- input$lc_file
-    rv$lc_path <- rename_uploaded_file(f)
-    df_c <- read.csv(rv$lc_path)
+    if (is.null(f)) {
+      rv$lc_path <- NULL
+      return()
+    }
+    
+    ext <- tolower(tools::file_ext(f$name))
+    df_c <- tryCatch({
+      if (ext == "csv") {
+        read.csv(f$datapath, stringsAsFactors = FALSE, check.names = FALSE)
+      } else if (ext == "xlsx") {
+        as.data.frame(openxlsx::read.xlsx(f$datapath, check.names = FALSE))
+      } else {
+        stop("Unsupported file format. Please upload a .csv or .xlsx file.")
+      }
+    }, error = function(e) {
+      showNotification(paste("Error reading file:", e$message),
+                       type = "error", duration = 6)
+      NULL
+    })
+    
+    if (is.null(df)) {
+      rv$lc_path <- NULL
+      return()
+    }
+    
     
     if(nrow(df_c) == 0)
       return()
@@ -359,7 +483,7 @@ server <- function(input, output, session) {
     rv$lc_df <- df
   })
   
-  #### Set working directory ####
+  # Set working directory 
   shinyDirChoose(
     input, 
     'wd',
@@ -389,7 +513,7 @@ server <- function(input, output, session) {
     }
   })
   
-  #### Set transition matrix directory ####
+  # Set transition matrix directory
   shinyDirChoose(
     input, 
     'tm_path',
@@ -411,7 +535,7 @@ server <- function(input, output, session) {
     }
   })
   
-  #### Set dcf directory ####
+  # Set dcf directory
   shinyDirChoose(
     input, 
     'dcf_path',
@@ -433,7 +557,7 @@ server <- function(input, output, session) {
     }
   })
   
-  #### Set DINAMICA Path ####
+  # Set DINAMICA Path
   shinyDirChoose(
     input, 
     'dinamica_path',
@@ -445,7 +569,6 @@ server <- function(input, output, session) {
     if (!is.null(input$dinamica_path) && !identical(parseDirPath(volumes, input$dinamica_path), character(0))) {
       rv$dinamica_path <- parseDirPath(volumes, input$dinamica_path)
     } else {
-      # Find DINAMICA directory if not provided
       program_files <- c("C:/Program Files/", "C:/Program Files (x86)/")
       dinamica_dirs <- list.files(program_files, pattern = "^Dinamica EGO", full.names = TRUE, recursive = FALSE)
       
@@ -453,7 +576,6 @@ server <- function(input, output, session) {
         showNotification("No DINAMICA EGO installation found.", type = "error")
         rv$dinamica_path <- NULL
       } else {
-        # Sort directories to use the latest version if multiple are found
         rv$dinamica_path <- sort(dinamica_dirs, decreasing = TRUE)[1]
       }
     }
@@ -485,68 +607,21 @@ server <- function(input, output, session) {
     return(new_path)
   }
   
-  #### Allocate Transitions: info modal ####
-  observeEvent(input$alloc_info_btn, {
-    showModal(modalDialog(
-      title = tagList(icon("circle-info"),
-                      "Allocate Transitions Parameterization"),
-      size = "l",
-      easyClose = TRUE,
-      footer = modalButton("Close"),
-      HTML("
-        <h5>Percent of Transitions by Expansion</h5>
-        <p>The share of each transition handled by the <b>Expander</b>
-        (growing existing patches) versus the <b>Patcher</b> (creating new
-        patches). Value range: <code>0</code>&ndash;<code>1</code>.
-        <code>0</code> = all transitions create new patches;
-        <code>1</code> = all transitions expand existing patches.</p>
-
-        <h5>Patch Expansion Parameters</h5>
-        <p>Controls the geometry of patches produced by the Expander
-        (existing patches grow).</p>
-        <ul>
-          <li><b>Mean Patch Size (ha)</b> &mdash; average size of an
-              expanded patch. Must be &gt; 0.</li>
-          <li><b>Patch Size Variance (ha)</b> &mdash; variance of expanded
-              patch sizes. Must be &ge; 0.</li>
-          <li><b>Patch Isometry (0&ndash;2)</b> &mdash; shape of expanded
-              patches. <code>0</code> = linear/elongated, <code>1</code> =
-              neutral, <code>2</code> = circular/compact.</li>
-        </ul>
-
-        <h5>Patch Generation Parameters</h5>
-        <p>Controls the geometry of patches produced by the Patcher
-        (brand-new patches are seeded).</p>
-        <ul>
-          <li><b>Mean Patch Size (ha)</b> &mdash; average size of a newly
-              generated patch. Must be &gt; 0.</li>
-          <li><b>Patch Size Variance (ha)</b> &mdash; variance of newly
-              generated patch sizes. Must be &ge; 0.</li>
-          <li><b>Patch Isometry (0&ndash;2)</b> &mdash; shape of newly
-              generated patches. <code>0</code> = linear, <code>1</code> =
-              neutral, <code>2</code> = circular.</li>
-        </ul>
-
-        <h5>Per-Transition Override Template</h5>
-        <p>Use <b>Generate Template</b> to download an Excel file listing
-        every possible transition (from &rarr; to). Fill in values only for
-        the transitions you want to customize; leave the rest blank.</p>
-        <p>When you upload the filled template:</p>
-        <ul>
-          <li>Non-empty cells <b>override</b> both the numeric inputs above
-              and the built-in defaults for those specific transitions.</li>
-          <li>Empty or <code>NA</code> cells fall back to the numeric inputs
-              above, then to the built-in defaults.</li>
-        </ul>
-        <p><i>Tip: low mean patch size combined with a low expansion
-        percentage produces salt-and-pepper patterns. Increase both, and
-        raise isometry toward 2, to obtain larger and more compact
-        patches.</i></p>
-      ")
-    ))
+  #### Click-to-open help modals ####
+  lapply(names(alloc_help_texts), function(id) {
+    observeEvent(input[[paste0("alloc_help_", id)]], {
+      info <- alloc_help_texts[[id]]
+      showModal(modalDialog(
+        title = tagList(icon("circle-info"), " ", info$title),
+        HTML(info$body),
+        easyClose = TRUE,
+        footer = modalButton("Close"),
+        size = "m"
+      ))
+    })
   })
   
-  #### Allocate Transitions: grey-out toggle ####
+  # Allocate Transitions
   observe({
     if (isTRUE(input$alloc_custom)) {
       shinyjs::removeClass("alloc_params_wrapper", "alloc-disabled")
@@ -555,7 +630,7 @@ server <- function(input, output, session) {
     }
   })
   
-  #### Allocate Transitions: generate template (store, no modal) ####
+  # Generate template
   observeEvent(input$generate_alloc_template, {
     if (is.null(rv$lc_df)) {
       showNotification(
@@ -571,7 +646,7 @@ server <- function(input, output, session) {
     )
   })
   
-  #### Allocate Transitions: download template (xlsx) ####
+  # Download template (xlsx)
   output$download_alloc_template <- downloadHandler(
     filename = function() {
       paste0("allocate_transitions_template_", Sys.Date(), ".xlsx")
@@ -594,7 +669,7 @@ server <- function(input, output, session) {
     }
   )
   
-  #### Allocate Transitions: parse override upload ####
+  # Parse override upload 
   observeEvent(input$alloc_override_file, {
     f <- input$alloc_override_file
     if (is.null(f)) {
@@ -636,6 +711,7 @@ server <- function(input, output, session) {
       return()
     }
     
+    # Coerce id columns to integer
     df$from_id <- as.integer(df$from_id)
     df$to_id   <- as.integer(df$to_id)
     
@@ -646,7 +722,7 @@ server <- function(input, output, session) {
     )
   })
   
-  # --- Input validation ---
+  # Input validation
   iv <- InputValidator$new()
   
   iv$add_rule("map1_file", sv_required(message = "Please upload land cover map at T1"))
@@ -672,6 +748,7 @@ server <- function(input, output, session) {
     NULL
   })
   
+  # Only validate allocate transition parameters when the checkbox is enabled
   iv$add_rule("alloc_percent", function(value) {
     if (!isTRUE(input$alloc_custom)) return(NULL)
     if (is.null(value) || is.na(value)) return("Please provide a value")
@@ -715,7 +792,7 @@ server <- function(input, output, session) {
     NULL
   })
   
-  #### Do the calculation and store it to the markdown content ####
+ # Process simulate
   observeEvent(input$processSimulate, {
     if(!iv$is_valid()) {
       iv$enable()

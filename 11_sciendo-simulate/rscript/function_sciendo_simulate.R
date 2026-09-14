@@ -1,7 +1,16 @@
+# ---------------------------------------------------------------- session ---
+
+#' Format Session Info as a Tibble
+#'
+#' Summarises the current R session: R version, platform/OS, library paths,
+#' and locale.
+#'
+#' @return A tibble with columns `Category` and `Details`.
+#' @importFrom tibble tibble
+#' @export
 format_session_info_table <- function() {
   si <- sessionInfo()
   
-  # Extract R version info
   r_version <- si$R.version[c("major", "minor", "year", "month", "day", "nickname")]
   r_version <- paste0(
     "R ", r_version$major, ".", r_version$minor,
@@ -9,1086 +18,185 @@ format_session_info_table <- function() {
     " '", r_version$nickname, "'"
   )
   
-  # Extract platform and OS info
-  platform_os <- paste(si$platform, "|", si$running)
+  platform_os  <- paste(si$platform, "|", si$running)
+  locale_info  <- paste(strsplit(si[[3]], ";")[[1]], collapse = "<br>")
+  lib_paths    <- .libPaths() |> paste(collapse = "<br>")
   
-  # Extract locale info
-  locale_info <- strsplit(si[[3]], ";")[[1]]
-  locale_info <- paste(locale_info, collapse = "<br>")
-  
-  # Extract .libpaths, accomodate multiple library paths
-  lib_paths <- .libPaths() |> paste( collapse = "<br>")
-  
-  # Combine all info into a single tibble
-  session_summary <- tibble(
+  tibble::tibble(
     Category = c("R Version", "Platform | OS", ".libPaths", "Locale"),
-    Details = c(r_version, platform_os, lib_paths, locale_info)
+    Details  = c(r_version, platform_os, lib_paths, locale_info)
   )
-  return(session_summary)
 }
 
-### Required Library ####
-#' Install Required Library
-#' 
-#' Checks if a list of required packages are installed and loaded.
+# ------------------------------------------------------------- utilities ---
+
+#' Install and Load Packages
 #'
-#' @param package1 list of 
-#' @param ... parameters to be passed to vector of packages
+#' Installs any missing packages and loads all of them.
 #'
-#' @return None. This function is called for its side effects.
+#' @param package1 Character vector (or single name) of package names.
+#' @param ... Additional package names.
+#' @return Invisibly `NULL`; called for its side effects.
 #' @export
-#'
-#' @examples
-install_load <- function (package1, ...)  {
-  # convert arguments to vector
+install_load <- function(package1, ...) {
   packages <- c(package1, ...)
-  # start loop to determine if each package is installed
   for (package in packages) {
-    # if package is installed locally, load
-    if (package %in% rownames(installed.packages()))
-      do.call('library', list(package))
-    # if package is not installed locally, download, then load
-    else {
+    if (!package %in% rownames(installed.packages())) {
       install.packages(package)
-      do.call("library", list(package))
     }
+    do.call("library", list(package))
   }
 }
 
+# --------------------------------------------------------- spatial helpers ---
 
 #' Spatially Sync Rasters
-#' 
-#' Aligns ("syncs") a Raster to a reference Raster.
 #'
-#' @param unsynced A Raster object to be aligned to the reference raster
-#' @param reference A Raster object to be used as the reference for syncing. Syncing will use the reference's projection, resolution, and extent
-#' @param method Method used to compute values for the new RasterLayer. Either 'ngb' (nearest neighbor) or 'bilinear' (bilinear interpolation)
-#' @param size_only 
-#' @param raster_size 
-#' @param verbose verbose=TRUE gives feedback on the process (UNSUPPORTED AT PRESENT)
-#' @param ... parameters to be passed to writeRaster
+#' Aligns ("syncs") a raster to a reference raster by matching projection,
+#' resolution, and extent.
 #'
-#' @return Returns a RasterLayer, RasterBrick or RasterStack object synced to the reference raster object.
-#' @importFrom raster projection res bbox rotate projectExtent setExtent resample extend extent crop
-#' 
+#' @param unsynced A `Raster` object to be aligned.
+#' @param reference A `Raster` object used as the alignment reference.
+#' @param method Resampling method, `"ngb"` or `"bilinear"`.
+#' @param size_only Logical. If `TRUE`, resize only, using `raster_size`.
+#' @param raster_size Numeric vector `c(ncol, nrow)`. Required when
+#'   `size_only = TRUE`.
+#' @param verbose Logical. If `TRUE`, emit progress messages.
+#' @param ... Passed to `writeRaster`.
+#'
+#' @return A `RasterLayer`, `RasterBrick`, or `RasterStack` synced to
+#'   `reference`.
+#' @importFrom raster projection res bbox rotate projectExtent setExtent
+#'   resample extend extent crop
 #' @export
-spatial_sync_raster <- function(unsynced, reference, method="ngb", size_only=FALSE, raster_size, verbose=FALSE, ...) {
-  if(!size_only) {
-    new_projection=projection(reference)
-    old_projection=projection(unsynced)
+spatial_sync_raster <- function(unsynced, reference, method = "ngb",
+                                size_only = FALSE, raster_size,
+                                verbose = FALSE, ...) {
+  if (!size_only) {
+    new_projection <- projection(reference)
+    old_projection <- projection(unsynced)
+    new_res        <- res(reference)
+    old_res        <- res(unsynced)
+    new_extent     <- bbox(reference)
+    old_extent     <- bbox(unsynced)
     
-    new_res=res(reference)
-    old_res=res(unsynced)
-    
-    # Check for rotation
-    new_extent=bbox(reference)
-    old_extent=bbox(unsynced)
-    
-    if((new_extent[1,1] < 0 && old_extent[1,1] >=0) || (new_extent[1,1] >= 0 && old_extent[1,1] <0)) {
-      if(verbose) { message ("Rotating...") }
-      unsynced_rotated=rotate(unsynced)
-    } else
-    {
-      unsynced_rotated=unsynced
+    if ((new_extent[1, 1] < 0 && old_extent[1, 1] >= 0) ||
+        (new_extent[1, 1] >= 0 && old_extent[1, 1] < 0)) {
+      if (verbose) message("Rotating...")
+      unsynced_rotated <- rotate(unsynced)
+    } else {
+      unsynced_rotated <- unsynced
     }
     
-    if(new_projection!=old_projection | new_res[1] != old_res[1] | new_res[2] != old_res[2])
-    {
-      pr_extent=projectExtent(unsynced_rotated, new_projection)
-      # We need to fix the extent
-      pr_extent <- setExtent(pr_extent,extent(reference))
-      res(pr_extent)=res(reference)
-      if(new_projection!=old_projection)
-      {
-        if(verbose) { message("Projecting and resampling...") }
-        pr <- projectRaster(unsynced_rotated, pr_extent,method=method)
-      } else
-      {
-        if(verbose) { message("Same projection, resampling only...") }
-        pr <- raster::resample(unsynced_rotated, pr_extent,method=method)
+    if (new_projection != old_projection ||
+        new_res[1] != old_res[1] || new_res[2] != old_res[2]) {
+      pr_extent <- projectExtent(unsynced_rotated, new_projection)
+      pr_extent <- setExtent(pr_extent, extent(reference))
+      res(pr_extent) <- res(reference)
+      
+      if (new_projection != old_projection) {
+        if (verbose) message("Projecting and resampling...")
+        pr <- projectRaster(unsynced_rotated, pr_extent, method = method)
+      } else {
+        if (verbose) message("Same projection, resampling only...")
+        pr <- raster::resample(unsynced_rotated, pr_extent, method = method)
       }
-    } else
-    {
-      if(verbose) { message("Same projection and pixel size...") }
-      pr=unsynced_rotated
+    } else {
+      if (verbose) message("Same projection and pixel size...")
+      pr <- unsynced_rotated
     }
     
-    if(verbose) { message("Expanding...") }
-    expanded_raster=extend(pr,reference)
-    if(verbose) { message("Cropping...") }
-    synced_raster=crop(expanded_raster,reference)
-    
-    # This in theory shouldn't be neccesasary...
-    if(verbose) { message("Fixing extents...") }
-    extent(synced_raster)=extent(reference)
+    if (verbose) message("Expanding...")
+    expanded_raster <- extend(pr, reference)
+    if (verbose) message("Cropping...")
+    synced_raster <- crop(expanded_raster, reference)
+    if (verbose) message("Fixing extents...")
+    extent(synced_raster) <- extent(reference)
   } else {
-    #		if(missing(raster_size))
-    #		{
-    #			stop("For size_only=TRUE you must set the raster_size as c(ncol,nrow)")
-    #		} 
+    unsynced_ncol <- ncol(unsynced)
+    unsynced_nrow <- nrow(unsynced)
     
-    unsynced_ncol=ncol(unsynced)
-    unsynced_nrow=nrow(unsynced)
+    unsynced_ulx <- (raster_size[[1]] - unsynced_ncol) / 2
+    unsynced_uly <- (raster_size[[2]] - unsynced_nrow) / 2
     
-    # Eventually we should preserve the pixel size		
-    unsynced_ulx=(raster_size[[1]]-unsynced_ncol)/2
-    unsynced_uly=(raster_size[[2]]-unsynced_nrow)/2
+    extent(unsynced) <- extent(
+      unsynced_ulx, unsynced_ulx + unsynced_ncol,
+      unsynced_uly, unsynced_uly + unsynced_nrow
+    )
+    full_extent <- extent(0, raster_size[[1]], 0, raster_size[[2]])
     
-    extent(unsynced)=extent(unsynced_ulx,unsynced_ulx+unsynced_ncol,unsynced_uly,unsynced_uly+unsynced_nrow)
-    full_extent=extent(0,raster_size[[1]],0,raster_size[[2]])
-    
-    synced_raster=extend(unsynced,full_extent)
-    extent(synced_raster)=full_extent
-    res(synced_raster)=c(1,1)
+    synced_raster <- extend(unsynced, full_extent)
+    extent(synced_raster) <- full_extent
+    res(synced_raster)    <- c(1, 1)
   }
   
-  return(synced_raster)
+  synced_raster
 }
 
+# ------------------------------------------------------- cross-tabulation ---
 
-#' Generate Dummy Cross-tabulate
-#' 
-#' Cross-tabulate two data.frame objects to create a contingency table.
+#' Generate a Dummy Cross-tabulation
 #'
-#' @param landcover List. Land cover lookup table input.
-#' @param zone Data frame or list. Zone lookup table input.
+#' Cross-tabulates two data frames to build a contingency table of land
+#' cover / planning unit combinations.
 #'
-#' @return A table or data.frame
+#' @param landcover Data frame. Land cover lookup table.
+#' @param zone Data frame. Zone (planning unit) lookup table.
+#' @return A data frame with columns `ID_PU`, `ID_LC1`, `ID_LC2`.
+#' @importFrom splitstackshape expandRows
 #' @export
-generate_dummy_crosstab <- function(landcover, zone){
-  if(!is.data.frame(landcover)) {
-    stop("Land cover is not a data frame")
-  }
-  
-  if(!is.data.frame(zone)) {
-    stop("Zone is not a data frame")
-  }
+generate_dummy_crosstab <- function(landcover, zone) {
+  if (!is.data.frame(landcover)) stop("Land cover is not a data frame")
+  if (!is.data.frame(zone))      stop("Zone is not a data frame")
   
   n_lc <- nrow(landcover)
   n_pu <- nrow(zone)
   
-  dummy1 <- data.frame(nPU = zone[,1], divider = n_lc*n_lc)
-  dummy1 <- expandRows(dummy1, 'divider')
+  dummy1 <- data.frame(nPU = zone[, 1], divider = n_lc * n_lc)
+  dummy1 <- expandRows(dummy1, "divider")
   
-  dummy2 <- data.frame(nT1 = landcover[,1], divider = n_lc)
-  dummy2 <- expandRows(dummy2, 'divider')
+  dummy2 <- data.frame(nT1 = landcover[, 1], divider = n_lc)
+  dummy2 <- expandRows(dummy2, "divider")
   dummy2 <- data.frame(nT1 = rep(dummy2$nT1, n_pu))
   
-  dummy3 <- data.frame(nT2 = rep(rep(landcover[,1], n_lc), n_pu))
+  dummy3 <- data.frame(nT2 = rep(rep(landcover[, 1], n_lc), n_pu))
   
   lucDummy <- cbind(dummy1, dummy2, dummy3)
-  colnames(lucDummy) <- c('ID_PU', 'ID_LC1', 'ID_LC2')
-  return(lucDummy)
+  colnames(lucDummy) <- c("ID_PU", "ID_LC1", "ID_LC2")
+  lucDummy
 }
 
-#' Plot a categorical raster map
+# --------------------------------------------------------- plotting utils ---
+
+#' Plot a Categorical Raster with an Optional Download Button
 #'
-#' This function takes a raster object as input and produces a ggplot. If the raster
-#' object includes a "color_pallete" column with hex color codes, these colors are
-#' used for the fill scale. Otherwise, the default `scale_fill_hypso_d()` fill scale
-#' from the tidyterra package is used.
+#' Renders a categorical map with **ggplot2** / **tidyterra**. In HTML output
+#' an inline PNG plus a **Download PNG** button is returned; otherwise a
+#' plain `ggplot` object is returned.
 #'
-#' @param raster_object A raster object.
+#' If the raster's category table includes a `color_palette` column of hex
+#' codes, those colors are used; otherwise a default 50-color palette is
+#' applied.
 #'
-#' @return A ggplot object.
-#' @importFrom tidyterra scale_fill_hypso_d
-#' @importFrom ggplot2 ggplot theme_bw labs theme scale_fill_manual element_text unit element_blank guides guide_legend
-#' @importFrom tidyterra geom_spatraster scale_fill_hypso_d
+#' @param raster_object A `SpatRaster` with categorical data.
+#' @param filename Default filename for the downloaded PNG (HTML only).
+#' @param dpi Resolution for the saved PNG (HTML only).
+#' @return `htmltools::tagList` in HTML output, otherwise a `ggplot`.
+#' @importFrom tidyterra geom_spatraster
+#' @importFrom ggplot2 ggplot theme_bw labs theme scale_fill_manual
+#'   element_text unit element_blank guides guide_legend ggsave
+#' @importFrom htmltools tagList tags
+#' @importFrom knitr is_html_output
+#' @importFrom base64enc dataURI
 #' @export
-plot_categorical_raster <- function(raster_object) {
-  # Check if raster_object has a color_pallete column and it contains hex color codes
-  if ("color_palette" %in% names(cats(raster_object)[[1]]) && all(grepl("^#[0-9A-Fa-f]{6}$", cats(raster_object)$color_pallete))) {
-    fill_scale <- scale_fill_manual(values = cats(raster_object)[[1]]$color_palette, na.value = "white")
-  } else {
-    fill_scale <- scale_fill_manual(values = c(
-      "#4E79A7", "#F28E2B", "#E15759", "#76B7B2", "#59A14F",
-      "#EDC948", "#B07AA1", "#FF9DA7", "#9C755F", "#BAB0AC",
-      "#86BCB6", "#FFB84D", "#A5C1DC", "#D37295", "#C4AD66",
-      "#7B8D8E", "#B17B62", "#8CD17D", "#DE9D9C", "#5A5A5A",
-      "#A0A0A0", "#D7B5A6", "#6D9EEB", "#E69F00", "#56B4E9",
-      "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7",
-      "#999999", "#E51E10", "#FF7F00", "#FFFF33", "#A65628",
-      "#F781BF", "#999933", "#8DD3C7", "#FFFFB3", "#BEBADA",
-      "#FB8072", "#80B1D3", "#FDB462", "#B3DE69", "#FCCDE5",
-      "#D9D9D9", "#BC80BD", "#CCEBC5", "#FFED6F", "#E41A1C"), 
-      na.value = "white")
-  }
-  if(!is.na(time(raster_object))) {
-    plot_title <- time(raster_object)
-  } else {
-    plot_title <- names(raster_object)
-  }
-  # Generate the plot
-  plot_lc <- ggplot() +
-    geom_spatraster(data = raster_object) +
-    fill_scale +
-    theme_bw() +
-    labs(title = plot_title, fill = NULL) +
-    guides(fill = guide_legend(title.position = "top", ncol=3))+
-    theme(axis.title.x = element_blank(),
-          axis.title.y = element_blank(),
-          panel.grid.major = element_blank(),
-          panel.grid.minor = element_blank(),
-          legend.title = element_text(size = 12),
-          legend.text = element_text(size = 10),
-          legend.key.height = unit(0.25, "cm"),
-          legend.key.width = unit(0.25, "cm"),
-          legend.position = "bottom",
-          legend.justification = c(0,0.8))
-  
-  return(plot_lc)
-}
-
-
-#' Generate SCIENDO-Train Report
-#' 
-#' Generates a report for the SCIENDO-Train analysis using R Markdown.
-#'
-#' @param output List. Output from SCIENDO-Train analysis.
-#' @param dir Character string. Directory to save the report.
-#' 
-#' @importFrom rmarkdown render
-#'
-#' @export
-generate_sciendo_simulate_report <- function(output, dir) {
-  report_params <- list(
-    start_time = output$start_time,
-    end_time = output$end_time,
-    inputs = output$inputs,
-    session_log = output$session_log
-  )
-  output_file <- paste0("sciendo_simulate_report_", Sys.Date(), ".html")
-  rmarkdown::render(
-    "../report_template/sciendo_simulate_report_template_INA.Rmd",
-    output_file = output_file,
-    output_dir = dir,
-    params = report_params
-  )
-}
-
-
-executeDINAMICA <- function(params, memory_allocation) {
-  # Find DINAMICA directory if not provided
-  # if (is.null(params$dinamica_path) | identical(params$dinamica_path, character(0))) {
-  #   program_files <- c("C:/Program Files/", "C:/Program Files (x86)/")
-  #   dinamica_dirs <- list.files(program_files, pattern = "^Dinamica EGO", full.names = TRUE)
-  #   
-  #   if (length(dinamica_dirs) == 0) {
-  #     stop("No DINAMICA EGO installation found.")
-  #   }
-  #   
-  #   # Sort directories to use the latest version if multiple are found
-  #   dinamica_path <- sort(dinamica_dirs, decreasing = TRUE)[1]
-  # }
-  
-  dinamica_path <- params$dinamica_path
-  message(paste("Using DINAMICA EGO installation:", dinamica_path))
-  
-  # Check if DINAMICA directory exists
-  if (!dir.exists(dinamica_path)) {
-    stop("Specified DINAMICA EGO directory does not exist.")
-  }
-  
-  # Find DinamicaConsole
-  dinamica_exe <- dinamica_path %>% 
-    list.files(pattern = "^DinamicaConsole", full.names = TRUE) %>%
-    nth(2)
-  
-  # Check if egoml exists
-  if (!file.exists(params$egoml)) {
-    stop("Specified egoml does not exist.")
-  }
-  
-  # Prepare DINAMICA command
-  # command<-paste('"', dinamica_exe, '" -processors 0 -log-level 4 "', params$egoml, '"', sep="")
-  command <- paste(
-    '"', dinamica_exe, 
-    '" -processors 0 -log-level 4 -memory-allocation-policy ', 
-    memory_allocation, 
-    ' "', params$egoml, '"', 
-    sep = ""
-  )
-  
-  # Execute DINAMICA
-  result <- system(command)
-  
-  if(result != 0) {
-    stop("DINAMICA EGO execution failed. Check DINAMICA EGO installation and parameters.")
-  } else {
-    message("DINAMICA EGO execution completed successfully.")
-  }
-}
-
-generate_egoml_simulate <- function(lc1_path, lusim_lc, 
-                                    zone_path, ers_path, n_rep,
-                                    tm_path, dcf_path,
-                                    output_dir, probability = FALSE,
-                                    egoml, memory_allocation = NULL,
-                                    allocate_transitions_temp = NULL,
-                                    percent  = NULL, exp_mean = NULL,
-                                    exp_var  = NULL, exp_iso  = NULL,
-                                    gen_mean = NULL, gen_var  = NULL,
-                                    gen_iso  = NULL,
-                                    override_df = NULL) {
-  prob_path <- paste0(output_dir, "/probabilities.tif")
-  landscape_path <- paste0(output_dir, "/landscape.tif")
-  
-  allocate_transitions <- build_allocate_transitions(
-    lusim_lc = lusim_lc,
-    percent  = percent,
-    exp_mean = exp_mean,
-    exp_var  = exp_var,
-    exp_iso  = exp_iso,
-    gen_mean = gen_mean,
-    gen_var  = gen_var,
-    gen_iso  = gen_iso,
-    override_df = override_df
-  )
-  
-  skeleton <- expand.grid(nT1 = lusim_lc[, 1], nT2 = lusim_lc[, 1])
-  skeleton <- skeleton[skeleton$nT1 != skeleton$nT2, ]
-  skeleton <- na.omit(skeleton)
-  rownames(skeleton) <- NULL
-  skeleton$char <- paste(skeleton$nT1, skeleton$nT2, sep = "->")
-  
-  # begin writing tag
-  con <- xmlOutputDOM(tag="script")
-  # add property
-  con$addTag("property", attrs=c(key="dff.date", value="2016-Nov-09 17:01:03"))
-  con$addTag("property", attrs=c(key="dff.version", value="3.0.17.20160922"))
-  
-  # begin.
-  # add functor = LoadMap
-  con$addTag("functor", attrs=c(name="LoadMap"), close=FALSE)
-  con$addTag("property", attrs=c(key="dff.functor.alias", value="Static Variables"))
-  con$addTag("property", attrs=c(key="dff.functor.comment", value="Static variable maps."))
-  con$addTag("inputport", attrs=c(name="filename"), paste('"', ers_path, '"', sep=''))
-  con$addTag("inputport", attrs=c(name="nullValue"), ".none")
-  con$addTag("inputport", attrs=c(name="loadAsSparse"), ".no")
-  con$addTag("inputport", attrs=c(name="suffixDigits"), 0)
-  con$addTag("inputport", attrs=c(name="step"), "0")
-  con$addTag("inputport", attrs=c(name="workdir"), ".none")
-  con$addTag("outputport", attrs=c(name="map", id="v1"))
-  con$closeTag("functor") 
-  # end.
-  
-  # begin.
-  # add functor = LoadCategoricalMap
-  con$addTag("functor", attrs=c(name="LoadCategoricalMap"), close=FALSE)
-  con$addTag("property", attrs=c(key="dff.functor.alias", value="Initial Landscape"))
-  con$addTag("property", attrs=c(key="dff.functor.comment", value="Initial landscape maps."))
-  con$addTag("inputport", attrs=c(name="filename"), paste('"', lc1_path, '"', sep=''))
-  con$addTag("inputport", attrs=c(name="nullValue"), ".none")
-  con$addTag("inputport", attrs=c(name="loadAsSparse"), ".no")
-  con$addTag("inputport", attrs=c(name="suffixDigits"), 0)
-  con$addTag("inputport", attrs=c(name="step"), "0")
-  con$addTag("inputport", attrs=c(name="workdir"), ".none")
-  con$addTag("outputport", attrs=c(name="map", id="v2"))
-  con$closeTag("functor")
-  # end.
-  
-  # begin.
-  # add functor = LoadCategoricalMap
-  con$addTag("functor", attrs=c(name="LoadCategoricalMap"), close=FALSE)
-  con$addTag("property", attrs=c(key="dff.functor.alias", value="Planning Unit"))
-  con$addTag("property", attrs=c(key="dff.functor.comment", value="Municipalities"))
-  con$addTag("inputport", attrs=c(name="filename"), paste('"', zone_path, '"', sep=''))
-  con$addTag("inputport", attrs=c(name="nullValue"), ".none")
-  con$addTag("inputport", attrs=c(name="loadAsSparse"), ".no")
-  con$addTag("inputport", attrs=c(name="suffixDigits"), 0)
-  con$addTag("inputport", attrs=c(name="step"), "0")
-  con$addTag("inputport", attrs=c(name="workdir"), ".none")
-  con$addTag("outputport", attrs=c(name="map", id="v3"))
-  con$closeTag("functor")
-  # end.
-  
-  # begin.
-  # add containerfunctor = ForEachRegion
-  con$addTag("containerfunctor", attrs=c(name="RegionManager"), close=FALSE)
-  con$addTag("property", attrs=c(key="dff.container.collapsed", value="no"))
-  con$addTag("property", attrs=c(key="dff.functor.alias", value="regionManager3260"))
-  con$addTag("inputport", attrs=c(name="regions", peerid="v3"))
-  con$addTag("inputport", attrs=c(name="borderCells"), 0)
-  con$addTag("internaloutputport", attrs=c(name="regionManager", id="v4"))
-  
-  # add containerfunctor = Repeat
-  con$addTag("containerfunctor", attrs=c(name="Repeat"), close=FALSE)
-  con$addTag("property", attrs=c(key="dff.container.collapsed", value="no"))
-  con$addTag("property", attrs=c(key="dff.functor.alias", value="repeat279"))
-  con$addTag("property", attrs=c(key="dff.functor.comment", value="Simulation model."))
-  con$addTag("inputport", attrs=c(name="iterations"), n_rep)
-  con$addTag("internaloutputport", attrs=c(name="step", id="v5"))
-  
-  # add functor = LoadCategoricalMap
-  con$addTag("functor", attrs=c(name="MuxCategoricalMap"), close=FALSE)
-  con$addTag("property", attrs=c(key="dff.functor.alias", value="Landscape"))
-  con$addTag("inputport", attrs=c(name="initial", peerid="v2"))
-  con$addTag("inputport", attrs=c(name="feedback", peerid="v15"))
-  con$addTag("outputport", attrs=c(name="map", id="v6"))
-  con$closeTag("functor")
-  
-  # add functor = SaveMap
-  con$addTag("functor", attrs=c(name="SaveMap"), close=FALSE)
-  con$addTag("property", attrs=c(key="dff.functor.alias", value="saveMap282"))
-  con$addTag("inputport", attrs=c(name="map", peerid="v15"))
-  con$addTag("inputport", attrs=c(name="filename"), paste('"', landscape_path, '"', sep=''))
-  con$addTag("inputport", attrs=c(name="suffixDigits"), 2)
-  con$addTag("inputport", attrs=c(name="step", peerid="v5"))
-  con$addTag("inputport", attrs=c(name="useCompression"), ".yes")
-  con$addTag("inputport", attrs=c(name="workdir"), ".none")
-  con$closeTag("functor")
-  
-  # add functor = SaveMap
-  if(probability) {
-    con$addTag("functor", attrs=c(name="SaveMap"), close=FALSE)
-    con$addTag("property", attrs=c(key="dff.functor.alias", value="saveMap3414"))
-    con$addTag("inputport", attrs=c(name="map", peerid="v16"))
-    con$addTag("inputport", attrs=c(name="filename"), paste('"', prob_path, '"', sep=''))
-    con$addTag("inputport", attrs=c(name="suffixDigits"), 4)
-    con$addTag("inputport", attrs=c(name="step", peerid="v5"))
-    con$addTag("inputport", attrs=c(name="useCompression"), ".yes")
-    con$addTag("inputport", attrs=c(name="workdir"), ".none")
-    con$closeTag("functor")
-  }
-  
-  # add containerfunctor = ForEachCategory
-  con$addTag("containerfunctor", attrs=c(name="ForEachCategory"), close=FALSE)
-  con$addTag("property", attrs=c(key="dff.container.collapsed", value="no"))
-  con$addTag("property", attrs=c(key="dff.functor.alias", value="forEachCategory283"))
-  con$addTag("inputport", attrs=c(name="categorization", peerid="v3"))
-  con$addTag("internaloutputport", attrs=c(name="step", id="v7"))
-  
-  con$addTag("functor", attrs=c(name="IntegerValue"), close=FALSE)
-  con$addTag("property", attrs=c(key="dff.functor.alias", value="int290"))
-  con$addTag("property", attrs=c(key="dff.functor.comment", value="This operator is used here to force a dependence between two groups."))
-  con$addTag("inputport", attrs=c(name="constant"), 0)
-  con$addTag("outputport", attrs=c(name="object", id="v8"))
-  con$closeTag("functor")
-  
-  con$addTag("functor", attrs=c(name="LoadTable"), close=FALSE)
-  con$addTag("property", attrs=c(key="dff.functor.alias", value="Transition Matrix"))
-  con$addTag("property", attrs=c(key="dff.functor.comment", value="Load transition matrix."))
-  con$addTag("inputport", attrs=c(name="filename"), paste('"', tm_path, '/single_step.csv"', sep=''))
-  con$addTag("inputport", attrs=c(name="suffixDigits"), 6)
-  con$addTag("inputport", attrs=c(name="step", peerid="v7"))
-  con$addTag("inputport", attrs=c(name="workdir"), ".none")
-  con$addTag("outputport", attrs=c(name="table", id="v9"))
-  con$closeTag("functor")
-  
-  con$addTag("functor", attrs=c(name="LoadWeights"), close=FALSE)
-  con$addTag("property", attrs=c(key="dff.functor.alias", value="Weights of Evidence Coefficients"))
-  con$addTag("property", attrs=c(key="dff.functor.comment", value="Load Weights of Evidence coefficients."))
-  con$addTag("inputport", attrs=c(name="filename"), paste('"', dcf_path, '/woe.dcf"', sep=''))
-  con$addTag("inputport", attrs=c(name="suffixDigits"), 6)
-  con$addTag("inputport", attrs=c(name="step", peerid="v7"))
-  con$addTag("inputport", attrs=c(name="workdir"), ".none")
-  con$addTag("outputport", attrs=c(name="weights", id="v10"))
-  con$closeTag("functor")
-  
-  con$addTag("functor", attrs=c(name="RegionalCategoricalMap"), close=FALSE)
-  con$addTag("property", attrs=c(key="dff.functor.alias", value="regionalCategoricalMap289"))
-  con$addTag("property", attrs=c(key="dff.functor.comment", value="Assign a map to the region using the given identifier."))
-  con$addTag("inputport", attrs=c(name="globalMapName"), paste('"landscape"', sep=''))
-  con$addTag("inputport", attrs=c(name="regionalMap", peerid="v11"))
-  con$addTag("inputport", attrs=c(name="regionId", peerid="v7"))
-  con$addTag("inputport", attrs=c(name="regionManager", peerid="v4"))
-  con$closeTag("functor")
-  
-  con$addTag("functor", attrs=c(name="AllocateTransitions"), close=FALSE)
-  con$addTag("property", attrs=c(key="dff.functor.alias", value="Updated Landscape (Region)"))
-  con$addTag("inputport", attrs=c(name="lanscape", peerid="v13"))
-  con$addTag("inputport", attrs=c(name="probabilities", peerid="v14"))
-  con$addTag("inputport", attrs=c(name="transitionMatrix", peerid="v9"))
-  con$addTag("inputport", attrs=c(name="percentOfTransitionsByExpansion"), allocate_transitions$percentOfTransitionsByExpansion)
-  con$addTag("inputport", attrs=c(name="patchExpansionParameters"), allocate_transitions$patchExpansionParameters)
-  con$addTag("inputport", attrs=c(name="patchGenerationParameters"), allocate_transitions$patchGenerationParameters)
-  
-  con$addTag("inputport", attrs=c(name="printTransitionInfo"), ".no")
-  con$addTag("outputport", attrs=c(name="resultingLanscape", id="v11"))
-  con$closeTag("functor")
-  
-  con$addTag("functor", attrs=c(name="RegionalizeMap"), close=FALSE)
-  con$addTag("property", attrs=c(key="dff.functor.alias", value="Static Variables (Region)"))
-  con$addTag("inputport", attrs=c(name="globalMap", peerid="v1"))
-  con$addTag("inputport", attrs=c(name="regionId", peerid="v7"))
-  con$addTag("inputport", attrs=c(name="keepNonRegionCells"), ".no")
-  con$addTag("inputport", attrs=c(name="regionManager", peerid="v4"))
-  con$addTag("outputport", attrs=c(name="regionalMap", id="v12"))
-  con$closeTag("functor")
-  
-  con$addTag("functor", attrs=c(name="RegionalizeCategoricalMap"), close=FALSE)
-  con$addTag("property", attrs=c(key="dff.functor.alias", value="Landscape (Region)"))
-  con$addTag("inputport", attrs=c(name="globalMap", peerid="v6"))
-  con$addTag("inputport", attrs=c(name="regionId", peerid="v7"))
-  con$addTag("inputport", attrs=c(name="keepNonRegionCells"), ".no")
-  con$addTag("inputport", attrs=c(name="regionManager", peerid="v4"))
-  con$addTag("outputport", attrs=c(name="regionalMap", id="v13"))
-  con$closeTag("functor")
-  
-  con$addTag("functor", attrs=c(name="RegionalMap"), close=FALSE)
-  con$addTag("property", attrs=c(key="dff.functor.alias", value="regionalMap3412"))
-  con$addTag("property", attrs=c(key="dff.functor.comment", value="Assign a map to the region using the given identifier."))
-  con$addTag("inputport", attrs=c(name="globalMapName"), paste('"probabilities"', sep=''))
-  con$addTag("inputport", attrs=c(name="regionalMap", peerid="v14"))
-  con$addTag("inputport", attrs=c(name="regionId", peerid="v7"))
-  con$addTag("inputport", attrs=c(name="regionManager", peerid="v4"))
-  con$closeTag("functor")
-  
-  con$addTag("containerfunctor", attrs=c(name="CalcWOfEProbabilityMap"), close=FALSE)
-  con$addTag("property", attrs=c(key="dff.container.collapsed", value="no"))
-  con$addTag("property", attrs=c(key="dff.functor.alias", value="Probabilities (Region)"))
-  con$addTag("property", attrs=c(key="dff.functor.extendedcomment", value="Calculate probability map."))
-  con$addTag("inputport", attrs=c(name="landscape", peerid="v13"))
-  con$addTag("inputport", attrs=c(name="weights", peerid="v10"))
-  con$addTag("inputport", attrs=c(name="transitions"), paste('[ ', paste(skeleton$char, collapse = ", "), ']', sep=''))
-  con$addTag("inputport", attrs=c(name="cellType"), ".uint8")
-  con$addTag("inputport", attrs=c(name="nullValue"), ".default")
-  con$addTag("outputport", attrs=c(name="probabilities", id="v14"))
-  
-  con$addTag("functor", attrs=c(name="NameMap"), close=FALSE)
-  con$addTag("property", attrs=c(key="dff.functor.alias", value="nameMap298"))
-  con$addTag("inputport", attrs=c(name="map", peerid="v12"))
-  con$addTag("inputport", attrs=c(name="mapName"), paste('"static_var"', sep=''))
-  con$closeTag("functor")
-  
-  con$closeTag("containerfunctor") # CalcWOfEProbabilityMap
-  
-  con$closeTag("containerfunctor") # ForEachCategory
-  
-  # add containerfunctor = Group
-  con$addTag("containerfunctor", attrs=c(name="Group"), close=FALSE)
-  con$addTag("property", attrs=c(key="dff.container.collapsed", value="no"))
-  con$addTag("property", attrs=c(key="dff.functor.alias", value="group300"))
-  
-  con$addTag("functor", attrs=c(name="IntegerValue"), close=FALSE)
-  con$addTag("property", attrs=c(key="dff.functor.alias", value="int302"))
-  con$addTag("property", attrs=c(key="dff.functor.comment", value="This operator is used here to force a dependence between two groups."))
-  con$addTag("inputport", attrs=c(name="constant", peerid="v8"))
-  con$closeTag("functor")
-  
-  con$addTag("functor", attrs=c(name="MergeRegionalCategoricalMaps"), close=FALSE)
-  con$addTag("property", attrs=c(key="dff.functor.alias", value="Updated Landscape"))
-  con$addTag("property", attrs=c(key="dff.functor.comment", value="Merge all maps assigned to the regions using the given identifier."))
-  con$addTag("inputport", attrs=c(name="globalMapName"), paste('"landscape"', sep=''))
-  con$addTag("inputport", attrs=c(name="mergeNonRegionCells"), ".no")
-  con$addTag("inputport", attrs=c(name="regionManager", peerid="v4"))
-  con$addTag("outputport", attrs=c(name="globalMap", id="v15"))
-  con$closeTag("functor")
-  
-  if(probability) {
-    con$addTag("functor", attrs=c(name="MergeRegionalMaps"), close=FALSE)
-    con$addTag("property", attrs=c(key="dff.functor.alias", value="mergeRegionalMaps3413"))
-    con$addTag("property", attrs=c(key="dff.functor.comment", value="Merge all maps assigned to the regions using the given identifier."))
-    con$addTag("inputport", attrs=c(name="globalMapName"), paste('"probabilities"', sep=''))
-    con$addTag("inputport", attrs=c(name="mergeNonRegionCells"), ".no")
-    con$addTag("inputport", attrs=c(name="regionManager", peerid="v4"))
-    con$addTag("outputport", attrs=c(name="globalMap", id="v16"))
-    con$closeTag("functor")
-  }
-  
-  con$closeTag("containerfunctor") # Group
-  
-  con$closeTag("containerfunctor")  # Repeat
-  con$closeTag("containerfunctor") # RegionManager
-  # end.
-  
-  egoml_sim_file <- paste0(output_dir, "/", egoml, ".egoml")
-  saveXML(con$value(), file = egoml_sim_file)
-  
-  # replace ampersand code character
-  egoml_text  <- readLines(egoml_sim_file)
-  egoml_text_new  <- gsub(pattern="amp;", replace="", x=egoml_text)
-  writeLines(egoml_text_new, con=egoml_sim_file)
-  
-  out <- list(
-    egoml_sim_file = egoml_sim_file,
-    rep = n_rep,
-    lc1 = lc1_path,
-    zone = zone_path,
-    transition_mtx = tm_path,
-    dcf = dcf_path,
-    ers = ers_path
-  )
-  
-  return(out)
-}
-
-run_dinamica_simulation <- function(dinamica_path = NULL, output_dir, egoml, memory_allocation) {
-  params <- list()
-  params$dinamica_path <- dinamica_path
-  params$output_dir <- output_dir
-  params$egoml <- egoml
-  
-  executeDINAMICA(params, memory_allocation)
-  
-  # check result
-  new_lc_file <- paste0(output_dir, "/landscape01.tif")
-  if (!file.exists(new_lc_file)) {
-    stop("Land use change simulation failed! Check DINAMICA EGO log.")
-  }
-}
-
-run_sciendo_simulate_process <- function(lc_t1_path, initial_year, period_value,
-                                         lc_lookup_table_path, lc_lookup_table,
-                                         zone_lookup_table, zone_path, ers_path,
-                                         n_rep, tm_path, dcf_path,
-                                         dinamica_path = NULL, output_dir,
-                                         memory_allocation,
-                                         alloc_params = NULL,
-                                         alloc_override_df = NULL,
-                                         progress_callback = NULL) {
-  start_time <- Sys.time()
-  cat("Started at:", format(start_time, "%Y-%m-%d %H:%M:%S"), "\n")
-  
-  # Conditional state to select tpm_path
-  files <- list.files(
-    path = tm_path,
-    full.names = TRUE,
-    ignore.case = TRUE
-  )
-  
-  xlsm_files <- files[grep("\\.xlsm$", files, ignore.case = TRUE)]
-  
-  # Conditional report
-  if (length(xlsm_files) > 0) {
-    # Convert .xlsm files into long data format
-    matrix_to_tpm(tm_path, lc_lookup_table, output_dir)
-    tm_path <- file.path(output_dir, "scenario_tpm")
-  } else {
-    message("No .xlsm files found. Using non-macro TPM")
-  }
-  
-  if (!is.null(progress_callback)) progress_callback(0.3, "generate egoml: initialize simulation per region parameters")
-  out_sim <- generate_egoml_simulate(
-    lc1_path     = lc_t1_path,
-    lusim_lc     = lc_lookup_table,
-    zone_path    = zone_path,
-    ers_path     = ers_path,
-    n_rep        = n_rep,
-    tm_path      = tm_path,
-    dcf_path     = dcf_path,
-    output_dir   = output_dir,
-    probability  = FALSE,
-    egoml        = "03_sciendo_simulation",
-    memory_allocation = memory_allocation,
-    percent      = if (!is.null(alloc_params)) alloc_params$percent  else NULL,
-    exp_mean     = if (!is.null(alloc_params)) alloc_params$exp_mean else NULL,
-    exp_var      = if (!is.null(alloc_params)) alloc_params$exp_var  else NULL,
-    exp_iso      = if (!is.null(alloc_params)) alloc_params$exp_iso  else NULL,
-    gen_mean     = if (!is.null(alloc_params)) alloc_params$gen_mean else NULL,
-    gen_var      = if (!is.null(alloc_params)) alloc_params$gen_var  else NULL,
-    gen_iso      = if (!is.null(alloc_params)) alloc_params$gen_iso  else NULL,
-    override_df  = alloc_override_df
-  )
-  
-  if (!is.null(progress_callback)) progress_callback(0.7, "run dinamica simulation per region")
-  run_dinamica_simulation(dinamica_path, output_dir, out_sim$egoml_sim_file, memory_allocation)
-  
-  # rename projected landscape files
-  rename_landscape(output_dir, initial_year, period_value)
-  
-  end_time <- Sys.time()
-  cat("Ended at:", format(end_time, "%Y-%m-%d %H:%M:%S"), "\n")
-  
-  session_log <- format_session_info_table()
-  
-  out <- list(
-    start_time = as.character(format(start_time, "%Y-%m-%d %H:%M:%S")),
-    end_time = as.character(format(end_time, "%Y-%m-%d %H:%M:%S")),
-    inputs = list(
-      lc_t1_path = lc_t1_path,
-      lc_lookup_table_path = lc_lookup_table_path,
-      zone_path = zone_path,
-      zone_lookup_table = zone_lookup_table,
-      ers_path = ers_path,
-      tm_path = tm_path,
-      dcf_path = dcf_path,
-      rep = n_rep,
-      output_dir = output_dir
-    ),
-    session_log = session_log
-  )
-  
-  if (!is.null(progress_callback)) progress_callback(0.9, "outputs generated and saved")
-  
-  if (!is.null(progress_callback)) progress_callback(1, "generate report")
-  generate_sciendo_simulate_report(output = out, dir = output_dir)
-  
-  return(out)
-}
-
-# Functions for report ----------------------------------------------------
-
-#' @title Generate a Robust and Interactive Stacked Area Chart using Plotly
-#' @description This function takes a tibble of land use data and creates a
-#' stacked area chart directly with plotly. It is robust to variations in
-#' column names and data types.
-#' @param luc_data_wide A tibble or data.frame in wide format.
-#' @param class_col A string specifying the name of the column containing land use
-#'   class labels. Defaults to "LC".
-#' @param id_col A string specifying the name of the column containing row
-#'   identifiers. This column is excluded from the plot. Defaults to "ID".
-#' @param chart_title The main title for the chart.
-#' @param x_axis_label The label for the x-axis.
-#' @param y_axis_label The label for the y-axis.
-#' @return A plotly object representing the interactive stacked area chart.
-#'
-plot_interactive_stacked_area <- function(luc_data_wide,
-                                          class_col = names(luc_data_wide)[2],
-                                          id_col = names(luc_data_wide)[1],
-                                          x_axis_label = "Time Step",
-                                          y_axis_label = "Area (Hectares)") 
-{
-  
-  # Step 2: Input Validation and Cleaning
-  # Check if the specified columns exist in the data frame
-  required_cols <- c(class_col, id_col)
-  if (!all(required_cols %in% names(luc_data_wide))) {
-    stop(paste("The provided data frame must contain the columns:", paste(required_cols, collapse = ", ")))
-  }
-  
-  # Ensure all data columns (non-ID, non-class) are numeric.
-  # This version is more robust: it only attempts to parse columns that are not already numeric.
-  clean_data_wide <- luc_data_wide %>%
-    dplyr::mutate(across(
-      .cols = -all_of(required_cols), 
-      .fns = ~ if(!is.numeric(.)){ readr::parse_number(as.character(.))} else .
-    )
-    )
-  
-  # Step 3: Prepare Data for Plotting (Reshape and Process)
-  luc_data_long <- clean_data_wide %>%
-    # Use !!sym() to programmatically refer to the class_col
-    dplyr::mutate(!!sym(class_col) := factor(!!sym(class_col), levels = unique(!!sym(class_col)))) %>%
-    tidyr::pivot_longer(
-      cols = -all_of(required_cols),
-      names_to = "Year",
-      values_to = "Area"
-    ) %>%
-    dplyr::mutate(
-      Year = readr::parse_number(Year)
-    )
-  
-  # Step 4: Define and Shuffle Tableau 20 Color Palette using ggthemes
-  n_colors <- length(unique(luc_data_long[[class_col]]))
-  tableau_palette <- ggthemes::tableau_color_pal(palette = "Tableau 20", direction=1)(n_colors)
-  
-  
-  
-  # Step 5: Create the Interactive Chart directly with Plotly
-  # Build formulas for aesthetics programmatically
-  color_formula <- as.formula(paste0("~`", class_col, "`"))
-  text_formula <- as.formula(
-    paste0("~paste('<b>', `", class_col, "`, '</b><br>', 'Time Step (T+n):', Year, '<br>', 'Area:', scales::comma(Area), ' ha')")
-  )
-  
-  interactive_plot <- plot_ly(
-    data = luc_data_long,
-    x = ~Year,
-    y = ~Area,
-    color = color_formula,
-    colors = tableau_palette,
-    type = 'scatter',
-    mode = 'lines',
-    stackgroup = 'one',
-    line = list(width = 0),
-    hoverinfo = 'text',
-    text = text_formula
-  ) %>%
-    layout(
-      xaxis = list(title = x_axis_label, dtick = 1),
-      yaxis = list(title = y_axis_label),
-      legend = list(orientation = "h", x = 0.5, y = -0.2, xanchor = 'center')
-    )
-  
-  # Step 6: Return the Interactive Plotly Object
-  return(interactive_plot)
-}
-
-#' Calculate Land Cover Frequency for Entire Landscape or Planning Units
-#'
-#' This function calculates the frequency (area or pixel count) of land cover classes either for 
-#' the entire landscape or within individual planning units (PUs). It can process multiple 
-#' time points and automatically converts pixel counts to hectares when appropriate.
-#'
-#' @param lc_dir Character. Path to directory containing land cover raster files (TIFF format).
-#' @param df_lc Data frame. Lookup table for land cover classes with legends.
-#' @param PU Character. Whether to calculate by planning units ("YES") or for entire landscape ("NO"). 
-#'           Default is "NO" (case-insensitive).
-#' @param zone SpatRaster or NULL. Planning unit raster (required when PU = "YES"). 
-#'             Should have the same extent and resolution as land cover rasters.
-#' @param split Character. Whether to split results by planning unit when PU="YES" ("YES" or "NO"). 
-#'              Default is "NO" (case-insensitive). Only applicable when PU="YES".
-#'
-#' @return A tibble containing land cover frequencies:
-#' \itemize{
-#'   \item When PU = "NO": Returns tibble with columns Landcover, Year1, Year2, etc. showing frequencies
-#'   \item When PU = "YES": Returns tibble with columns PU, Landcover, Year1, Year2, etc. showing frequencies per PU
-#' }
-#' Values represent either pixel counts or area in hectares (when CRS units are meters).
-#'
-#' @details 
-#' The function:
-#' \itemize{
-#'   \item Automatically reads all TIFF files in \code{lc_dir} matching pattern "landscape\\d{4}\\.tif$"
-#'   \item Processes each time point by year (extracted from filenames)
-#'   \item For PU calculations, requires zone raster with PU IDs
-#'   \item Converts pixel counts to hectares when CRS uses meter units
-#'   \item Returns results in tidy tibble format
-#' }
-#'
-#' @note 
-#' \itemize{
-#'   \item Land cover rasters should be categorical with proper legends
-#'   \item Files should follow naming convention "landscapeYYYY.tif" (e.g., "landscape2025.tif")
-#'   \item When PU="YES", zone raster must have PU IDs in its attribute table
-#' }
-#'
-#' @examples
-#' \dontrun{
-#' # For entire landscape
-#' lc_freq <- multiple_lc_freq_combined("path/to/landcover/files", df_lc)
-#' 
-#' # For planning units
-#' pu_freq <- multiple_lc_freq_combined("path/to/landcover/files", df_lc,
-#'                                    PU = "YES", 
-#'                                    zone = pu_raster)
-#' }
-#' 
-#' @importFrom terra rast
-#' @importFrom dplyr arrange mutate across select everything rename relocate
-#' @importFrom tidyr pivot_longer pivot_wider
-#' @importFrom tibble as_tibble
-#' @importFrom stringr str_extract
-#' @export
-multiple_lc_freq_combined <- function(lc_dir, df_lc, PU = "NO", zone = NULL, split = "NO") {
-  
-  # Read raster data 
-  list_luc <- lc_dir %>% 
-    list.files(full.names = TRUE, pattern = "^landscape\\d{4}\\.tif$")
-  
-  # Sort files by year (extracted from filename)
-  list_luc <- list_luc[order(as.numeric(stringr::str_extract(basename(list_luc), "\\d{4}")))]
-  
-  rst_list <- list()
-  years <- stringr::str_extract(basename(list_luc), "\\d{4}")
-  
-  for(i in seq_along(list_luc)){
-    r <- list_luc[i] %>% rast() %>% add_legend_to_categorical_raster(., lookup_table = df_lc)
-    names(r) <- paste0("landscape_", years[i])
-    rst_list[[i]] <- r
-    r %>% plot_categorical_raster()
-  }
-  
-  # Conditional scripts
-  if (toupper(PU) == "YES") {
-    if (is.null(zone)) {
-      stop("Zone parameter must be provided when PU = YES")
-    }
-    
-    # Process each year separately and combine
-    year_data_list <- list()
-    
-    for (i in seq_along(rst_list)) {
-      year <- years[i]
-      raster_obj <- rst_list[[i]]
-      
-      freq_table <- terra::crosstab(c(raster_obj, zone))
-      
-      freq_df <- as.data.frame(freq_table)
-      colnames(freq_df) <- c("landcover", "PU", "value")
-      freq_df$year <- year
-      
-      year_data_list[[year]] <- freq_df
-    }
-    
-    combined_data <- do.call(rbind, year_data_list)
-    
-    # Pivot to wide format
-    final_data <- tidyr::pivot_wider(combined_data,
-                                     names_from = year, 
-                                     values_from = value,
-                                     values_fill = 0) %>%
-      dplyr::arrange(PU, landcover) %>%
-      dplyr::select(PU, landcover, dplyr::everything())
-    
-    lc_ref <- rst_list[[1]]
-    
-    if (grepl("\\+units=m", st_crs(lc_ref)$proj4string)) {
-      spatRes <- calc_res_conv_factor_to_ha(lc_ref)
-      final_data <- mutate(final_data, across(c(3:ncol(final_data)), ~(spatRes*.x)))
-    } else {
-      cat("Frequency is shown in number of pixels instead of hectares")
-    }
-    
-    # Split the data by PU and convert to list of tibbles
-    if (toupper(split) == "YES") {
-      pu_list <- final_data %>%
-        dplyr::group_split(PU) %>%
-        purrr::map(~ dplyr::select(., -PU)) 
-      
-      pu_names <- unique(final_data$PU)
-      names(pu_list) <- paste0("PU_", pu_names)
-      
-      return(pu_list)
-    } else {
-      return(final_data)
-    }
-    
-  } else {
-    
-    # Count freq for entire landscape
-    freq_data <- calc_lc_freq(raster_list = rst_list)
-    
-    # Use actual years for column names
-    if (ncol(freq_data) == length(years) + 1) {
-      colnames(freq_data) <- c("Landcover", years)
-    }
-    
-    # Convert to tibble
-    freq_tbl <- freq_data %>%
-      tibble::as_tibble() %>%
-      tidyr::pivot_longer(
-        cols = -Landcover,
-        names_to = "Year",
-        values_to = "value"
-      ) %>%
-      dplyr::arrange(Landcover, Year) %>%
-      tidyr::pivot_wider(
-        names_from = Year,
-        values_from = value
-      )
-    
-    if (grepl("\\+units=m", st_crs(rst_list[[1]])$proj4string)) {
-      spatRes <- calc_res_conv_factor_to_ha(rst_list[[1]])
-      freq_tbl <- freq_tbl %>%
-        dplyr::mutate(dplyr::across(-Landcover, ~ .x * spatRes))
-    } else {
-      cat("Frequency is shown in number of pixels instead of hectares")
-    }
-    
-    return(freq_tbl)
-  }
-}
-
-# add_legend_to_categorical_raster ----------------------------------------
-
-#' Add legend to categorical raster
-#'
-#' This function adds a legend to a categorical raster file, often containing information about land cover or planning units.
-#'
-#' @param raster_file A categorical raster file (an object of class `SpatRaster`)
-#' @param lookup_table A corresponding lookup table of descriptions for each class category
-#' @param year An optional year to be associated with the raster file
-#'
-#' @return A raster file that contains descriptions for each class category
-#' @importFrom terra levels freq time names
-#' @importFrom stats setNames
-#' @export
-#'
-#' @examples
-#' \dontrun{
-#' add_legend_to_categorical_raster(raster_file = kalbar_11,
-#'               lookup_table = lc_lookup_klhk,
-#'               year = 2011) %>%
-#'               plot()
-#' }
-
-add_legend_to_categorical_raster <- function(raster_file, lookup_table, year = NULL) {
-  # Check if raster_file is a SpatRaster object
-  if (!inherits(raster_file, "SpatRaster")) {
-    stop("raster_file should be a SpatRaster object")
-  }
-  
-  # Check if lookup_table is a data frame
-  if (!is.data.frame(lookup_table)) {
-    stop("lookup_table should be a data frame")
-  }
-  
-  # Check if the first column of lookup_table is numeric or convertible to numeric
-  first_column <- lookup_table[[1]]
-  if (!is.numeric(first_column) && any(is.na(as.numeric(first_column)))) {
-    stop("The first column of lookup_table should be numeric or convertible to numeric")
-  }
-  
-  # Check if year is a numeric value or NULL, and if it consists of 4 digits
-  if (!is.null(year) && (!is.numeric(year) || nchar(as.character(year)) != 4)) {
-    stop("year should be a numeric value consisting of 4 digits")
-  }
-  
-  # Filter lookup_table to only include values present in raster_file
-  lookup_table <- lookup_table[lookup_table[[1]] %in% terra::freq(raster_file)[["value"]], ]
-  
-  # Convert lookup_table into a data frame
-  lookup_table <- data.frame(lookup_table)
-  
-  # Convert the first column to numeric if it is not already
-  if (!is.numeric(first_column)) {
-    lookup_table[[1]] <- as.numeric(first_column)
-  }
-  
-  # Get the names of raster_file
-  name_rast <- names(raster_file)
-  
-  # Set the levels of raster_file to be lookup_table
-  levels(raster_file) <- lookup_table
-  
-  # Set the names of raster_file
-  raster_file <- setNames(raster_file, name_rast)
-  
-  # Set the year if year is not NULL
-  if (!is.null(year)) {
-    terra::time(raster_file, tstep="years") <- year
-  }
-  
-  # Return the modified raster_file
-  return(raster_file)
-}
-
-#' Plot a categorical raster with an optional download button
-#'
-#' This function creates a categorical map from a raster object using
-#' **ggplot2** and **tidyterra**. In HTML outputs (e.g., R Markdown HTML reports),
-#' the plot is rendered as an inline image with a **Download PNG** button.
-#' In non-HTML outputs (e.g., PDF, Word), only the `ggplot` object is returned.
-#'
-#' If the raster's category table contains a `color_palette` column with valid
-#' hex codes, those colors are used for plotting. Otherwise, a default palette
-#' is applied. The plot legend is automatically formatted for readability.
-#'
-#' @param raster_object A [`SpatRaster`][terra::SpatRaster] object containing
-#'   categorical data. Should include category labels, and optionally a
-#'   `color_palette` column in `cats(raster_object)`.
-#' @param filename A string giving the default filename (with extension) for
-#'   the downloaded PNG in HTML output. Defaults to `"raster_plot.png"`.
-#' @param dpi An integer giving the resolution (dots per inch) for the saved
-#'   PNG image in HTML output. Defaults to `300`.
-#'
-#' @return 
-#' - If the output format is **HTML**: an [htmltools::tagList] containing the 
-#'   rendered raster plot and a styled download button.
-#' - If the output format is **non-HTML** (PDF, Word, etc.): a `ggplot` object
-#'   that can be further modified or printed.
-#'
-#' @examples
-#' \dontrun{
-#' library(terra)
-#' r <- rast(matrix(sample(1:3, 100, TRUE), 10, 10))
-#' cats(r) <- data.frame(ID = 1:3, class = c("Forest", "Agriculture", "Urban"))
-#'
-#' # Returns ggplot in non-HTML output
-#' plot_categorical_raster(r)
-#'
-#' # In HTML output, adds download button
-#' plot_categorical_raster(r, filename = "landcover_map.png", dpi = 200)
-#' }
-#'
-#' @export
-plot_categorical_raster <- function(raster_object, filename = "raster_plot.png", dpi = 300) {
-  # Color palette
+plot_categorical_raster <- function(raster_object, filename = "raster_plot.png",
+                                    dpi = 300) {
   if ("color_palette" %in% names(cats(raster_object)[[1]]) &&
-      all(grepl("^#[0-9A-Fa-f]{6}$", cats(raster_object)$color_pallete))) {
-    fill_scale <- scale_fill_manual(values = cats(raster_object)[[1]]$color_palette, na.value = "white")
+      all(grepl("^#[0-9A-Fa-f]{6}$", cats(raster_object)$color_palette))) {
+    fill_scale <- scale_fill_manual(
+      values   = cats(raster_object)[[1]]$color_palette,
+      na.value = "white"
+    )
   } else {
     fill_scale <- scale_fill_manual(values = c(
       "#4E79A7", "#F28E2B", "#E15759", "#76B7B2", "#59A14F",
@@ -1104,13 +212,8 @@ plot_categorical_raster <- function(raster_object, filename = "raster_plot.png",
     ), na.value = "white")
   }
   
-  if (!is.na(time(raster_object))) {
-    plot_title <- time(raster_object)
-  } else {
-    plot_title <- names(raster_object)
-  }
+  plot_title <- if (!is.na(time(raster_object))) time(raster_object) else names(raster_object)
   
-  # Generate the plot
   plot_lc <- ggplot() +
     tidyterra::geom_spatraster(data = raster_object) +
     fill_scale +
@@ -1118,44 +221,40 @@ plot_categorical_raster <- function(raster_object, filename = "raster_plot.png",
     labs(title = plot_title, fill = NULL) +
     guides(fill = guide_legend(title.position = "top", ncol = 2)) +
     theme(
-      axis.title.x = element_blank(),
-      axis.title.y = element_blank(),
+      axis.title.x     = element_blank(),
+      axis.title.y     = element_blank(),
       panel.grid.major = element_blank(),
       panel.grid.minor = element_blank(),
-      legend.title = element_text(size = 12),
-      legend.text = element_text(size = 10),
+      legend.title     = element_text(size = 12),
+      legend.text      = element_text(size = 10),
       legend.key.height = unit(0.25, "cm"),
-      legend.key.width = unit(0.25, "cm"),
-      legend.position = "bottom",
+      legend.key.width  = unit(0.25, "cm"),
+      legend.position   = "bottom",
       legend.justification = c(0, 0.8)
     )
   
-  if (!knitr::is_html_output()) {
-    return(plot_lc)
-  }
+  if (!knitr::is_html_output()) return(plot_lc)
   
-  # Save PNG with custom dpi
   tf <- tempfile(fileext = ".png")
   ggsave(tf, plot_lc, width = 7, height = 5, dpi = dpi)
   img_data <- base64enc::dataURI(file = tf, mime = "image/png")
   
-  # download button
   htmltools::tagList(
     tags$div(
       style = "margin-bottom:10px;",
       tags$img(
-        src = img_data, 
+        src   = img_data,
         style = "max-width:100%; height:auto; display:block; margin-bottom:5px;"
       ),
       tags$button(
         "Download PNG",
         onclick = sprintf(
           "var link = document.createElement('a'); link.download = '%s';
-          link.href = this.previousElementSibling.src; link.click();",
+           link.href = this.previousElementSibling.src; link.click();",
           filename
         ),
-        style = "padding:4px 8px; font-size:0.9em; 
-                 background:#d3d3d3; border-radius:4px; 
+        style = "padding:4px 8px; font-size:0.9em;
+                 background:#d3d3d3; border-radius:4px;
                  color:#333333; text-decoration:none;
                  border: none; outline: none;"
       )
@@ -1163,88 +262,661 @@ plot_categorical_raster <- function(raster_object, filename = "raster_plot.png",
   )
 }
 
-# calc_res_conve_factor_to_ha ---------------------------------------------
+# ------------------------------------------------------- DINAMICA helpers ---
 
-#' Calculate Resolution Conversion Factor To Hectares
+#' Execute a DINAMICA EGO Model
 #'
-#' This function calculates the conversion factor of a raster map resolution to hectares,
-#' depending on the coordinate reference system (CRS) of the raster.
-#' Raster maps with projection in meter or degree units are supported.
+#' Launches the DINAMICA EGO console with the given `.egoml` model file.
 #'
-#' @param raster_input A terra::SpatRaster object.
-#' @return A numerical value representing the conversion factor of the raster map resolution to hectares.
+#' @param params List with elements `dinamica_path` and `egoml`.
+#' @param memory_allocation Memory-allocation policy string passed to the
+#'   console.
+#' @return Invisibly `NULL`; called for its side effects.
+#' @importFrom magrittr %>%
+#' @importFrom purrr nth
+#' @export
+executeDINAMICA <- function(params, memory_allocation) {
+  dinamica_path <- params$dinamica_path
+  message(paste("Using DINAMICA EGO installation:", dinamica_path))
+  
+  if (!dir.exists(dinamica_path)) {
+    stop("Specified DINAMICA EGO directory does not exist.")
+  }
+  
+  dinamica_exe <- dinamica_path %>%
+    list.files(pattern = "^DinamicaConsole", full.names = TRUE) %>%
+    nth(2)
+  
+  if (!file.exists(params$egoml)) {
+    stop("Specified egoml does not exist.")
+  }
+  
+  command <- paste0(
+    '"', dinamica_exe, '" ',
+    "-processors 0 -log-level 4 ",
+    "-memory-allocation-policy ", memory_allocation, " ",
+    '"', params$egoml, '"'
+  )
+  
+  result <- system(command)
+  
+  if (result != 0) {
+    stop("DINAMICA EGO execution failed. Check DINAMICA EGO installation and parameters.")
+  }
+  message("DINAMICA EGO execution completed successfully.")
+}
+
+#' Generate a SCIENDO Simulation `.egoml`
+#'
+#' Writes a DINAMICA EGO `.egoml` model file that loads the initial
+#' landscape, static variables, and planning units; iterates a per-region
+#' allocation using the transition matrix and Weights of Evidence; and saves
+#' the resulting landscape (and optionally probability) rasters.
+#'
+#' @param lc1_path Path to the initial land cover raster.
+#' @param lusim_lc Data frame of land cover IDs and names.
+#' @param zone_path Path to the planning unit raster.
+#' @param ers_path Path to the static variables raster.
+#' @param n_rep Number of simulation repetitions.
+#' @param tm_path Directory with transition matrix files.
+#' @param dcf_path Directory with WoE `.dcf` files.
+#' @param output_dir Directory for outputs.
+#' @param probability Logical. Save probability maps.
+#' @param egoml Base name for the `.egoml` file.
+#' @param memory_allocation Memory-allocation policy string.
+#' @param allocate_transitions_temp Reserved.
+#' @param percent,exp_mean,exp_var,exp_iso,gen_mean,gen_var,gen_iso Uniform
+#'   `AllocateTransitions` parameters.
+#' @param override_df Optional per-transition override data frame.
+#' @return A list describing the generated model and its inputs.
+#' @importFrom XML xmlOutputDOM saveXML
+#' @export
+generate_egoml_simulate <- function(lc1_path, lusim_lc,
+                                    zone_path, ers_path, n_rep,
+                                    tm_path, dcf_path,
+                                    output_dir, probability = FALSE,
+                                    egoml, memory_allocation = NULL,
+                                    allocate_transitions_temp = NULL,
+                                    percent  = NULL, exp_mean = NULL,
+                                    exp_var  = NULL, exp_iso  = NULL,
+                                    gen_mean = NULL, gen_var  = NULL,
+                                    gen_iso  = NULL,
+                                    override_df = NULL) {
+  prob_path      <- paste0(output_dir, "/probabilities.tif")
+  landscape_path <- paste0(output_dir, "/landscape.tif")
+  
+  allocate_transitions <- build_allocate_transitions(
+    lusim_lc    = lusim_lc,
+    percent     = percent,
+    exp_mean    = exp_mean,
+    exp_var     = exp_var,
+    exp_iso     = exp_iso,
+    gen_mean    = gen_mean,
+    gen_var     = gen_var,
+    gen_iso     = gen_iso,
+    override_df = override_df
+  )
+  
+  skeleton <- expand.grid(nT1 = lusim_lc[, 1], nT2 = lusim_lc[, 1])
+  skeleton <- skeleton[skeleton$nT1 != skeleton$nT2, ]
+  skeleton <- na.omit(skeleton)
+  rownames(skeleton) <- NULL
+  skeleton$char <- paste(skeleton$nT1, skeleton$nT2, sep = "->")
+  
+  con <- xmlOutputDOM(tag = "script")
+  con$addTag("property", attrs = c(key = "dff.date",    value = "2016-Nov-09 17:01:03"))
+  con$addTag("property", attrs = c(key = "dff.version", value = "3.0.17.20160922"))
+  
+  # Static variables
+  con$addTag("functor", attrs = c(name = "LoadMap"), close = FALSE)
+  con$addTag("property",  attrs = c(key = "dff.functor.alias",   value = "Static Variables"))
+  con$addTag("property",  attrs = c(key = "dff.functor.comment", value = "Static variable maps."))
+  con$addTag("inputport", attrs = c(name = "filename"),      paste0('"', ers_path, '"'))
+  con$addTag("inputport", attrs = c(name = "nullValue"),     ".none")
+  con$addTag("inputport", attrs = c(name = "loadAsSparse"),  ".no")
+  con$addTag("inputport", attrs = c(name = "suffixDigits"),  0)
+  con$addTag("inputport", attrs = c(name = "step"),          "0")
+  con$addTag("inputport", attrs = c(name = "workdir"),       ".none")
+  con$addTag("outputport", attrs = c(name = "map", id = "v1"))
+  con$closeTag("functor")
+  
+  # Initial landscape
+  con$addTag("functor", attrs = c(name = "LoadCategoricalMap"), close = FALSE)
+  con$addTag("property",  attrs = c(key = "dff.functor.alias",   value = "Initial Landscape"))
+  con$addTag("property",  attrs = c(key = "dff.functor.comment", value = "Initial landscape maps."))
+  con$addTag("inputport", attrs = c(name = "filename"),      paste0('"', lc1_path, '"'))
+  con$addTag("inputport", attrs = c(name = "nullValue"),     ".none")
+  con$addTag("inputport", attrs = c(name = "loadAsSparse"),  ".no")
+  con$addTag("inputport", attrs = c(name = "suffixDigits"),  0)
+  con$addTag("inputport", attrs = c(name = "step"),          "0")
+  con$addTag("inputport", attrs = c(name = "workdir"),       ".none")
+  con$addTag("outputport", attrs = c(name = "map", id = "v2"))
+  con$closeTag("functor")
+  
+  # Planning unit
+  con$addTag("functor", attrs = c(name = "LoadCategoricalMap"), close = FALSE)
+  con$addTag("property",  attrs = c(key = "dff.functor.alias",   value = "Planning Unit"))
+  con$addTag("property",  attrs = c(key = "dff.functor.comment", value = "Municipalities"))
+  con$addTag("inputport", attrs = c(name = "filename"),      paste0('"', zone_path, '"'))
+  con$addTag("inputport", attrs = c(name = "nullValue"),     ".none")
+  con$addTag("inputport", attrs = c(name = "loadAsSparse"),  ".no")
+  con$addTag("inputport", attrs = c(name = "suffixDigits"),  0)
+  con$addTag("inputport", attrs = c(name = "step"),          "0")
+  con$addTag("inputport", attrs = c(name = "workdir"),       ".none")
+  con$addTag("outputport", attrs = c(name = "map", id = "v3"))
+  con$closeTag("functor")
+  
+  # Region loop
+  con$addTag("containerfunctor", attrs = c(name = "RegionManager"), close = FALSE)
+  con$addTag("property",           attrs = c(key = "dff.container.collapsed", value = "no"))
+  con$addTag("property",           attrs = c(key = "dff.functor.alias",       value = "regionManager3260"))
+  con$addTag("inputport",          attrs = c(name = "regions",      peerid = "v3"))
+  con$addTag("inputport",          attrs = c(name = "borderCells"), 0)
+  con$addTag("internaloutputport", attrs = c(name = "regionManager", id = "v4"))
+  
+  # Repetition loop
+  con$addTag("containerfunctor", attrs = c(name = "Repeat"), close = FALSE)
+  con$addTag("property",           attrs = c(key = "dff.container.collapsed", value = "no"))
+  con$addTag("property",           attrs = c(key = "dff.functor.alias",       value = "repeat279"))
+  con$addTag("property",           attrs = c(key = "dff.functor.comment",     value = "Simulation model."))
+  con$addTag("inputport",          attrs = c(name = "iterations"), n_rep)
+  con$addTag("internaloutputport", attrs = c(name = "step", id = "v5"))
+  
+  # Landscape mux
+  con$addTag("functor", attrs = c(name = "MuxCategoricalMap"), close = FALSE)
+  con$addTag("property",  attrs = c(key = "dff.functor.alias", value = "Landscape"))
+  con$addTag("inputport", attrs = c(name = "initial",  peerid = "v2"))
+  con$addTag("inputport", attrs = c(name = "feedback", peerid = "v15"))
+  con$addTag("outputport", attrs = c(name = "map", id = "v6"))
+  con$closeTag("functor")
+  
+  # Save landscape
+  con$addTag("functor", attrs = c(name = "SaveMap"), close = FALSE)
+  con$addTag("property",  attrs = c(key = "dff.functor.alias", value = "saveMap282"))
+  con$addTag("inputport", attrs = c(name = "map",            peerid = "v15"))
+  con$addTag("inputport", attrs = c(name = "filename"),      paste0('"', landscape_path, '"'))
+  con$addTag("inputport", attrs = c(name = "suffixDigits"),  2)
+  con$addTag("inputport", attrs = c(name = "step",           peerid = "v5"))
+  con$addTag("inputport", attrs = c(name = "useCompression"), ".yes")
+  con$addTag("inputport", attrs = c(name = "workdir"),        ".none")
+  con$closeTag("functor")
+  
+  # Save probabilities (optional)
+  if (probability) {
+    con$addTag("functor", attrs = c(name = "SaveMap"), close = FALSE)
+    con$addTag("property",  attrs = c(key = "dff.functor.alias", value = "saveMap3414"))
+    con$addTag("inputport", attrs = c(name = "map",            peerid = "v16"))
+    con$addTag("inputport", attrs = c(name = "filename"),      paste0('"', prob_path, '"'))
+    con$addTag("inputport", attrs = c(name = "suffixDigits"),  4)
+    con$addTag("inputport", attrs = c(name = "step",           peerid = "v5"))
+    con$addTag("inputport", attrs = c(name = "useCompression"), ".yes")
+    con$addTag("inputport", attrs = c(name = "workdir"),        ".none")
+    con$closeTag("functor")
+  }
+  
+  # Category loop
+  con$addTag("containerfunctor", attrs = c(name = "ForEachCategory"), close = FALSE)
+  con$addTag("property",           attrs = c(key = "dff.container.collapsed", value = "no"))
+  con$addTag("property",           attrs = c(key = "dff.functor.alias",       value = "forEachCategory283"))
+  con$addTag("inputport",          attrs = c(name = "categorization", peerid = "v3"))
+  con$addTag("internaloutputport", attrs = c(name = "step", id = "v7"))
+  
+  con$addTag("functor", attrs = c(name = "IntegerValue"), close = FALSE)
+  con$addTag("property",  attrs = c(key = "dff.functor.alias", value = "int290"))
+  con$addTag("property",  attrs = c(key = "dff.functor.comment",
+                                    value = "This operator is used here to force a dependence between two groups."))
+  con$addTag("inputport",  attrs = c(name = "constant"), 0)
+  con$addTag("outputport", attrs = c(name = "object", id = "v8"))
+  con$closeTag("functor")
+  
+  con$addTag("functor", attrs = c(name = "LoadTable"), close = FALSE)
+  con$addTag("property",  attrs = c(key = "dff.functor.alias",   value = "Transition Matrix"))
+  con$addTag("property",  attrs = c(key = "dff.functor.comment", value = "Load transition matrix."))
+  con$addTag("inputport", attrs = c(name = "filename"),      paste0('"', tm_path, '/single_step.csv"'))
+  con$addTag("inputport", attrs = c(name = "suffixDigits"),  6)
+  con$addTag("inputport", attrs = c(name = "step",           peerid = "v7"))
+  con$addTag("inputport", attrs = c(name = "workdir"),        ".none")
+  con$addTag("outputport", attrs = c(name = "table", id = "v9"))
+  con$closeTag("functor")
+  
+  con$addTag("functor", attrs = c(name = "LoadWeights"), close = FALSE)
+  con$addTag("property",  attrs = c(key = "dff.functor.alias",   value = "Weights of Evidence Coefficients"))
+  con$addTag("property",  attrs = c(key = "dff.functor.comment", value = "Load Weights of Evidence coefficients."))
+  con$addTag("inputport", attrs = c(name = "filename"),      paste0('"', dcf_path, '/woe.dcf"'))
+  con$addTag("inputport", attrs = c(name = "suffixDigits"),  6)
+  con$addTag("inputport", attrs = c(name = "step",           peerid = "v7"))
+  con$addTag("inputport", attrs = c(name = "workdir"),        ".none")
+  con$addTag("outputport", attrs = c(name = "weights", id = "v10"))
+  con$closeTag("functor")
+  
+  con$addTag("functor", attrs = c(name = "RegionalCategoricalMap"), close = FALSE)
+  con$addTag("property",  attrs = c(key = "dff.functor.alias",   value = "regionalCategoricalMap289"))
+  con$addTag("property",  attrs = c(key = "dff.functor.comment",
+                                    value = "Assign a map to the region using the given identifier."))
+  con$addTag("inputport", attrs = c(name = "globalMapName"), paste0('"landscape"'))
+  con$addTag("inputport", attrs = c(name = "regionalMap",    peerid = "v11"))
+  con$addTag("inputport", attrs = c(name = "regionId",       peerid = "v7"))
+  con$addTag("inputport", attrs = c(name = "regionManager",  peerid = "v4"))
+  con$closeTag("functor")
+  
+  con$addTag("functor", attrs = c(name = "AllocateTransitions"), close = FALSE)
+  con$addTag("property",  attrs = c(key = "dff.functor.alias", value = "Updated Landscape (Region)"))
+  con$addTag("inputport", attrs = c(name = "lanscape",         peerid = "v13"))
+  con$addTag("inputport", attrs = c(name = "probabilities",    peerid = "v14"))
+  con$addTag("inputport", attrs = c(name = "transitionMatrix", peerid = "v9"))
+  con$addTag("inputport", attrs = c(name = "percentOfTransitionsByExpansion"),
+             allocate_transitions$percentOfTransitionsByExpansion)
+  con$addTag("inputport", attrs = c(name = "patchExpansionParameters"),
+             allocate_transitions$patchExpansionParameters)
+  con$addTag("inputport", attrs = c(name = "patchGenerationParameters"),
+             allocate_transitions$patchGenerationParameters)
+  con$addTag("inputport", attrs = c(name = "printTransitionInfo"), ".no")
+  con$addTag("outputport", attrs = c(name = "resultingLanscape", id = "v11"))
+  con$closeTag("functor")
+  
+  con$addTag("functor", attrs = c(name = "RegionalizeMap"), close = FALSE)
+  con$addTag("property",  attrs = c(key = "dff.functor.alias", value = "Static Variables (Region)"))
+  con$addTag("inputport", attrs = c(name = "globalMap",          peerid = "v1"))
+  con$addTag("inputport", attrs = c(name = "regionId",           peerid = "v7"))
+  con$addTag("inputport", attrs = c(name = "keepNonRegionCells"), ".no")
+  con$addTag("inputport", attrs = c(name = "regionManager",      peerid = "v4"))
+  con$addTag("outputport", attrs = c(name = "regionalMap", id = "v12"))
+  con$closeTag("functor")
+  
+  con$addTag("functor", attrs = c(name = "RegionalizeCategoricalMap"), close = FALSE)
+  con$addTag("property",  attrs = c(key = "dff.functor.alias", value = "Landscape (Region)"))
+  con$addTag("inputport", attrs = c(name = "globalMap",          peerid = "v6"))
+  con$addTag("inputport", attrs = c(name = "regionId",           peerid = "v7"))
+  con$addTag("inputport", attrs = c(name = "keepNonRegionCells"), ".no")
+  con$addTag("inputport", attrs = c(name = "regionManager",      peerid = "v4"))
+  con$addTag("outputport", attrs = c(name = "regionalMap", id = "v13"))
+  con$closeTag("functor")
+  
+  con$addTag("functor", attrs = c(name = "RegionalMap"), close = FALSE)
+  con$addTag("property",  attrs = c(key = "dff.functor.alias",   value = "regionalMap3412"))
+  con$addTag("property",  attrs = c(key = "dff.functor.comment",
+                                    value = "Assign a map to the region using the given identifier."))
+  con$addTag("inputport", attrs = c(name = "globalMapName"), paste0('"probabilities"'))
+  con$addTag("inputport", attrs = c(name = "regionalMap",    peerid = "v14"))
+  con$addTag("inputport", attrs = c(name = "regionId",       peerid = "v7"))
+  con$addTag("inputport", attrs = c(name = "regionManager",  peerid = "v4"))
+  con$closeTag("functor")
+  
+  con$addTag("containerfunctor", attrs = c(name = "CalcWOfEProbabilityMap"), close = FALSE)
+  con$addTag("property",  attrs = c(key = "dff.container.collapsed", value = "no"))
+  con$addTag("property",  attrs = c(key = "dff.functor.alias",       value = "Probabilities (Region)"))
+  con$addTag("property",  attrs = c(key = "dff.functor.extendedcomment",
+                                    value = "Calculate probability map."))
+  con$addTag("inputport", attrs = c(name = "landscape",   peerid = "v13"))
+  con$addTag("inputport", attrs = c(name = "weights",     peerid = "v10"))
+  con$addTag("inputport", attrs = c(name = "transitions"),
+             paste0('[ ', paste(skeleton$char, collapse = ", "), ']'))
+  con$addTag("inputport", attrs = c(name = "cellType"),   ".uint8")
+  con$addTag("inputport", attrs = c(name = "nullValue"),  ".default")
+  con$addTag("outputport", attrs = c(name = "probabilities", id = "v14"))
+  
+  con$addTag("functor", attrs = c(name = "NameMap"), close = FALSE)
+  con$addTag("property",  attrs = c(key = "dff.functor.alias", value = "nameMap298"))
+  con$addTag("inputport", attrs = c(name = "map",     peerid = "v12"))
+  con$addTag("inputport", attrs = c(name = "mapName"), paste0('"static_var"'))
+  con$closeTag("functor")
+  
+  con$closeTag("containerfunctor")  # CalcWOfEProbabilityMap
+  con$closeTag("containerfunctor")  # ForEachCategory
+  
+  con$addTag("containerfunctor", attrs = c(name = "Group"), close = FALSE)
+  con$addTag("property", attrs = c(key = "dff.container.collapsed", value = "no"))
+  con$addTag("property", attrs = c(key = "dff.functor.alias",       value = "group300"))
+  
+  con$addTag("functor", attrs = c(name = "IntegerValue"), close = FALSE)
+  con$addTag("property",  attrs = c(key = "dff.functor.alias", value = "int302"))
+  con$addTag("property",  attrs = c(key = "dff.functor.comment",
+                                    value = "This operator is used here to force a dependence between two groups."))
+  con$addTag("inputport", attrs = c(name = "constant", peerid = "v8"))
+  con$closeTag("functor")
+  
+  con$addTag("functor", attrs = c(name = "MergeRegionalCategoricalMaps"), close = FALSE)
+  con$addTag("property",  attrs = c(key = "dff.functor.alias",   value = "Updated Landscape"))
+  con$addTag("property",  attrs = c(key = "dff.functor.comment",
+                                    value = "Merge all maps assigned to the regions using the given identifier."))
+  con$addTag("inputport", attrs = c(name = "globalMapName"),       paste0('"landscape"'))
+  con$addTag("inputport", attrs = c(name = "mergeNonRegionCells"), ".no")
+  con$addTag("inputport", attrs = c(name = "regionManager",        peerid = "v4"))
+  con$addTag("outputport", attrs = c(name = "globalMap", id = "v15"))
+  con$closeTag("functor")
+  
+  if (probability) {
+    con$addTag("functor", attrs = c(name = "MergeRegionalMaps"), close = FALSE)
+    con$addTag("property",  attrs = c(key = "dff.functor.alias", value = "mergeRegionalMaps3413"))
+    con$addTag("property",  attrs = c(key = "dff.functor.comment",
+                                      value = "Merge all maps assigned to the regions using the given identifier."))
+    con$addTag("inputport", attrs = c(name = "globalMapName"),       paste0('"probabilities"'))
+    con$addTag("inputport", attrs = c(name = "mergeNonRegionCells"), ".no")
+    con$addTag("inputport", attrs = c(name = "regionManager",        peerid = "v4"))
+    con$addTag("outputport", attrs = c(name = "globalMap", id = "v16"))
+    con$closeTag("functor")
+  }
+  
+  con$closeTag("containerfunctor")  # Group
+  con$closeTag("containerfunctor")  # Repeat
+  con$closeTag("containerfunctor")  # RegionManager
+  
+  egoml_sim_file <- paste0(output_dir, "/", egoml, ".egoml")
+  saveXML(con$value(), file = egoml_sim_file)
+  
+  egoml_text     <- readLines(egoml_sim_file)
+  egoml_text_new <- gsub(pattern = "amp;", replace = "", x = egoml_text)
+  writeLines(egoml_text_new, con = egoml_sim_file)
+  
+  list(
+    egoml_sim_file  = egoml_sim_file,
+    rep             = n_rep,
+    lc1             = lc1_path,
+    zone            = zone_path,
+    transition_mtx  = tm_path,
+    dcf             = dcf_path,
+    ers             = ers_path
+  )
+}
+
+#' Run a DINAMICA EGO Simulation
+#'
+#' Wrapper around [executeDINAMICA()] that also checks that the expected
+#' landscape output was produced.
+#'
+#' @param dinamica_path Path to the DINAMICA EGO installation.
+#' @param output_dir Directory where outputs are written.
+#' @param egoml Path to the `.egoml` model file.
+#' @param memory_allocation Memory-allocation policy string.
+#' @return Invisibly `NULL`; called for its side effects.
+#' @export
+run_dinamica_simulation <- function(dinamica_path = NULL, output_dir, egoml,
+                                    memory_allocation) {
+  params <- list(
+    dinamica_path = dinamica_path,
+    output_dir    = output_dir,
+    egoml         = egoml
+  )
+  
+  executeDINAMICA(params, memory_allocation)
+  
+  new_lc_file <- paste0(output_dir, "/landscape01.tif")
+  if (!file.exists(new_lc_file)) {
+    stop("Land use change simulation failed! Check DINAMICA EGO log.")
+  }
+}
+
+#' Run the Full SCIENDO Simulation Pipeline
+#'
+#' Orchestrates a SCIENDO simulation: converts scenario matrices if needed,
+#' builds the `.egoml` model, runs DINAMICA EGO, renames the output
+#' landscapes, and generates the HTML report.
+#'
+#' @param lc_t1_path Path to the initial land cover raster.
+#' @param initial_year Base year of the simulation.
+#' @param period_value Number of years per simulation step.
+#' @param lc_lookup_table_path Path to the land cover lookup table.
+#' @param lc_lookup_table Data frame with land cover IDs and names.
+#' @param zone_lookup_table Planning unit lookup table.
+#' @param zone_path Path to the planning unit raster.
+#' @param ers_path Path to the static variables raster.
+#' @param n_rep Number of simulation repetitions.
+#' @param tm_path Folder with transition matrix files.
+#' @param dcf_path Folder with WoE `.dcf` files.
+#' @param dinamica_path Path to the DINAMICA EGO installation.
+#' @param output_dir Output directory.
+#' @param memory_allocation Memory-allocation policy string.
+#' @param alloc_params Optional list of `AllocateTransitions` parameters.
+#' @param alloc_override_df Optional per-transition override data frame.
+#' @param progress_callback Optional `function(progress, message)`.
+#' @return A list summarising the run (start/end time, inputs, session log).
+#' @export
+run_sciendo_simulate_process <- function(lc_t1_path, initial_year, period_value,
+                                         lc_lookup_table_path, lc_lookup_table,
+                                         zone_lookup_table, zone_path, ers_path,
+                                         n_rep, tm_path, dcf_path,
+                                         dinamica_path = NULL, output_dir,
+                                         memory_allocation,
+                                         alloc_params = NULL,
+                                         alloc_override_df = NULL,
+                                         progress_callback = NULL) {
+  start_time <- Sys.time()
+  cat("Started at:", format(start_time, "%Y-%m-%d %H:%M:%S"), "\n")
+  
+  files      <- list.files(path = tm_path, full.names = TRUE, ignore.case = TRUE)
+  xlsm_files <- files[grep("\\.xlsm$", files, ignore.case = TRUE)]
+  
+  if (length(xlsm_files) > 0) {
+    matrix_to_tpm(tm_path, lc_lookup_table, output_dir)
+    tm_path <- file.path(output_dir, "scenario_tpm")
+  } else {
+    message("No .xlsm files found. Using non-macro TPM")
+  }
+  
+  if (!is.null(progress_callback)) {
+    progress_callback(0.3, "generate egoml: initialize simulation per region parameters")
+  }
+  
+  out_sim <- generate_egoml_simulate(
+    lc1_path          = lc_t1_path,
+    lusim_lc          = lc_lookup_table,
+    zone_path         = zone_path,
+    ers_path          = ers_path,
+    n_rep             = n_rep,
+    tm_path           = tm_path,
+    dcf_path          = dcf_path,
+    output_dir        = output_dir,
+    probability       = FALSE,
+    egoml             = "03_sciendo_simulation",
+    memory_allocation = memory_allocation,
+    percent           = if (!is.null(alloc_params)) alloc_params$percent  else NULL,
+    exp_mean          = if (!is.null(alloc_params)) alloc_params$exp_mean else NULL,
+    exp_var           = if (!is.null(alloc_params)) alloc_params$exp_var  else NULL,
+    exp_iso           = if (!is.null(alloc_params)) alloc_params$exp_iso  else NULL,
+    gen_mean          = if (!is.null(alloc_params)) alloc_params$gen_mean else NULL,
+    gen_var           = if (!is.null(alloc_params)) alloc_params$gen_var  else NULL,
+    gen_iso           = if (!is.null(alloc_params)) alloc_params$gen_iso  else NULL,
+    override_df       = alloc_override_df
+  )
+  
+  if (!is.null(progress_callback)) progress_callback(0.7, "run dinamica simulation per region")
+  run_dinamica_simulation(dinamica_path, output_dir, out_sim$egoml_sim_file, memory_allocation)
+  
+  rename_landscape(output_dir, initial_year, period_value)
+  
+  end_time <- Sys.time()
+  cat("Ended at:", format(end_time, "%Y-%m-%d %H:%M:%S"), "\n")
+  
+  session_log <- format_session_info_table()
+  
+  out <- list(
+    start_time = as.character(format(start_time, "%Y-%m-%d %H:%M:%S")),
+    end_time   = as.character(format(end_time,   "%Y-%m-%d %H:%M:%S")),
+    inputs     = list(
+      lc_t1_path           = lc_t1_path,
+      lc_lookup_table_path = lc_lookup_table_path,
+      zone_path            = zone_path,
+      zone_lookup_table    = zone_lookup_table,
+      ers_path             = ers_path,
+      tm_path              = tm_path,
+      dcf_path             = dcf_path,
+      rep                  = n_rep,
+      output_dir           = output_dir
+    ),
+    session_log = session_log
+  )
+  
+  if (!is.null(progress_callback)) progress_callback(0.9, "outputs generated and saved")
+  if (!is.null(progress_callback)) progress_callback(1, "generate report")
+  
+  generate_sciendo_simulate_report(output = out, dir = output_dir)
+  out
+}
+
+# ------------------------------------------------------- report generation ---
+
+#' Render the SCIENDO Simulation Report
+#'
+#' Renders the SCIENDO simulation R Markdown template to HTML.
+#'
+#' @param output List produced by `run_sciendo_simulate_process`.
+#' @param dir Output directory for the rendered HTML.
+#' @return Invisibly `NULL`; called for its side effects.
+#' @importFrom rmarkdown render
+#' @export
+generate_sciendo_simulate_report <- function(output, dir) {
+  report_params <- list(
+    start_time  = output$start_time,
+    end_time    = output$end_time,
+    inputs      = output$inputs,
+    session_log = output$session_log
+  )
+  output_file <- paste0("sciendo_simulate_report_", Sys.Date(), ".html")
+  rmarkdown::render(
+    "../report_template/sciendo_simulate_report_template_INA.Rmd",
+    output_file = output_file,
+    output_dir  = dir,
+    params      = report_params
+  )
+}
+
+# ------------------------------------------------------------ report utils ---
+
+#' Interactive Stacked Area Chart of Land Use Change
+#'
+#' Builds a Plotly stacked area chart from wide-format land use data.
+#'
+#' @param luc_data_wide Data frame in wide format.
+#' @param class_col Land cover class column name (defaults to column 2).
+#' @param id_col Row identifier column name (defaults to column 1).
+#' @param chart_title Chart title.
+#' @param x_axis_label X-axis label.
+#' @param y_axis_label Y-axis label.
+#' @return A `plotly` object.
+#' @importFrom dplyr mutate across all_of
+#' @importFrom tidyr pivot_longer
+#' @importFrom rlang sym :=
+#' @importFrom readr parse_number
+#' @importFrom ggthemes tableau_color_pal
+#' @importFrom plotly plot_ly layout
+#' @export
+plot_interactive_stacked_area <- function(luc_data_wide,
+                                          class_col = names(luc_data_wide)[2],
+                                          id_col    = names(luc_data_wide)[1],
+                                          chart_title  = "Land Use Change",
+                                          x_axis_label = "Time Step",
+                                          y_axis_label = "Area (Hectares)") {
+  required_cols <- c(class_col, id_col)
+  if (!all(required_cols %in% names(luc_data_wide))) {
+    stop(paste("The provided data frame must contain the columns:",
+               paste(required_cols, collapse = ", ")))
+  }
+  
+  clean_data_wide <- luc_data_wide %>%
+    dplyr::mutate(
+      dplyr::across(
+        .cols = -dplyr::all_of(required_cols),
+        .fns  = ~ ifelse(is.numeric(.), ., readr::parse_number(as.character(.)))
+      )
+    )
+  
+  luc_data_long <- clean_data_wide %>%
+    dplyr::mutate(
+      !!rlang::sym(class_col) := factor(
+        !!rlang::sym(class_col),
+        levels = unique(!!rlang::sym(class_col))
+      )
+    ) %>%
+    tidyr::pivot_longer(
+      cols      = -dplyr::all_of(required_cols),
+      names_to  = "Year",
+      values_to = "Area"
+    ) %>%
+    dplyr::mutate(Year = readr::parse_number(Year))
+  
+  n_colors        <- length(unique(luc_data_long[[class_col]]))
+  tableau_palette <- ggthemes::tableau_color_pal("Tableau 20", direction = 1)(n_colors)
+  
+  color_formula <- as.formula(paste0("~`", class_col, "`"))
+  text_formula  <- as.formula(
+    paste0(
+      "~paste('<b>', `", class_col, "`, '</b><br>', ",
+      "'Time Step (T+n):', Year, '<br>', ",
+      "'Area:', scales::comma(Area), ' ha')"
+    )
+  )
+  
+  plotly::plot_ly(
+    data       = luc_data_long,
+    x          = ~Year,
+    y          = ~Area,
+    color      = color_formula,
+    colors     = tableau_palette,
+    type       = "scatter",
+    mode       = "lines",
+    stackgroup = "one",
+    line       = list(width = 0),
+    hoverinfo  = "text",
+    text       = text_formula
+  ) %>%
+    plotly::layout(
+      title = chart_title,
+      xaxis = list(title = x_axis_label, dtick = 1),
+      yaxis = list(title = y_axis_label),
+      legend = list(orientation = "h", x = 0.5, y = -0.2, xanchor = "center")
+    )
+}
+
+# ------------------------------------------------------------ raster utils ---
+
+#' Calculate Resolution Conversion Factor to Hectares
+#'
+#' Computes the hectare conversion factor of a raster cell based on its CRS
+#' (metre or degree units).
+#'
+#' @param raster_input A `SpatRaster`.
+#' @return Numeric hectare conversion factor.
 #' @importFrom terra crs res
 #' @export
 calc_res_conv_factor_to_ha <- function(raster_input) {
+  crs <- terra::crs(raster_input, proj = TRUE)
   
-  crs <- terra::crs(raster_input, proj=TRUE) # Get the CRS of the raster
-  
-  # Check if the CRS is in meter unit
   if (grepl("+units=m", crs)) {
     message("Raster map has a projection in metre unit.")
     conversion_factor <- terra::res(raster_input)[1] * terra::res(raster_input)[2] / 10000
-    message(paste("Raster map has ", conversion_factor, " Ha spatial resolution. Pre-QuES will automatically generate data in Ha unit."))
-    
-    # Check if the CRS is in degree unit
+    message(paste("Raster map has ", conversion_factor,
+                  " Ha spatial resolution. Pre-QuES will automatically generate data in Ha unit."))
   } else if (grepl("+proj=longlat", crs)) {
     message("Raster map has a projection in degree unit.")
-    conversion_factor <- terra::res(raster_input)[1] * terra::res(raster_input)[2] * (111319.9 ^ 2) / 10000
-    message(paste("Raster map has ", conversion_factor, " Ha spatial resolution. Pre-QuES will automatically generate data in Ha unit."))
-    
-    # If the CRS is neither in meter nor degree unit, throw an error
+    conversion_factor <- terra::res(raster_input)[1] * terra::res(raster_input)[2] *
+      (111319.9 ^ 2) / 10000
+    message(paste("Raster map has ", conversion_factor,
+                  " Ha spatial resolution. Pre-QuES will automatically generate data in Ha unit."))
   } else {
     stop("Projection of the raster map is unknown")
   }
   
-  return(conversion_factor)
+  conversion_factor
 }
 
-# calc_lc_freq ------------------------------------------------------------
-
-#' Calculate land cover frequency for multiple raster layers
+#' Calculate Land Cover Frequency for Multiple Rasters
 #'
-#' This function takes multiple raster layers as input and returns a
-#' frequency table for each layer, sorted by the count of the last raster layer in descending order.
-#' An input of a terra's rast object is allowed.
+#' Returns a frequency table for each raster layer, sorted by the count of
+#' the last layer in descending order.
 #'
-#' @param raster_list list of raster layers or a single raster layer.
-#'
-#' @return A dataframe of frequency tables.
-#'
+#' @param raster_list A list of `SpatRaster` objects, or a single one.
+#' @return A data frame of frequencies, or a message string if time
+#'   attributes are missing.
 #' @importFrom terra compareGeom freq levels time
 #' @importFrom dplyr left_join select arrange desc rename
-#' @importFrom purrr map
 #' @export
-#'
-#' @examples
-#' \dontrun{
-#' library(tidyverse)
-#'
-#' # Create a vector of raster file names
-#' lc_maps <- c("kalbar_LC11.tif", "kalbar_LC20.tif") %>%
-#'   # Apply LUMENSR_example function to each file in the vector
-#'   map(~ LUMENSR_example(.x)) %>%
-#'   # Convert each file to a raster object
-#'   map(~ terra::rast(.x)) %>%
-#'   # Add a legend to each raster object using a provided lookup table
-#'   map(~ add_legend_to_categorical_raster(raster_file = .x, lookup_table = lc_lookup_klhk))
-#'
-#' # Calculate the frequency table for each raster object in the list
-#' freq_table <- calc_lc_freq(lc_maps)
-#'
-#' # Print the resulting frequency table
-#' print(freq_table)
-#' }
 calc_lc_freq <- function(raster_list) {
-  
-  # Check if input is a single raster layer
   if (class(raster_list)[1] == "SpatRaster") {
     raster_list <- list(raster_list)
   } else if (!is.list(raster_list)) {
     stop("Input must be a list of raster layers or a single raster layer")
   }
   
-  # Check if all rasters have the same extent and CRS
   if (length(raster_list) > 1) {
     for (i in 2:length(raster_list)) {
       if (!terra::compareGeom(raster_list[[1]], raster_list[[i]])) {
@@ -1253,27 +925,16 @@ calc_lc_freq <- function(raster_list) {
     }
   }
   
-  # Prepare an empty list to store frequency tables
   freq_tables <- list()
-  
-  # Loop over all raster layers in the list
   for (i in 1:length(raster_list)) {
-    # Check if raster has attributes
     if (is.null(terra::levels(raster_list[[i]]))) {
       warning(paste0("Raster ", i, " has no attributes"))
     }
-    
-    # Get frequency table
     freq <- terra::freq(raster_list[[i]])
-    
-    # Rename 'count' column to be specific for each raster
     names(freq)[names(freq) == "count"] <- paste0(names(raster_list[[i]]), "_count")
-    
-    # Store frequency table in the list
     freq_tables[[i]] <- freq
   }
   
-  # Combine frequency tables into one dataframe
   freq_df <- freq_tables[[1]]
   if (length(freq_tables) > 1) {
     for (i in 2:length(freq_tables)) {
@@ -1282,215 +943,290 @@ calc_lc_freq <- function(raster_list) {
     freq_df <- dplyr::select(freq_df, -layer)
   }
   
-  # Sort by the count of the last raster layer in descending order
   freq_df <- dplyr::arrange(freq_df, dplyr::desc(freq_df[[ncol(freq_df)]]))
   freq_df <- dplyr::rename(freq_df, `Land-use/cover types` = value)
   
-  # Check if all SpatRaster objects have a time attribute
   all_times_present <- all(sapply(raster_list, function(x) !is.null(time(x))))
   if (all_times_present) {
-    # Loop over raster_list
     for (i in seq_along(raster_list)) {
-      # Get the time attribute as a string
       time_i <- as.character(time(raster_list[[i]]))
-      # Rename the corresponding column of freq_df
-      names(freq_df)[i+1] <- time_i
+      names(freq_df)[i + 1] <- time_i
     }
     return(freq_df)
   } else {
     return("Not all SpatRaster objects in the list have a time attribute")
   }
-  return(freq_df)
 }
 
-# abbreviate by column ----------------------------------------------------
-
-#' Replace Column Values with Shorter Version
+#' Add a Legend to a Categorical Raster
 #'
-#' This function shortens the character column values in a data frame by removing vowels after the first character,
-#' and also provides an option to disable this vowel removal. It replaces spaces with underscores and removes characters after a slash.
-#' If no column names are provided, the function attempts to find and use the first character column in the data frame.
+#' Attaches a lookup table as the category legend of a `SpatRaster`.
 #'
-#' @param df A data frame.
-#' @param col_names A character vector specifying the names of the columns to be abbreviated.
-#' If NULL (default), the function attempts to use the first character column.
-#' @param remove_vowels A logical value indicating whether to remove vowels from column values after the first character. Default is FALSE.
-#' @importFrom textclean replace_non_ascii
-#' @return A data frame with specified columns abbreviated.
+#' @param raster_file A `SpatRaster`.
+#' @param lookup_table Data frame whose first column holds numeric class IDs
+#'   and second column the descriptions.
+#' @param year Optional 4-digit year to set as the raster's time attribute.
+#' @return The modified `SpatRaster`.
+#' @importFrom terra levels freq time names
+#' @importFrom stats setNames
 #' @export
+add_legend_to_categorical_raster <- function(raster_file, lookup_table, year = NULL) {
+  if (!inherits(raster_file, "SpatRaster")) {
+    stop("raster_file should be a SpatRaster object")
+  }
+  if (!is.data.frame(lookup_table)) {
+    stop("lookup_table should be a data frame")
+  }
+  
+  first_column <- lookup_table[[1]]
+  if (!is.numeric(first_column) && any(is.na(as.numeric(first_column)))) {
+    stop("The first column of lookup_table should be numeric or convertible to numeric")
+  }
+  
+  if (!is.null(year) && (!is.numeric(year) || nchar(as.character(year)) != 4)) {
+    stop("year should be a numeric value consisting of 4 digits")
+  }
+  
+  lookup_table <- lookup_table[lookup_table[[1]] %in% terra::freq(raster_file)[["value"]], ]
+  lookup_table <- data.frame(lookup_table)
+  
+  if (!is.numeric(first_column)) {
+    lookup_table[[1]] <- as.numeric(first_column)
+  }
+  
+  name_rast <- names(raster_file)
+  levels(raster_file) <- lookup_table
+  raster_file <- setNames(raster_file, name_rast)
+  
+  if (!is.null(year)) {
+    terra::time(raster_file, tstep = "years") <- year
+  }
+  
+  raster_file
+}
+
+#' Combine Land Cover Frequencies Across Years and Planning Units
 #'
-#' @examples
-#' df <- data.frame(
-#'   col1 = c("Hutan lahan kering sekunder / bekas tebangan", "Savanna / Padang rumput"),
-#'   col2 = c("Hutan lahan kering sekunder", "Savanna"),
-#'   stringsAsFactors = FALSE
-#' )
-#' abbreviate_by_column(df, c("col1", "col2"), remove_vowels=TRUE)
-abbreviate_by_column <- function(df, col_names = NULL, remove_vowels= FALSE) {
-  # Check if df is a data frame
-  if(!is.data.frame(df)) {
-    stop("df must be a data frame")
+#' Reads all `landscapeYYYY.tif` files in `lc_dir` and returns either a
+#' landscape-wide frequency table or a per-planning-unit table.
+#'
+#' @param lc_dir Directory containing `landscapeYYYY.tif` files.
+#' @param df_lc Land cover lookup table.
+#' @param PU `"YES"` to compute per-planning-unit frequencies, otherwise
+#'   `"NO"`.
+#' @param zone `SpatRaster` of planning unit IDs (required when `PU = "YES"`).
+#' @param split `"YES"` to return a list split by planning unit.
+#' @return A tibble (or list of tibbles when `split = "YES"`).
+#' @importFrom terra rast
+#' @importFrom dplyr arrange mutate across select everything
+#' @importFrom tidyr pivot_longer pivot_wider
+#' @importFrom tibble as_tibble
+#' @importFrom stringr str_extract
+#' @importFrom sf st_crs
+#' @export
+multiple_lc_freq_combined <- function(lc_dir, df_lc, PU = "NO", zone = NULL,
+                                      split = "NO") {
+  list_luc <- lc_dir %>%
+    list.files(full.names = TRUE, pattern = "^landscape\\d{4}\\.tif$")
+  
+  list_luc <- list_luc[order(as.numeric(stringr::str_extract(basename(list_luc), "\\d{4}")))]
+  
+  rst_list <- list()
+  years    <- stringr::str_extract(basename(list_luc), "\\d{4}")
+  
+  for (i in seq_along(list_luc)) {
+    r <- list_luc[i] %>%
+      rast() %>%
+      add_legend_to_categorical_raster(., lookup_table = df_lc)
+    names(r) <- paste0("landscape_", years[i])
+    rst_list[[i]] <- r
+    r %>% plot_categorical_raster()
   }
   
-  # Check if df has at least one column
-  if(ncol(df) < 1) {
-    stop("df must have at least one column")
+  if (toupper(PU) == "YES") {
+    if (is.null(zone)) stop("Zone parameter must be provided when PU = YES")
+    
+    year_data_list <- list()
+    for (i in seq_along(rst_list)) {
+      year       <- years[i]
+      raster_obj <- rst_list[[i]]
+      
+      freq_table <- terra::crosstab(c(raster_obj, zone))
+      freq_df    <- as.data.frame(freq_table)
+      colnames(freq_df) <- c("landcover", "PU", "value")
+      freq_df$year <- year
+      
+      year_data_list[[year]] <- freq_df
+    }
+    
+    combined_data <- do.call(rbind, year_data_list)
+    
+    final_data <- tidyr::pivot_wider(combined_data,
+                                     names_from   = year,
+                                     values_from  = value,
+                                     values_fill  = 0) %>%
+      dplyr::arrange(PU, landcover) %>%
+      dplyr::select(PU, landcover, dplyr::everything())
+    
+    lc_ref <- rst_list[[1]]
+    if (grepl("\\+units=m", st_crs(lc_ref)$proj4string)) {
+      spatRes    <- calc_res_conv_factor_to_ha(lc_ref)
+      final_data <- mutate(final_data, across(c(3:ncol(final_data)), ~ (spatRes * .x)))
+    } else {
+      cat("Frequency is shown in number of pixels instead of hectares")
+    }
+    
+    if (toupper(split) == "YES") {
+      pu_list <- final_data %>%
+        dplyr::group_split(PU) %>%
+        purrr::map(~ dplyr::select(., -PU))
+      pu_names <- unique(final_data$PU)
+      names(pu_list) <- paste0("PU_", pu_names)
+      return(pu_list)
+    }
+    return(final_data)
   }
   
-  # If col_names is NULL, find the first character column
-  if(is.null(col_names)) {
+  freq_data <- calc_lc_freq(raster_list = rst_list)
+  
+  if (ncol(freq_data) == length(years) + 1) {
+    colnames(freq_data) <- c("Landcover", years)
+  }
+  
+  freq_tbl <- freq_data %>%
+    tibble::as_tibble() %>%
+    tidyr::pivot_longer(cols = -Landcover, names_to = "Year", values_to = "value") %>%
+    dplyr::arrange(Landcover, Year) %>%
+    tidyr::pivot_wider(names_from = Year, values_from = value)
+  
+  if (grepl("\\+units=m", st_crs(rst_list[[1]])$proj4string)) {
+    spatRes  <- calc_res_conv_factor_to_ha(rst_list[[1]])
+    freq_tbl <- freq_tbl %>%
+      dplyr::mutate(dplyr::across(-Landcover, ~ .x * spatRes))
+  } else {
+    cat("Frequency is shown in number of pixels instead of hectares")
+  }
+  
+  freq_tbl
+}
+
+# --------------------------------------------------------- string helpers ---
+
+#' Abbreviate Column Values
+#'
+#' Shortens character column values by replacing spaces with underscores,
+#' trimming after the first slash, and (optionally) dropping vowels after
+#' the first letter of each word.
+#'
+#' @param df Data frame.
+#' @param col_names Columns to abbreviate; defaults to the first character
+#'   column.
+#' @param remove_vowels Logical. Drop vowels after the first character.
+#' @return The data frame with abbreviated columns.
+#' @importFrom textclean replace_non_ascii
+#' @export
+abbreviate_by_column <- function(df, col_names = NULL, remove_vowels = FALSE) {
+  if (!is.data.frame(df)) stop("df must be a data frame")
+  if (ncol(df) < 1)       stop("df must have at least one column")
+  
+  if (is.null(col_names)) {
     col_names <- names(df)[which(sapply(df, is.character))[1]]
   }
-  
-  # Check if the provided col_names exist in df
-  if(!all(col_names %in% names(df))) {
+  if (!all(col_names %in% names(df))) {
     stop("Some column names provided are not columns in df")
   }
   
-  # Define the abbreviation function
   abbreviate_string <- function(input_string, drop_vowels = remove_vowels) {
-    
-    # Remove characters after the slash, if any
     string <- textclean::replace_non_ascii(input_string)
-    string <- strsplit(string," / ")[[1]][1]
+    string <- strsplit(string, " / ")[[1]][1]
     
-    if(isTRUE(drop_vowels)){
-      # Replace spaces with underscores
+    if (isTRUE(drop_vowels)) {
       string <- gsub(" ", "_", string)
-      
-      # Split string into words
-      words <- strsplit(string, "_")[[1]]
-      
-      # Abbreviate each word by removing the vowels (but keep the first character even if it's a vowel)
-      words <- sapply(words, function(word) {
+      words  <- strsplit(string, "_")[[1]]
+      words  <- sapply(words, function(word) {
         ifelse(grepl("^[aeiouAEIOU]", word),
-               paste0(substr(word, 1, 1), gsub("[aeiouAEIOU]", "", substr(word, 2, nchar(word)))),
-               gsub("[aeiouAEIOU]", "", word)
-        )
+               paste0(substr(word, 1, 1),
+                      gsub("[aeiouAEIOU]", "", substr(word, 2, nchar(word)))),
+               gsub("[aeiouAEIOU]", "", word))
       })
-      
-      # Combine words back into a single string
       string <- paste(words, collapse = "_")
     }
-    
-    return(string)
+    string
   }
   
-  # Apply the abbreviation function to the selected columns
   for (col_name in col_names) {
     df[[col_name]] <- unlist(lapply(df[[col_name]], abbreviate_string))
   }
-  
-  return(df)
+  df
 }
 
-#' Convert Macro's Format Transition Probability Matrices (TPM) to Long Data CSV Format
+# -------------------------------------------------------- transition matrix ---
+
+#' Convert Macro TPM Files to Long CSV
 #'
-#' Processes Excel (.xlsm) files containing transition probability matrices, 
-#' cleans the data, converts land cover names to IDs, and saves them as 
-#' standardized CSV files in long format.
+#' Reads `.xlsm` transition probability matrices, converts land cover names
+#' to IDs, and writes each as a long-format CSV under
+#' `output_dir/scenario_tpm/`.
 #'
-#' @param input_folder_path Character. Path to the folder containing .xlsm files.
-#' @param lc_lookup Data frame. Lookup table with columns `ID` (numeric) and `LC` (land cover names).
-#' @param output_dir Character. Directory where output CSV files will be saved (subfolder `/scenario_tpm` will be created).
-#'
-#' @return Invisibly returns a list of processed file paths. Side effect: Saves cleaned CSV files to `output_dir/scenario_tpm/`.
-#'
-#' @details
-#' - Skips empty datasets and files with errors (logs messages).
-#' - Removes totals (last row/column) and zero-rate transitions.
-#' - Converts land cover names to IDs using fuzzy matching (case-insensitive, whitespace-trimmed).
-#' - Output CSV columns: `From*`, `To*`, `Rate`.
-#'
-#' @examples
-#' \dontrun{
-#' lc_lookup <- data.frame(
-#'   ID = 1:3,
-#'   LC = c("Forest", "Urban", "Cropland")
-#' )
-#' matrix_to_tpm(
-#'   input_folder_path = "path/to/xlsm_files",
-#'   lc_lookup = lc_lookup,
-#'   output_dir = "output"
-#' )
-#' }
-#'
+#' @param input_folder_path Folder with `.xlsm` files.
+#' @param lc_lookup Lookup table with columns `ID` and `LC`.
+#' @param output_dir Directory where `scenario_tpm/` is created.
+#' @return Invisibly, a character vector of written file paths.
 #' @importFrom readxl read_excel
 #' @importFrom dplyr mutate rename filter
 #' @importFrom tidyr pivot_longer
-#' @importFrom tools file_path_sans_ext
 #' @export
 matrix_to_tpm <- function(input_folder_path, lc_lookup, output_dir) {
-  # Create output directory if it doesn't exist
   tpm_dir <- file.path(output_dir, "scenario_tpm")
   dir.create(tpm_dir, recursive = TRUE, showWarnings = FALSE)
   
-  # Get list of files
-  xlsm_files <- list.files(
-    path = input_folder_path,
-    pattern = "\\.xlsm$",
-    full.names = TRUE,
-    ignore.case = TRUE
-  )
+  xlsm_files <- list.files(path = input_folder_path, pattern = "\\.xlsm$",
+                           full.names = TRUE, ignore.case = TRUE)
   
-  # Early return if no files found
   if (length(xlsm_files) == 0) {
     message("No .xlsm files found in: ", input_folder_path)
     return(invisible(NULL))
   }
   
-  # Function to clean and match land cover names to IDs
   convert_to_id <- function(data, lc_lookup) {
     clean_text <- function(x) tolower(trimws(gsub("\\s+", " ", as.character(x))))
     
-    lc_lookup_clean <- lc_lookup %>%
-      mutate(LC_clean = clean_text(LC))
+    lc_lookup_clean <- lc_lookup %>% mutate(LC_clean = clean_text(LC))
     
-    # Get row names (first column)
     row_names <- clean_text(data[[1]])
-    row_ids <- lc_lookup_clean$ID[match(row_names, lc_lookup_clean$LC_clean)]
+    row_ids   <- lc_lookup_clean$ID[match(row_names, lc_lookup_clean$LC_clean)]
     
-    # Get column names (excluding first column)
     col_names <- clean_text(colnames(data)[-1])
-    col_ids <- lc_lookup_clean$ID[match(col_names, lc_lookup_clean$LC_clean)]
+    col_ids   <- lc_lookup_clean$ID[match(col_names, lc_lookup_clean$LC_clean)]
     
     list(row_ids = row_ids, col_ids = col_ids)
   }
   
   processed_files <- character(0)
   
-  # Process each file
   for (xlsm_path in xlsm_files) {
     message("\nProcessing: ", basename(xlsm_path))
     
     tryCatch({
-      # Read the data
-      data <- read_excel(xlsm_path, sheet = 1, col_names = TRUE) %>% 
-        as.data.frame()
+      data <- read_excel(xlsm_path, sheet = 1, col_names = TRUE) %>% as.data.frame()
       
-      # Skip if empty
       if (nrow(data) == 0) {
         message("Empty dataset in file: ", basename(xlsm_path))
         next
       }
       
-      # Convert to IDs
       ids <- convert_to_id(data, lc_lookup)
       
-      # Replace with IDs
       data[[1]] <- ids$row_ids
       colnames(data)[-1] <- ids$col_ids
-      
-      # Remove only the last column (typically totals column), keep all rows
       data <- data[, -ncol(data), drop = FALSE]
       
-      # Convert to long format
       long_data <- data %>%
         pivot_longer(
-          cols = -1,
-          names_to = "To*",
-          values_to = "Rate",
-          values_transform = list(Rate = as.numeric)
+          cols              = -1,
+          names_to          = "To*",
+          values_to         = "Rate",
+          values_transform  = list(Rate = as.numeric)
         ) %>%
         rename("From*" = 1) %>%
         filter(
@@ -1502,10 +1238,9 @@ matrix_to_tpm <- function(input_folder_path, lc_lookup, output_dir) {
         )
       
       clean_name <- gsub("_macros", "", basename(xlsm_path))
-      out_file <- file.path(tpm_dir, sub("\\.xlsm$", ".csv", clean_name))
+      out_file   <- file.path(tpm_dir, sub("\\.xlsm$", ".csv", clean_name))
       write.csv(long_data, out_file, row.names = FALSE, quote = FALSE)
       processed_files <- c(processed_files, out_file)
-      
     }, error = function(e) {
       message("Error processing ", basename(xlsm_path), ": ", e$message)
     })
@@ -1514,69 +1249,31 @@ matrix_to_tpm <- function(input_folder_path, lc_lookup, output_dir) {
   invisible(processed_files)
 }
 
-#' Rename landscape raster files with year-based naming convention
+# ------------------------------------------------------------- landscape io ---
+
+#' Rename Landscape Rasters to Year Labels
 #'
-#' This function automates the renaming of landscape raster files from a numeric
-#' sequence pattern (landscape01.tif, landscape02.tif, etc.) to a year-based
-#' naming convention using an initial year and period value. It also removes
-#' any .tif files that don't match the expected landscape pattern.
+#' Renames `landscapeNN.tif` files to `landscapeYYYY.tif` using
+#' `initial_year + file_number * period_value`, updates the layer name, and
+#' removes stray `.tif` / `.xml` files that don't match the expected pattern.
 #'
-#' @param folder_path Character string. The path to the directory containing
-#'   the raster files to be renamed.
-#' @param initial_year Integer. The base year from which to calculate target years.
-#'   For example, if initial_year = 2020, landscape01.tif will correspond to 2025
-#'   when period_value = 5.
-#' @param period_value Integer. The number of years between each landscape raster.
-#'   This value is multiplied by the file number to calculate the target year.
-#'
-#' @return Invisible NULL. The function primarily produces side effects by renaming
-#'   files and updating raster properties. Progress messages are printed to the console.
-#'
-#' @details
-#' The function performs the following operations:
-#' \itemize{
-#'   \item Finds all .tif files matching the pattern "landscape\\d+.tif"
-#'   \item Identifies and removes any .tif files that don't match the expected pattern
-#'   \item Sorts files numerically by their embedded number
-#'   \item Calculates target years using: target_year = initial_year + (file_number * period_value)
-#'   \item Renames both the physical filename and the layer name property of the SpatRaster
-#'   \item Saves the modified rasters and removes the original files
-#' }
-#'
-#' @note
-#' The function will overwrite existing files if the target filename already exists.
-#' Make sure to backup your data before running this function.
-#'
-#' @examples
-#' \dontrun{
-#' # Rename landscape rasters starting from 2020 with 5-year intervals
-#' rename_landscape("path/to/raster/folder", 2020, 5)
-#'
-#' # Example output:
-#' # landscape01.tif -> landscape2025.tif (layer name: landscape_2025)
-#' # landscape02.tif -> landscape2030.tif (layer name: landscape_2030)
-#' # landscape03.tif -> landscape2035.tif (layer name: landscape_2035)
-#' # Removed: other_file.tif (does not match landscape pattern)
-#' }
-#'
-#' @export
+#' @param folder_path Directory containing the raster files.
+#' @param initial_year Base year.
+#' @param period_value Number of years per simulation step.
+#' @return Invisibly `NULL`; called for its side effects.
 #' @importFrom terra rast writeRaster
 #' @importFrom stringr str_extract
+#' @export
 rename_landscape <- function(folder_path, initial_year, period_value) {
-  # List all .tif files in the directory
   all_tif_files <- list.files(folder_path, pattern = "\\.tif$", full.names = TRUE)
   
   if (length(all_tif_files) == 0) {
     stop("No .tif files found in the specified directory.")
   }
   
-  # Identify files that match the landscape pattern 
   landscape_files <- all_tif_files[grepl("^landscape\\d{2}\\.tif$", basename(all_tif_files))]
   
-  # List all .xml files in the directory (if any exist)
   xml_files <- list.files(folder_path, pattern = "\\.xml$", full.names = TRUE)
-  
-  # Remove all .xml files (if any exist)
   if (length(xml_files) > 0) {
     cat("Removing .xml files:\n")
     for (file in xml_files) {
@@ -1588,10 +1285,7 @@ rename_landscape <- function(folder_path, initial_year, period_value) {
     cat("No .xml files found to remove.\n\n")
   }
   
-  # Identify files that don't match the pattern
   non_landscape_files <- all_tif_files[!grepl("^landscape\\d{2}\\.tif$", basename(all_tif_files))]
-  
-  # Remove non-matching files
   if (length(non_landscape_files) > 0) {
     cat("Removing files that don't match landscape pattern:\n")
     for (file in non_landscape_files) {
@@ -1605,95 +1299,50 @@ rename_landscape <- function(folder_path, initial_year, period_value) {
     stop("No landscape raster files found matching the pattern 'landscapeXX.tif'.")
   }
   
-  # Extract the numeric part from filenames and sort them
-  file_numbers <- as.numeric(stringr::str_extract(basename(landscape_files), "\\d+"))
-  sorted_indices <- order(file_numbers)
+  file_numbers    <- as.numeric(stringr::str_extract(basename(landscape_files), "\\d+"))
+  sorted_indices  <- order(file_numbers)
   landscape_files <- landscape_files[sorted_indices]
-  file_numbers <- file_numbers[sorted_indices]
+  file_numbers    <- file_numbers[sorted_indices]
   
-  # Process each raster file
   for (i in seq_along(landscape_files)) {
-    file_path <- landscape_files[i]
+    file_path   <- landscape_files[i]
     file_number <- file_numbers[i]
     
-    # Calculate the corresponding year
-    target_year <- initial_year + (file_number * period_value)
-    
-    # Create new filename
-    new_filename <- paste0("landscape", target_year, ".tif")
+    target_year   <- initial_year + (file_number * period_value)
+    new_filename  <- paste0("landscape", target_year, ".tif")
     new_file_path <- file.path(folder_path, new_filename)
     
-    # Read the raster
     raster_obj <- terra::rast(file_path)
-    
-    # Rename the layer name (names property)
     names(raster_obj) <- target_year
-    
-    # Write the raster with new filename and layer name
     terra::writeRaster(raster_obj, filename = new_file_path, overwrite = TRUE)
-    
-    # Remove the original file
     file.remove(file_path)
     
-    cat(sprintf("Renamed: %s -> %s (layer name: %s)\n", 
+    cat(sprintf("Renamed: %s -> %s (layer name: %s)\n",
                 basename(file_path), new_filename, names(raster_obj)))
   }
   
   cat(sprintf("\nSuccessfully renamed %d raster files.\n", length(landscape_files)))
 }
 
-#' Render a DataTable with Enhanced Features
+# ------------------------------------------------------------ DT rendering ---
+
+#' Render an Enhanced DataTable
 #'
-#' Creates an interactive DT::datatable with common extensions and styling options
-#' pre-configured for ease of use. Includes export buttons, responsive design,
-#' professional styling, and automatic numeric formatting.
+#' Wraps `DT::datatable` with sensible defaults: export buttons, responsive
+#' layout, formatted numerics, and auto-dismissing copy notifications.
 #'
-#' @param data A data frame or matrix containing the data to be displayed.
-#' @param caption Character string specifying the table caption (optional).
-#' @param digits Integer specifying the number of decimal places for percentages (default = 2).
-#' @param area_digits Integer specifying the number of decimal places for area values (default = 0).
-#' @param notification_timeout Time in milliseconds for the copy notification to auto-dismiss (default = 3000 = 3 seconds).
-#'
-#' @return A DT::datatable object with enhanced features and styling.
-#'
-#' @details
-#' This function provides a convenient wrapper for creating DataTables with
-#' commonly used features:
-#' \itemize{
-#'   \item \strong{Extensions}: Buttons (export functionality) and Responsive (mobile-friendly)
-#'   \item \strong{Options}: Pagination, search, fixed columns, auto-width, ordering
-#'   \item \strong{Styling}: Display class with stripe and hover effects
-#'   \item \strong{Export}: Copy, CSV, and Excel export buttons
-#'   \item \strong{Formatting}: Automatic numeric formatting with thousands separators
-#'   \item \strong{Notification}: Auto-dismissing copy notifications
-#' }
-#'
-#' The DOM layout includes Buttons (B), length menu (l), filter (f), 
-#' processing (r), table (t), information (i), and pagination (p).
-#'
-#' @examples
-#' \dontrun{
-#' # Basic usage
-#' render_dt_table(mtcars, caption = "Motor Trend Car Road Tests")
-#'
-#' # Without caption
-#' render_dt_table(iris)
-#'
-#' # Custom decimal places
-#' render_dt_table(mtcars, digits = 0)
-#'
-#' # Use in R Markdown
-#' ```{r}
-#' library(DT)
-#' render_dt_table(mtcars, "Sample Data Table")
-#' ```
-#' }
-#'
-#' @seealso
-#' \code{\link[DT]{datatable}}, \code{\link[DT]{DTOutput}}
-#'
+#' @param data Data frame or matrix.
+#' @param caption Optional table caption.
+#' @param digits Decimal places for percentage columns.
+#' @param area_digits Decimal places for non-percentage numeric columns.
+#' @param notification_timeout Milliseconds before the copy notification
+#'   auto-dismisses.
+#' @return An `htmltools::tagList` containing CSS and the DataTable.
+#' @importFrom DT datatable
+#' @importFrom htmltools tags HTML tagList
 #' @export
-render_dt_table <- function(data, caption = NULL, digits = 2, area_digits = 0, notification_timeout = 1000) {
+render_dt_table <- function(data, caption = NULL, digits = 2, area_digits = 0,
+                            notification_timeout = 1000) {
   css_fix <- htmltools::tags$style(htmltools::HTML(sprintf("
     div.dt-button-info {
       position: fixed;
@@ -1708,7 +1357,7 @@ render_dt_table <- function(data, caption = NULL, digits = 2, area_digits = 0, n
       box-shadow: 0 0 10px rgba(0,0,0,0.3);
       animation: fadeOut %dms ease-in %dms forwards;
     }
-    
+
     @keyframes fadeOut {
       from { opacity: 1; }
       to { opacity: 0; visibility: hidden; }
@@ -1720,34 +1369,42 @@ render_dt_table <- function(data, caption = NULL, digits = 2, area_digits = 0, n
     is.numeric(x) || (inherits(x, "units") && is.numeric(as.numeric(x)))
   }))
   
-  # Apply formatting to numeric columns
   if (length(numeric_cols) > 0) {
     for (col in numeric_cols) {
       col_data <- data[[col]]
       col_name <- names(data)[col]
-      is_percentage_col <- grepl("^%|Percent|Percentage|% T1|% T2", col_name, ignore.case = TRUE)
+      is_percentage_col <- grepl("^%|Percent|Percentage|% T1|% T2", col_name,
+                                 ignore.case = TRUE)
+      
       if (inherits(col_data, "units")) {
         numeric_values <- as.numeric(col_data)
-        units_attr <- attributes(col_data)
+        units_attr     <- attributes(col_data)
         is_integer_col <- all(numeric_values == floor(numeric_values), na.rm = TRUE)
-        if (is_integer_col) {
-          formatted_values <- format(numeric_values, big.mark = ",", scientific = FALSE, trim = TRUE)
+        
+        formatted_values <- if (is_integer_col) {
+          format(numeric_values, big.mark = ",", scientific = FALSE, trim = TRUE)
         } else {
-          formatted_values <- format(round(numeric_values, area_digits), big.mark = ",", scientific = FALSE, nsmall = area_digits, trim = TRUE)
+          format(round(numeric_values, area_digits), big.mark = ",",
+                 scientific = FALSE, nsmall = area_digits, trim = TRUE)
         }
-        if (!is.null(units_attr$units)) {
-          formatted_data[[col]] <- paste(formatted_values, units_attr$units)
+        
+        formatted_data[[col]] <- if (!is.null(units_attr$units)) {
+          paste(formatted_values, units_attr$units)
         } else {
-          formatted_data[[col]] <- formatted_values
+          formatted_values
         }
       } else {
         is_integer_col <- all(col_data == floor(col_data), na.rm = TRUE)
         if (is_percentage_col) {
-          formatted_data[[col]] <- format(round(col_data, digits), nsmall = digits, trim = TRUE)
+          formatted_data[[col]] <- format(round(col_data, digits),
+                                          nsmall = digits, trim = TRUE)
         } else if (is_integer_col) {
-          formatted_data[[col]] <- format(col_data, big.mark = ",", scientific = FALSE, trim = TRUE)
+          formatted_data[[col]] <- format(col_data, big.mark = ",",
+                                          scientific = FALSE, trim = TRUE)
         } else {
-          formatted_data[[col]] <- format(round(col_data, area_digits), big.mark = ",", scientific = FALSE, nsmall = area_digits, trim = TRUE)
+          formatted_data[[col]] <- format(round(col_data, area_digits),
+                                          big.mark = ",", scientific = FALSE,
+                                          nsmall = area_digits, trim = TRUE)
         }
       }
     }
@@ -1755,128 +1412,85 @@ render_dt_table <- function(data, caption = NULL, digits = 2, area_digits = 0, n
   
   dt <- DT::datatable(
     formatted_data,
-    extensions = c('Buttons', 'Responsive'),
+    extensions = c("Buttons", "Responsive"),
     options = list(
-      paging = TRUE,
-      searching = TRUE,
-      fixedColumns = TRUE,
-      autoWidth = TRUE,
-      ordering = TRUE,
-      dom = 'Blfrtip',
+      paging        = TRUE,
+      searching     = TRUE,
+      fixedColumns  = TRUE,
+      autoWidth     = TRUE,
+      ordering      = TRUE,
+      dom           = "Blfrtip",
       buttons = list(
-        list(extend = "copy", 
-             className = "btn btn-light btn-sm",
-             text = "Copy",
+        list(extend = "copy",  className = "btn btn-light btn-sm",
+             text = "Copy",  title = caption),
+        list(extend = "csv",   className = "btn btn-light btn-sm",
              title = caption),
-        list(extend = "csv",  
-             className = "btn btn-light btn-sm",
-             title = caption),
-        list(extend = "excel", 
-             className = "btn btn-light btn-sm",
+        list(extend = "excel", className = "btn btn-light btn-sm",
              title = caption)
       )
     ),
-    class = "display stripe hover",
-    caption = caption,
+    class    = "display stripe hover",
+    caption  = caption,
     rownames = FALSE
   )
   
   htmltools::tagList(css_fix, dt)
 }
 
-#' Plot Categorical Raster Map with Interactive Visualization
+# ---------------------------------------------------- mapview categorical ---
+
+#' Interactive Categorical Raster Map with mapview
 #'
-#' Creates a generic interactive map for any classified raster data using
-#' mapview, with proper classification, coloring, and legend.
+#' Builds an interactive mapview / leaflet map for a categorical raster,
+#' using custom hex colors from `cat_table$color_palette` when available.
 #'
-#' @param cat_raster A SpatRaster object (from terra package) containing
-#'   classification values. The raster should contain integer values
-#'   corresponding to different categories.
-#' @param cat_table A data frame containing the classification scheme.
-#'   The **first column** must be the numeric codes (ID) and the
-#'   **second column** must be the category names. It may optionally
-#'   include a column named 'color_palette' with hex color codes for custom colors.
-#' @param yr Character or numeric value representing the year or time period
-#'   for the map. Used in the layer name and legend title.
-#' @param layer_title A character string for the layer name prefix in the legend
-#'   and layer control. Defaults to "Layer".
-#'
-#' @return A mapview object containing an interactive leaflet map with the
-#'   categorical data displayed using the specified colors and including a legend.
-#'
-#' @details This function performs the following steps:
-#' \enumerate{
-#'   \item Filters the category table to include only classes present in the raster.
-#'   \item Reclassifies raster values to a sequential index for consistent coloring.
-#'   \item Converts the raster to a categorical factor with proper labels.
-#'   \item Applies a color palette. If a 'color_palette' column exists in `cat_table`,
-#'         it will be used. Otherwise, a predefined color set is applied.
-#'   \item Creates an interactive map with mapview.
-#'   \item Adds a custom legend with category names and colors.
-#' }
-#'
-#' @note The function requires the following packages: terra, mapview, leaflet,
-#'   and dplyr (for the pipe operator).
-#'
-#' @examples
-#' \dontrun{
-#' # Load required packages
-#' library(terra)
-#' library(mapview)
-#'
-#' # Create example data
-#' class_raster <- rast(nrows = 100, ncols = 100, vals = sample(1:3, 10000, replace = TRUE))
-#'
-#' # Create a table with custom colors
-#' class_table <- data.frame(
-#'   CODE = 1:3,
-#'   CLASS_NAME = c("Class A", "Class B", "Class C"),
-#'   color_palette = c("#228B22", "#FF0000", "#FFFF00")
-#' )
-#'
-#' # Create the interactive map
-#' cat_map <- plot_categorical_raster_mapview(class_raster, class_table, yr = 2025, layer_title = "Classification")
-#' cat_map # Display the map
-#' }
-#'
+#' @param cat_raster A categorical `SpatRaster`.
+#' @param cat_table Data frame whose first column holds IDs and second column
+#'   the category names. Optional `color_palette` column with hex codes.
+#' @param layer_title Legend / layer title.
+#' @return A `mapview` object with an added legend.
 #' @importFrom terra values classify as.factor levels<- activeCat coltab ncell
 #' @importFrom mapview mapview
 #' @importFrom leaflet colorFactor addLegend
 #' @importFrom dplyr %>%
 #' @export
-plot_categorical_raster_mapview <- function(cat_raster, cat_table, layer_title = "Layer") {
+plot_categorical_raster_mapview <- function(cat_raster, cat_table,
+                                            layer_title = "Layer") {
   names(cat_table)[1] <- "ID"
   names(cat_table)[2] <- "Category"
-  
   cat_table$ID <- as.numeric(cat_table$ID)
-  unique_values <- unique(values(cat_raster, na.rm = TRUE))
+  
+  unique_values    <- unique(values(cat_raster, na.rm = TRUE))
   cat_tbl_filtered <- cat_table[cat_table$ID %in% unique_values, ]
   
-  reclass_from <- cat_tbl_filtered$ID
-  reclass_to <- seq_along(cat_tbl_filtered$ID)
+  reclass_from   <- cat_tbl_filtered$ID
+  reclass_to     <- seq_along(cat_tbl_filtered$ID)
   reclass_matrix <- cbind(reclass_from, reclass_to)
+  
   cat_reclass <- classify(cat_raster, reclass_matrix, others = NA)
-  cat_factor <- as.factor(cat_reclass)
+  cat_factor  <- as.factor(cat_reclass)
   
   levels_df <- data.frame(
-    ID = reclass_to,
-    Category = factor(cat_tbl_filtered$Category, levels = cat_tbl_filtered$Category)
+    ID       = reclass_to,
+    Category = factor(cat_tbl_filtered$Category,
+                      levels = cat_tbl_filtered$Category)
   )
   
   levels(cat_factor) <- levels_df
   activeCat(cat_factor) <- "Category"
   
   predefined_colors <- c(
-    "#3cb44b", "#ffe119", "#4363d8", "#f58231", "#911eb4", "#46f0f0", "#f032e6", "#e6194B",
-    "#bcf60c", "#fabebe", "#008080", "#e6beff", "#9A6324", "#fffac8", "#800000", "#aaffc3",
-    "#808000", "#ffd8b1", "#000075", "#808080", "#1F77B4", "#FF7F0E", "#40E0D0", "#6B8E23",
-    "#2CA02C", "#D62728", "#9467BD", "#8C564B", "#E377C2", "#7F7F7F", "#CD5C5C", "#7B68EE",
-    "#17BECF", "#BCBD22", "#FF9896", "#C5B0D5", "#C49C94", "#9C9EDE", "#AEC7E8", "#FFBB78",
-    "#98DF8A", "#FF7F50", "#FFD700", "#8B0000", "#20B2AA", "#DA70D6", "#B22222", "#5F9EA0",
+    "#3cb44b", "#ffe119", "#4363d8", "#f58231", "#911eb4", "#46f0f0",
+    "#f032e6", "#e6194B", "#bcf60c", "#fabebe", "#008080", "#e6beff",
+    "#9A6324", "#fffac8", "#800000", "#aaffc3", "#808000", "#ffd8b1",
+    "#000075", "#808080", "#1F77B4", "#FF7F0E", "#40E0D0", "#6B8E23",
+    "#2CA02C", "#D62728", "#9467BD", "#8C564B", "#E377C2", "#7F7F7F",
+    "#CD5C5C", "#7B68EE", "#17BECF", "#BCBD22", "#FF9896", "#C5B0D5",
+    "#C49C94", "#9C9EDE", "#AEC7E8", "#FFBB78", "#98DF8A", "#FF7F50",
+    "#FFD700", "#8B0000", "#20B2AA", "#DA70D6", "#B22222", "#5F9EA0",
     "#ffffff", "#000000"
   )
   
-  # Conditionally select color palette
   if ("color_palette" %in% names(cat_tbl_filtered)) {
     map_colors <- cat_tbl_filtered$color_palette
   } else {
@@ -1886,48 +1500,52 @@ plot_categorical_raster_mapview <- function(cat_raster, cat_table, layer_title =
     map_colors <- predefined_colors[1:nrow(cat_tbl_filtered)]
   }
   
-  color_table <- data.frame(
-    value = reclass_to,
-    color = map_colors
-  )
-  
+  color_table <- data.frame(value = reclass_to, color = map_colors)
   coltab(cat_factor) <- color_table
   
   map_result <- mapview(
     cat_factor,
-    zcol = "Category",
-    maxpixels = ncell(cat_factor),
-    layer.name = paste(layer_title),
-    na.color = "transparent",
-    legend = FALSE
+    zcol       = "Category",
+    maxpixels  = ncell(cat_factor),
+    layer.name = layer_title,
+    na.color   = "transparent",
+    legend     = FALSE
   )
   
-  pal <- colorFactor(
-    palette = color_table$color,
-    domain = levels_df$Category
-  )
+  pal <- colorFactor(palette = color_table$color, domain = levels_df$Category)
   
   map_result@map <- map_result@map %>%
     addLegend(
       position = "topright",
-      pal = pal,
-      values = levels_df$Category,
-      title = paste(layer_title)
+      pal      = pal,
+      values   = levels_df$Category,
+      title    = layer_title
     )
   
-  return(map_result)
+  map_result
 }
 
-# Create a template table for allocate transitions
+# ------------------------------------------------- allocate transitions ---
+
+#' Build a Template for Per-Transition Allocation Overrides
+#'
+#' Produces a data frame (optionally written to CSV) with one row per
+#' `from -> to` transition, columns ready to be filled with `percent`,
+#' `exp_*`, and `gen_*` values.
+#'
+#' @param lusim_lc Data frame of land cover IDs and names.
+#' @param path Optional CSV path to write the template to.
+#' @return The template data frame.
+#' @export
 make_alloc_trans_template <- function(lusim_lc, path = NULL) {
-  
   classes <- data.frame(
     id   = lusim_lc[[1]],
     name = as.character(lusim_lc[[2]]),
     stringsAsFactors = FALSE
   )
   
-  skel <- expand.grid(from_id = classes$id, to_id = classes$id, stringsAsFactors = FALSE)
+  skel <- expand.grid(from_id = classes$id, to_id = classes$id,
+                      stringsAsFactors = FALSE)
   skel <- skel[skel$from_id != skel$to_id, , drop = FALSE]
   rownames(skel) <- NULL
   
@@ -1938,10 +1556,10 @@ make_alloc_trans_template <- function(lusim_lc, path = NULL) {
   tmpl$exp_mean <- NA_real_; tmpl$exp_var <- NA_real_; tmpl$exp_iso <- NA_real_
   tmpl$gen_mean <- NA_real_; tmpl$gen_var <- NA_real_; tmpl$gen_iso <- NA_real_
   
-  tmpl <- tmpl[, c("from_id","from_name","to_id","to_name",
+  tmpl <- tmpl[, c("from_id", "from_name", "to_id", "to_name",
                    "percent",
-                   "exp_mean","exp_var","exp_iso",
-                   "gen_mean","gen_var","gen_iso")]
+                   "exp_mean", "exp_var", "exp_iso",
+                   "gen_mean", "gen_var", "gen_iso")]
   
   if (!is.null(path)) {
     utils::write.csv(tmpl, path, row.names = FALSE, na = "")
@@ -1950,157 +1568,33 @@ make_alloc_trans_template <- function(lusim_lc, path = NULL) {
   tmpl
 }
 
-#' Build AllocateTransitions parameter strings
+#' Build AllocateTransitions Parameter Strings
 #'
-#' Prepares the three input-port strings required by the Dinamica EGO
-#' \code{AllocateTransitions} functor:
-#' \code{percentOfTransitionsByExpansion},
-#' \code{patchExpansionParameters}, and
-#' \code{patchGenerationParameters}.
+#' Prepares the three Dinamica EGO `AllocateTransitions` input-port strings
+#' (`percentOfTransitionsByExpansion`, `patchExpansionParameters`,
+#' `patchGenerationParameters`).
 #'
-#' The function works in two modes:
+#' Supports two modes:
 #' \enumerate{
-#'   \item \strong{Uniform mode} -- pass the same value for every transition
-#'         via the individual arguments (\code{percent}, \code{exp_mean}, ...).
-#'   \item \strong{Override mode} -- supply a data.frame (\code{override_df})
-#'         that specifies values for selected transitions. Only non-\code{NA}
-#'         cells in \code{override_df} are used; all other cells fall back to
-#'         the uniform values.
+#'   \item Uniform mode: pass the same value for every transition via
+#'     individual arguments.
+#'   \item Override mode: supply `override_df` to specify values for selected
+#'     transitions (non-`NA` cells override uniform values).
 #' }
 #'
-#' Missing (\code{NULL} or \code{NA}) individual arguments are automatically
-#' filled from \code{defaults}.
+#' Value priority (highest to lowest): `override_df` cells > individual
+#' arguments > `defaults`.
 #'
-#' @param lusim_lc A data.frame of LULC classes. Column 1 must be the numeric
-#'   class ID and column 2 the class name. Typical input from
-#'   \code{read.csv("lulc_reference.csv")}.
-#' @param percent Numeric scalar in \code{[0, 1]} or \code{NULL}. The share of
-#'   each transition handled by the Expander (growing existing patches) versus
-#'   the Patcher (creating new patches). \code{0} = all new patches,
-#'   \code{1} = all expansion. If \code{NULL} or \code{NA}, the value from
-#'   \code{defaults$percent} is used.
-#' @param exp_mean Numeric scalar \code{> 0} or \code{NULL}. Mean patch size
-#'   (in pixels) for expanded patches. Falls back to
-#'   \code{defaults$exp_mean}.
-#' @param exp_var Numeric scalar \code{>= 0} or \code{NULL}. Patch-size
-#'   variance for expanded patches. Falls back to \code{defaults$exp_var}.
-#' @param exp_iso Numeric scalar in \code{[0, 2]} or \code{NULL}. Patch
-#'   isometry for expanded patches: \code{0} = linear, \code{1} = neutral,
-#'   \code{2} = circular/compact. Falls back to \code{defaults$exp_iso}.
-#' @param gen_mean Numeric scalar \code{> 0} or \code{NULL}. Mean patch size
-#'   for newly generated patches. Falls back to \code{defaults$gen_mean}.
-#' @param gen_var Numeric scalar \code{>= 0} or \code{NULL}. Patch-size
-#'   variance for newly generated patches. Falls back to
-#'   \code{defaults$gen_var}.
-#' @param gen_iso Numeric scalar in \code{[0, 2]} or \code{NULL}. Patch
-#'   isometry for newly generated patches. Falls back to
-#'   \code{defaults$gen_iso}.
-#' @param override_df Optional data.frame with per-transition overrides.
-#'   Must contain the columns \code{from_id}, \code{to_id},
-#'   \code{percent}, \code{exp_mean}, \code{exp_var}, \code{exp_iso},
-#'   \code{gen_mean}, \code{gen_var}, \code{gen_iso}. Only cells that are
-#'   not \code{NA} override the uniform values. Duplicate transitions raise
-#'   an error; unknown transitions raise a warning and are ignored.
-#'   Use \code{\link{make_alloc_trans_template}} to produce a template.
-#' @param defaults Named list of fallback values used when an individual
-#'   argument is \code{NULL} or \code{NA}. Must contain \code{percent},
-#'   \code{exp_mean}, \code{exp_var}, \code{exp_iso}, \code{gen_mean},
-#'   \code{gen_var}, and \code{gen_iso}. See \strong{Details}.
-#' @param validate Logical. If \code{TRUE} (default), the resolved parameter
-#'   table is checked against the valid ranges. Invalid values raise an
-#'   error with a descriptive message.
-#'
-#' @return A named list of three character strings, each ready to be passed
-#'   to \code{XML::addTag} as the value of an \code{inputport}:
-#'   \describe{
-#'     \item{\code{percentOfTransitionsByExpansion}}{String for the
-#'       \code{percentOfTransitionsByExpansion} port.}
-#'     \item{\code{patchExpansionParameters}}{String for the
-#'       \code{patchExpansionParameters} port (Expander).}
-#'     \item{\code{patchGenerationParameters}}{String for the
-#'       \code{patchGenerationParameters} port (Patcher).}
-#'   }
-#'
-#' @details
-#' \strong{Value priority (highest to lowest):}
-#' \enumerate{
-#'   \item Non-\code{NA} cells in \code{override_df}.
-#'   \item Individual arguments (\code{percent}, \code{exp_mean}, ...).
-#'   \item \code{defaults}.
-#' }
-#'
-#' \strong{Default values:}
-#' \preformatted{
-#'   percent  = 0.5
-#'   exp_mean = 2, exp_var = 1, exp_iso = 1
-#'   gen_mean = 1, gen_var = 1, gen_iso = 1
-#' }
-#'
-#' \strong{Valid ranges:}
-#' \itemize{
-#'   \item \code{percent}: \code{[0, 1]}
-#'   \item \code{exp_mean}, \code{gen_mean}: \code{> 0}
-#'   \item \code{exp_var}, \code{gen_var}: \code{>= 0}
-#'   \item \code{exp_iso}, \code{gen_iso}: \code{[0, 2]}
-#' }
-#'
-#' \strong{Tip:} low \code{meanPatchSize} and low \code{percent} produce
-#' salt-and-pepper patterns. Increase both, and raise isometry toward 2,
-#' to obtain larger and more compact patches.
-#'
-#' @seealso \code{\link{make_alloc_trans_template}}
-#'
-#' @examples
-#' \dontrun{
-#' lusim_lc <- read.csv("lulc_reference.csv", fileEncoding = "UTF-8-BOM")
-#'
-#' ## 1. Uniform values ------------------------------------------------
-#' params <- build_allocate_transitions(
-#'   lusim_lc,
-#'   percent  = 0.7,
-#'   exp_mean = 8, exp_var = 3, exp_iso = 1.5,
-#'   gen_mean = 4, gen_var = 2, gen_iso = 1.5
-#' )
-#' params$percentOfTransitionsByExpansion
-#' params$patchExpansionParameters
-#' params$patchGenerationParameters
-#'
-#' ## 2. Only one parameter set; the rest come from defaults ----------
-#' params <- build_allocate_transitions(lusim_lc, percent = 0.8)
-#'
-#' ## 3. Custom defaults ----------------------------------------------
-#' params <- build_allocate_transitions(
-#'   lusim_lc,
-#'   percent  = 0.7,
-#'   defaults = list(
-#'     percent  = 0.5,
-#'     exp_mean = 6, exp_var = 2, exp_iso = 1.5,
-#'     gen_mean = 3, gen_var = 1, gen_iso = 1.5
-#'   )
-#' )
-#'
-#' ## 4. Override per transition --------------------------------------
-#' make_alloc_trans_template(lusim_lc, path = "alloc_template.csv")
-#' override <- read.csv("alloc_template.csv")
-#' # edit selected cells, then:
-#' params <- build_allocate_transitions(
-#'   lusim_lc,
-#'   exp_var     = 0.8,
-#'   override_df = override
-#' )
-#'
-#' ## 5. Insert into a Dinamica EGO model XML -------------------------
-#' con$addTag("inputport",
-#'            attrs = c(name = "percentOfTransitionsByExpansion"),
-#'            params$percentOfTransitionsByExpansion)
-#' con$addTag("inputport",
-#'            attrs = c(name = "patchExpansionParameters"),
-#'            params$patchExpansionParameters)
-#' con$addTag("inputport",
-#'            attrs = c(name = "patchGenerationParameters"),
-#'            params$patchGenerationParameters)
-#' }
-#'
+#' @param lusim_lc Data frame of land cover IDs (column 1) and names (column 2).
+#' @param percent,exp_mean,exp_var,exp_iso,gen_mean,gen_var,gen_iso Uniform
+#'   parameter values; `NULL`/`NA` falls back to `defaults`.
+#' @param override_df Optional per-transition override data frame with columns
+#'   `from_id`, `to_id`, `percent`, `exp_mean`, `exp_var`, `exp_iso`,
+#'   `gen_mean`, `gen_var`, `gen_iso`.
+#' @param defaults Named list of fallback values.
+#' @param validate Logical. Validate the resolved parameter table.
+#' @return A named list of three character strings (one per input port).
+#' @seealso [make_alloc_trans_template()]
 #' @export
 build_allocate_transitions <- function(
     lusim_lc,
@@ -2114,13 +1608,11 @@ build_allocate_transitions <- function(
     ),
     validate = TRUE
 ) {
-  
-  # helpers
   .fmt_num <- function(x)
     ifelse(x == as.integer(x), as.character(as.integer(x)), as.character(x))
   
   .build_port_string <- function(from_id, to_id, values_list) {
-    n <- length(from_id)
+    n     <- length(from_id)
     lines <- character(n)
     for (i in seq_len(n)) {
       vals  <- paste(values_list[[i]], collapse = " ")
@@ -2144,10 +1636,8 @@ build_allocate_transitions <- function(
     invisible(TRUE)
   }
   
-  .pick <- function(x, d)
-    if (is.null(x) || (length(x) == 1 && is.na(x))) d else x
+  .pick <- function(x, d) if (is.null(x) || (length(x) == 1 && is.na(x))) d else x
   
-  # uniform list
   uniform <- list(
     percent  = .pick(percent,  defaults$percent),
     exp_mean = .pick(exp_mean, defaults$exp_mean),
@@ -2158,31 +1648,27 @@ build_allocate_transitions <- function(
     gen_iso  = .pick(gen_iso,  defaults$gen_iso)
   )
   
-  # LULC classes
   classes <- data.frame(
     id   = lusim_lc[[1]],
     name = as.character(lusim_lc[[2]]),
     stringsAsFactors = FALSE
   )
   
-  # skeleton
   skel <- expand.grid(from_id = classes$id, to_id = classes$id,
                       stringsAsFactors = FALSE)
   skel <- skel[skel$from_id != skel$to_id, , drop = FALSE]
   rownames(skel) <- NULL
   
-  # uniform base
   df <- skel
   for (nm in names(uniform)) df[[nm]] <- uniform[[nm]]
   
-  # override from data.frame
   if (!is.null(override_df)) {
     if (!is.data.frame(override_df))
       stop("`override_df` must be a data.frame.", call. = FALSE)
     
-    required <- c("from_id","to_id",
-                  "percent","exp_mean","exp_var","exp_iso",
-                  "gen_mean","gen_var","gen_iso")
+    required <- c("from_id", "to_id",
+                  "percent", "exp_mean", "exp_var", "exp_iso",
+                  "gen_mean", "gen_var", "gen_iso")
     miss <- setdiff(required, names(override_df))
     if (length(miss) > 0)
       stop("`override_df` is missing columns: ",
@@ -2199,9 +1685,9 @@ build_allocate_transitions <- function(
       warning("`override_df` contains unknown transitions: ",
               paste(unknown, collapse = ", "), call. = FALSE)
     
-    cols <- c("percent","exp_mean","exp_var","exp_iso",
-              "gen_mean","gen_var","gen_iso")
-    idx <- match(key_df, key_ov)
+    cols <- c("percent", "exp_mean", "exp_var", "exp_iso",
+              "gen_mean", "gen_var", "gen_iso")
+    idx  <- match(key_df, key_ov)
     for (col in cols) {
       v <- override_df[[col]][idx]
       if (is.null(v)) next
@@ -2210,10 +1696,8 @@ build_allocate_transitions <- function(
     }
   }
   
-  # validation
   if (isTRUE(validate)) .validate_params(df)
   
-  # output
   list(
     percentOfTransitionsByExpansion = .build_port_string(
       df$from_id, df$to_id, lapply(df$percent, .fmt_num)
@@ -2227,6 +1711,173 @@ build_allocate_transitions <- function(
       df$from_id, df$to_id,
       lapply(seq_len(nrow(df)), function(i)
         c(.fmt_num(df$gen_mean[i]), .fmt_num(df$gen_var[i]), .fmt_num(df$gen_iso[i])))
+    )
+  )
+}
+
+# ---------------------------------------------------------- shiny helpers ---
+
+#' Help Texts for the Allocation UI
+#'
+#' Named list of tooltips (title + HTML body) used by the allocation
+#' parameter UI. Each entry is keyed by the corresponding input ID.
+#'
+#' @format A named list of lists.
+alloc_help_texts <- list(
+  map1_file = list(
+    title = "Initial Land Cover/Use Map",
+    body = "<p>GeoTIFF (.tif) file containing the land cover/land use
+            classification for the initial year (T1).</p> <p>Pixel values must correspond to the IDs defined in the
+            Land Use/Cover Lookup Table.</p>"
+              ),
+  init_year = list(
+    title = "Initial Year",
+    body = "<p>Base year (T1) corresponding to the
+            Initial Land Cover/Use Map.</p>"
+              ),
+  mapz_file = list(
+    title = "Planning Unit Map",
+    body = "<p>GeoTIFF (.tif) file delineating the planning units
+            (e.g., provinces, watersheds, or spatial planning units) used to
+            partition the simulation into independent regions.</p> <p>Each pixel value corresponds to a planning unit ID.
+            The simulation runs the allocation step region by region,
+            so planning units should cover the entire study extent.</p>"
+              ),
+  lc_file = list(
+    title = "Land Use/Cover Lookup Table",
+    body = "<p>CSV/XLSX table file with two columns:</p> <ol> <li>Numeric land cover ID (integer)</li> <li>Class name (text)</li> </ol>"
+  ),
+  rc_file = list(
+    title = "Raster Cube Map",
+    body = "<p>A pair of files produced by the SCIENDO Train module:</p> <ul> <li><code>sciendo_factors.tif</code> - raster stack of static variables
+          (e.g., slope, elevation, distance to roads, and population density)
+          used as predictors in the Weights of Evidence calculation.</li> <li><code>sciendo_factors.tif.aux.xml</code> - companion header describing
+          the variable stack, the planning unit classes, and the
+          simulation period value.</li> </ul> <p>Both files must be uploaded together. The app reads the XML
+          file to extract the planning unit classes and the period value.</p>"
+            ),
+  repetition = list(
+    title = "Simulation Periods",
+    body = "<p>Number of simulation iterations to run.</p> <p>Each iteration produces its own projected landscape
+            (<code>landscape2010.tif</code>, <code>landscape2015.tif</code>, ...).</p>"
+              ),
+  tm_path = list(
+    title = "Transition Probability Matrix Folder",
+    body = "<p>Folder from SCIENDO Train (Business As Usual) or SCIENDO Scenario Builder
+            (Scenario) output containing the transition probability matrices:</p> <ul> <li>CSV table files containing the single-step transition matrix
+            (<code>single_step000000.csv</code>), or</li> <li>XLSM table files containing macro-enabled Excel scenario
+            matrices.</li> </ul>"
+              ),
+  dcf_path = list(
+    title = "Weights of Evidence Folder",
+    body = "<p>Folder containing the DCF files from the SCIENDO Train output
+            (<code>woe000000.dcf</code> and its companion files) that store
+            the Weights of Evidence coefficients.</p>"
+              ),
+  wd = list(
+    title = "Output Directory",
+    body = "<p>Folder where all simulation outputs will be written</p>"
+  ),
+  dinamica_path = list(
+    title = "DINAMICA EGO Path (Optional)",
+    body = "<p>Installation folder of DINAMICA EGO
+            (e.g., <code>C:/Program Files/Dinamica EGO 6</code>).</p> <p>If left empty, the app will automatically detect the installation
+            under <code>Program Files</code> and use the latest version found.
+            Provide it manually only if automatic detection fails or if you
+            need to use a specific version.</p>"
+              ),
+  memory_allocation = list(
+    title = "Memory Allocation Policy",
+    body = "<p>Controls how DINAMICA EGO manages RAM and disk space when
+            running the simulation.</p> <ul> <li>Balanced (default): input maps are kept in memory, while results
+            are written to disk if RAM is limited.</li> <li>Prefer Memory: keep both inputs and results in RAM when possible.</li> <li>Prefer Disk: stream everything through disk.</li> <li>Memory Only: abort if there is insufficient RAM.</li> <li>Aggressive: inputs are kept on disk, while results are kept in RAM
+            when possible.</li> </ul>"
+              ),
+  custom = list(
+    title = "Parameterize Allocate Transitions",
+    body = "<p>Enable this option to customize how DINAMICA EGO allocates transitions.</p> <p>Controls the balance between patch expansion
+            (growing existing patches) and patch generation
+            (seeding brand-new patches), including their size and shape.</p>"
+              ),
+  percent = list(
+    title = "Percent of Transitions by Expansion",
+    body = "<p>Share of each transition handled by the Expander
+            (growing existing patches) and the Patcher
+            (creating new patches).</p> <ul> <li><code>0</code> = all transitions create new patches</li> <li><code>1</code> = all transitions expand existing patches</li> </ul> <p>Value range: <code>0</code> - <code>1</code>.</p>"
+              ),
+  exp_mean = list(
+    title = "Expansion Mean Patch Size",
+    body = "<p>Average size (hectares) of an expanded patch.</p> <p>Must be > 0.</p>"
+  ),
+  exp_var = list(
+    title = "Expansion Patch Size Variance",
+    body = "<p>Variance (hectares) of expanded patch sizes.</p> <p>Must be ≥ 0.</p>"
+  ),
+  exp_iso = list(
+    title = "Expansion Patch Isometry",
+    body = "<p>Shape of expanded patches.</p> <ul> <li><code>0</code> = linear / elongated</li> <li><code>1</code> = neutral</li> <li><code>2</code> = circular / compact</li> </ul> <p>Value range: <code>0</code> - <code>2</code>.</p>"
+  ),
+  gen_mean = list(
+    title = "Generation Mean Patch Size",
+    body = "<p>Average size (hectares) of a newly generated patch.</p> <p>Must be > 0.</p>"
+  ),
+  gen_var = list(
+    title = "Generation Patch Size Variance",
+    body = "<p>Variance (hectares) of newly generated patch sizes.</p> <p>Must be ≥ 0.</p>"
+  ),
+  gen_iso = list(
+    title = "Generation Patch Isometry",
+    body = "<p>Shape of newly generated patches.</p> <ul> <li><code>0</code> = linear</li> <li><code>1</code> = neutral</li> <li><code>2</code> = circular / compact</li> </ul> <p>Value range: <code>0</code> - <code>2</code>.</p>"
+  ),
+  override = list(
+    title = "Per-Transition Allocation (Optional)",
+    body = "<p>Upload an Excel/CSV template to customize allocation
+            transition parameters for individual transitions.</p>"
+              )
+)
+
+#' Clickable Help Icon for the Allocation UI
+#'
+#' @param id Help topic ID (matches a name in [alloc_help_texts]).
+#' @return A `shiny.tag` containing an `actionLink` with a help icon.
+alloc_help_icon <- function(id) {
+  tags$span(
+    class = "alloc-help-icon",
+    actionLink(
+      inputId = paste0("alloc_help_", id),
+      label   = NULL,
+      icon    = icon("circle-question")
+    )
+  )
+}
+
+#' Label With a Right-Aligned Help Icon
+#'
+#' @param text Label text.
+#' @param help_id Help topic ID.
+#' @return A `shiny.tag` combining the label and a help icon.
+label_with_help <- function(text, help_id) {
+  tags$div(
+    class = "alloc-label",
+    tags$span(text),
+    alloc_help_icon(help_id)
+  )
+}
+
+#' Directory-Picker Button With an Inline Help Icon
+#'
+#' @param id Shiny input ID.
+#' @param label Button label.
+#' @param title Button title tooltip.
+#' @param help_id Help topic ID.
+#' @return A `shiny.tag` containing a directory-picker button and help icon.
+dir_button_with_help <- function(id, label, title, help_id) {
+  tags$div(
+    class = "dir-btn-wrapper",
+    shinyDirButton(id, label, title),
+    tags$div(
+      class = "dir-help-overlay",
+      alloc_help_icon(help_id)
     )
   )
 }
