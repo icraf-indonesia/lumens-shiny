@@ -212,6 +212,8 @@ ui <- fluidPage(
                 id = "alloc_params_wrapper",
                 class = "alloc-disabled",
                 
+                uiOutput("alloc_pixel_info"),
+                
                 numericInput("alloc_percent",
                              label = tags$div(
                                class = "alloc-label",
@@ -222,52 +224,62 @@ ui <- fluidPage(
                 
                 fluidRow(
                   class = "alloc-3col",
-                  column(4, numericInput("alloc_exp_mean",
-                                         label = tags$div(
-                                           class = "alloc-label",
-                                           tags$span(HTML("Expansion Mean<br>Patch Size (ha)")),
-                                           alloc_help_icon("exp_mean")
-                                         ),
-                                         value = 2, min = 0, step = 0.1)),
-                  column(4, numericInput("alloc_exp_var",
-                                         label = tags$div(
-                                           class = "alloc-label",
-                                           tags$span(HTML("Expansion Patch<br>Size Variance (ha)")),
-                                           alloc_help_icon("exp_var")
-                                         ),
-                                         value = 1, min = 0, step = 0.1)),
-                  column(4, numericInput("alloc_exp_iso",
-                                         label = tags$div(
-                                           class = "alloc-label",
-                                           tags$span(HTML("Expansion Patch<br>Isometry (0\u20132)")),
-                                           alloc_help_icon("exp_iso")
-                                         ),
-                                         value = 1, min = 0, max = 2, step = 0.1))
+                  column(4, 
+                         tags$div(
+                           class = "alloc-label",
+                           tags$span(HTML("Expansion Mean<br>Patch Size (ha)")),
+                           alloc_help_icon("exp_mean")
+                         ),
+                         numericInput("alloc_exp_mean", label = NULL, value = 2, min = 0, step = 0.1),
+                         uiOutput("feedback_exp_mean")
+                  ),
+                  column(4, 
+                         tags$div(
+                           class = "alloc-label",
+                           tags$span(HTML("Expansion Patch<br>Size Variance (ha)")),
+                           alloc_help_icon("exp_var")
+                         ),
+                         numericInput("alloc_exp_var", label = NULL, value = 1, min = 0, step = 0.1),
+                         uiOutput("feedback_exp_var")
+                  ),
+                  column(4, 
+                         tags$div(
+                           class = "alloc-label",
+                           tags$span(HTML("Expansion Patch<br>Isometry (0\u20132)")),
+                           alloc_help_icon("exp_iso")
+                         ),
+                         numericInput("alloc_exp_iso", label = NULL, value = 1, min = 0, max = 2, step = 0.1)
+                  )
                 ),
                 
                 fluidRow(
                   class = "alloc-3col",
-                  column(4, numericInput("alloc_gen_mean",
-                                         label = tags$div(
-                                           class = "alloc-label",
-                                           tags$span(HTML("Generation Mean<br>Patch Size (ha)")),
-                                           alloc_help_icon("gen_mean")
-                                         ),
-                                         value = 1, min = 0, step = 0.1)),
-                  column(4, numericInput("alloc_gen_var",
-                                         label = tags$div(
-                                           class = "alloc-label",
-                                           tags$span(HTML("Generation Patch<br>Size Variance (ha)")),
-                                           alloc_help_icon("gen_var")
-                                         ),
-                                         value = 1, min = 0, step = 0.1)),
-                  column(4, numericInput("alloc_gen_iso",
-                                         label = tags$div(
-                                           class = "alloc-label",
-                                           tags$span(HTML("Generation Patch<br>Isometry (0\u20132)")),
-                                           alloc_help_icon("gen_iso")
-                                         ),
-                                         value = 1, min = 0, max = 2, step = 0.1))
+                  column(4, 
+                         tags$div(
+                           class = "alloc-label",
+                           tags$span(HTML("Generation Mean<br>Patch Size (ha)")),
+                           alloc_help_icon("gen_mean")
+                         ),
+                         numericInput("alloc_gen_mean", label = NULL, value = 1, min = 0, step = 0.1),
+                         uiOutput("feedback_gen_mean")
+                  ),
+                  column(4, 
+                         tags$div(
+                           class = "alloc-label",
+                           tags$span(HTML("Generation Patch<br>Size Variance (ha)")),
+                           alloc_help_icon("gen_var")
+                         ),
+                         numericInput("alloc_gen_var", label = NULL, value = 1, min = 0, step = 0.1),
+                         uiOutput("feedback_gen_var")
+                  ),
+                  column(4, 
+                         tags$div(
+                           class = "alloc-label",
+                           tags$span(HTML("Generation Patch<br>Isometry (0\u20132)")),
+                           alloc_help_icon("gen_iso")
+                         ),
+                         numericInput("alloc_gen_iso", label = NULL, value = 1, min = 0, max = 2, step = 0.1)
+                  )
                 ),
                 
                 tags$hr(),
@@ -357,7 +369,9 @@ server <- function(input, output, session) {
     rc = NULL,
     rc_xml = NULL,
     alloc_override_df = NULL,
-    alloc_template    = NULL
+    alloc_template    = NULL,
+    cell_area_ha      = 0.09,
+    pixel_resolution_m = 30.0
   )
   
   volumes <- c(
@@ -376,6 +390,18 @@ server <- function(input, output, session) {
       return()
     
     rv$map1_file <- rename_uploaded_file(map1)
+    tryCatch({
+      r_tmp <- terra::rast(rv$map1_file)
+      res_xy <- terra::res(r_tmp)
+      area_ha <- (res_xy[1] * res_xy[2]) / 10000
+      if (!is.na(area_ha) && area_ha > 0) {
+        rv$cell_area_ha <- area_ha
+        rv$pixel_resolution_m <- round(mean(res_xy), 1)
+      }
+    }, error = function(e) {
+      rv$cell_area_ha <- 0.09
+      rv$pixel_resolution_m <- 30.0
+    })
   })
   
   observeEvent(input$mapz_file, {
@@ -632,6 +658,36 @@ server <- function(input, output, session) {
     }
   })
   
+  # Dynamic feedback for patch size ha -> pixel conversion
+  output$alloc_pixel_info <- renderUI({
+    if (!is.null(rv$map1_file)) {
+      tags$div(
+        class = "alert alert-info py-1 px-2 mb-2", style = "font-size: 12px; margin-top: 5px;",
+        sprintf("Raster resolution: %s m (1 pixel \u2248 %.3f ha). Patch size parameters are in ha and converted to pixels for Dinamica EGO.",
+                rv$pixel_resolution_m, rv$cell_area_ha)
+      )
+    } else {
+      tags$div(
+        class = "alert alert-secondary py-1 px-2 mb-2", style = "font-size: 12px; margin-top: 5px;",
+        "Default resolution: 30 m (1 pixel \u2248 0.090 ha). Upload Initial Land Cover Map to auto-detect."
+      )
+    }
+  })
+  
+  .calc_px_badge <- function(val_ha, cell_ha, is_variance = FALSE) {
+    if (is.null(val_ha) || is.na(val_ha) || val_ha < 0) return(NULL)
+    if (!is_variance && val_ha <= 0) return(NULL)
+    px <- if (is_variance) max(0, round(val_ha / cell_ha)) else max(1, round(val_ha / cell_ha))
+    tags$div(style = "font-size: 11px; color: #0d6efd; font-weight: 600; margin-top: -2px; margin-bottom: 6px;",
+             sprintf("\u2248 %s px", format(px, big.mark = ",")))
+  }
+  
+  output$feedback_exp_mean <- renderUI({ .calc_px_badge(input$alloc_exp_mean, rv$cell_area_ha, is_variance = FALSE) })
+  output$feedback_exp_var  <- renderUI({ .calc_px_badge(input$alloc_exp_var, rv$cell_area_ha, is_variance = TRUE) })
+  output$feedback_gen_mean <- renderUI({ .calc_px_badge(input$alloc_gen_mean, rv$cell_area_ha, is_variance = FALSE) })
+  output$feedback_gen_var  <- renderUI({ .calc_px_badge(input$alloc_gen_var, rv$cell_area_ha, is_variance = TRUE) })
+
+  
   # Generate template
   observeEvent(input$generate_alloc_template, {
     if (is.null(rv$lc_df)) {
@@ -810,16 +866,31 @@ server <- function(input, output, session) {
     alloc_params <- NULL
     alloc_override <- NULL
     if (isTRUE(input$alloc_custom)) {
+      cell_ha <- if (!is.null(rv$cell_area_ha) && rv$cell_area_ha > 0) rv$cell_area_ha else 0.09
       alloc_params <- list(
         percent  = input$alloc_percent,
-        exp_mean = input$alloc_exp_mean,
-        exp_var  = input$alloc_exp_var,
+        exp_mean = max(1, round(input$alloc_exp_mean / cell_ha)),
+        exp_var  = max(0, round(input$alloc_exp_var / cell_ha)),
         exp_iso  = input$alloc_exp_iso,
-        gen_mean = input$alloc_gen_mean,
-        gen_var  = input$alloc_gen_var,
+        gen_mean = max(1, round(input$alloc_gen_mean / cell_ha)),
+        gen_var  = max(0, round(input$alloc_gen_var / cell_ha)),
         gen_iso  = input$alloc_gen_iso
       )
       alloc_override <- rv$alloc_override_df
+      if (!is.null(alloc_override)) {
+        for (col in c("exp_mean", "gen_mean")) {
+          if (col %in% names(alloc_override)) {
+            val <- alloc_override[[col]]
+            alloc_override[[col]] <- ifelse(!is.na(val) & val > 0, pmax(1, round(val / cell_ha)), val)
+          }
+        }
+        for (col in c("exp_var", "gen_var")) {
+          if (col %in% names(alloc_override)) {
+            val <- alloc_override[[col]]
+            alloc_override[[col]] <- ifelse(!is.na(val) & val >= 0, pmax(0, round(val / cell_ha)), val)
+          }
+        }
+      }
     }
     
     withProgress(message = "Running SCIENDO Simulate", value = 0, {
