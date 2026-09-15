@@ -771,9 +771,25 @@ generate_sciendo_simulate_report <- function(output, dir) {
     inputs      = output$inputs,
     session_log = output$session_log
   )
-  output_file <- paste0("sciendo_simulate_report_", Sys.Date(), ".html")
-  rmarkdown::render(
+  template_candidates <- c(
     "../report_template/sciendo_simulate_report_template_INA.Rmd",
+    "11_sciendo-simulate/report_template/sciendo_simulate_report_template_INA.Rmd",
+    file.path(getwd(), "11_sciendo-simulate/report_template/sciendo_simulate_report_template_INA.Rmd"),
+    system.file("report_template", "sciendo_simulate_report_template_INA.Rmd", package = "LUMENSR")
+  )
+  template_path <- NULL
+  for (cand in template_candidates) {
+    if (nzchar(cand) && file.exists(cand)) {
+      template_path <- cand
+      break
+    }
+  }
+  if (is.null(template_path)) {
+    template_path <- "../report_template/sciendo_simulate_report_template_INA.Rmd"
+  }
+
+  rmarkdown::render(
+    template_path,
     output_file = output_file,
     output_dir  = dir,
     params      = report_params
