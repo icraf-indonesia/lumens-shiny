@@ -1460,7 +1460,8 @@ render_dt_table <- function(data, caption = NULL, digits = 2, area_digits = 0,
 #' Interactive Categorical Raster Map with mapview
 #'
 #' Builds an interactive mapview / leaflet map for a categorical raster,
-#' using custom hex colors from `cat_table$color_palette` when available.
+#' using custom hex colors from `cat_table$color_palette` when available,
+#' with Esri World Topo Map as the default basemap.
 #'
 #' @param cat_raster A categorical `SpatRaster`.
 #' @param cat_table Data frame whose first column holds IDs and second column
@@ -1498,15 +1499,19 @@ plot_categorical_raster_mapview <- function(cat_raster, cat_table,
   activeCat(cat_factor) <- "Category"
   
   predefined_colors <- c(
-    "#3cb44b", "#ffe119", "#4363d8", "#f58231", "#911eb4", "#46f0f0",
-    "#f032e6", "#e6194B", "#bcf60c", "#fabebe", "#008080", "#e6beff",
-    "#9A6324", "#fffac8", "#800000", "#aaffc3", "#808000", "#ffd8b1",
-    "#000075", "#808080", "#1F77B4", "#FF7F0E", "#40E0D0", "#6B8E23",
-    "#2CA02C", "#D62728", "#9467BD", "#8C564B", "#E377C2", "#7F7F7F",
-    "#CD5C5C", "#7B68EE", "#17BECF", "#BCBD22", "#FF9896", "#C5B0D5",
-    "#C49C94", "#9C9EDE", "#AEC7E8", "#FFBB78", "#98DF8A", "#FF7F50",
-    "#FFD700", "#8B0000", "#20B2AA", "#DA70D6", "#B22222", "#5F9EA0",
-    "#ffffff", "#000000"
+    "#E6194B", "#3CB44B", "#FFE119", "#4363D8", "#F58231", "#911EB4", "#46F0F0", "#F032E6",
+    "#BCF60C", "#FABEBE", "#008080", "#E6BEFF", "#9A6324", "#FFFAC8", "#800000", "#AAFFC3",
+    "#808000", "#FFD8B1", "#000075", "#A9A9A9", "#231F20", "#1170AA", "#A2C8EC", "#FFBC79",
+    "#C85200", "#FF9DA7", "#D55E00", "#59A14F", "#EDC948", "#B07AA1", "#9C755F", "#BAB0AC",
+    "#1B9E77", "#D95F02", "#7570B3", "#E7298A", "#66A61E", "#E6AB02", "#A6761D", "#666666",
+    "#A6CEE3", "#1F78B4", "#B2DF8A", "#33A02C", "#FB9A99", "#E31A1C", "#FDBF6F", "#FF7F00",
+    "#CAB2D6", "#6A3D9A", "#FFFF99", "#B15928", "#8DD3C7", "#FFFFB3", "#BEBADA", "#FB8072",
+    "#80B1D3", "#FDB462", "#B3DE69", "#FCCDE5", "#D9D9D9", "#BC80BD", "#CCEBC5", "#FFED6F",
+    "#2F4F4F", "#556B2F", "#A0522D", "#191970", "#006400", "#8B0000", "#4B0082", "#008B8B",
+    "#00008B", "#FF4500", "#FF8C00", "#FFD700", "#00FF00", "#00FA9A", "#00FFFF", "#00BFFF",
+    "#0000FF", "#FF00FF", "#1E90FF", "#DDA0DD", "#FF1493", "#98FB98", "#708090", "#D2B48C",
+    "#00FF7F", "#4682B4", "#D2691E", "#9932CC", "#87CEEB", "#FF69B4", "#CD5C5C", "#E9967A",
+    "#8A2BE2", "#2E8B57", "#228B22", "#DC143C"
   )
   
   if ("color_palette" %in% names(cat_tbl_filtered)) {
@@ -1527,7 +1532,8 @@ plot_categorical_raster_mapview <- function(cat_raster, cat_table,
     maxpixels  = ncell(cat_factor),
     layer.name = layer_title,
     na.color   = "transparent",
-    legend     = FALSE
+    legend     = FALSE,
+    map.types  = "Esri.WorldTopoMap"
   )
   
   pal <- colorFactor(palette = color_table$color, domain = levels_df$Category)
