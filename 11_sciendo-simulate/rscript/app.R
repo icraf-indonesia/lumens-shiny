@@ -35,25 +35,155 @@ ui <- fluidPage(
   titlePanel("SCIENDO Simulate"),
   sidebarLayout(
     sidebarPanel(
-      fileInput("map1_file", "Initial Land Cover/Use Map", accept = c("image/tiff")),
-      numericInput("init_year", "Initial Year", value = 2025),
-      fileInput("mapz_file", "Planning Unit", accept = c("image/tiff")),
-      fileInput("lc_file", "Land Use/Cover Lookup Table (CSV)", accept = c(".csv")),
-      fileInput("rc_file", "Raster Cube", accept = c(".tif", ".xml"), multiple=T),
-      numericInput("repetition", "Repetition", value = 2),
+      fileInput("map1_file",
+                label = label_with_help("Initial Land Cover/Use Map", "map1_file"),
+                accept = c("image/tiff"), placeholder = "Upload raster file (.tif)"),
+      numericInput("init_year",
+                   label = label_with_help("Initial Year", "init_year"),
+                   value = 2025),
+      fileInput("mapz_file",
+                label = label_with_help("Planning Unit Map", "mapz_file"),
+                accept = c("image/tiff"), placeholder = "Upload raster file (.tif)"),
+      fileInput("lc_file",
+                label = label_with_help("Land Use/Cover Lookup Table", "lc_file"),
+                accept = c(".csv", ".xlsx"), placeholder = "Upload table file (.csv/.xlsx)"),
+      fileInput("rc_file",
+                label = label_with_help("Raster Cube Map", "rc_file"),
+                accept = c(".tif", ".xml"), multiple = TRUE, placeholder = "Upload raster file (.tif & .xml)"),
+      numericInput("repetition",
+                   label = label_with_help("Simulation Periods", "repetition"),
+                   value = 2),
       
       tags$head(
         tags$style(HTML("
       .selectize-dropdown-content .option {
         padding-left: 20px;
       }
+      .alloc-disabled {
+        opacity: 0.5;
+        pointer-events: none;
+        user-select: none;
+        filter: grayscale(0.3);
+      }
+      .alloc-info-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 6px;
+      }
+      .alloc-info-row .form-group {
+        margin-bottom: 0;
+        flex: 1;
+      }
+      .alloc-label {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 4px;
+        width: 100%;
+      }
+      .alloc-help-icon {
+        display: inline-flex;
+        align-items: center;
+        color: #0d6efd;
+        cursor: pointer;
+        flex-shrink: 0;
+        margin-top: 2px;
+        line-height: 1;
+      }
+      .alloc-help-icon a,
+      .alloc-help-icon .action-button {
+        color: inherit !important;
+        text-decoration: none !important;
+        background: none !important;
+        border: none !important;
+        padding: 0 !important;
+        cursor: pointer !important;
+      }
+      .alloc-help-icon:hover,
+      .alloc-help-icon:hover a {
+        color: #0a58ca !important;
+      }
+      .alloc-3col .form-group > label {
+        min-height: 3em;
+        display: block;
+      }
+      .alloc-tmpl-row .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+      }
+      .alloc-tmpl-row .form-group {
+        margin-bottom: 0;
+      }
+      .dir-btn-wrapper {
+        position: relative;
+        width: 100%;
+      }
+      .dir-btn-wrapper .btn {
+        width: 100%;
+        text-align: center;
+      }
+      .dir-help-overlay {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        z-index: 10;
+      }
+      /.form-group > label.control-label {
+      /  display: block;
+      /  width: 100%;
+      /}
     "))
       ),
       
-      selectizeInput("memory_allocation", "Choose Memory Allocation",
-                     choices = c("Balanced" = 1, "Prefer Memory" = 0, "Prefer Disk" = 2, 
-                                 "Memory Only" = 3, "Aggressive" = 4),
-                     options = list(render = I("
+      div(style = "display: flex; flex-direction: column; gap: 10px;",
+          dir_button_with_help(
+            "tm_path",
+            "Transition Probability Matrix Folder Path",
+            "Choose a folder contains CSV files",
+            "tm_path"
+          ),
+          verbatimTextOutput("print_tm_dir", placeholder = TRUE),
+          
+          dir_button_with_help(
+            "dcf_path",
+            "Weights of Evidence Folder Path",
+            "Choose a folder contains DCF files",
+            "dcf_path"
+          ),
+          verbatimTextOutput("print_dcf_dir", placeholder = TRUE),
+          
+          dir_button_with_help(
+            "wd",
+            "Select output directory",
+            "Please select a directory",
+            "wd"
+          ),
+          verbatimTextOutput("print_output_dir", placeholder = TRUE),
+          
+          dir_button_with_help(
+            "dinamica_path",
+            "DINAMICA EGO Path (Optional)",
+            "(Optional)",
+            "dinamica_path"
+          ),
+          verbatimTextOutput("print_dinamica_path", placeholder = TRUE),
+          
+          accordion(
+            open = FALSE,
+            accordion_panel(
+              title = "Advanced Settings",
+              icon = icon("gear"),
+              value = "advanced_settings",
+              
+              selectizeInput("memory_allocation",
+                             label = label_with_help("Choose Memory Allocation", "memory_allocation"),
+                             choices = c("Balanced" = 1, "Prefer Memory" = 0, "Prefer Disk" = 2, 
+                                         "Memory Only" = 3, "Aggressive" = 4),
+                             options = list(render = I("
                    {
                      option: function(item, escape) {
                        var explanations = {
@@ -68,18 +198,124 @@ ui <- fluidPage(
                      }
                    }
                  "))),
-      
-      div(style = "display: flex; flex-direction: column; gap: 10px;",
-          shinyDirButton("tm_path", "Transition Matrix Folder Path", "Choose a folder contains CSV files"),
-          verbatimTextOutput("print_tm_dir", placeholder = TRUE),
-          shinyDirButton("dcf_path", "Weights of Evidence Folder Path", "Choose a folder contains DCF files"),
-          verbatimTextOutput("print_dcf_dir", placeholder = TRUE),
-          shinyDirButton("wd", "Select output directory", "Please select a directory"),
-          verbatimTextOutput("print_output_dir", placeholder = TRUE),
-          shinyDirButton("dinamica_path", "DINAMICA EGO Path (Optional)", "(Optional)"),
-          verbatimTextOutput("print_dinamica_path", placeholder = TRUE),
+              
+              tags$hr(),
+              
+              tags$div(
+                class = "alloc-info-row",
+                checkboxInput("alloc_custom",
+                              "Parameterize Allocate Transitions",
+                              value = FALSE),
+                alloc_help_icon("custom")
+              ),
+              tags$div(
+                id = "alloc_params_wrapper",
+                class = "alloc-disabled",
+                
+                uiOutput("alloc_pixel_info"),
+                
+                numericInput("alloc_percent",
+                             label = tags$div(
+                               class = "alloc-label",
+                               tags$span(HTML("Percent of Transitions by Expansion (0\u20131)")),
+                               alloc_help_icon("percent")
+                             ),
+                             value = 0.5, min = 0, max = 1, step = 0.05),
+                
+                fluidRow(
+                  class = "alloc-3col",
+                  column(4, 
+                         tags$div(
+                           class = "alloc-label",
+                           tags$span(HTML("Expansion Mean<br>Patch Size (ha)")),
+                           alloc_help_icon("exp_mean")
+                         ),
+                         numericInput("alloc_exp_mean", label = NULL, value = 2, min = 0, step = 0.1),
+                         uiOutput("feedback_exp_mean")
+                  ),
+                  column(4, 
+                         tags$div(
+                           class = "alloc-label",
+                           tags$span(HTML("Expansion Patch<br>Size Variance (ha)")),
+                           alloc_help_icon("exp_var")
+                         ),
+                         numericInput("alloc_exp_var", label = NULL, value = 1, min = 0, step = 0.1),
+                         uiOutput("feedback_exp_var")
+                  ),
+                  column(4, 
+                         tags$div(
+                           class = "alloc-label",
+                           tags$span(HTML("Expansion Patch<br>Isometry (0\u20132)")),
+                           alloc_help_icon("exp_iso")
+                         ),
+                         numericInput("alloc_exp_iso", label = NULL, value = 1, min = 0, max = 2, step = 0.1)
+                  )
+                ),
+                
+                fluidRow(
+                  class = "alloc-3col",
+                  column(4, 
+                         tags$div(
+                           class = "alloc-label",
+                           tags$span(HTML("Generation Mean<br>Patch Size (ha)")),
+                           alloc_help_icon("gen_mean")
+                         ),
+                         numericInput("alloc_gen_mean", label = NULL, value = 1, min = 0, step = 0.1),
+                         uiOutput("feedback_gen_mean")
+                  ),
+                  column(4, 
+                         tags$div(
+                           class = "alloc-label",
+                           tags$span(HTML("Generation Patch<br>Size Variance (ha)")),
+                           alloc_help_icon("gen_var")
+                         ),
+                         numericInput("alloc_gen_var", label = NULL, value = 1, min = 0, step = 0.1),
+                         uiOutput("feedback_gen_var")
+                  ),
+                  column(4, 
+                         tags$div(
+                           class = "alloc-label",
+                           tags$span(HTML("Generation Patch<br>Isometry (0\u20132)")),
+                           alloc_help_icon("gen_iso")
+                         ),
+                         numericInput("alloc_gen_iso", label = NULL, value = 1, min = 0, max = 2, step = 0.1)
+                  )
+                ),
+                
+                tags$hr(),
+                
+                tags$p(
+                  style = "margin-bottom: 8px; display: flex; align-items: center; gap: 6px;",
+                  tags$span("Per-Transition Allocation (optional)"),
+                  alloc_help_icon("override")
+                ),
+                
+                tags$div(
+                  class = "alloc-tmpl-row",
+                  style = "display: flex; gap: 10px; margin-bottom: 10px;",
+                  tags$div(style = "flex: 1;",
+                           actionButton("generate_alloc_template", "Generate Template",
+                                        icon = icon("file-excel"),
+                                        style = "font-size: 14px; padding: 6px 10px; width: 100%; height: 38px;")
+                  ),
+                  tags$div(style = "flex: 1;",
+                           downloadButton("download_alloc_template", "Download Template",
+                                          icon = icon("download"),
+                                          style = "font-size: 14px; padding: 6px 10px; width: 100%; height: 38px;")
+                  )
+                ),
+                
+                fileInput("alloc_override_file",
+                          "Upload Filled Template (.csv or .xlsx)",
+                          accept = c(".csv", ".xlsx"), placeholder = "Upload table file (.csv/.xlsx)",
+                          width = "100%")
+              )
+            )
+          ),
+          
           actionButton("processSimulate", "Run Analysis", 
                        style = "font-size: 18px; padding: 10px 15px; background-color: #4CAF50; color: white;"),
+          
           hidden(
             actionButton("openReport", "Open Report",
                          style = "font-size: 18px; padding: 10px 15px; background-color: #008CBA; color: white;")
@@ -116,7 +352,6 @@ ui <- fluidPage(
 
 server <- function(input, output, session) {
   options(shiny.maxRequestSize = 100 * 1024^2)
-  #### Initialize all required reactive values ####
   rv <- reactiveValues(
     wd = NULL,
     dinamica_path = NULL,
@@ -132,9 +367,13 @@ server <- function(input, output, session) {
     period_value = NULL,
     memory_allocation = NULL,
     rc = NULL,
-    rc_xml = NULL
+    rc_xml = NULL,
+    alloc_override_df = NULL,
+    alloc_template    = NULL,
+    cell_area_ha      = 0.09,
+    pixel_resolution_m = 30.0
   )
-
+  
   volumes <- c(
     Home = fs::path_home(), "R Installation" = R.home(), 
     getVolumes()()
@@ -144,13 +383,25 @@ server <- function(input, output, session) {
     return(!is.na(as.integer(as.character(s))))
   }
   
-  #### Read file inputs ####
+  # Read file inputs
   observeEvent(input$map1_file, {
     map1 <- input$map1_file
     if(is.null(map1))
       return()
     
     rv$map1_file <- rename_uploaded_file(map1)
+    tryCatch({
+      r_tmp <- terra::rast(rv$map1_file)
+      res_xy <- terra::res(r_tmp)
+      area_ha <- (res_xy[1] * res_xy[2]) / 10000
+      if (!is.na(area_ha) && area_ha > 0) {
+        rv$cell_area_ha <- area_ha
+        rv$pixel_resolution_m <- round(mean(res_xy), 1)
+      }
+    }, error = function(e) {
+      rv$cell_area_ha <- 0.09
+      rv$pixel_resolution_m <- 30.0
+    })
   })
   
   observeEvent(input$mapz_file, {
@@ -161,12 +412,11 @@ server <- function(input, output, session) {
     rv$mapz_file <- rename_uploaded_file(mapz)
   })
   
-  #### Read file inputs ####
+  # Read file inputs
   observeEvent(input$rc_file, {
     rc <- input$rc_file
     if (is.null(rc)) return()
     
-    # check if both .tif and .xml are present
     has_tif <- any(grepl("\\.tif$", rc$name, ignore.case = TRUE))
     has_xml <- any(grepl("\\.xml$", rc$name, ignore.case = TRUE))
     
@@ -193,7 +443,7 @@ server <- function(input, output, session) {
     xml_file <- rc$name[grep("\\.xml$", rc$name, ignore.case = TRUE)]
     rv$rc <- file.path(uploaded_dir, tif_file)
     rv$rc_xml <- file.path(uploaded_dir, xml_file)
-
+    
     xml_data <- xml2::read_xml(rv$rc_xml)  
     
     # Extract PU classes
@@ -217,12 +467,37 @@ server <- function(input, output, session) {
   })
   
   
-
-  #### Read lc lookup table ####
+  
+  # Read lc lookup table
   observeEvent(input$lc_file, {
     f <- input$lc_file
+    if (is.null(f)) {
+      rv$lc_path <- NULL
+      return()
+    }
+    
     rv$lc_path <- rename_uploaded_file(f)
-    df_c <- read.csv(rv$lc_path)
+    
+    ext <- tolower(tools::file_ext(f$name))
+    df_c <- tryCatch({
+      if (ext == "csv") {
+        read.csv(rv$lc_path, stringsAsFactors = FALSE, check.names = FALSE)
+      } else if (ext == "xlsx") {
+        as.data.frame(openxlsx::read.xlsx(rv$lc_path, check.names = FALSE))
+      } else {
+        stop("Unsupported file format. Please upload a .csv or .xlsx file.")
+      }
+    }, error = function(e) {
+      showNotification(paste("Error reading file:", e$message),
+                       type = "error", duration = 6)
+      NULL
+    })
+    
+    if (is.null(df_c)) {
+      rv$lc_path <- NULL
+      return()
+    }
+    
     
     if(nrow(df_c) == 0)
       return()
@@ -236,7 +511,7 @@ server <- function(input, output, session) {
     rv$lc_df <- df
   })
   
-  #### Set working directory ####
+  # Set working directory 
   shinyDirChoose(
     input, 
     'wd',
@@ -266,7 +541,7 @@ server <- function(input, output, session) {
     }
   })
   
-  #### Set transition matrix directory ####
+  # Set transition matrix directory
   shinyDirChoose(
     input, 
     'tm_path',
@@ -288,7 +563,7 @@ server <- function(input, output, session) {
     }
   })
   
-  #### Set dcf directory ####
+  # Set dcf directory
   shinyDirChoose(
     input, 
     'dcf_path',
@@ -310,7 +585,7 @@ server <- function(input, output, session) {
     }
   })
   
-  #### Set DINAMICA Path ####
+  # Set DINAMICA Path
   shinyDirChoose(
     input, 
     'dinamica_path',
@@ -322,7 +597,6 @@ server <- function(input, output, session) {
     if (!is.null(input$dinamica_path) && !identical(parseDirPath(volumes, input$dinamica_path), character(0))) {
       rv$dinamica_path <- parseDirPath(volumes, input$dinamica_path)
     } else {
-      # Find DINAMICA directory if not provided
       program_files <- c("C:/Program Files/", "C:/Program Files (x86)/")
       dinamica_dirs <- list.files(program_files, pattern = "^Dinamica EGO", full.names = TRUE, recursive = FALSE)
       
@@ -330,7 +604,6 @@ server <- function(input, output, session) {
         showNotification("No DINAMICA EGO installation found.", type = "error")
         rv$dinamica_path <- NULL
       } else {
-        # Sort directories to use the latest version if multiple are found
         rv$dinamica_path <- sort(dinamica_dirs, decreasing = TRUE)[1]
       }
     }
@@ -362,7 +635,152 @@ server <- function(input, output, session) {
     return(new_path)
   }
   
-  # --- Input validation ---
+  #### Click-to-open help modals ####
+  lapply(names(alloc_help_texts), function(id) {
+    observeEvent(input[[paste0("alloc_help_", id)]], {
+      info <- alloc_help_texts[[id]]
+      showModal(modalDialog(
+        title = tagList(icon("circle-info"), " ", info$title),
+        HTML(info$body),
+        easyClose = TRUE,
+        footer = modalButton("Close"),
+        size = "m"
+      ))
+    })
+  })
+  
+  # Allocate Transitions
+  observe({
+    if (isTRUE(input$alloc_custom)) {
+      shinyjs::removeClass("alloc_params_wrapper", "alloc-disabled")
+    } else {
+      shinyjs::addClass("alloc_params_wrapper", "alloc-disabled")
+    }
+  })
+  
+  # Dynamic feedback for patch size ha -> pixel conversion
+  output$alloc_pixel_info <- renderUI({
+    if (!is.null(rv$map1_file)) {
+      tags$div(
+        class = "alert alert-info py-1 px-2 mb-2", style = "font-size: 12px; margin-top: 5px;",
+        sprintf("Raster resolution: %s m (1 pixel \u2248 %.3f ha). Patch size parameters are in ha and converted to pixels for Dinamica EGO.",
+                rv$pixel_resolution_m, rv$cell_area_ha)
+      )
+    } else {
+      tags$div(
+        class = "alert alert-secondary py-1 px-2 mb-2", style = "font-size: 12px; margin-top: 5px;",
+        "Default resolution: 30 m (1 pixel \u2248 0.090 ha). Upload Initial Land Cover Map to auto-detect."
+      )
+    }
+  })
+  
+  .calc_px_badge <- function(val_ha, cell_ha, is_variance = FALSE) {
+    if (is.null(val_ha) || is.na(val_ha) || val_ha < 0) return(NULL)
+    if (!is_variance && val_ha <= 0) return(NULL)
+    px <- if (is_variance) max(0, round(val_ha / cell_ha)) else max(1, round(val_ha / cell_ha))
+    tags$div(style = "font-size: 11px; color: #0d6efd; font-weight: 600; margin-top: -2px; margin-bottom: 6px;",
+             sprintf("\u2248 %s px", format(px, big.mark = ",")))
+  }
+  
+  output$feedback_exp_mean <- renderUI({ .calc_px_badge(input$alloc_exp_mean, rv$cell_area_ha, is_variance = FALSE) })
+  output$feedback_exp_var  <- renderUI({ .calc_px_badge(input$alloc_exp_var, rv$cell_area_ha, is_variance = TRUE) })
+  output$feedback_gen_mean <- renderUI({ .calc_px_badge(input$alloc_gen_mean, rv$cell_area_ha, is_variance = FALSE) })
+  output$feedback_gen_var  <- renderUI({ .calc_px_badge(input$alloc_gen_var, rv$cell_area_ha, is_variance = TRUE) })
+
+  
+  # Generate template
+  observeEvent(input$generate_alloc_template, {
+    if (is.null(rv$lc_df)) {
+      showNotification(
+        "Please upload the Land Use/Cover Lookup Table (CSV) first.",
+        type = "warning", duration = 5
+      )
+      return()
+    }
+    rv$alloc_template <- make_alloc_trans_template(rv$lc_df)
+    showNotification(
+      "Template generated. Click 'Download Template' to save it.",
+      type = "message", duration = 5
+    )
+  })
+  
+  # Download template (xlsx)
+  output$download_alloc_template <- downloadHandler(
+    filename = function() {
+      paste0("allocate_transitions_template_", Sys.Date(), ".xlsx")
+    },
+    content = function(file) {
+      tmpl <- rv$alloc_template
+      if (is.null(tmpl)) {
+        if (is.null(rv$lc_df)) {
+          showNotification(
+            "Please upload the Land Use/Cover Lookup Table (CSV) first.",
+            type = "warning", duration = 5
+          )
+          openxlsx::write.xlsx(data.frame(), file)
+          return()
+        }
+        tmpl <- make_alloc_trans_template(rv$lc_df)
+        rv$alloc_template <- tmpl
+      }
+      openxlsx::write.xlsx(tmpl, file)
+    }
+  )
+  
+  # Parse override upload 
+  observeEvent(input$alloc_override_file, {
+    f <- input$alloc_override_file
+    if (is.null(f)) {
+      rv$alloc_override_df <- NULL
+      return()
+    }
+    
+    ext <- tolower(tools::file_ext(f$name))
+    df <- tryCatch({
+      if (ext == "csv") {
+        read.csv(f$datapath, stringsAsFactors = FALSE, check.names = FALSE)
+      } else if (ext == "xlsx") {
+        as.data.frame(openxlsx::read.xlsx(f$datapath, check.names = FALSE))
+      } else {
+        stop("Unsupported file format. Please upload a .csv or .xlsx file.")
+      }
+    }, error = function(e) {
+      showNotification(paste("Error reading file:", e$message),
+                       type = "error", duration = 6)
+      NULL
+    })
+    
+    if (is.null(df)) {
+      rv$alloc_override_df <- NULL
+      return()
+    }
+    
+    required <- c("from_id", "to_id",
+                  "percent", "exp_mean", "exp_var", "exp_iso",
+                  "gen_mean", "gen_var", "gen_iso")
+    missing_cols <- setdiff(required, names(df))
+    if (length(missing_cols) > 0) {
+      showNotification(
+        paste("Template is missing required columns:",
+              paste(missing_cols, collapse = ", ")),
+        type = "error", duration = 6
+      )
+      rv$alloc_override_df <- NULL
+      return()
+    }
+    
+    # Coerce id columns to integer
+    df$from_id <- as.integer(df$from_id)
+    df$to_id   <- as.integer(df$to_id)
+    
+    rv$alloc_override_df <- df
+    showNotification(
+      "Override template loaded. Non-empty cells will override inputs and defaults.",
+      type = "message", duration = 5
+    )
+  })
+  
+  # Input validation
   iv <- InputValidator$new()
   
   iv$add_rule("map1_file", sv_required(message = "Please upload land cover map at T1"))
@@ -388,7 +806,51 @@ server <- function(input, output, session) {
     NULL
   })
   
-  #### Do the calculation and store it to the markdown content ####
+  # Only validate allocate transition parameters when the checkbox is enabled
+  iv$add_rule("alloc_percent", function(value) {
+    if (!isTRUE(input$alloc_custom)) return(NULL)
+    if (is.null(value) || is.na(value)) return("Please provide a value")
+    if (value < 0 || value > 1) return("Must be between 0 and 1 (inclusive)")
+    NULL
+  })
+  iv$add_rule("alloc_exp_mean", function(value) {
+    if (!isTRUE(input$alloc_custom)) return(NULL)
+    if (is.null(value) || is.na(value)) return("Please provide a value")
+    if (value <= 0) return("Must be greater than 0")
+    NULL
+  })
+  iv$add_rule("alloc_exp_var", function(value) {
+    if (!isTRUE(input$alloc_custom)) return(NULL)
+    if (is.null(value) || is.na(value)) return("Please provide a value")
+    if (value < 0) return("Must be 0 or greater")
+    NULL
+  })
+  iv$add_rule("alloc_exp_iso", function(value) {
+    if (!isTRUE(input$alloc_custom)) return(NULL)
+    if (is.null(value) || is.na(value)) return("Please provide a value")
+    if (value < 0 || value > 2) return("Must be between 0 and 2 (inclusive)")
+    NULL
+  })
+  iv$add_rule("alloc_gen_mean", function(value) {
+    if (!isTRUE(input$alloc_custom)) return(NULL)
+    if (is.null(value) || is.na(value)) return("Please provide a value")
+    if (value <= 0) return("Must be greater than 0")
+    NULL
+  })
+  iv$add_rule("alloc_gen_var", function(value) {
+    if (!isTRUE(input$alloc_custom)) return(NULL)
+    if (is.null(value) || is.na(value)) return("Please provide a value")
+    if (value < 0) return("Must be 0 or greater")
+    NULL
+  })
+  iv$add_rule("alloc_gen_iso", function(value) {
+    if (!isTRUE(input$alloc_custom)) return(NULL)
+    if (is.null(value) || is.na(value)) return("Please provide a value")
+    if (value < 0 || value > 2) return("Must be between 0 and 2 (inclusive)")
+    NULL
+  })
+  
+ # Process simulate
   observeEvent(input$processSimulate, {
     if(!iv$is_valid()) {
       iv$enable()
@@ -399,7 +861,38 @@ server <- function(input, output, session) {
     }
     
     showNotification("Analysis is running. Please wait...", type = "message", duration = NULL, id = "running_notification")
-
+    
+    # Prepare allocate-transition parameters
+    alloc_params <- NULL
+    alloc_override <- NULL
+    if (isTRUE(input$alloc_custom)) {
+      cell_ha <- if (!is.null(rv$cell_area_ha) && rv$cell_area_ha > 0) rv$cell_area_ha else 0.09
+      alloc_params <- list(
+        percent  = input$alloc_percent,
+        exp_mean = max(1, round(input$alloc_exp_mean / cell_ha)),
+        exp_var  = max(0, round(input$alloc_exp_var / cell_ha)),
+        exp_iso  = input$alloc_exp_iso,
+        gen_mean = max(1, round(input$alloc_gen_mean / cell_ha)),
+        gen_var  = max(0, round(input$alloc_gen_var / cell_ha)),
+        gen_iso  = input$alloc_gen_iso
+      )
+      alloc_override <- rv$alloc_override_df
+      if (!is.null(alloc_override)) {
+        for (col in c("exp_mean", "gen_mean")) {
+          if (col %in% names(alloc_override)) {
+            val <- alloc_override[[col]]
+            alloc_override[[col]] <- ifelse(!is.na(val) & val > 0, pmax(1, round(val / cell_ha)), val)
+          }
+        }
+        for (col in c("exp_var", "gen_var")) {
+          if (col %in% names(alloc_override)) {
+            val <- alloc_override[[col]]
+            alloc_override[[col]] <- ifelse(!is.na(val) & val >= 0, pmax(0, round(val / cell_ha)), val)
+          }
+        }
+      }
+    }
+    
     withProgress(message = "Running SCIENDO Simulate", value = 0, {
       tryCatch({
         result <- run_sciendo_simulate_process(
@@ -417,6 +910,8 @@ server <- function(input, output, session) {
           dinamica_path = rv$dinamica_path,
           output_dir = rv$wd,
           memory_allocation = input$memory_allocation,
+          alloc_params = alloc_params,
+          alloc_override_df = alloc_override,
           progress_callback = function(value, detail) {
             setProgress(value = value, message = detail)
           }

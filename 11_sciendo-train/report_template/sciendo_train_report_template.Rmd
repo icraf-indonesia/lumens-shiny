@@ -187,14 +187,33 @@ plot_categorical_raster(zone)
 ## Factors Multicollinearity {.tabset}
 
 ### Variance Inflation Factor (VIF)
-```{r vif, echo=FALSE, message=FALSE, warning=FALSE, fig.show='hide'}
-collinearity <- analyze_multicollinearity(factor_path, verbose = FALSE)
-DT::datatable(collinearity$vif_table)
+```{r vif, echo=FALSE, message=FALSE, warning=FALSE, fig.show='hide', results='asis'}
+collinearity <- tryCatch({
+  analyze_multicollinearity(factor_path, verbose = FALSE)
+}, error = function(e) {
+  warning("Multicollinearity analysis failed: ", e$message)
+  NULL
+})
+
+if (!is.null(collinearity$zero_variance_vars) && length(collinearity$zero_variance_vars) > 0) {
+  cat(paste0("\n> **Note:** The following variables were excluded from multicollinearity analysis due to zero variance (constant values): **", 
+             paste(collinearity$zero_variance_vars, collapse = ", "), "**.\n\n"))
+}
+
+if (!is.null(collinearity$vif_table) && nrow(collinearity$vif_table) > 0) {
+  DT::datatable(collinearity$vif_table)
+} else {
+  cat("_Insufficient data to compute VIF table._\n")
+}
 ```
 
 ### Matrix of Collinearity
 ```{r corrplot, echo=FALSE, message=FALSE, warning=FALSE}
-collinearity$correlation_plot
+if (!is.null(collinearity$correlation_plot)) {
+  collinearity$correlation_plot
+} else {
+  cat("_Collinearity matrix cannot be displayed._\n")
+}
 ```
 
 ## Weight of Evidence Report
