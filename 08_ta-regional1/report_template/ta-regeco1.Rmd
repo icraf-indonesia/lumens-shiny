@@ -82,7 +82,7 @@ analysis_log %>%
 
 Laporan ini menyajikan hasil analisis deskriptif ekonomi regional untuk `r params$location` (periode IO: `r params$io_period`). Seluruh nilai dinyatakan dalam satuan `r params$unit` kecuali disebutkan lain.
 
-# Karakteristik Data {#karakteristik-data}
+# Karakteristik Data {#karakteristik-data .tabset}
 
 ## Sektor Berbasis Lahan dan Non-Lahan
 
@@ -168,17 +168,54 @@ if (!is.null(io_metadata) && !is.null(io_metadata$metadata)) {
 Tabel Input-Output yang digunakan memiliki status keseimbangan `r balance_result$status`. Total input pada tabel tercatat sebesar `r format(round(balance_result$total_input, 0), big.mark = ",")`, sedangkan total output sebesar `r format(round(balance_result$total_output, 0), big.mark = ",")`. Selisih antara keduanya adalah `r format(round(balance_result$gap, 4), big.mark = ",")`, atau setara `r round(balance_result$gap_percent, 4)`% dari total transaksi, dibandingkan terhadap ambang batas toleransi sebesar `r balance_result$tolerance_percent`%. Selisih pada tabel IO umumnya disebabkan oleh pembulatan angka, presisi komputasi, atau proses agregasi data, dan tabel dengan status SEIMBANG dapat langsung dipakai sebagai dasar analisis ekonomi berikutnya.
 
 ```{r, balance-table, echo=FALSE, warning=FALSE, message=FALSE}
-DT::datatable(balance_result$balance_detail,
+
+rename_map <- c(
+  "SECTOR"             = "Sektor",
+  "Sector"             = "Sektor",
+  "sector"             = "Sektor",
+  "Total_Input"        = "Total Input",
+  "Total_Output"       = "Total Output",
+  "Difference"         = "Selisih",
+  "Difference_Percent" = "Selisih (%)",
+  "Status"             = "Status"
+)
+
+balance_display <- balance_result$balance_detail
+
+for (old in names(rename_map)) {
+  if (old %in% colnames(balance_display)) {
+    colnames(balance_display)[colnames(balance_display) == old] <- rename_map[[old]]
+  }
+}
+
+num_cols <- intersect(
+  c("Total Input", "Total Output", "Selisih"),
+  colnames(balance_display)
+)
+pct_cols <- intersect("Selisih (%)", colnames(balance_display))
+
+dt <- DT::datatable(
+  balance_display,
   rownames = FALSE,
-  caption = "Keseimbangan Total Input dan Output per Sektor"
-) %>%
-  DT::formatRound(columns = c("Total_Input", "Total_Output", "Difference"),
-                  digits = 4, mark = ",") %>%
-  DT::formatRound(columns = "Difference_Percent", digits = 4) %>%
-  DT::formatStyle("Status",
-    target = "row",
+  caption  = "Keseimbangan Total Input dan Output per Sektor",
+  options  = list(pageLength = 10, dom = 'tip', scrollX = TRUE)
+)
+
+if (length(num_cols) > 0) {
+  dt <- dt %>% DT::formatRound(columns = num_cols, digits = 4, mark = ",")
+}
+if (length(pct_cols) > 0) {
+  dt <- dt %>% DT::formatRound(columns = pct_cols, digits = 4)
+}
+if ("Status" %in% colnames(balance_display)) {
+  dt <- dt %>% DT::formatStyle(
+    "Status",
+    target          = "row",
     backgroundColor = DT::styleEqual("NOT BALANCED", "#f8d7da")
   )
+}
+
+dt
 ```
 
 # Tabel Linkage
@@ -190,7 +227,7 @@ Sektor dengan nilai Indeks Total Forward Linkage (ITFL) tertinggi adalah `r link
 
 Sebanyak r nrow(subset(linkages_table, ITBL >= 1 & ITFL >= 1)) sektor memiliki nilai ITBL dan ITFL lebih besar atau sama dengan 1, yang mengindikasikan sektor-sektor tersebut berperan penting dalam mendorong aktivitas ekonomi baik dari sisi permintaan input maupun penyediaan output.
 
-```{r, echo=FALSE, warning=FALSE, message=FALSE}
+```{r, linkage-table, echo=FALSE, warning=FALSE, message=FALSE}
 dt_linkage <- linkages_table
 if ("ID" %in% colnames(dt_linkage)) dt_linkage$ID <- NULL
 
@@ -204,37 +241,27 @@ DT::datatable(dt_linkage, rownames = FALSE) %>%
   )
 ```
 
-## Tabel Sektor Primer {#tabel-sektor-primer}
+# Analisis Backward dan Forward Linkage
 
-```{r, echo=FALSE, warning=FALSE, message=FALSE}
+```{r, prs-plot, echo=FALSE, warning=FALSE, message=FALSE}
+prs_plot <- generate_prs_plot(
+  linkages_table = linkages_table,
+  point_size     = 5,
+  label_size     = 3,
+  label_alpha    = 0.6
+)
+ggplotly(prs_plot, tooltip = "text") %>%
+  config(displayModeBar = FALSE)
+```
+
+Grafik topologi sektor mengelompokkan sektor ekonomi berdasarkan Indeks Daya Penyebaran (ITBL, sumbu datar) dan Indeks Derajat Kepekaan (ITFL, sumbu tegak), mengikuti pemetaan kuadran BPS. Karena kedua indeks dinormalisasi terhadap rata-rata seluruh sektor, garis merah putus-putus pada nilai 1 sekaligus menunjukkan nilai rata-rata.
+
+```{r, primary-table, echo=FALSE, warning=FALSE, message=FALSE}
 primary_sector_table <- subset(linkages_table, ITBL > 1 & ITFL > 1)
 if ("ID" %in% colnames(primary_sector_table)) {
   primary_sector_table <- primary_sector_table %>% dplyr::select(-ID)
 }
-
-DT::datatable(primary_sector_table,
-  rownames = FALSE,
-  options = list(pageLength = 10, scrollX = TRUE)
-) %>%
-  DT::formatSignif(
-    columns = c(
-      "DFL", "TFL", "ITFL", "DBL", "TBL", "ITBL",
-      "|TFL-DFL|", "|TBL-DBL|"
-    ),
-    digits = 3
-  )
 ```
-
-Sebanyak `r nrow(primary_sector_table)` sektor unggulan teridentifikasi memiliki nilai Indeks Daya Penyebaran (ITBL) dan Indeks Derajat Kepekaan (ITFL) lebih besar dari 1, mengikuti kriteria BPS. Kedua indeks tersebut dinormalisasi sehingga nilai rata-ratanya tepat sama dengan 1, sehingga nilai di atas 1 berarti di atas rata-rata seluruh sektor. Sektor-sektor tersebut memiliki keterkaitan ke belakang dan ke depan yang kuat, sehingga berperan penting dalam mendorong aktivitas ekonomi baik pada sektor hulu maupun hilir. Sektor unggulan yang teridentifikasi meliputi: `r paste(primary_sector_table$SECTOR, collapse = ", ")`.
-
-# Analisis Backward dan Forward Linkage
-
-```{r, echo=FALSE, warning=FALSE, message=FALSE}
-prs_plot <- generate_prs_plot(linkages_table)
-ggplotly(prs_plot)
-```
-
-Grafik topologi sektor mengelompokkan sektor ekonomi berdasarkan Indeks Daya Penyebaran (ITBL, sumbu datar) dan Indeks Derajat Kepekaan (ITFL, sumbu tegak), mengikuti pemetaan kuadran BPS. Karena kedua indeks dinormalisasi terhadap rata-rata seluruh sektor, garis merah putus-putus pada nilai 1 sekaligus menunjukkan nilai rata-rata.
 
 Jumlah sektor pada Kuadran I (industri unggulan: ITBL > 1 dan ITFL > 1) adalah `r nrow(subset(linkages_table, Quadrant == "Kuadran I"))` sektor, Kuadran II (potensi unggul: ITBL > 1 dan ITFL < 1) `r nrow(subset(linkages_table, Quadrant == "Kuadran II"))` sektor, Kuadran III (kurang diunggulkan: ITBL < 1 dan ITFL > 1) `r nrow(subset(linkages_table, Quadrant == "Kuadran III"))` sektor, dan Kuadran IV (tertinggal: ITBL < 1 dan ITFL < 1) `r nrow(subset(linkages_table, Quadrant == "Kuadran IV"))` sektor. Sektor pada Kuadran I umumnya merupakan sektor strategis karena memiliki keterkaitan kuat baik ke sektor hulu maupun hilir, sehingga berpotensi menjadi penggerak utama perekonomian wilayah.
 
@@ -242,7 +269,7 @@ Jumlah sektor pada Kuadran I (industri unggulan: ITBL > 1 dan ITFL > 1) adalah `
 
 ### Kuadran 1
 
-```{r, echo=FALSE, warning=FALSE, message=FALSE}
+```{r, k1, echo=FALSE, warning=FALSE, message=FALSE}
 quadrant_1 <- subset(linkages_table, Quadrant == "Kuadran I")
 DT::datatable(quadrant_1, rownames = FALSE) %>%
   DT::formatRound(columns = c(
@@ -253,9 +280,11 @@ DT::datatable(quadrant_1, rownames = FALSE) %>%
 
 Kuadran I (industri unggulan) menunjukkan sektor dengan keterkaitan ke belakang dan ke depan yang kuat (ITBL > 1 dan ITFL > 1). Sektor dalam kuadran ini mampu menyerap input dari sektor lain sekaligus menyuplai output untuk aktivitas ekonomi lainnya.
 
+Sebanyak `r nrow(primary_sector_table)` sektor unggulan teridentifikasi memiliki nilai ITBL dan ITFL lebih besar dari 1, mengikuti kriteria BPS. Kedua indeks tersebut dinormalisasi sehingga nilai rata-ratanya tepat sama dengan 1, sehingga nilai di atas 1 berarti di atas rata-rata seluruh sektor. Sektor-sektor tersebut memiliki keterkaitan ke belakang dan ke depan yang kuat, sehingga berperan penting dalam mendorong aktivitas ekonomi baik pada sektor hulu maupun hilir. Sektor unggulan yang teridentifikasi meliputi: `r paste(primary_sector_table$SECTOR, collapse = ", ")`.
+
 ### Kuadran 2
 
-```{r, echo=FALSE, warning=FALSE, message=FALSE}
+```{r, k2, echo=FALSE, warning=FALSE, message=FALSE}
 quadrant_2 <- subset(linkages_table, Quadrant == "Kuadran II")
 DT::datatable(quadrant_2, rownames = FALSE) %>%
   DT::formatRound(columns = c(
@@ -268,7 +297,7 @@ Kuadran II (potensi unggul) menunjukkan sektor dengan keterkaitan ke belakang ya
 
 ### Kuadran 3
 
-```{r, echo=FALSE, warning=FALSE, message=FALSE}
+```{r, k3, echo=FALSE, warning=FALSE, message=FALSE}
 quadrant_3 <- subset(linkages_table, Quadrant == "Kuadran III")
 DT::datatable(quadrant_3, rownames = FALSE) %>%
   DT::formatRound(columns = c(
@@ -281,7 +310,7 @@ Kuadran III (kurang diunggulkan) menunjukkan sektor dengan keterkaitan ke depan 
 
 ### Kuadran 4
 
-```{r, echo=FALSE, warning=FALSE, message=FALSE}
+```{r, k4, echo=FALSE, warning=FALSE, message=FALSE}
 quadrant_4 <- subset(linkages_table, Quadrant == "Kuadran IV")
 DT::datatable(quadrant_4, rownames = FALSE) %>%
   DT::formatRound(columns = c(
@@ -294,7 +323,7 @@ Kuadran IV (tertinggal) menunjukkan sektor dengan keterkaitan ke depan dan ke be
 
 # PDRB per Sektor {#pdrb-per-sektor}
 
-```{r, echo=FALSE, warning=FALSE, message=FALSE}
+```{r, pdrb-table, echo=FALSE, warning=FALSE, message=FALSE}
 total_gdp <- sum(gdp_baseline$GDP, na.rm = TRUE)
 
 layout_columns(
@@ -318,19 +347,44 @@ layout_columns(
 
 tags$div(style = "height:30px;")
 
+# ---- Siapkan data & rename kolom ----
 dt_gdp <- gdp_baseline
 if ("Total_OUTPUT" %in% colnames(dt_gdp)) {
   dt_gdp <- dt_gdp %>% dplyr::select(-Total_OUTPUT)
 }
 
-DT::datatable(dt_gdp, rownames = FALSE) %>%
+dt_gdp <- dt_gdp %>%
+  dplyr::rename(
+    "Sektor"                = SECTOR,
+    "PDRB"                  = GDP,
+    "Output Total"          = OUTPUT,
+    "Permintaan Akhir"      = FD,
+    "Kebutuhan Lahan"       = Land_Requirement,
+    "Proporsi PDRB (%)"     = GDP_PROP,
+    "Koef. Produktivitas Lahan" = LPC,
+    "Proporsi Permintaan Akhir (%)" = Prop_FD
+  )
+
+# ---- Tampilkan ----
+DT::datatable(
+  dt_gdp,
+  rownames = FALSE,
+  caption  = "PDRB per Sektor",
+  options  = list(pageLength = 10, dom = 'tip', scrollX = TRUE)
+) %>%
   DT::formatRound(
-    columns = intersect(c("GDP", "OUTPUT", "Land_Requirement", "FD"),
-                        colnames(dt_gdp)),
+    columns = intersect(
+      c("PDRB", "Output Total", "Kebutuhan Lahan", "Permintaan Akhir"),
+      colnames(dt_gdp)
+    ),
     digits = 2, mark = ","
   ) %>%
   DT::formatRound(
-    columns = intersect(c("GDP_PROP", "LPC", "Prop_FD"), colnames(dt_gdp)),
+    columns = intersect(
+      c("Proporsi PDRB (%)", "Koef. Produktivitas Lahan",
+        "Proporsi Permintaan Akhir (%)"),
+      colnames(dt_gdp)
+    ),
     digits = 2
   )
 ```
@@ -341,18 +395,60 @@ Sektor dengan nilai PDRB terbesar adalah `r gdp_baseline$SECTOR[which.max(gdp_ba
 
 # Kontribusi PDRB per Sektor {#kontribusi-pdrb-per-sektor .tabset}
 
-## Top 10 Presentase Kontribusi
+## Tabel Presentase Kontribusi PDRB pe Sektor
 
-```{r, echo=FALSE, warning=FALSE, message=FALSE}
-gdp_bar <- generate_gdp_bar_chart(gdp_baseline, sector)
-ggplotly(gdp_bar$plot, tooltip = "text")
+```{r, contribution-table, echo=FALSE, warning=FALSE, message=FALSE}
+gdp_contribution <- gdp_baseline %>%
+  mutate(
+    GDP = as.numeric(GDP),
+    OUTPUT = as.numeric(OUTPUT),
+    FD = as.numeric(FD)
+  ) %>%
+  arrange(desc(GDP)) %>%
+  mutate(
+    PERCENTAGE = GDP / sum(GDP, na.rm = TRUE) * 100,
+    RANK = row_number()
+  ) %>%
+  select(
+    Peringkat = RANK,
+    Sektor = SECTOR,
+    PDRB = GDP,
+    `Kontribusi (%)` = PERCENTAGE,
+    `Output Total` = OUTPUT,
+    `Permintaan Akhir` = FD
+  )
+
+DT::datatable(
+  gdp_contribution,
+  rownames = FALSE,
+  caption = "Kontribusi PDRB Seluruh Sektor",
+  options = list(
+    pageLength = 15,
+    dom = 'tip',
+    scrollX = TRUE,
+    order = list(list(3, 'desc')) 
+  )
+) %>%
+  DT::formatRound(
+    columns = c("PDRB", "Output Total", "Permintaan Akhir"),
+    digits = 2, mark = ","
+  ) %>%
+  DT::formatRound("Kontribusi (%)", digits = 2) %>%
+  DT::formatStyle(
+    "Kontribusi (%)",
+    background = DT::styleColorBar(
+      gdp_contribution$`Kontribusi (%)`,
+      "#A8DADC"
+    ),
+    backgroundSize = "100% 90%",
+    backgroundRepeat = "no-repeat",
+    backgroundPosition = "center"
+  )
 ```
-
-Grafik menunjukkan 10 sektor dengan kontribusi PDRB terbesar. Sektor `r gdp_bar$data$SECTOR[1]` merupakan kontributor terbesar dengan nilai PDRB sebesar `r format(round(gdp_bar$data$GDP[1],0), big.mark = ",")` `r params$unit` atau sekitar `r round(gdp_bar$data$PERCENTAGE[1],2)`% dari total PDRB wilayah.
 
 ## Proporsi Sektor
 
-```{r, echo=FALSE, warning=FALSE, message=FALSE}
+```{r, gdp-donut, echo=FALSE, warning=FALSE, message=FALSE}
 gdp_donut <- generate_gdp_donut_chart(gdp_baseline, sector)
 gdp_donut$plot
 ```
@@ -360,58 +456,102 @@ gdp_donut$plot
 Diagram donat menunjukkan kontribusi 10 sektor terbesar terhadap total PDRB wilayah. Sektor `r gdp_donut$data$SECTOR[1]` merupakan kontributor terbesar dengan nilai PDRB sebesar `r format(round(gdp_donut$data$GDP[1],0), big.mark = ",")` `r params$unit` atau sekitar `r gdp_donut$data$CONTRIBUTION[1]`% dari total PDRB.
 
 # Tabel Multiplier per Sektor {#tabel-multiplier-per-sektor}
-```{r, echo=FALSE, warning=FALSE, message=FALSE}
-DT::datatable(multiplier_table, rownames = FALSE) %>%
-  DT::formatRound(c("Out.multiplier", "Inc.multiplier", "SUB.multiplier"),
+
+```{r, multiplier-table, echo=FALSE, warning=FALSE, message=FALSE}
+multiplier_table_display <- multiplier_table %>%
+  rename(
+    "Sektor"                      = SECTOR,
+    "Kategori"                    = CATEGORY,
+    "Pengganda Output"            = "Out.multiplier",
+    "Pengganda Pendapatan"        = "Inc.multiplier",
+    "Pengganda Tenaga Kerja"      = "Lab.multiplier",
+    "Pengganda Surplus Usaha"     = "SUB.multiplier"
+  )
+
+DT::datatable(multiplier_table_display, rownames = FALSE) %>%
+  DT::formatRound(
+    c("Pengganda Output", "Pengganda Pendapatan", "Pengganda Surplus Usaha"),
     digits = 2
   ) %>%
-  DT::formatRound("Lab.multiplier", digits = 5)
+  DT::formatRound("Pengganda Tenaga Kerja", digits = 5)
 ```
 
 # Top 15 Sektor per Jenis Multiplier {.tabset}
 
+Analisis multiplier menunjukkan bahwa sektor `r multiplier_table$SECTOR[which.max(multiplier_table$Out.multiplier)]` memiliki Output Multiplier tertinggi (`r round(max(multiplier_table$Out.multiplier),3)`), sehingga memberikan dampak terbesar terhadap peningkatan output ekonomi. Sektor `r multiplier_table$SECTOR[which.max(multiplier_table$Inc.multiplier)]` memiliki Income Multiplier tertinggi (`r round(max(multiplier_table$Inc.multiplier),3)`), yang menunjukkan kemampuan terbesar dalam menciptakan pendapatan tenaga kerja. Sektor `r multiplier_table$SECTOR[which.max(multiplier_table$Lab.multiplier)]` memiliki Labour Multiplier tertinggi (`r signif(max(multiplier_table$Lab.multiplier),4)`), sehingga berpotensi memberikan dampak terbesar terhadap penciptaan kesempatan kerja. Di sisi lain, sektor `r multiplier_table$SECTOR[which.max(multiplier_table$SUB.multiplier)]` memiliki Surplus Usaha Bruto (SUB) Multiplier tertinggi (`r round(max(multiplier_table$SUB.multiplier),3)`), yang menunjukkan kemampuan terbesar dalam menghasilkan surplus usaha dan keuntungan ekonomi.s
+
 ## Output
 
-```{r, echo=FALSE, warning=FALSE, message=FALSE}
-ggplotly(generate_multiplier_bar_chart(
-  multiplier_table, "Out.multiplier",
-  title = "Top 15 Sektor - Output Multiplier",
-  x_label = "Output Effect (Juta Rupiah/Juta Rupiah)"
-), tooltip = "text")
+```{r, om-graph, echo=FALSE, warning=FALSE, message=FALSE}
+ggplotly(
+  generate_multiplier_bar_chart(
+    multiplier_table = multiplier_table,
+    sector           = sector,
+    column           = "Out.multiplier",
+    title            = "Top 15 Sektor - Output Multiplier",
+    x_label          = "Output Effect (Juta Rupiah/Juta Rupiah)",
+    label_width      = 30
+  ),
+  tooltip = "text"
+) %>%
+  layout(margin = list(l = 180)) %>%
+  config(displayModeBar = FALSE)
 ```
 
 ## Pendapatan
 
-```{r, echo=FALSE, warning=FALSE, message=FALSE}
-ggplotly(generate_multiplier_bar_chart(
-  multiplier_table, "Inc.multiplier",
-  title = "Top 15 Sektor - Income Multiplier",
-  x_label = "Income Effect (Juta Rupiah/Juta Rupiah)"
-), tooltip = "text")
+```{r, inc-graph, echo=FALSE, warning=FALSE, message=FALSE}
+ggplotly(
+  generate_multiplier_bar_chart(
+    multiplier_table = multiplier_table,
+    sector           = sector,
+    column           = "Inc.multiplier",
+    title            = "Top 15 Sektor - Income Multiplier",
+    x_label          = "Income Effect (Juta Rupiah/Juta Rupiah)",
+    label_width      = 30
+  ),
+  tooltip = "text"
+) %>%
+  layout(margin = list(l = 180)) %>%
+  config(displayModeBar = FALSE)
 ```
 
 ## Tenaga Kerja
 
-```{r, echo=FALSE, warning=FALSE, message=FALSE}
-ggplotly(generate_multiplier_bar_chart(
-  multiplier_table, "Lab.multiplier",
-  title = "Top 15 Sektor - Labour Multiplier",
-  x_label = "Labour Effect (Jiwa/Juta Rupiah)",
-  digits = 5
-), tooltip = "text")
+```{r, lab-graph, echo=FALSE, warning=FALSE, message=FALSE}
+ggplotly(
+  generate_multiplier_bar_chart(
+    multiplier_table = multiplier_table,
+    sector           = sector,
+    column           = "Lab.multiplier",
+    title            = "Top 15 Sektor - Labour Multiplier",
+    x_label          = "Labour Effect (Jiwa/Juta Rupiah)",
+    digits           = 5,
+    label_width      = 30
+  ),
+  tooltip = "text"
+) %>%
+  layout(margin = list(l = 180)) %>%
+  config(displayModeBar = FALSE)
 ```
 
 ## Surplus Usaha Brut
 
-```{r, echo=FALSE, warning=FALSE, message=FALSE}
-ggplotly(generate_multiplier_bar_chart(
-  multiplier_table, "SUB.multiplier",
-  title = "Top 15 Sektor - SUB Multiplier",
-  x_label = "SUB Effect (Juta Rupiah/Juta Rupiah)"
-), tooltip = "text")
+```{r, sub-graph, echo=FALSE, warning=FALSE, message=FALSE}
+ggplotly(
+  generate_multiplier_bar_chart(
+    multiplier_table = multiplier_table,
+    sector           = sector,
+    column           = "SUB.multiplier",
+    title            = "Top 15 Sektor - SUB Multiplier",
+    x_label          = "SUB Effect (Juta Rupiah/Juta Rupiah)",
+    label_width      = 30
+  ),
+  tooltip = "text"
+) %>%
+  layout(margin = list(l = 180)) %>%
+  config(displayModeBar = FALSE)
 ```
-
-Analisis multiplier menunjukkan bahwa sektor `r multiplier_table$SECTOR[which.max(multiplier_table$Out.multiplier)]` memiliki Output Multiplier tertinggi (`r round(max(multiplier_table$Out.multiplier),3)`), sehingga memberikan dampak terbesar terhadap peningkatan output ekonomi. Sektor `r multiplier_table$SECTOR[which.max(multiplier_table$Inc.multiplier)]` memiliki Income Multiplier tertinggi (`r round(max(multiplier_table$Inc.multiplier),3)`), yang menunjukkan kemampuan terbesar dalam menciptakan pendapatan tenaga kerja. Sektor `r multiplier_table$SECTOR[which.max(multiplier_table$Lab.multiplier)]` memiliki Labour Multiplier tertinggi (`r signif(max(multiplier_table$Lab.multiplier),4)`), sehingga berpotensi memberikan dampak terbesar terhadap penciptaan kesempatan kerja. Di sisi lain, sektor `r multiplier_table$SECTOR[which.max(multiplier_table$SUB.multiplier)]` memiliki Surplus Usaha Bruto (SUB) Multiplier tertinggi (`r round(max(multiplier_table$SUB.multiplier),3)`), yang menunjukkan kemampuan terbesar dalam menghasilkan surplus usaha dan keuntungan ekonomi.
 
 ------------------------------------------------------------------------
 
