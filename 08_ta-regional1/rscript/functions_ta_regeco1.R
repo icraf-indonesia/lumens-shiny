@@ -2051,95 +2051,187 @@ save_analysis_data <- function(sector,
 #' @return A `ggplot` object.
 #'
 #' @export
-generate_prs_plot <- function(linkages_table, show_labels = TRUE, base_size = 12) {
+generate_prs_plot <- function(linkages_table,
+                              point_size = 5,
+                              label_size = 3,
+                              label_alpha = 0.6) {
   # ITBL and ITFL are normalised so their mean is exactly 1: the reference line
   # at 1 is therefore both the BPS threshold and the cross-sector average.
-  ref <- 1
-  linkages_table$Bubble_Size <- linkages_table$ITBL + linkages_table$ITFL
-  x_min <- min(linkages_table$ITBL, na.rm = TRUE)
-  x_max <- max(linkages_table$ITBL, na.rm = TRUE)
-  y_min <- min(linkages_table$ITFL, na.rm = TRUE)
-  y_max <- max(linkages_table$ITFL, na.rm = TRUE)
+  linkages_table <- linkages_table %>%
+    mutate(
+      Quadrant = factor(
+        Quadrant,
+        levels = c("Kuadran I", "Kuadran II", "Kuadran III", "Kuadran IV")
+      ),
+      # Pastikan ID karakter (untuk label)
+      ID = as.character(ID)
+    )
   
-  p <- ggplot(linkages_table, aes(x = ITBL, y = ITFL, size = Bubble_Size, color = CATEGORY)) +
-    geom_point(alpha = 0.8, aes(text = paste0("SECTOR: ", SECTOR))) +
-    geom_hline(yintercept = ref, colour = "#BB0000", linetype = "dashed") +
-    geom_vline(xintercept = ref, colour = "#BB0000", linetype = "dashed") +
-    # Annotations sit in the plot corners: the region midpoints fall inside the
-    # dense cluster of sectors around the reference lines.
-    annotate("text", x = x_max, y = y_max, hjust = 1, vjust = 1,
-             label = "Kuadran I\nSektor unggulan",
-             fontface = "bold", size = 4, colour = "grey30") +
-    annotate("text", x = x_max, y = y_min, hjust = 1, vjust = 0,
-             label = "Kuadran II\nPotensi unggul",
-             fontface = "bold", size = 4, colour = "grey30") +
-    annotate("text", x = x_min, y = y_max, hjust = 0, vjust = 1,
-             label = "Kuadran III\nKurang diunggulkan",
-             fontface = "bold", size = 4, colour = "grey30") +
-    annotate("text", x = x_min, y = y_min, hjust = 0, vjust = 0,
-             label = "Kuadran IV\nTertinggal",
-             fontface = "bold", size = 4, colour = "grey30") +
-    labs(x = "Indeks Daya Penyebaran (ITBL)",
-         y = "Indeks Derajat Kepekaan (ITFL)",
-         color = "Sector Category") +
-    scale_size_continuous(range = c(4, 18), guide = "none") +
-    theme_minimal(base_size = base_size) +
-    theme(panel.grid.minor = element_blank(), legend.position = "bottom")
+  # Color code per kategori/kuadran
+  quadrant_colors <- c(
+    "Kuadran I"   = "#2E86AB",  # Biru - unggulan
+    "Kuadran II"  = "#A23B72",  # Magenta - potensi unggul
+    "Kuadran III" = "#F18F01",  # Orange - kurang diunggulkan
+    "Kuadran IV"  = "#C73E1D"   # Merah - tertinggal
+  )
   
-  if (show_labels) {
-    p <- p + geom_text(aes(label = ID), size = 3, color = "black", vjust = -1)
-  }
+  p <- ggplot(
+    linkages_table,
+    aes(
+      x = ITBL,
+      y = ITFL,
+      color = Quadrant,
+      text = paste0(
+        "<b>", SECTOR, "</b><br>",
+        "ITBL: ", round(ITBL, 3), "<br>",
+        "ITFL: ", round(ITFL, 3), "<br>",
+        "Kuadran: ", Quadrant
+      )
+    )
+  ) +
+    # Garis pembatas kuadran
+    geom_hline(yintercept = 1, linetype = "dashed", color = "grey40", alpha = 0.7) +
+    geom_vline(xintercept = 1, linetype = "dashed", color = "grey40", alpha = 0.7) +
+    # Bubble dengan ukuran SERAGAM + alpha transparan + jitter ringan
+    geom_point(
+      size = point_size,
+      alpha = 0.6,
+      position = position_jitter(width = 0.01, height = 0.01, seed = 42)
+    ) +
+    # Angka ID di tengah bubble, warna transparan
+    geom_text(
+      aes(label = ID),
+      color = "white",
+      alpha = label_alpha,
+      size = label_size,
+      fontface = "bold",
+      position = position_jitter(width = 0.01, height = 0.01, seed = 42),
+      show.legend = FALSE
+    ) +
+    scale_color_manual(values = quadrant_colors, name = "Kategori") +
+    labs(
+      title = "Peta Sektor Berdasarkan Backward & Forward Linkage",
+      subtitle = "Garis putus-putus menunjukkan nilai rata-rata (indeks = 1)",
+      x = "Indeks Total Backward Linkage (ITBL)",
+      y = "Indeks Total Forward Linkage (ITFL)"
+    ) +
+    theme_minimal(base_size = 12) +
+    theme(
+      legend.position = "right",
+      panel.grid.minor = element_blank(),
+      plot.title = element_text(face = "bold")
+    )
   
-  p
+  return(p)
 }
 
-#' Generate top-N multiplier bar chart
+#' Color code kategori sektor
+#' @export
+category_colors <- c(
+  "Pertanian"      = "#66BB6A",
+  "Perkebunan"     = "#2E7D32",
+  "Peternakan"     = "#9CCC65",
+  "Kehutanan"      = "#1B5E20",
+  "Perikanan"      = "#26C6DA",
+  "Pertambangan"   = "#795548",
+  "Industri"       = "#EF5350",
+  "Utilitas"       = "#FFA726",
+  "Konstruksi"     = "#8E24AA",
+  "Perdagangan"    = "#FB8C00",
+  "Transportasi"   = "#3949AB",
+  "Jasa & Layanan" = "#29B6F6",
+  "Pelayanan Umum" = "#546E7A",
+  "Lainnya"        = "#BDBDBD"
+)
+
+#' Generate top-N multiplier bar chart (warna per kategori sektor)
 #'
 #' Horizontal bar chart of the N sectors with the highest value of one
-#' multiplier, with the value printed at the end of each bar.
+#' multiplier. Bar colour follows the sector category via `category_colors`.
 #'
 #' @param multiplier_table A tibble produced by [combine_multipliers()].
+#' @param sector A tibble of sector metadata with columns `Nama_Sektor` and
+#'   `Kategori`.
 #' @param column Character. Column to plot, e.g. `"Out.multiplier"`.
 #' @param title Character. Plot title.
 #' @param x_label Character. Axis label for the multiplier value.
 #' @param top_n Integer. Number of sectors to show (default 15).
-#' @param bar_colour Character. Fill colour.
 #' @param digits Integer. Rounding for the printed value.
 #'
 #' @return A `ggplot` object.
 #'
 #' @export
 generate_multiplier_bar_chart <- function(multiplier_table,
+                                          sector,
                                           column,
                                           title,
                                           x_label = "Multiplier",
                                           top_n = 15,
-                                          bar_colour = "#FFA61A",
-                                          digits = 4) {
+                                          digits = 4,
+                                          label_width = 30) {
   if (!column %in% names(multiplier_table))
     stop(sprintf("Column '%s' not found in multiplier_table.", column), call. = FALSE)
   
-  df <- as.data.frame(multiplier_table)
-  df$VALUE <- as.numeric(df[[column]])
-  df <- df[!is.na(df$VALUE), ]
-  df <- head(df[order(-df$VALUE), ], top_n)
-  df$LABEL <- format(round(df$VALUE, digits), trim = TRUE)
+  # Fungsi truncate: pakai stringr kalau ada, fallback ke base R
+  truncate_label <- function(x, width) {
+    if (requireNamespace("stringr", quietly = TRUE)) {
+      stringr::str_trunc(x, width = width, side = "right")
+    } else {
+      ifelse(
+        nchar(x) > width,
+        paste0(substr(x, 1, width - 3), "..."),
+        x
+      )
+    }
+  }
   
-  ggplot(df, aes(x = stats::reorder(SECTOR, VALUE), y = VALUE,
-                 text = paste0(SECTOR, "<br>", x_label, ": ", LABEL))) +
-    geom_col(fill = bar_colour) +
+  df <- multiplier_table %>%
+    left_join(
+      sector %>% dplyr::select(SECTOR = Nama_Sektor, Category = Kategori),
+      by = "SECTOR"
+    ) %>%
+    mutate(VALUE = as.numeric(.data[[column]])) %>%
+    filter(!is.na(VALUE)) %>%
+    arrange(desc(VALUE)) %>%
+    slice_head(n = top_n) %>%
+    mutate(
+      LABEL = format(round(VALUE, digits), trim = TRUE),
+      # Potong label sumbu Y, simpan nama asli untuk tooltip
+      SECTOR_SHORT = truncate_label(SECTOR, label_width),
+      SECTOR_SHORT = factor(SECTOR_SHORT, levels = rev(SECTOR_SHORT))
+    )
+  
+  ggplot(
+    df,
+    aes(
+      x = SECTOR_SHORT,
+      y = VALUE,
+      fill = Category,
+      text = paste0(
+        "<b>", SECTOR, "</b><br>",       # tooltip pakai nama asli
+        "Kategori: ", Category, "<br>",
+        x_label, ": ", LABEL
+      )
+    )
+  ) +
+    geom_col(alpha = 0.9) +
     geom_text(aes(label = LABEL), hjust = -0.15, size = 3.2) +
     coord_flip() +
+    scale_fill_manual(
+      values = category_colors,
+      name = "Kategori",
+      na.value = "grey80"
+    ) +
     scale_y_continuous(expand = expansion(mult = c(0, 0.18))) +
     labs(title = title, x = NULL, y = x_label) +
     theme_minimal(base_size = 12) +
     theme(
-      plot.title = element_text(colour = bar_colour, face = "bold", hjust = 0.5),
+      plot.title = element_text(face = "bold", hjust = 0.5),
       panel.grid.major.y = element_blank(),
-      panel.grid.minor = element_blank()
+      panel.grid.minor = element_blank(),
+      legend.position = "right"
     )
 }
-
 #' Generate GDP bar chart
 #'
 #' Creates a horizontal bar chart for the top sectors by GDP.
@@ -2186,22 +2278,54 @@ generate_gdp_bar_chart <- function(gdp_sector, sector_info, top_n = 10) {
 #' @return A list with elements `plot` (plotly) and `data` (tibble).
 #'
 #' @export
-generate_gdp_donut_chart <- function(gdp_sector, sector_info, top_n = 10) {
-  plot_df <- merge(gdp_sector, sector_info,
-                   by.x = "SECTOR", by.y = colnames(sector_info)[1], all.x = TRUE)
-  total_gdp <- sum(plot_df$GDP, na.rm = TRUE)
-  plot_df$CONTRIBUTION <- round(100 * plot_df$GDP / total_gdp, 2)
-  plot_df <- head(plot_df[order(-plot_df$GDP), ], top_n)
-  plot_df$SECTOR_LABEL <- stringr::str_wrap(plot_df$SECTOR, width = 25)
+generate_gdp_donut_chart <- function(gdp_baseline, sector) {
+  total_gdp <- sum(gdp_baseline$GDP, na.rm = TRUE)
   
-  p <- plot_ly(data = plot_df, labels = ~SECTOR_LABEL, values = ~GDP,
-               type = "pie", hole = 0.55,
-               text = ~paste0(round(CONTRIBUTION, 1), "%"),
-               textinfo = "label+text",
-               hovertemplate = paste("<b>%{label}</b><br>GDP: %{value:,.0f} Million IDR",
-                                     "<br>Contribution to Total GDP: %{customdata:.2f}%",
-                                     "<extra></extra>")) %>%
-    layout(title = "Top 10 GDP Contribution by Sector", showlegend = FALSE)
+  gdp_sorted <- gdp_baseline %>%
+    mutate(GDP = as.numeric(GDP)) %>%
+    arrange(desc(GDP))
   
-  list(plot = p, data = plot_df)
+  top10 <- gdp_sorted %>% slice_head(n = 10)
+  others_gdp <- sum(gdp_sorted$GDP) - sum(top10$GDP)
+  
+  donut_data <- bind_rows(
+    top10 %>% select(SECTOR, GDP),
+    tibble(SECTOR = "Lainnya", GDP = others_gdp)
+  ) %>%
+    mutate(
+      CONTRIBUTION = GDP / total_gdp * 100,
+      SECTOR = factor(SECTOR, levels = c(rev(top10$SECTOR), "Lainnya"))
+    )
+  
+  # Palet warna: 10 warna untuk top10 + abu untuk "Lainnya"
+  cols <- c(
+    scales::hue_pal()(10),
+    "grey70"
+  )
+  
+  p <- plot_ly(
+    donut_data,
+    labels = ~SECTOR,
+    values = ~GDP,
+    type = "pie",
+    hole = 0.5,  # <- ini yang bikin bolong
+    textposition = "inside",
+    textinfo = "percent",
+    hovertemplate = paste0(
+      "<b>%{label}</b><br>",
+      "PDRB: %{value:,.0f}<br>",
+      "Kontribusi: %{percent}<extra></extra>"
+    ),
+    marker = list(
+      colors = cols,
+      line = list(color = "white", width = 2)
+    )
+  ) %>%
+    layout(
+      title = "Proporsi Kontribusi PDRB per Sektor",
+      showlegend = TRUE,
+      legend = list(orientation = "v", x = 1, y = 0.5)
+    )
+  
+  list(plot = p, data = donut_data)
 }
