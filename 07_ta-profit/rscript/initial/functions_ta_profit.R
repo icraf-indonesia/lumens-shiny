@@ -126,15 +126,26 @@ preprocess_data <- function(pathLULCT1, pathLULCT2, pathPU,
   
   colnames(combinedRasterTable)[1:3] <- c("PU", "LC1", "LC2")
   
-  # Join with NPV data
+  LookupCARBON<- read_csv(pathLookupCARBON)
+  LookupCARBON <- LookupCARBON %>% dplyr::select(ID = 1, LC = 2, Carbon = 3)
+  
+  # Join with NPV and CARBON data
   combinedRasterTable <- combinedRasterTable %>%
+    # Join NPV lookup for LC1 and LC2
     left_join(LookupNPV %>% rename_all(~paste0(., "_LC1")), by = c("LC1" = "LC_LC1")) %>%
-    left_join(LookupNPV %>% rename_all(~paste0(., "_LC2")), by = c("LC2" = "LC_LC2")) %>%
+    left_join(LookupNPV %>% rename_all(~paste0(., "_LC2")), by = c("LC2" = "LC_LC2")) %>% 
+    # Join Carbon lookup for LC1 and LC2
+    left_join(LookupCARBON %>% rename(C_T1 = Carbon), by = c("LC1" = "LC")) %>%
+    left_join(LookupCARBON %>% rename(C_T2 = Carbon), by = c("LC2" = "LC")) %>%
+    select(-ID.x, -ID.y) %>%
     mutate(
       NPV1 = NPV_LC1 * Ha,
       NPV2 = NPV_LC2 * Ha,
-      deltaNPV = NPV2 - NPV1
+      deltaNPV = NPV2 - NPV1,
+      LULCC = paste(LC1, "to", LC2)
     )
+  
+  total_area <- sum(combinedRasterTable$Ha, na.rm = TRUE)
   
   # Create NPV maps
   npv_matrix <- as.matrix(LookupNPV[, c("ID", "NPV")])
@@ -149,8 +160,44 @@ preprocess_data <- function(pathLULCT1, pathLULCT2, pathPU,
     deltaNPV_map = deltaNPV_map,
     LULCT1 = LULCT1,
     LULCT2 = LULCT2,
-    PU = PU
+    PU = PU,
+    total_area = total_area
   ))
+}
+
+build_opcost_table <- function(dt_quesc_npv, period, total_area) {
+  data_em_sel <- combinedRasterTable
+  
+  data_em_sel <- within(data_em_sel, {
+    em_rate <- ((C_T1 - C_T2) * (Ha * 3.67)) / (total_area * period)
+    em_tot <- (C_T1 - C_T2) * 3.67
+    opcost <- (NPV2 - NPV1) / em_tot
+  })
+  
+  opcost_tab <- data.frame(
+    luchg = data_em_sel$LULCC,
+    zone = data_em_sel$PU,
+    opcost = data_em_sel$opcost,
+    emrate = data_em_sel$em_rate,
+    area = data_em_sel$Ha
+  ) %>%
+    filter(!is.nan(opcost), !is.na(opcost))
+  
+  opcost_tab_p <- opcost_tab[opcost_tab$opcost >= 0, ]
+  opcost_tab_p <- opcost_tab_p[order(opcost_tab_p$opcost), ]
+  opcost_tab_p$cum_emrate <- cumsum(opcost_tab_p$emrate)
+  opcost_tab_p$opcost_log <- log10(opcost_tab_p$opcost)
+  is.na(opcost_tab_p) <- sapply(opcost_tab_p, is.infinite)
+  opcost_tab_p[is.na(opcost_tab_p)] <- 0
+  
+  opcost_tab_n <- opcost_tab[opcost_tab$opcost < 0, ]
+  opcost_tab_n <- opcost_tab_n[order(opcost_tab_n$opcost), ]
+  opcost_tab_n$cum_emrate <- cumsum(opcost_tab_n$emrate)
+  opcost_tab_n$opcost_log <- log10(-1 * opcost_tab_n$opcost) * -1
+  
+  opcost_all <- rbind(opcost_tab_n, opcost_tab_p)
+  opcost_all$cum_emrate2 <- as.factor(opcost_all$cum_emrate)
+  list(opcost_all = opcost_all)
 }
 
 # Analysis Functions

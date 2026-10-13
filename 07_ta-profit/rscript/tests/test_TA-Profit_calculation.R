@@ -9,13 +9,19 @@ library(rmarkdown)
 start_time <- Sys.time()
 
 # Define data directory
-data_dir <- "D:/ICRAF/Kodingan/icraf-indonesia/lumens-shiny/07_ta-profit/rscript/tests"
+data_dir <- "D:/ICRAF/Kodingan/icraf-indonesia/lumens-shiny"
 
 # File paths
-map1_path <- file.path(data_dir, "data/NTT/NTT_2000V3F.tif")
-map2_path <- file.path(data_dir, "data/NTT/NTT_2010V3F.tif")
-npv_path <- file.path(data_dir, "data/profitability_table.csv")
-carbon_path <- file.path(data_dir, "data/NTT/quesc_database.csv")
+map1_path <- file.path(data_dir, "data/raster/bungo_landcover_1990r.tif")
+map2_path <- file.path(data_dir, "data/raster/bungo_landcover_2000r.tif")
+npv_path <- file.path(data_dir, "data/table/profitability_table_bungo.csv")
+carbon_path <- file.path(data_dir, "data/table/carbon_bungo.csv")
+
+# # File paths
+# map1_path <- file.path(data_dir, "data/NTT/NTT_2000V3F.tif")
+# map2_path <- file.path(data_dir, "data/NTT/NTT_2010V3F.tif")
+# npv_path <- file.path(data_dir, "data/profitability_table.csv")
+# carbon_path <- file.path(data_dir, "data/NTT/quesc_database.csv")
 
 # Read raster data
 map1 <- terra::rast(map1_path)
@@ -35,8 +41,8 @@ tbl_npv <- readr::read_csv(npv_path, show_col_types = FALSE) %>%
   dplyr::select(ID_LC = 1, NPV = 3)
 
 # Additional parameters
-year1 <- 2000
-year2 <- 2010
+year1 <- 1990
+year2 <- 2000
 period <- year2 - year1
 raster_nodata <- 0
 output_dir <- file.path(data_dir, "output")
@@ -72,8 +78,8 @@ format_session_info_table <- function() {
 }
 
 prepare_npv_lookup <- function(tbl_npv, quesc_tbl) {
-  colnames(tbl_npv)[1:2] <- c("ID_LC1", "NPV1")
-  dt_quesc_npv <- merge(quesc_tbl, tbl_npv, by = "ID_LC1")
+  dt_quesc_npv <- merge(tbl_carbon, tbl_npv, by = "ID")
+  colnames(dt_quesc_npv)[1:2] <- c("ID_LC1", "NPV1")
   colnames(tbl_npv)[1:2] <- c("ID_LC2", "NPV2")
   dt_quesc_npv <- merge(dt_quesc_npv, tbl_npv, by = "ID_LC2")
   tot_area <- sum(dt_quesc_npv$Ha, na.rm = TRUE)
@@ -157,7 +163,7 @@ generate_opportunity_cost_curve <- function(opcost_table) {
   # Prepare data frame for the curve
   df_curve <- data.frame(
     emission_rate = opcost_table$emrate,
-    opportunity_cost = opcost_table$opcost,
+    opportunity_cost = opcost_table$opcost_log,
     land_use_change = opcost_table$luchg
   )
   
