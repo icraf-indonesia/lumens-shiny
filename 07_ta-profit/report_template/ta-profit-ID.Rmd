@@ -56,6 +56,13 @@ library(mapview)
 library(dplyr)
 library(LUMENSR)
 library(glue)
+
+mapviewOptions(
+  basemaps = c("Esri.WorldImagery",
+               "Esri.WorldGrayCanvas",
+               "Esri.WorldTopoMap",
+               "OpenStreetMap")
+)
 ```
 
 <details><summary>Klik di sini untuk Log Analisis</summary>
@@ -455,7 +462,8 @@ mapview(
   maxpixels = ncell(npv1_map),
   na.color = "transparent",
   layer.name = "EAE T1",
-  col.regions = colorRampPalette(c("lightgrey", "darkgreen"))
+  col.regions = colorRampPalette(c("lightgrey", "darkgreen")),
+  map.type = "Esri.WorldGrayCanvas"
 )
 
 # vals <- values(npv1_map)
@@ -528,7 +536,8 @@ mapview(
   maxpixels = ncell(npv2_map),
   na.color = "transparent",
   layer.name = "EAE T2",
-  col.regions = colorRampPalette(c("lightgrey", "darkgreen"))
+  col.regions = colorRampPalette(c("lightgrey", "darkgreen")),
+  map.type = "Esri.WorldGrayCanvas"
 )
 ```
 
@@ -598,7 +607,8 @@ mapview(
   na.color = "transparent",
   layer.name = "Delta EAE",
   at = breaks,
-  col.regions = colors
+  col.regions = colors,
+  map.type = "Esri.WorldGrayCanvas"
 )
 ```
 
