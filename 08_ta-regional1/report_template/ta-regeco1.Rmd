@@ -196,9 +196,15 @@ pct_cols <- intersect("Selisih (%)", colnames(balance_display))
 
 dt <- DT::datatable(
   balance_display,
-  rownames = FALSE,
-  caption  = "Keseimbangan Total Input dan Output per Sektor",
-  options  = list(pageLength = 10, dom = 'tip', scrollX = TRUE)
+  rownames   = FALSE,
+  caption    = "Keseimbangan Total Input dan Output per Sektor",
+  extensions = "Buttons",
+  options    = list(
+    pageLength = 10,
+    dom        = "Bfrtip",
+    buttons    = c("copy", "excel", "csv"),
+    scrollX    = TRUE
+  )
 )
 
 if (length(num_cols) > 0) {
@@ -231,7 +237,15 @@ Sebanyak r nrow(subset(linkages_table, ITBL >= 1 & ITFL >= 1)) sektor memiliki n
 dt_linkage <- linkages_table
 if ("ID" %in% colnames(dt_linkage)) dt_linkage$ID <- NULL
 
-DT::datatable(dt_linkage, rownames = FALSE) %>%
+DT::datatable(
+  dt_linkage,
+  rownames   = FALSE,
+  extensions = "Buttons",
+  options    = list(
+    dom     = "Bfrtip",
+    buttons = c("copy", "excel", "csv")
+  )
+) %>%
   DT::formatRound(
     columns = c(
       "DFL", "TFL", "ITFL", "DBL", "TBL", "ITBL",
@@ -271,11 +285,23 @@ Jumlah sektor pada Kuadran I (industri unggulan: ITBL > 1 dan ITFL > 1) adalah `
 
 ```{r, k1, echo=FALSE, warning=FALSE, message=FALSE}
 quadrant_1 <- subset(linkages_table, Quadrant == "Kuadran I")
-DT::datatable(quadrant_1, rownames = FALSE) %>%
-  DT::formatRound(columns = c(
-    "DFL", "TFL", "ITFL", "DBL", "TBL", "ITBL",
-    "|TFL-DFL|", "|TBL-DBL|"
-  ), digits = 3, mark = ",")
+
+DT::datatable(
+  quadrant_1,
+  rownames   = FALSE,
+  extensions = "Buttons",
+  options    = list(
+    dom     = "Bfrtip",
+    buttons = c("copy", "excel", "csv")
+  )
+) %>%
+  DT::formatRound(
+    columns = c(
+      "DFL", "TFL", "ITFL", "DBL", "TBL", "ITBL",
+      "|TFL-DFL|", "|TBL-DBL|"
+    ),
+    digits = 3, mark = ","
+  )
 ```
 
 Kuadran I (industri unggulan) menunjukkan sektor dengan keterkaitan ke belakang dan ke depan yang kuat (ITBL > 1 dan ITFL > 1). Sektor dalam kuadran ini mampu menyerap input dari sektor lain sekaligus menyuplai output untuk aktivitas ekonomi lainnya.
@@ -286,11 +312,23 @@ Sebanyak `r nrow(primary_sector_table)` sektor unggulan teridentifikasi memiliki
 
 ```{r, k2, echo=FALSE, warning=FALSE, message=FALSE}
 quadrant_2 <- subset(linkages_table, Quadrant == "Kuadran II")
-DT::datatable(quadrant_2, rownames = FALSE) %>%
-  DT::formatRound(columns = c(
-    "DFL", "TFL", "ITFL", "DBL", "TBL", "ITBL",
-    "|TFL-DFL|", "|TBL-DBL|"
-  ), digits = 3, mark = ",")
+
+DT::datatable(
+  quadrant_2,
+  rownames   = FALSE,
+  extensions = "Buttons",
+  options    = list(
+    dom     = "Bfrtip",
+    buttons = c("copy", "excel", "csv")
+  )
+) %>%
+  DT::formatRound(
+    columns = c(
+      "DFL", "TFL", "ITFL", "DBL", "TBL", "ITBL",
+      "|TFL-DFL|", "|TBL-DBL|"
+    ),
+    digits = 3, mark = ","
+  )
 ```
 
 Kuadran II (potensi unggul) menunjukkan sektor dengan keterkaitan ke belakang yang kuat namun keterkaitan ke depan lemah (ITBL > 1 dan ITFL < 1). Sektor pada kuadran ini banyak menyerap input dari sektor lain, sehingga peningkatan permintaannya mendorong aktivitas sektor hulu.
@@ -299,11 +337,23 @@ Kuadran II (potensi unggul) menunjukkan sektor dengan keterkaitan ke belakang ya
 
 ```{r, k3, echo=FALSE, warning=FALSE, message=FALSE}
 quadrant_3 <- subset(linkages_table, Quadrant == "Kuadran III")
-DT::datatable(quadrant_3, rownames = FALSE) %>%
-  DT::formatRound(columns = c(
-    "DFL", "TFL", "ITFL", "DBL", "TBL", "ITBL",
-    "|TFL-DFL|", "|TBL-DBL|"
-  ), digits = 3, mark = ",")
+
+DT::datatable(
+  quadrant_3,
+  rownames   = FALSE,
+  extensions = "Buttons",
+  options    = list(
+    dom     = "Bfrtip",
+    buttons = c("copy", "excel", "csv")
+  )
+) %>%
+  DT::formatRound(
+    columns = c(
+      "DFL", "TFL", "ITFL", "DBL", "TBL", "ITBL",
+      "|TFL-DFL|", "|TBL-DBL|"
+    ),
+    digits = 3, mark = ","
+  )
 ```
 
 Kuadran III (kurang diunggulkan) menunjukkan sektor dengan keterkaitan ke depan yang kuat namun keterkaitan ke belakang lemah (ITBL < 1 dan ITFL > 1). Sektor pada kuadran ini umumnya berfungsi sebagai penyedia bahan baku yang outputnya digunakan banyak sektor lain.
@@ -312,11 +362,23 @@ Kuadran III (kurang diunggulkan) menunjukkan sektor dengan keterkaitan ke depan 
 
 ```{r, k4, echo=FALSE, warning=FALSE, message=FALSE}
 quadrant_4 <- subset(linkages_table, Quadrant == "Kuadran IV")
-DT::datatable(quadrant_4, rownames = FALSE) %>%
-  DT::formatRound(columns = c(
-    "DFL", "TFL", "ITFL", "DBL", "TBL", "ITBL",
-    "|TFL-DFL|", "|TBL-DBL|"
-  ), digits = 3, mark = ",")
+
+DT::datatable(
+  quadrant_4,
+  rownames   = FALSE,
+  extensions = "Buttons",
+  options    = list(
+    dom     = "Bfrtip",
+    buttons = c("copy", "excel", "csv")
+  )
+) %>%
+  DT::formatRound(
+    columns = c(
+      "DFL", "TFL", "ITFL", "DBL", "TBL", "ITBL",
+      "|TFL-DFL|", "|TBL-DBL|"
+    ),
+    digits = 3, mark = ","
+  )
 ```
 
 Kuadran IV (tertinggal) menunjukkan sektor dengan keterkaitan ke depan dan ke belakang yang relatif lemah (ITBL < 1 dan ITFL < 1). Sektor pada kuadran ini cenderung memiliki keterbatasan dalam mendorong aktivitas ekonomi antar sektor dan sering kali memiliki ketergantungan yang lebih tinggi terhadap impor atau permintaan akhir.
@@ -368,9 +430,15 @@ dt_gdp <- dt_gdp %>%
 # ---- Tampilkan ----
 DT::datatable(
   dt_gdp,
-  rownames = FALSE,
-  caption  = "PDRB per Sektor",
-  options  = list(pageLength = 10, dom = 'tip', scrollX = TRUE)
+  rownames   = FALSE,
+  caption    = "PDRB per Sektor",
+  extensions = "Buttons",
+  options    = list(
+    pageLength = 10,
+    dom        = "Bfrtip",
+    buttons    = c("copy", "excel", "csv"),
+    scrollX    = TRUE
+  )
 ) %>%
   DT::formatRound(
     columns = intersect(
@@ -420,28 +488,29 @@ gdp_contribution <- gdp_baseline %>%
 
 DT::datatable(
   gdp_contribution,
-  rownames = FALSE,
-  caption = "Kontribusi PDRB Seluruh Sektor",
-  options = list(
+  rownames   = FALSE,
+  caption    = "Kontribusi PDRB Seluruh Sektor",
+  extensions = "Buttons",
+  options    = list(
     pageLength = 15,
-    dom = 'tip',
-    scrollX = TRUE,
-    order = list(list(3, 'desc')) 
+    dom        = "Bfrtip",
+    buttons    = c("copy", "excel", "csv"),
+    scrollX    = TRUE,
+    order      = list(list(3, "desc"))
   )
 ) %>%
   DT::formatRound(
     columns = c("PDRB", "Output Total", "Permintaan Akhir"),
-    digits = 2, mark = ","
+    digits  = 2, mark = ","
   ) %>%
   DT::formatRound("Kontribusi (%)", digits = 2) %>%
   DT::formatStyle(
     "Kontribusi (%)",
-    background = DT::styleColorBar(
-      gdp_contribution$`Kontribusi (%)`,
-      "#A8DADC"
+    background         = DT::styleColorBar(
+      gdp_contribution$`Kontribusi (%)`, "#A8DADC"
     ),
-    backgroundSize = "100% 90%",
-    backgroundRepeat = "no-repeat",
+    backgroundSize     = "100% 90%",
+    backgroundRepeat   = "no-repeat",
     backgroundPosition = "center"
   )
 ```
@@ -468,7 +537,15 @@ multiplier_table_display <- multiplier_table %>%
     "Pengganda Surplus Usaha"     = "SUB.multiplier"
   )
 
-DT::datatable(multiplier_table_display, rownames = FALSE) %>%
+DT::datatable(
+  multiplier_table_display,
+  rownames   = FALSE,
+  extensions = "Buttons",
+  options    = list(
+    dom     = "Bfrtip",
+    buttons = c("copy", "excel", "csv")
+  )
+) %>%
   DT::formatRound(
     c("Pengganda Output", "Pengganda Pendapatan", "Pengganda Surplus Usaha"),
     digits = 2
