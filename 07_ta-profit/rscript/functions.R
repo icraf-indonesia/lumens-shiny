@@ -29,7 +29,15 @@ format_session_info_table <- function() {
   return(session_summary)
 }
 
-#' Read Table
+#' Read Table (CSV or Excel)
+#'
+#' Reads a lookup table from .csv, .xlsx, or .xls and returns a clean data.frame.
+#'
+#' @param filepath Path to the file.
+#' @param sheet Sheet name or index for Excel (default: 1).
+#'
+#' @return A cleaned data.frame.
+#' @export
 read_lookup_file <- function(filepath, sheet = 1) {
   
   ext <- tolower(tools::file_ext(filepath))
@@ -52,15 +60,35 @@ read_lookup_file <- function(filepath, sheet = 1) {
     
     stop(
       paste(
-        "Unsupported file format:",
-        ext,
+        "Unsupported file format:", ext,
         "\nSupported formats: .csv, .xlsx, .xls"
       )
     )
     
   }
   
-  as.data.frame(df)
+  df <- as.data.frame(df)
+  
+  # --- Pembersihan ---
+  # 1. Buang kolom yang seluruhnya NA
+  df <- df[, colSums(!is.na(df)) > 0, drop = FALSE]
+  
+  # 2. Buang kolom bernama ...N (artefak CSV dengan kolom kosong)
+  df <- df[, !grepl("^\\.\\.\\.\\d+$", names(df)), drop = FALSE]
+  
+  # 3. Trim whitespace pada nama kolom
+  names(df) <- trimws(names(df))
+  
+  # 4. Pastikan kolom pertama numerik (ID untuk terra::levels)
+  df[[1]] <- suppressWarnings(as.numeric(df[[1]]))
+  
+  # 5. Peringatkan kalau ada NA di kolom pertama
+  if (any(is.na(df[[1]]))) {
+    warning("Kolom pertama lookup table berisi nilai non-numerik atau NA. ",
+            "Periksa kembali file: ", basename(filepath))
+  }
+  
+  df
 }
 
 #' Plot Categorical Raster
@@ -149,28 +177,89 @@ easy_to_read_numbers <- scales::label_comma()
 #' @export
 preprocess_data <- function(pathLULCT1, pathLULCT2, pathPU, 
                             pathLookupPU, pathLookupNPV, pathLookupCstock,
-                            valueT1, valueT2) {  
+                            valueT1, valueT2,
+                            puIsVector = FALSE) {
   
-  # Load and process LULC T1
+  # ---------- LULC T1 ----------
   LULCT1 <- terra::rast(pathLULCT1)
   LookupNPV <- read_lookup_file(pathLookupNPV)
   levels(LULCT1) <- LookupNPV
   LULCT1 <- setNames(LULCT1, "LC1")
   if (!is.null(valueT1)) terra::time(LULCT1, tstep = "years") <- as.numeric(valueT1)
   
-  # Load and process LULC T2
+  # ---------- LULC T2 ----------
   LULCT2 <- terra::rast(pathLULCT2)
   levels(LULCT2) <- LookupNPV
   LULCT2 <- setNames(LULCT2, "LC2")
   if (!is.null(valueT2)) terra::time(LULCT2, tstep = "years") <- as.numeric(valueT2)
   
-  # Load and process PU
-  PU <- terra::rast(pathPU)
-  LookupPU <- read_lookup_file(pathLookupPU)
-  levels(PU) <- LookupPU
-  PU <- terra::resample(PU, LULCT1, method="near")
+  # ---------- PU ----------
+  if (puIsVector) {
+    PU_vect <- terra::vect(pathPU)
+    
+    # Convert seluruh attribute ke data.frame sekali saja
+    attr_df <- as.data.frame(PU_vect)
+    
+    # Deteksi kolom ID numeric (untuk rasterize + lookup)
+    id_col_name <- NULL
+    for (nm in names(attr_df)) {
+      vals <- attr_df[[nm]]
+      if (is.numeric(vals) && length(unique(vals[!is.na(vals)])) > 1) {
+        id_col_name <- nm
+        break
+      }
+    }
+    if (is.null(id_col_name)) {
+      id_col_name <- names(attr_df)[1]
+      warning("Kolom ID numeric tidak terdeteksi. Menggunakan kolom pertama: ",
+              id_col_name)
+    }
+    
+    # Deteksi kolom nama PU (character)
+    name_col_name <- NULL
+    for (nm in names(attr_df)) {
+      vals <- attr_df[[nm]]
+      if (is.character(vals) || is.factor(vals)) {
+        name_col_name <- nm
+        break
+      }
+    }
+    if (is.null(name_col_name)) {
+      name_col_name <- id_col_name
+      warning("Kolom nama PU tidak ditemukan. Menggunakan kolom ID sebagai nama.")
+    }
+    
+    # Bangun LookupPU dari attribute shapefile
+    LookupPU <- data.frame(
+      ID = as.numeric(attr_df[[id_col_name]]),
+      PU = as.character(attr_df[[name_col_name]]),
+      stringsAsFactors = FALSE
+    )
+    LookupPU <- LookupPU[!is.na(LookupPU$ID), ]
+    LookupPU <- LookupPU[!duplicated(LookupPU$ID), ]
+    
+    cat("=== LOOKUP PU dari shapefile ===\n")
+    print(LookupPU)
+    
+    # Rasterize vector
+    PU <- terra::rasterize(
+      PU_vect,
+      LULCT1,
+      field = id_col_name,
+      background = NA
+    )
+    
+  } else {
+    PU <- terra::rast(pathPU)
+    LookupPU <- read_lookup_file(pathLookupPU)
+    LookupPU[[1]] <- as.numeric(LookupPU[[1]])
+  }
   
-  # Combine rasters and calculate areas
+  # Set levels + resample
+  levels(PU) <- LookupPU
+  PU <- terra::resample(PU, LULCT1, method = "near")
+  
+  # ---------- Combine rasters ----------
   combinedRaster <- c(PU, LULCT1, LULCT2)
   res_m <- terra::res(LULCT1)
   area_ha_per_pixel <- (res_m[1] * res_m[2]) / 10000
@@ -186,17 +275,21 @@ preprocess_data <- function(pathLULCT1, pathLULCT2, pathPU,
   
   colnames(combinedRasterTable)[1:3] <- c("PU", "LC1", "LC2")
   
+  # ---------- Lookup Carbon ----------
   LookupCstock <- read_lookup_file(pathLookupCstock)
   LookupCstock <- LookupCstock %>% dplyr::select(ID = 1, LC = 2, Carbon = 3)
+  LookupCstock[[1]] <- as.numeric(LookupCstock[[1]])
   
-  # Join with NPV and CARBON data
+  # ---------- Join ----------
   combinedRasterTable <- combinedRasterTable %>%
-    # Join NPV lookup for LC1 and LC2
-    left_join(LookupNPV %>% rename_all(~paste0(., "_LC1")), by = c("LC1" = "LC_LC1")) %>%
-    left_join(LookupNPV %>% rename_all(~paste0(., "_LC2")), by = c("LC2" = "LC_LC2")) %>% 
-    # Join Carbon lookup for LC1 and LC2
-    left_join(LookupCstock %>% rename(C_T1 = Carbon), by = c("LC1" = "LC")) %>%
-    left_join(LookupCstock %>% rename(C_T2 = Carbon), by = c("LC2" = "LC")) %>%
+    left_join(LookupNPV %>% rename_all(~paste0(., "_LC1")), 
+              by = c("LC1" = "LC_LC1")) %>%
+    left_join(LookupNPV %>% rename_all(~paste0(., "_LC2")), 
+              by = c("LC2" = "LC_LC2")) %>% 
+    left_join(LookupCstock %>% rename(C_T1 = Carbon), 
+              by = c("LC1" = "LC")) %>%
+    left_join(LookupCstock %>% rename(C_T2 = Carbon), 
+              by = c("LC2" = "LC")) %>%
     select(-ID.x, -ID.y) %>%
     mutate(
       NPV1 = EAE_LC1 * Ha,
@@ -208,7 +301,7 @@ preprocess_data <- function(pathLULCT1, pathLULCT2, pathPU,
   total_area <- sum(combinedRasterTable$Ha, na.rm = TRUE)
   period <- as.numeric(valueT2) - as.numeric(valueT1)
   
-  # Create NPV maps
+  # ---------- NPV maps ----------
   npv_matrix <- as.matrix(LookupNPV[, c("ID", "EAE")])
   npv1_map <- terra::classify(LULCT1, npv_matrix)
   npv2_map <- terra::classify(LULCT2, npv_matrix)
@@ -1257,4 +1350,10 @@ generate_report_params <- function(data, maps, paths, times, output_dir, pu_outp
     sequestration_plot = abatement_outputs$sequestration_plot,
     abatement_pu_plots = abatement_outputs$pu_plots
   )
+}
+
+shrink_raster <- function(r, target = 3e5, fun = "modal") {
+  n <- terra::ncell(r)
+  if (n <= target) return(r)
+  terra::aggregate(r, fact = ceiling(sqrt(n / target)), fun = fun, na.rm = TRUE)
 }

@@ -295,7 +295,8 @@ fill_scale <- ggplot2::scale_fill_manual(
     "#D9D9D9", "#BC80BD", "#CCEBC5", "#FFED6F", "#E41A1C"
   ),
   na.value = "white",
-  name = "Unit Perencanaan"
+  name = "Unit Perencanaan",
+  labels = function(x) stringr::str_wrap(x, width = 20)
 )
 
 pu_map <- ggplot() +
@@ -307,7 +308,7 @@ pu_map <- ggplot() +
     axis.title = element_blank(),
     panel.grid = element_blank(),
     legend.title = element_text(size = 8, face = "bold"),
-    legend.text = element_text(size = 6),
+    legend.text = element_text(size = 6, lineheight = 0.9),
     legend.key.height = unit(0.5, "cm"),
     legend.key.width = unit(0.4, "cm"),
     legend.position = "right",
@@ -323,25 +324,29 @@ pu_map
 ### Tabel Acuan Unit Perencanaan
 
 ```{r PU Lookup Table, echo=FALSE, message=FALSE, warning=FALSE}
-datatable(
-  read.csv(params$pu_table_path),
-  extensions = c('Buttons', 'Responsive'),
-  rownames = FALSE,
-  options = list(
-    paging = TRUE,
-    searching = TRUE,
-    fixedColumns = TRUE,
-    autoWidth = TRUE,
-    ordering = TRUE,
-    dom = 'Blfrtip',
-    buttons = list(
-      list(extend = "copy", className = "btn btn-light btn-sm"),
-      list(extend = "csv",  className = "btn btn-light btn-sm"),
-      list(extend = "excel",className = "btn btn-light btn-sm")
+if (!is.null(params$pu_table_path) && file.exists(params$pu_table_path)) {
+  datatable(
+    read_lookup_file(params$pu_table_path),
+    extensions = c('Buttons', 'Responsive'),
+    rownames = FALSE,
+    options = list(
+      paging = TRUE,
+      searching = TRUE,
+      fixedColumns = TRUE,
+      autoWidth = TRUE,
+      ordering = TRUE,
+      dom = 'Blfrtip',
+      buttons = list(
+        list(extend = "copy",  className = "btn btn-light btn-sm"),
+        list(extend = "csv",   className = "btn btn-light btn-sm"),
+        list(extend = "excel", className = "btn btn-light btn-sm")
       )
-  ),
-  class = "display stripe hover"
-)
+    ),
+    class = "display stripe hover"
+  )
+} else {
+  cat("*Tabel acuan unit perencanaan tidak tersedia (PU diupload sebagai shapefile).*")
+}
 ```
 
 ### Tabel Acuan EAE
@@ -349,12 +354,10 @@ datatable(
 Tabel berikut menampilkan nilai EAE dan emisi karbon untuk setiap hektare lahan setiap tutupan lahan yang ada.
 
 ```{r NPV Lookup Table, echo=FALSE, message=FALSE, warning=FALSE}
-# baca tabel NPV
-npv_tbl <- read.csv(params$npv_file_path) |>
+npv_tbl <- read_lookup_file(params$npv_file_path) |>
   select(LC, EAE)
 
-# baca tabel carbon stock
-carbon_tbl <- read.csv(params$cstock_table_path) |>
+carbon_tbl <- read_lookup_file(params$cstock_table_path) |>
   select(LC, CARBON)
 
 # join NPV + Carbon
@@ -455,39 +458,16 @@ params$npv1_chart
 
 ### Peta Distribusi
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
-npv1_map <- params$npv1_map  
+r1 <- shrink_raster(params$npv1_map)
 
 mapview(
-  npv1_map,
-  maxpixels = ncell(npv1_map),
+  r1,
+  maxpixels = terra::ncell(r1),   # jangan di-resample lagi
   na.color = "transparent",
   layer.name = "EAE T1",
   col.regions = colorRampPalette(c("lightgrey", "darkgreen")),
   map.type = "Esri.WorldGrayCanvas"
 )
-
-# vals <- values(npv1_map)
-# vals <- vals[!is.na(vals)]
-# 
-# # define log10 breaks, symmetric around 0
-# max_val <- max(abs(vals))
-# log_breaks <- unique(c(
-#   0,
-#   10^(0:floor(log10(max_val)))
-# ))
-# 
-# log_breaks <- c(0, 10^(0:floor(log10(max_val))))
-# log_breaks <- sort(unique(c(log_breaks, log_breaks * 5)))  # add n× values
-# log_breaks <- log_breaks[log_breaks <= max_val]
-# 
-# mapview(
-#   npv1_map,
-#   maxpixels = ncell(npv1_map),
-#   na.color = "transparent",
-#   layer.name = "NPV",
-#   col.regions = colorRampPalette(c("white","yellow","orange","darkgreen")),
-#   at = log_breaks
-# )
 ```
 
 ### Tabel
@@ -529,11 +509,11 @@ params$npv2_chart
 
 ### Peta Distribusi
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
-npv2_map <- params$npv2_map  
+r2 <- shrink_raster(params$npv2_map)
 
 mapview(
-  npv2_map,
-  maxpixels = ncell(npv2_map),
+  r1,
+  maxpixels = terra::ncell(r2),   # jangan di-resample lagi
   na.color = "transparent",
   layer.name = "EAE T2",
   col.regions = colorRampPalette(c("lightgrey", "darkgreen")),
@@ -580,35 +560,28 @@ params$deltaNPV_chart
 
 ### Peta Distribusi
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
-deltaNPV_map <- params$deltaNPV_map  
+r_delta <- shrink_raster(params$deltaNPV_map, target = 3e5, fun = "modal")
 
-# mapview(
-#   deltaNPV_map,
-#   maxpixels = ncell(deltaNPV_map),
-#   na.color = "transparent",
-#   layer.name = "ΔNPV"
-# )
-
-# Get the range of values to set appropriate breakpoints
-vals <- values(deltaNPV_map)
-vals <- vals[!is.na(vals)]  # Remove NA values
+# Breakpoints dari raster yang sudah diperkecil
+vals    <- terra::values(r_delta, na.rm = TRUE)
 min_val <- min(vals)
 max_val <- max(vals)
 
-# Create breakpoints that include 0 in the middle
-breaks <- c(min_val, -1e-10, 1e-10, max_val)  # Using small values around 0
+# Tiga kelas: negatif, nol, positif.
+# pmin/pmax menjaga breaks tetap naik monoton walau data tidak punya
+# nilai negatif atau positif sama sekali (kalau tidak, mapview akan error).
+breaks <- c(pmin(min_val, -1e-9), -1e-10, 1e-10, pmax(max_val, 1e-9))
 
-# Define colors with white at 0
-colors <- c("red", "lightgrey", "green")  # Negative values: red, 0: white, Positive values: blue
+colors <- c("red", "lightgrey", "green")  # negatif, nol, positif
 
 mapview(
-  deltaNPV_map,
-  maxpixels = ncell(deltaNPV_map),
-  na.color = "transparent",
-  layer.name = "Delta EAE",
-  at = breaks,
+  r_delta,
+  maxpixels   = terra::ncell(r_delta),  # jangan di-resample lagi
+  na.color    = "transparent",
+  layer.name  = "Delta EAE",
+  at          = breaks,
   col.regions = colors,
-  map.type = "Esri.WorldGrayCanvas"
+  map.type    = "Esri.WorldGrayCanvas"
 )
 ```
 

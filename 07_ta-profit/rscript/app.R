@@ -86,19 +86,71 @@ ui <- fluidPage(
   titlePanel("Profitability Analysis"),
   sidebarLayout(
     sidebarPanel(
-      fileInput("lulc_t1", "Land cover map at T1", accept = c("image/tiff", ".tif")),
+      fileInput(
+        "lulc_t1",
+        "Land cover map at T1",
+        accept = c("image/tiff", ".tif"),
+        placeholder = "Upload the .tif LULC file for T1"
+      ),
       textInput("year1", "Year of T1", value = "1990"),
-      fileInput("lulc_t2", "Land cover map at T2", accept = c("image/tiff", ".tif")),
+      fileInput(
+        "lulc_t2",
+        "Land cover map at T2",
+        accept = c("image/tiff", ".tif"),
+        placeholder = "Upload the .tif LULC file for T2"
+      ),
       textInput("year2", "Year of T2", value = "2000"),
-      fileInput("pu_raster", "Planning Unit Raster", accept = c("image/tiff", ".tif")),
-      fileInput("pu_table", "Planning Unit lookup table", accept = c(".csv")),
-      fileInput("npv_table", "EAE lookup table", accept = c(".csv")),
+      
+      radioButtons(
+        "pu_type",
+        "Planning Unit input type:",
+        choices = c("Raster (.tif)" = "raster", "Vector (.shp)" = "vector"),
+        selected = "raster",
+        inline = TRUE
+      ),
+      
+      conditionalPanel(
+        condition = "input.pu_type == 'raster'",
+        fileInput(
+          "pu_raster",
+          "Planning Unit Raster",
+          accept = c("image/tiff", ".tif", ".tiff"),
+          placeholder = "Upload the .tif Planning Unit raster"
+        ),
+        # Lookup PU hanya untuk raster
+        fileInput(
+          "pu_table",
+          "Planning Unit lookup table",
+          accept = c(".csv", ".xlsx", ".xls"),
+          placeholder = "Upload the PU lookup table (.csv, .xlsx, or .xls)"
+        )
+      ),
+      
+      conditionalPanel(
+        condition = "input.pu_type == 'vector'",
+        fileInput(
+          "pu_vector",
+          "Planning Unit Shapefile",
+          accept = c(".shp", ".dbf", ".prj", ".shx"),
+          multiple = TRUE,
+          placeholder = "Upload the .shp, .dbf, .prj, and .shx files together"
+        )
+      ),
+      
+      fileInput(
+        "npv_table",
+        "EAE lookup table",
+        accept = c(".csv", ".xlsx", ".xls"),
+        placeholder = "Upload the EAE table (.csv, .xlsx, or .xls)"
+      ),
+      
       selectInput(
         inputId = "npv_table_year",
         label = "Which year does your EAE table use?",
         choices = c("T1", "T2", "Others"),
         selected = "T1"
       ),
+      
       conditionalPanel(
         condition = "input.npv_table_year == 'Others'",
         numericInput(
@@ -108,11 +160,18 @@ ui <- fluidPage(
           min = 1900
         )
       ),
-      fileInput("cstock_table", "Carbon lookup table", accept = c(".csv")),
+      
+      fileInput(
+        "cstock_table",
+        "Carbon lookup table",
+        accept = c(".csv", ".xlsx", ".xls"),
+        placeholder = "Upload the carbon stock table (.csv, .xlsx, or .xls)"
+      ),
+      
       selectInput(
         inputId = "currency",
         label = "Select a Currency:",
-        choices = c("IDR", "USD", "EUR", "JPY"),
+        choices = c("IDR", "USD"),
         selected = "IDR"
       ),
       # Directory selector and control buttons
@@ -249,13 +308,15 @@ server <- function(input, output, session) {
   #' @section Observe Input Changes:
   #' Keeps reactive values synchronized with file and text inputs from the UI.
   observe({
-    rv$lulc_t1 <- input$lulc_t1
-    rv$lulc_t2 <- input$lulc_t2
+    rv$lulc_t1     <- input$lulc_t1
+    rv$lulc_t2     <- input$lulc_t2
     rv$cstock_table <- input$cstock_table
-    rv$npv_table <- input$npv_table
-    rv$pu_raster <- input$pu_raster
-    rv$pu_table <- input$pu_table
-    rv$currency <- input$currency
+    rv$npv_table   <- input$npv_table
+    rv$pu_raster   <- input$pu_raster
+    rv$pu_vector   <- input$pu_vector    
+    rv$pu_type     <- input$pu_type      
+    rv$pu_table    <- input$pu_table
+    rv$currency    <- input$currency
   })
   
   # EAE table year selected by user
@@ -270,18 +331,57 @@ server <- function(input, output, session) {
     
   })
   
+  prepare_shapefile <- function(shp_input) {
+    tmp_dir <- file.path(tempdir(), 
+                         paste0("pu_shp_", format(Sys.time(), "%Y%m%d%H%M%S")))
+    dir.create(tmp_dir, showWarnings = FALSE, recursive = TRUE)
+    
+    shp_idx <- grep("\\.shp$", shp_input$name, ignore.case = TRUE)
+    if (length(shp_idx) == 0) {
+      stop("File .shp tidak ditemukan di antara file yang diupload.")
+    }
+    base_name <- tools::file_path_sans_ext(shp_input$name[shp_idx[1]])
+    
+    for (i in seq_len(nrow(shp_input))) {
+      ext  <- tolower(tools::file_ext(shp_input$name[i]))
+      dest <- file.path(tmp_dir, paste0(base_name, ".", ext))
+      file.copy(shp_input$datapath[i], dest, overwrite = TRUE)
+    }
+    
+    file.path(tmp_dir, paste0(base_name, ".shp"))
+  }
+  
   #' @section Input Validation:
   #' Validates all user inputs before running the analysis.
   #' Prevents execution if any required file or field is missing.
   #' @return TRUE if all inputs are valid, otherwise displays validation messages.
   validate_inputs <- reactive({
     validate(
-      need(rv$lulc_t1, "Please upload Land Use/Cover T1 file"),
-      need(rv$lulc_t2, "Please upload Land Use/Cover T2 file"),
-      need(rv$cstock_table, "Please upload Carbon Stock Lookup Table (CSV) file"),
-      need(rv$npv_table, "Please upload NPV Lookup Table (CSV) file"),
-      need(rv$pu_raster, "Please upload Planning Units Raster"),
-      need(rv$pu_table, "Please upload Planning Units Lookup Table (CSV) file"),
+      need(rv$lulc_t1, "Please upload Land Use/Cover T1 file (.tif)"),
+      need(rv$lulc_t2, "Please upload Land Use/Cover T2 file (.tif)"),
+      need(rv$cstock_table, "Please upload Carbon Stock Lookup Table (.csv, .xlsx, or .xls)"),
+      need(rv$npv_table,    "Please upload NPV Lookup Table (.csv, .xlsx, or .xls)"),
+      
+      # PU Raster + lookup PU
+      need(
+        input$pu_type != "raster" || !is.null(rv$pu_raster),
+        "Please upload Planning Units Raster"
+      ),
+      need(
+        input$pu_type != "raster" || !is.null(rv$pu_table),
+        "Please upload Planning Units Lookup Table (.csv, .xlsx, or .xls)"
+      ),
+      
+      # PU Vector (shapefile 4 komponen)
+      need(
+        input$pu_type != "vector" || !is.null(rv$pu_vector),
+        "Please upload Planning Units Shapefile"
+      ),
+      need(
+        input$pu_type != "vector" || length(rv$pu_vector$datapath) >= 4,
+        "Shapefile requires .shp, .dbf, .prj, and .shx files."
+      ),
+      
       need(rv$currency, "Please select your currency"),
       need(rv$wd != "", "Please select an output directory")
     )
@@ -299,6 +399,17 @@ server <- function(input, output, session) {
   #' @importFrom shiny withProgress incProgress showNotification
   observeEvent(input$process, {
     rv$wd <- parseDirPath(volumes, input$wd)
+    
+    # DEBUG: cek input
+    cat("=== DEBUG ===\n")
+    cat("pu_type:", input$pu_type, "\n")
+    cat("pu_vector NULL?:", is.null(input$pu_vector), "\n")
+    if (!is.null(input$pu_vector)) {
+      cat("pu_vector names:", paste(input$pu_vector$name, collapse = ", "), "\n")
+      cat("pu_vector nrow:", nrow(input$pu_vector), "\n")
+    }
+    cat("wd:", rv$wd, "\n")
+    
     req(validate_inputs(), rv$wd)
     
     eae_year <- selected_eae_year()
@@ -311,15 +422,26 @@ server <- function(input, output, session) {
         
         start_time <- Sys.time()
         
+        if (input$pu_type == "vector") {
+          pu_path        <- prepare_shapefile(input$pu_vector)
+          pu_is_vector   <- TRUE
+          pu_lookup_path <- NULL
+        } else {
+          pu_path        <- input$pu_raster$datapath
+          pu_is_vector   <- FALSE
+          pu_lookup_path <- input$pu_table$datapath
+        }
+        
         result <- preprocess_data(
-          pathLULCT1 = input$lulc_t1$datapath,
-          pathLULCT2 = input$lulc_t2$datapath,
-          pathPU = input$pu_raster$datapath,
+          pathLULCT1       = input$lulc_t1$datapath,
+          pathLULCT2       = input$lulc_t2$datapath,
+          pathPU           = pu_path,
           pathLookupCstock = input$cstock_table$datapath,
-          pathLookupPU = input$pu_table$datapath,
-          pathLookupNPV = input$npv_table$datapath,
-          valueT1 = input$year1,
-          valueT2 = input$year2
+          pathLookupPU     = pu_lookup_path,       # bisa NULL kalau vector
+          pathLookupNPV    = input$npv_table$datapath,
+          valueT1          = input$year1,
+          valueT2          = input$year2,
+          puIsVector       = pu_is_vector
         )
         
         incProgress(0.5, detail = "Generating report...")
@@ -327,11 +449,11 @@ server <- function(input, output, session) {
         end_time <- Sys.time()
         
         paths <- list(
-          pathLULCT1 = input$lulc_t1$datapath,
-          pathLULCT2 = input$lulc_t2$datapath,
-          pathPU = input$pu_raster$datapath,
-          pathLookupNPV = input$npv_table$datapath,
-          pathLookupPU = input$pu_table$datapath,
+          pathLULCT1       = input$lulc_t1$datapath,
+          pathLULCT2       = input$lulc_t2$datapath,
+          pathPU           = pu_path,
+          pathLookupNPV    = input$npv_table$datapath,
+          pathLookupPU     = pu_lookup_path,       # bisa NULL
           pathLookupCstock = input$cstock_table$datapath
         )
         
