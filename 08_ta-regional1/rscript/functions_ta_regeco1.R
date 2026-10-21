@@ -1816,12 +1816,14 @@ save_core_analysis_data <- function(core_analysis_results,
 #' }
 #'
 #' @export
-export_io_analysis <- function(gdp_baseline,
+export_io_analysis <- function(sector,
+                               gdp_baseline,
                                linkage_result,
                                growth_rate,
                                labour,
                                OM, IM, LM, SUBM,
                                land_proportion,
+                               landuse_table,
                                linkage_table,
                                full_io_table,
                                code_registry,
@@ -1836,6 +1838,17 @@ export_io_analysis <- function(gdp_baseline,
   dir.create(dirname(output_path), showWarnings = FALSE, recursive = TRUE)
   
   wb <- openxlsx::createWorkbook()
+  
+  # Sector
+  if (!is.null(sector)) {
+    openxlsx::addWorksheet(wb, "Sector")
+    openxlsx::writeData(wb, sheet = "Sector", x = sector)
+  } else {
+    # Fallback: Buat sheet Sector dari gdp_baseline jika parameter tidak diisi
+    sector_fallback <- gdp_baseline[, c("SECTOR", "CATEGORY")]
+    openxlsx::addWorksheet(wb, "Sector")
+    openxlsx::writeData(wb, sheet = "Sector", x = sector_fallback)
+  }
   
   # GDP
   openxlsx::addWorksheet(wb, "GDP")
@@ -1872,6 +1885,12 @@ export_io_analysis <- function(gdp_baseline,
   
   openxlsx::addWorksheet(wb, "Multiplier_SUB")
   openxlsx::writeData(wb, sheet = "Multiplier_SUB", x = sub_table)
+  
+  # Land Cover
+  if (!missing(landuse_table) && !is.null(landuse_table)) {
+    openxlsx::addWorksheet(wb, "Land_Cover")
+    openxlsx::writeData(wb, sheet = "Land_Cover", x = landuse_table)
+  }
   
   # Land proportion
   openxlsx::addWorksheet(wb, "Land_Proportion")

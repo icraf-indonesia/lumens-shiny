@@ -48,6 +48,25 @@ ui <- fluidPage(
   
   sidebarLayout(
     sidebarPanel(
+      # --- Opsi: Load dari RDS preprocessing (opsional) ---
+      checkboxInput(
+        "load_rds",
+        "Muat dari RDS praproses (lewati pembacaan Excel)",
+        value = FALSE
+      ),
+      conditionalPanel(
+        condition = "input.load_rds == true",
+        fileInput(
+          "preprocessing_rds_file",
+          "Preprocessing RDS (.rds)",
+          accept = c(".rds")
+        ),
+        checkboxInput(
+          "new_lc_area",
+          "Perbarui luas tutupan lahan dari berkas baru",
+          value = FALSE
+        )
+      ),
       # --- Input File IO (Excel, multi-sheet) ---
       fileInput(
         "io_file",
@@ -62,27 +81,6 @@ ui <- fluidPage(
         "Land Use Lookup Table (.xlsx)",
         accept = c(".xlsx", ".xls"),
         placeholder = "Pilih file Excel lookup table"
-      ),
-      
-      # --- Opsi: Load dari RDS preprocessing (opsional) ---
-      checkboxInput(
-        "load_rds",
-        "Load from preprocessing RDS (skip Excel reading)",
-        value = FALSE
-      ),
-      
-      conditionalPanel(
-        condition = "input.load_rds == true",
-        fileInput(
-          "preprocessing_rds_file",
-          "Preprocessing RDS (.rds)",
-          accept = c(".rds")
-        ),
-        checkboxInput(
-          "new_lc_area",
-          "Override land use area from new file",
-          value = FALSE
-        )
       ),
       
       # --- Metadata (read-only, dari profil) ---
@@ -567,12 +565,14 @@ server <- function(input, output, session) {
         incProgress(0.05, detail = "Exporting Excel & RDS")
         
         export_io_analysis(
+          sector          = sector,
           gdp_baseline    = gdp_baseline,
           linkage_result  = linkage_result,
           growth_rate     = growth_rate,
           labour          = labour,
           OM = OM, IM = IM, LM = LM, SUBM = SUBM,
           land_proportion = land_proportion,
+          landuse_table   = landuse_table,
           linkage_table   = linkages_table,
           full_io_table   = full_io_table,
           code_registry   = code_registry,
