@@ -333,7 +333,7 @@ generate_output_maps <- function(npv1_map, npv2_map, deltaNPV_map, npv_table, wd
   writeRaster(npv1_map, file.path(wd, "EAE_T1_distribution_map.tif"), overwrite = TRUE)
   writeRaster(npv2_map, file.path(wd, "EAE_T2_distribution_map.tif"), overwrite = TRUE)
   writeRaster(deltaNPV_map, file.path(wd, "deltaEAE_distribution_map.tif"), overwrite = TRUE)
-  write.xlsx(npv_table, file.path(wd, "tabel_EAE.xlsx"), overwrite = TRUE)
+  write.xlsx(npv_table, file.path(wd, "tabel_perhitungan_keuntungan_usaha_tani.xlsx"), overwrite = TRUE)
 }
 
 #' Build Opportunity Cost Table
@@ -761,7 +761,7 @@ all_dissolve_lulcc <- function(data) {
 #' @examples
 #' create_lc1_bar(lc1_data, "NPV by Land Cover T1", "USD")
 #' @export
-create_lc1_bar <- function(data, title = "Top 10 Total EAE by LC1", currency = "IDR") {
+create_lc1_bar <- function(data, title = "Top 10 Total Keuntungan Usaha Tani pada LC1", currency = "IDR") {
   plotly::plot_ly(
     data = data,
     x = ~stringr::str_wrap(LC1, width = 25),
@@ -770,7 +770,7 @@ create_lc1_bar <- function(data, title = "Top 10 Total EAE by LC1", currency = "
     hoverinfo = "text",
     hovertext = ~paste0(
       "Land Cover Class (LC 1): ", LC1, "<br>", 
-      "Total EAE: ", currency, " ", format(Total_NPV1, big.mark = ",", scientific = FALSE)
+      "Total Keuntungan Usaha Tani: ", currency, " ", format(Total_NPV1, big.mark = ",", scientific = FALSE)
     ),
     marker = list(
       color = "lightblue"
@@ -779,7 +779,7 @@ create_lc1_bar <- function(data, title = "Top 10 Total EAE by LC1", currency = "
     plotly::layout(
       title = title,
       xaxis = list(title = "", categoryorder = "total descending", tickangle = -270),
-      yaxis = list(title = paste("Total EAE (", currency, ")"), type="log"),
+      yaxis = list(title = paste("Total Keuntungan Usaha Tani (", currency, ")"), type="log"),
       margin = list(b = 150),
       hoverlabel = list(bgcolor = "white", font = list(color = "black"))
     )
@@ -797,7 +797,7 @@ create_lc1_bar <- function(data, title = "Top 10 Total EAE by LC1", currency = "
 #' @examples
 #' create_lc2_bar(lc2_data, "NPV by Land Cover T2", "USD")
 #' @export
-create_lc2_bar <- function(data, title = "Top 10 Total EAE by LC2", currency = "IDR") {
+create_lc2_bar <- function(data, title = "Top 10 Total Keuntungan Usaha Tani pada LC2", currency = "IDR") {
   plotly::plot_ly(
     data = data,
     x = ~stringr::str_wrap(LC2, width = 25),
@@ -806,7 +806,7 @@ create_lc2_bar <- function(data, title = "Top 10 Total EAE by LC2", currency = "
     hoverinfo = "text",
     hovertext = ~paste0(
       "Land Cover Class (LC 2): ", LC2, "<br>", 
-      "Total EAE: ", currency, " ", format(Total_NPV2, big.mark = ",", scientific = FALSE)
+      "Total Keuntungan Usaha Tani: ", currency, " ", format(Total_NPV2, big.mark = ",", scientific = FALSE)
     ),
     marker = list(
       color = "steelblue"
@@ -815,7 +815,7 @@ create_lc2_bar <- function(data, title = "Top 10 Total EAE by LC2", currency = "
     plotly::layout(
       title = title,
       xaxis = list(title = "", categoryorder = "total descending", tickangle = -270),
-      yaxis = list(title = paste("Total EAE (", currency, ")"), type="log"),
+      yaxis = list(title = paste("Total Keuntungan Usaha Tani (", currency, ")"), type="log"),
       margin = list(b = 150),
       hoverlabel = list(bgcolor = "white", font = list(color = "black"))
     )
@@ -833,7 +833,7 @@ create_lc2_bar <- function(data, title = "Top 10 Total EAE by LC2", currency = "
 #' @examples
 #' create_lulcc_bar(lulcc_data, "Land Use Change NPV Differences", "USD")
 #' @export
-create_lulcc_bar <- function(data, title = "Top 10 LULCC by ΔEAE", currency = "IDR") {
+create_lulcc_bar <- function(data, title = "Top 10 LULCC by ΔKeuntungan Usaha Tani", currency = "IDR") {
   data <- data %>%
     arrange(desc(Total_abs_deltaNPV)) %>%
     mutate(LULCC = factor(LULCC, levels = unique(LULCC)),
@@ -841,13 +841,13 @@ create_lulcc_bar <- function(data, title = "Top 10 LULCC by ΔEAE", currency = "
            negative = ifelse(Total_deltaNPV < 0, Total_deltaNPV, 0))
   
   plotly::plot_ly(data = data) %>%
-    add_bars(x = ~positive, y = ~LULCC, name = "Positive ΔEAE", 
+    add_bars(x = ~positive, y = ~LULCC, name = "Positive ΔKeuntungan Usaha Tani", 
              marker = list(color = "lightgreen"), orientation = "h") %>%
-    add_bars(x = ~negative, y = ~LULCC, name = "Negative ΔEAE", 
+    add_bars(x = ~negative, y = ~LULCC, name = "Negative ΔKeuntungan Usaha Tani", 
              marker = list(color = "red"), orientation = "h") %>%
     layout(
       title = title,
-      xaxis = list(title = paste("ΔEAE (", currency, ")")),
+      xaxis = list(title = paste("ΔKeuntungan Usaha Tani (", currency, ")")),
       yaxis = list(title = "", categoryorder = "array", categoryarray = rev(levels(data$LULCC))),
       barmode = "relative",
       margin = list(l = 150),
@@ -883,21 +883,21 @@ process_pu_data <- function(pu_data, pu_name, currency = "IDR") {
   total_values <- calculate_total_values(pu_data) %>% 
     as.data.frame() %>% 
     rename(
-      !!format_currency_col("Total EAE T1", currency) := Total_NPV1,
-      !!format_currency_col("Total EAE T2", currency) := Total_NPV2,
-      !!format_currency_col("Total ΔEAE", currency) := Total_Delta_NPV
+      !!format_currency_col("Total Keuntungan Usaha Tani T1", currency) := Total_NPV1,
+      !!format_currency_col("Total Keuntungan Usaha Tani T2", currency) := Total_NPV2,
+      !!format_currency_col("Total ΔKeuntungan Usaha Tani", currency) := Total_Delta_NPV
     ) %>% 
     t() %>% 
-    `colnames<-`("Value")
+    `colnames<-`("Nilai")
   
   dissolved_lc1 <- dissolve_lc1(pu_data, 10)
   dissolved_lc2 <- dissolve_lc2(pu_data, 10)
   dissolved_lulcc <- dissolve_lulcc(pu_data, 10)
   all_dissolved_lulcc_pu <- all_dissolve_lulcc(pu_data)
   
-  lc1_bar <- create_lc1_bar(dissolved_lc1, paste("Top 10 EAE by LC 1 in PU:", pu_name), currency)
-  lc2_bar <- create_lc2_bar(dissolved_lc2, paste("Top 10 EAE by LC 2 in PU:", pu_name), currency)
-  lulcc_bar <- create_lulcc_bar(dissolved_lulcc, paste("Top 10 ΔEAE in PU:", pu_name), currency)
+  lc1_bar <- create_lc1_bar(dissolved_lc1, paste("Top 10 Keuntungan Usaha Tani pada LC 1 di PU:", pu_name), currency)
+  lc2_bar <- create_lc2_bar(dissolved_lc2, paste("Top 10 Keuntungan Usaha Tani pada LC 2 di PU:", pu_name), currency)
+  lulcc_bar <- create_lulcc_bar(dissolved_lulcc, paste("Top 10 ΔKeuntungan Usaha Tani di PU:", pu_name), currency)
   
   list(
     total_values = total_values,
@@ -1013,7 +1013,7 @@ generate_plots_by_pu <- function(df_curve, currency) {
           text = hover_text
         ), color = "black") +
         labs(
-          x = "Laju Emisi (ton CO<sub>2</sub>-eq/ha.tahun)",
+          x = "Laju Emisi (ton CO<sub>2</sub>-eq/ha/tahun)",
           y = paste0("Abatement Cost (", currency, "/ton CO<sub>2</sub>-eq)"),
           title = paste("Kurva Abatement Cost -", pu_title)
         ) +
@@ -1148,7 +1148,7 @@ plot_emission_curve <- function(df, currency){
       title = "Emission Cost Curve",
       x = "Emission Rate (ton CO₂-eq/ha/year)",
       y = paste0(
-        "Opportunity Cost (",
+        "Abatement Cost (",
         currency,
         "/ton CO₂-eq)"
       )
@@ -1207,7 +1207,7 @@ plot_sequestration_curve <- function(df, currency){
       title = "Sequestration Cost Curve",
       x = "Sequestration Rate (ton CO₂-eq/ha/year)",
       y = paste0(
-        "Opportunity Cost (",
+        "Abatement Cost (",
         currency,
         "/ton CO₂-eq)"
       )
@@ -1303,12 +1303,12 @@ generate_report_params <- function(data, maps, paths, times, output_dir, pu_outp
   main_total_values <- calculate_total_values(data$combinedRasterTable) %>% 
     as.data.frame() %>% 
     rename(
-      !!format_currency_col("Total EAE T1", currency) := Total_NPV1,
-      !!format_currency_col("Total EAE T2", currency) := Total_NPV2,
-      !!format_currency_col("Total ΔEAE", currency) := Total_Delta_NPV
+      !!format_currency_col("Total Keuntungan Usaha Tani T1", currency) := Total_NPV1,
+      !!format_currency_col("Total Keuntungan Usaha Tani T2", currency) := Total_NPV2,
+      !!format_currency_col("Total ΔKeuntungan Usaha Tani", currency) := Total_Delta_NPV
     ) %>% 
     t() %>% 
-    `colnames<-`("Value")
+    `colnames<-`("Nilai")
   
   # --- Dissolved Layers for Visualization (TABLE: Tampilkan 50) ---
   main_dissolved_lc1 <- dissolve_lc1(data$combinedRasterTable, top_n = 50)

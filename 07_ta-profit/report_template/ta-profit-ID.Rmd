@@ -71,21 +71,21 @@ mapviewOptions(
 
 analysis_log <- tribble(
   ~Category,                   ~Details,
-  "Analysis Start",        params$start_time,
-  "Analysis End",          params$end_time,
-  "Input Data and Parameters", "",
-  "Land Cover (t1)",      params$map1_file_path,
-  "Land Cover (t2)",   params$map2_file_path,
-  "Profitability data",   params$npv_file_path,
-  "Year of Profitability table", as.character(params$eae_year),
-  "Planning Unit map",   params$pu_file_path,
-  "Planning Unit data",   params$pu_table_path,
-  "Year 1", as.character(params$year1),
-  "Year 2", as.character(params$year2),
-  "NoData land-cover class", as.character(params$raster_nodata),
-  "Output Files", "",
-  "Output Workspace",      paste0(getwd(), " | ", params$output_dir),
-  "Session Summary", "",
+  "Waktu Mulai Analisis",        params$start_time,
+  "Waktu Selesai Analisis",      params$end_time,
+  "Data Input dan Parameter", "",
+  "Tutupan Lahan (T1)",      params$map1_file_path,
+  "Tutupan Lahan (T2)",   params$map2_file_path,
+  "Data Profitabilitas",   params$npv_file_path,
+  "Tahun Tabel Profitabilitas", as.character(params$eae_year),
+  "Peta Unit Perencanaan",   params$pu_file_path,
+  "Data Unit Perencanaan",   params$pu_table_path,
+  "Tahun 1", as.character(params$year1),
+  "Tahun 2", as.character(params$year2),
+  "Kelas Tutupan Lahan NoData", as.character(params$raster_nodata),
+  "File Output", "",
+  "Direktori Output",      paste0(getwd(), " | ", params$output_dir),
+  "Ringkasan Sesi", "",
 ) %>% rbind(format_session_info_table())
 
 analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
@@ -331,31 +331,34 @@ pu_map <- ggplot() +
 pu_map
 ```
 
-### Tabel Acuan Unit Perencanaan
-
-```{r PU Lookup Table, echo=FALSE, message=FALSE, warning=FALSE}
+```{r pu-lookup-tab, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
 if (!is.null(params$pu_table_path) && file.exists(params$pu_table_path)) {
-  datatable(
-    read_lookup_file(params$pu_table_path),
-    extensions = c('Buttons', 'Responsive'),
-    rownames = FALSE,
-    options = list(
-      paging = TRUE,
-      searching = TRUE,
-      fixedColumns = TRUE,
-      autoWidth = TRUE,
-      ordering = TRUE,
-      dom = 'Blfrtip',
-      buttons = list(
-        list(extend = "copy",  className = "btn btn-light btn-sm"),
-        list(extend = "csv",   className = "btn btn-light btn-sm"),
-        list(extend = "excel", className = "btn btn-light btn-sm")
-      )
-    ),
-    class = "display stripe hover"
+  
+  # Cetak judul tab secara manual jika menggunakan raster
+  cat("### Tabel Acuan Unit Perencanaan\n\n")
+  
+  # Tampilkan datatable
+  print(
+    datatable(
+      read_lookup_file(params$pu_table_path),
+      extensions = c('Buttons', 'Responsive'),
+      rownames = FALSE,
+      options = list(
+        paging = TRUE,
+        searching = TRUE,
+        fixedColumns = TRUE,
+        autoWidth = TRUE,
+        ordering = TRUE,
+        dom = 'Blfrtip',
+        buttons = list(
+          list(extend = "copy",  className = "btn btn-light btn-sm"),
+          list(extend = "csv",   className = "btn btn-light btn-sm"),
+          list(extend = "excel", className = "btn btn-light btn-sm")
+        )
+      ),
+      class = "display stripe hover"
+    )
   )
-} else {
-  cat("*Tabel acuan unit perencanaan tidak tersedia (PU diupload sebagai shapefile).*")
 }
 ```
 
@@ -408,9 +411,18 @@ datatable(
 
 # Hasil Analisis
 
-## Ringkasan Equal Annual Equivalent (EAE)
+## Ringkasan Keuntungan Usaha Tani
 
-Tabel ini menampilkan nilai ∆EAE (selisih EAE) dan total EAE untuk seluruh tutupan lahan pada tahun satu `r params$year1` (T1) dan total EAE untuk seluruh tutupan lahan pada tahun kedua `r params$year2` (T2). Tutupan lahan tanpa nilai komersial (hutan, semak, padang rumput, lahan terbuka, air) diberi EAE = 0. Nilai 0 berarti tidak ada keuntungan komersial yang dicatat, bukan tidak ada manfaat.
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+# Menghitung total luasan T1 dan T2
+total_luas_area  <- sum(params$npv1_table$Total_Ha1, na.rm = TRUE)
+
+# Menghitung total keuntungan T1 dan T2
+total_untung_t1 <- sum(params$npv1_table$Total_NPV1, na.rm = TRUE)
+total_untung_t2 <- sum(params$npv2_table$Total_NPV2, na.rm = TRUE)
+```
+
+Tabel ini menampilkan nilai ∆EAE (selisih EAE) dan total EAE untuk seluruh **tutupan lahan pada tahun satu `r params$year1` (T1) dan tahun kedua `r params$year2` (T2) di area seluas `r scales::label_comma()(total_luas_area )` Ha**. Tutupan lahan tanpa nilai komersial (hutan, semak, padang rumput, lahan terbuka, air) diberi EAE = 0. Nilai 0 berarti tidak ada keuntungan komersial yang dicatat, bukan tidak ada manfaat.
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 params$total_table %>%
@@ -419,7 +431,7 @@ params$total_table %>%
   DT::datatable()
 ```
 
-Tabel ini mengakomodir informasi jika terdapat perubahan luasan lahan pada setiap tutupan lahan diantara T1 (`r params$year1`) dengan T2 (`r params$year2`). Perubahan luasan lahan tersebut mempengaruhi besaran total EAE. Asumsi harga input-output, suku bunga riil, dan tingkat inflasi tahunan yang digunakan adalah nilai dari tahun `r params$eae_year`. baik untuk perhitungan T1 `r params$year1` maupun T2 `r params$year2`. Perbedaan luasan setiap tutupan lahan antara T1 dan T2 disajikan pada tabel dibawah ini:
+Tabel ini mengakomodir informasi jika terdapat perubahan luasan lahan pada setiap tutupan lahan diantara T1 (`r params$year1`) dengan T2 (`r params$year2`). Perubahan luasan lahan tersebut mempengaruhi besaran total EAE. **Asumsi harga input-output, suku bunga riil, dan tingkat inflasi tahunan yang digunakan adalah nilai dari tahun `r params$eae_year`**. baik untuk perhitungan T1 `r params$year1` maupun T2 `r params$year2`. Perbedaan luasan setiap tutupan lahan antara T1 dan T2 disajikan pada tabel dibawah ini:
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 eae_area_summary <- params$npv1_table %>%
@@ -437,10 +449,10 @@ eae_area_summary %>%
   ) %>%
   rename(
     `Tutupan Lahan` = LC,
-    !!glue::glue("Total EAE T1 ({params$currency}/tahun)") := Total_NPV1,
-    !!glue::glue("Total Luas T1 ({params$year1}) (Ha)") := Total_Ha1,
-    !!glue::glue("Total EAE T2 ({params$currency}/tahun)") := Total_NPV2,
-    !!glue::glue("Total Luas T2 ({params$year2}) (Ha)") := Total_Ha2
+    !!glue::glue("Total Keuntungan Usaha Tani T1 ({params$currency}/tahun)") := Total_NPV1,
+    !!glue::glue("Total Luas Lahan T1 ({params$year1}) (Ha)") := Total_Ha1,
+    !!glue::glue("Total Keuntungan Usaha Tani T2 ({params$currency}/tahun)") := Total_NPV2,
+    !!glue::glue("Total Luas Lahan T2 ({params$year2}) (Ha)") := Total_Ha2
   ) %>%
   DT::datatable(
     rownames = FALSE,
@@ -461,7 +473,7 @@ eae_area_summary %>%
   )
 ```
 
-## EAE untuk Tahun `r params$year1` {.tabset}
+## Keuntungan Usaha Tani untuk Tahun `r params$year1` {.tabset}
 Bagian ini menyajikan sepuluh kategori tutupan lahan dengan total EAE tertinggi pada tahun `r params$year1`. EAE mewakili indikator keuntungan bersih suatu tutupan lahan yang ekuivalen dengan rataan NPV per tahun yang terdiskonto. EAE untuk tahun T1: `r params$year1` merupakan hasil perhitungan yang didapat dari asumsi biaya input-output, suku bunga riil, dan tingkat inflasi tahunan dari tahun `r params$eae_year`.
 
 ### Grafik
@@ -485,11 +497,28 @@ mapview(
 
 ### Tabel
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
+fluidRow(
+  column(6, 
+    div(class = "card text-white bg-success mb-3", style = "max-width: 100%;",
+        div(class = "card-header", "Total Luas Area Kajian"),
+        div(class = "card-body", 
+            h4(class = "card-title", paste0(scales::label_comma()(total_luas_area), " Ha")))
+    )
+  ),
+  column(6, 
+    div(class = "card text-white bg-primary mb-3", style = "max-width: 100%;",
+        div(class = "card-header", "Total Keuntungan Usaha Tani T1"),
+        div(class = "card-body", 
+            h4(class = "card-title", paste0(params$currency, " ", scales::label_comma()(total_untung_t1))))
+    )
+  )
+)
+
 params$npv1_table %>%
   dplyr::mutate(dplyr::across(where(is.numeric), easy_to_read_numbers)) %>%
   rename(
     `Tutupan Lahan 1` = LC1,
-    !!glue::glue("Total EAE ({params$currency}/tahun)") := Total_NPV1,
+    !!glue::glue("Total Keuntungan Usaha Tani ({params$currency}/tahun)") := Total_NPV1,
     `Total Luas (Ha)` = Total_Ha1
   ) %>%
   DT::datatable(
@@ -512,7 +541,7 @@ params$npv1_table %>%
     )
 ```
 
-## EAE untuk Tahun `r params$year2` {.tabset}
+## Keuntungan Usaha Tani untuk Tahun `r params$year2` {.tabset}
 Bagian ini menyajikan sepuluh kategori tutupan lahan dengan total EAE tertinggi pada tahun `r params$year2` EAE mewakili indikator keuntungan bersih suatu tutupan lahan yang ekuivalen dengan rataan NPV per tahun yang terdiskonto. EAE untuk tahun T2: `r params$year2` merupakan hasil perhitungan yang didapat dari asumsi biaya input-output, suku bunga riil, dan tingkat inflasi tahunan dari tahun `r params$eae_year`. 
 
 ### Grafik
@@ -536,11 +565,28 @@ mapview(
 
 ### Tabel
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
+fluidRow(
+  column(6, 
+    div(class = "card text-white bg-success mb-3", style = "max-width: 100%;",
+        div(class = "card-header", "Total Luas Area Kajian"),
+        div(class = "card-body", 
+            h4(class = "card-title", paste0(scales::label_comma()(total_luas_area), " Ha")))
+    )
+  ),
+  column(6, 
+    div(class = "card text-white bg-primary mb-3", style = "max-width: 100%;",
+        div(class = "card-header", "Total Keuntungan Usaha Tani T2"),
+        div(class = "card-body", 
+            h4(class = "card-title", paste0(params$currency, " ", scales::label_comma()(total_untung_t2))))
+    )
+  )
+)
+
 params$npv2_table %>%
   dplyr::mutate(dplyr::across(where(is.numeric), easy_to_read_numbers)) %>%
   rename(
     `Tutupan Lahan 2` = LC2,
-    !!glue::glue("Total EAE ({params$currency}/tahun)") := Total_NPV2,
+    !!glue::glue("Total Keuntungan Usaha Tani ({params$currency}/tahun)") := Total_NPV2,
     `Total Luas (Ha)` = Total_Ha2
   ) %>%
   DT::datatable(
@@ -563,7 +609,7 @@ params$npv2_table %>%
     )
 ```
 
-## Delta EAE dari Tahun `r params$year1` sampai `r params$year2` {.tabset}
+## Delta Keuntungan Usaha Tani dari Tahun `r params$year1` sampai `r params$year2` {.tabset}
 Bagian ini menyajikan 10 urutan tertinggi perubahan EAE (ΔEAE) antara tahun `r params$year1` dan `r params$year2`. ΔEAE mencerminkan perbedaan dalam proyeksi imbal hasil ekonomi dari penggunaan lahan di dua periode waktu. Nilai ΔEAE positif menunjukkan peningkatan profitabilitas dari perubahan suatu tutupan lahan pada T1 menjadi suatu tutupan lahan pada T2, sementara nilai negatif menunjukkan terdapat penurunan profitabilitas dari perubahan suatu tutupan lahan pada T1 menjadi suatu tutupan lahan pada T2.
 
 ### Grafik
@@ -604,8 +650,8 @@ params$deltaNPV_table %>%
   dplyr::mutate(dplyr::across(where(is.numeric), easy_to_read_numbers)) %>%
   rename(
     `Perubahan Penggunaan Lahan` = LULCC,
-    !!rlang::sym(glue::glue("ΔEAE ({params$currency}/tahun)")) := Total_deltaNPV,
-    !!rlang::sym(glue::glue("|ΔEAE| ({params$currency}/tahun)")) := Total_abs_deltaNPV,
+    !!rlang::sym(glue::glue("ΔKeuntungan Usaha Tani ({params$currency}/tahun)")) := Total_deltaNPV,
+    !!rlang::sym(glue::glue("|ΔKeuntungan Usaha Tani| ({params$currency}/tahun)")) := Total_abs_deltaNPV,
     `Total Luas (Ha)` = Total_Ha2
   ) %>%
   DT::datatable(
@@ -649,7 +695,7 @@ render_child_pu <- function(results_list, pu_name, currency) {
   
   # Cek apakah PU ini memiliki nilai EAE (T1 atau T2) yang valid
   total_vals <- as.data.frame(results_list[[pu_name]][['total_values']])
-  has_valid_eae <- any(total_vals$Value != 0, na.rm = TRUE)
+  has_valid_eae <- any(total_vals$Nilai != 0, na.rm = TRUE)
   
   # Cek apakah data grafik benar-benar tersedia
   has_lulcc_bar <- !is.null(results_list[[pu_name]][['lulcc_bar']]) && has_valid_eae
@@ -666,7 +712,7 @@ render_child_pu <- function(results_list, pu_name, currency) {
   if (has_lulcc_bar) {
     child_content <- c(child_content,
       "",
-      paste0("#### Top 10 ΔEAE di ", pu_name),
+      paste0("#### Top 10 ΔKeuntungan Usaha Tani di ", pu_name),
       "```{r}",
       "#| echo: false",
       "results_list[[pu_name]][['lulcc_bar']]",
@@ -681,6 +727,20 @@ render_child_pu <- function(results_list, pu_name, currency) {
       paste0("#### Tabel Nilai Total untuk ", pu_name),
       "```{r}",
       "#| echo: false",
+      "total_luas_pu <- sum(results_list[[pu_name]][['all_dissolved_lulcc_pu']]$Total_Ha2, na.rm = TRUE)",
+      "fluidRow(",
+      "  column(12,",
+      "    div(class = 'card text-white bg-success mb-3', style = 'max-width: 100%;',",
+      "        div(class = 'card-header', 'Total Luas Area'),",
+      "        div(class = 'card-body',",
+      "            h4(class = 'card-title', paste0(scales::label_comma()(total_luas_pu), ' Ha')))",
+      "    )",
+      "  )",
+      ")",
+      "```",
+      "",
+      "```{r}",
+      "#| echo: false",
       "as.data.frame(results_list[[pu_name]][['total_values']]) %>%",
       "  mutate_if(is.numeric, easy_to_read_numbers) %>%",
       "  kable() %>%",
@@ -693,7 +753,7 @@ render_child_pu <- function(results_list, pu_name, currency) {
   if (has_lc1_bar) {
     child_content <- c(child_content,
       "",
-      paste0("#### Top 10 EAE berdasarkan Tutupan Lahan 1 di ", pu_name),
+      paste0("#### Top 10 Keuntungan Usaha Tani berdasarkan Tutupan Lahan 1 di ", pu_name),
       "```{r}",
       "#| echo: false",
       "results_list[[pu_name]][['lc1_bar']]",
@@ -705,7 +765,7 @@ render_child_pu <- function(results_list, pu_name, currency) {
   if (has_lc2_bar) {
     child_content <- c(child_content,
       "",
-      paste0("#### Top 10 EAE berdasarkan Tutupan Lahan 2 di ", pu_name),
+      paste0("#### Top 10 Keuntungan Usaha Tani berdasarkan Tutupan Lahan 2 di ", pu_name),
       "```{r}",
       "#| echo: false",
       "results_list[[pu_name]][['lc2_bar']]",
@@ -723,8 +783,8 @@ render_child_pu <- function(results_list, pu_name, currency) {
     "  dplyr::mutate(dplyr::across(where(is.numeric), easy_to_read_numbers)) %>%",
     "  dplyr::rename(",
     "    `Perubahan Penggunaan Lahan` = LULCC,",
-    sprintf("    `ΔEAE (%s)` = Total_deltaNPV,", currency),
-    sprintf("    `|ΔEAE| (%s)` = Total_abs_deltaNPV,", currency),
+    sprintf("    `ΔKeuntungan Usaha Tani (%s)` = Total_deltaNPV,", currency),
+    sprintf("    `|ΔKeuntungan Usaha Tani| (%s)` = Total_abs_deltaNPV,", currency),
     "    `Total Luas (Ha)` = Total_Ha2",
     "  ) %>%",
     "  DT::datatable(",
