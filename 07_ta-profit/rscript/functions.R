@@ -197,10 +197,16 @@ preprocess_data <- function(pathLULCT1, pathLULCT2, pathPU,
   if (puIsVector) {
     PU_vect <- terra::vect(pathPU)
     
-    # Convert seluruh attribute ke data.frame sekali saja
+    # 1. SAMAKAN CRS (Proyeksi) dengan LULCT1
+    if (!terra::same.crs(PU_vect, LULCT1)) {
+      message("CRS berbeda. Memproyeksikan shapefile PU ke CRS Raster...")
+      PU_vect <- terra::project(PU_vect, terra::crs(LULCT1))
+    }
+    
+    # 2. Ekstrak atribut ke data.frame
     attr_df <- as.data.frame(PU_vect)
     
-    # Deteksi kolom ID numeric (untuk rasterize + lookup)
+    # 3. Cari kolom ID (numeric)
     id_col_name <- NULL
     for (nm in names(attr_df)) {
       vals <- attr_df[[nm]]
@@ -209,13 +215,9 @@ preprocess_data <- function(pathLULCT1, pathLULCT2, pathPU,
         break
       }
     }
-    if (is.null(id_col_name)) {
-      id_col_name <- names(attr_df)[1]
-      warning("Kolom ID numeric tidak terdeteksi. Menggunakan kolom pertama: ",
-              id_col_name)
-    }
+    if (is.null(id_col_name)) stop("Tidak ada kolom ID numerik di shapefile.")
     
-    # Deteksi kolom nama PU (character)
+    # 4. Cari kolom Nama PU (character)
     name_col_name <- NULL
     for (nm in names(attr_df)) {
       vals <- attr_df[[nm]]
@@ -224,12 +226,9 @@ preprocess_data <- function(pathLULCT1, pathLULCT2, pathPU,
         break
       }
     }
-    if (is.null(name_col_name)) {
-      name_col_name <- id_col_name
-      warning("Kolom nama PU tidak ditemukan. Menggunakan kolom ID sebagai nama.")
-    }
+    if (is.null(name_col_name)) name_col_name <- id_col_name
     
-    # Bangun LookupPU dari attribute shapefile
+    # 5. Buat LookupPU
     LookupPU <- data.frame(
       ID = as.numeric(attr_df[[id_col_name]]),
       PU = as.character(attr_df[[name_col_name]]),
@@ -238,10 +237,7 @@ preprocess_data <- function(pathLULCT1, pathLULCT2, pathPU,
     LookupPU <- LookupPU[!is.na(LookupPU$ID), ]
     LookupPU <- LookupPU[!duplicated(LookupPU$ID), ]
     
-    cat("=== LOOKUP PU dari shapefile ===\n")
-    print(LookupPU)
-    
-    # Rasterize vector
+    # 6. Rasterize (Sekarang CRS sudah sama)
     PU <- terra::rasterize(
       PU_vect,
       LULCT1,
@@ -249,8 +245,21 @@ preprocess_data <- function(pathLULCT1, pathLULCT2, pathPU,
       background = NA
     )
     
+    # 7. Pastikan hasilnya SpatRaster
+    if (!inherits(PU, "SpatRaster")) {
+      stop("Gagal melakukan rasterize. Pastikan shapefile berisi poligon yang valid.")
+    }
+    
   } else {
+    # Bagian Raster PU (yang Anda gunakan saat ini)
     PU <- terra::rast(pathPU)
+    
+    # Cek dan samakan CRS untuk Raster PU
+    if (!terra::same.crs(PU, LULCT1)) {
+      message("CRS berbeda. Memproyeksikan Raster PU ke CRS Raster LULC...")
+      PU <- terra::project(PU, terra::crs(LULCT1), method = "near")
+    }
+    
     LookupPU <- read_lookup_file(pathLookupPU)
     LookupPU[[1]] <- as.numeric(LookupPU[[1]])
   }
@@ -759,9 +768,9 @@ create_lc1_bar <- function(data, title = "Top 10 Total EAE by LC1", currency = "
     y = ~Total_NPV1,
     type = "bar",
     hoverinfo = "text",
-    hovertext = ~paste(
-      "Land Cover Class (LC 1):", LC1, "<br>", 
-      "Total EAE:", format(Total_NPV1, big.mark = ",", scientific = FALSE), " ", currency
+    hovertext = ~paste0(
+      "Land Cover Class (LC 1): ", LC1, "<br>", 
+      "Total EAE: ", currency, " ", format(Total_NPV1, big.mark = ",", scientific = FALSE)
     ),
     marker = list(
       color = "lightblue"
@@ -795,9 +804,9 @@ create_lc2_bar <- function(data, title = "Top 10 Total EAE by LC2", currency = "
     y = ~Total_NPV2,
     type = "bar",
     hoverinfo = "text",
-    hovertext = ~paste(
-      "Land Cover Class (LC 2):", LC2, "<br>", 
-      "Total EAE:", format(Total_NPV2, big.mark = ",", scientific = FALSE), " ", currency
+    hovertext = ~paste0(
+      "Land Cover Class (LC 2): ", LC2, "<br>", 
+      "Total EAE: ", currency, " ", format(Total_NPV2, big.mark = ",", scientific = FALSE)
     ),
     marker = list(
       color = "steelblue"
@@ -966,6 +975,11 @@ generate_plots_by_pu <- function(df_curve, currency) {
   plots_list <- df_pu_processed %>%
     split(.$planning_unit) %>%
     purrr::map(~ {
+      # --- VALIDASI: Jika data kosong atau semua NA, lewati ---
+      if (nrow(.x) == 0 || all(is.na(.x$xmin)) || all(is.na(.x$xmax))) {
+        return(NULL)
+      }
+      
       # Calculate the x-axis limits from the data for this planning unit
       x_limits <- range(c(.x$xmin, .x$xmax), na.rm = TRUE)
       max_abs <- max(abs(x_limits))
@@ -974,14 +988,20 @@ generate_plots_by_pu <- function(df_curve, currency) {
       # Calculate y-axis limits
       y_limits <- range(c(0, .x$opportunity_cost_log), na.rm = TRUE)
       
+      # Pastikan y_limits valid (tidak Inf)
+      if (any(is.infinite(y_limits))) {
+        y_limits <- c(-1, 1)
+      }
+      
+      pu_title <- unique(.x$planning_unit)
+      if(length(pu_title) == 0) pu_title <- "Tidak Diketahui"
+      
       p <- ggplot(.x) +
-        # Add background for x < 0 (emissions/negative side)
         geom_rect(
           data = data.frame(xmin = x_range[1], xmax = 0, ymin = y_limits[1], ymax = y_limits[2]),
           aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax),
           fill = "#ffe6e6", alpha = 0.8, inherit.aes = FALSE
         ) +
-        # Add background for x >= 0 (sequestration/positive side)
         geom_rect(
           data = data.frame(xmin = 0, xmax = x_range[2], ymin = y_limits[1], ymax = y_limits[2]),
           aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax),
@@ -995,7 +1015,7 @@ generate_plots_by_pu <- function(df_curve, currency) {
         labs(
           x = "Laju Emisi (ton CO<sub>2</sub>-eq/ha.tahun)",
           y = paste0("Abatement Cost (", currency, "/ton CO<sub>2</sub>-eq)"),
-          title = paste("Kurva Abatement Cost -", unique(.x$planning_unit))
+          title = paste("Kurva Abatement Cost -", pu_title)
         ) +
         scale_x_continuous(
           breaks = function(x) pretty(x, n = 6),
@@ -1018,7 +1038,6 @@ generate_plots_by_pu <- function(df_curve, currency) {
           hovermode = "x+y",
           xaxis = list(showspikes = TRUE, spikemode = 'across', spikesnap = 'cursor', spikethickness = 0.8, spikecolor = 'grey'),
           yaxis = list(showspikes = TRUE, spikemode = 'across', spikesnap = 'cursor', spikethickness = 0.8, spikecolor = 'grey')
-          # hoverlabel = list(bgcolor = "white")
         ) %>%
         config(
           displaylogo = FALSE,
@@ -1027,8 +1046,7 @@ generate_plots_by_pu <- function(df_curve, currency) {
             list(
               name = "Fullscreen",
               icon = list(
-                width = 20,
-                height = 20,
+                width = 20, height = 20,
                 path = "M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z",
                 transform = "scale(1)"
               ),
@@ -1037,25 +1055,15 @@ generate_plots_by_pu <- function(df_curve, currency) {
             var fullscreenElement = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
             if (!fullscreenElement) {
               var el = gd;
-              if (el.requestFullscreen) {
-                el.requestFullscreen();
-              } else if (el.webkitRequestFullscreen) {
-                el.webkitRequestFullscreen();
-              } else if (el.mozRequestFullScreen) {
-                el.mozRequestFullScreen();
-              } else if (el.msRequestFullscreen) {
-                el.msRequestFullscreen();
-              }
+              if (el.requestFullscreen) { el.requestFullscreen(); } 
+              else if (el.webkitRequestFullscreen) { el.webkitRequestFullscreen(); } 
+              else if (el.mozRequestFullScreen) { el.mozRequestFullScreen(); } 
+              else if (el.msRequestFullscreen) { el.msRequestFullscreen(); }
             } else {
-              if (document.exitFullscreen) {
-                document.exitFullscreen();
-              } else if (document.webkitExitFullscreen) {
-                document.webkitExitFullscreen();
-              } else if (document.mozCancelFullScreen) {
-                document.mozCancelFullScreen();
-              } else if (document.msExitFullscreen) {
-                document.msExitFullscreen();
-              }
+              if (document.exitFullscreen) { document.exitFullscreen(); } 
+              else if (document.webkitExitFullscreen) { document.webkitExitFullscreen(); } 
+              else if (document.mozCancelFullScreen) { document.mozCancelFullScreen(); } 
+              else if (document.msExitFullscreen) { document.msExitFullscreen(); }
             }
           }
         ")
@@ -1064,6 +1072,9 @@ generate_plots_by_pu <- function(df_curve, currency) {
           scrollZoom = TRUE
         )
     })
+  
+  # Hapus elemen NULL dari list agar tidak error saat dirender
+  plots_list <- plots_list[!sapply(plots_list, is.null)]
   
   return(plots_list)
 }
@@ -1299,11 +1310,16 @@ generate_report_params <- function(data, maps, paths, times, output_dir, pu_outp
     t() %>% 
     `colnames<-`("Value")
   
-  # --- Dissolved Layers for Visualization ---
-  main_dissolved_lc1 <- dissolve_lc1(data$combinedRasterTable)
-  main_dissolved_lc2 <- dissolve_lc2(data$combinedRasterTable)
-  main_dissolved_lulcc <- dissolve_lulcc(data$combinedRasterTable)
+  # --- Dissolved Layers for Visualization (TABLE: Tampilkan 50) ---
+  main_dissolved_lc1 <- dissolve_lc1(data$combinedRasterTable, top_n = 50)
+  main_dissolved_lc2 <- dissolve_lc2(data$combinedRasterTable, top_n = 50)
+  main_dissolved_lulcc <- dissolve_lulcc(data$combinedRasterTable, top_n = 50)
   all_dissolved_lulcc <- all_dissolve_lulcc(data$combinedRasterTable)
+  
+  # --- Generate Data KHUSUS untuk Grafik (CHART: Hanya 10) ---
+  chart_dissolved_lc1 <- dissolve_lc1(data$combinedRasterTable, top_n = 10)
+  chart_dissolved_lc2 <- dissolve_lc2(data$combinedRasterTable, top_n = 10)
+  chart_dissolved_lulcc <- dissolve_lulcc(data$combinedRasterTable, top_n = 10)
   
   # --- Generate Abatement Curve Outputs ---
   opcost_results <- build_opcost_table(data$combinedRasterTable, data$period, data$total_area)
@@ -1324,9 +1340,9 @@ generate_report_params <- function(data, maps, paths, times, output_dir, pu_outp
     npv1_table = main_dissolved_lc1,
     npv2_table = main_dissolved_lc2,
     deltaNPV_table = all_dissolved_lulcc,
-    npv1_chart = create_lc1_bar(main_dissolved_lc1, currency = currency),
-    npv2_chart = create_lc2_bar(main_dissolved_lc2, currency = currency),
-    deltaNPV_chart = create_lulcc_bar(main_dissolved_lulcc, currency = currency),
+    npv1_chart = create_lc1_bar(chart_dissolved_lc1, currency = currency),
+    npv2_chart = create_lc2_bar(chart_dissolved_lc2, currency = currency),
+    deltaNPV_chart = create_lulcc_bar(chart_dissolved_lulcc, currency = currency),
     LULCT1 = maps$LULCT1,
     LULCT2 = maps$LULCT2,
     PU = maps$PU,

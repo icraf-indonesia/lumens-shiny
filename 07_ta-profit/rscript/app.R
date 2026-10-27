@@ -427,6 +427,7 @@ server <- function(input, output, session) {
           pu_is_vector   <- TRUE
           pu_lookup_path <- NULL
         } else {
+          req(input$pu_raster) 
           pu_path        <- input$pu_raster$datapath
           pu_is_vector   <- FALSE
           pu_lookup_path <- input$pu_table$datapath
@@ -472,6 +473,8 @@ server <- function(input, output, session) {
           pu_outputs[[pu_name]] <- process_pu_data(pu_data, pu_name, input$currency)
         }  
         
+        browser()
+        
         # And update the main chart generation:
         params <- generate_report_params(
           data = result,
@@ -483,7 +486,7 @@ server <- function(input, output, session) {
           currency = input$currency 
         )
 
-        output_file <- paste0("ta-profit_report_", format(Sys.time(), "%Y-%m-%d_%H-%M-%S"), ".html")
+        output_file <- paste0("ta-profit_report_10LC", format(Sys.time(), "%Y-%m-%d_%H-%M-%S"), ".html")
         report_path <- file.path(rv$wd, output_file)
         
         rmarkdown::render(
