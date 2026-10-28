@@ -1,5 +1,5 @@
 ---
-title: "Regional Economic Descriptive Analysis Report"
+title: "Laporan Analisis Deskriptif Ekonomi Regional"
 output: 
   html_document:
     toc: true
@@ -21,6 +21,13 @@ params:
   data_source: NA   
   output_dir: NA
 ---
+
+<style>
+/* Tambahkan titik setelah nomor heading */
+.header-section-number::after {
+  content: ".";
+}
+</style>
 
 ```{r setup, include=FALSE, warning=FALSE, message=FALSE}
 knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
@@ -115,7 +122,7 @@ intisari_data <- tibble::tibble(
     as.character(params$io_period),
     as.character(params$unit),
     paste0("Juta (nilai aktual = angka × ", 
-           format(1000000, big.mark = ".", scientific = FALSE), ")"),
+           format(1000000, big.mark = ",", scientific = FALSE), ")"),
     as.character(params$io_source)
   )
 )
@@ -139,7 +146,7 @@ knitr::kable(
 Analisis ekonomi regional dalam model Trade-off Analysis (TA) membedakan sektor ekonomi menjadi dua kategori utama berdasarkan ketergantungannya terhadap lahan:
 
 - **Sektor berbasis lahan (constrained)**: sektor yang produksinya dibatasi oleh ketersediaan lahan. Pertumbuhan outputnya bergantung pada luas lahan yang dialokasikan dan produktivitas lahan (Land Productivity Coefficient).
-- **Sektor non-lahan (unconstrained)**: sektor yang pertumbuhannya didorong oleh permintaan akhir (final demand), tanpa batasan langsung dari ketersediaan lahan.
+- **Sektor non-lahan (unconstrained)**: sektor yang pertumbuhannya tanpa batasan langsung dari ketersediaan lahan, untuk menghitung pertumbuhannya menggunakan rataan PDRB per sektor selama 5-10 tahun ke belakang.
 
 Berdasarkan tabel sektor ekonomi, wilayah **`r params$location`** memiliki **`r sum(sector$Constrained)` sektor berbasis lahan** dan **`r sum(sector$Unconstrained)` sektor non-lahan**, dengan total **`r nrow(sector)` sektor**.
 
@@ -279,8 +286,6 @@ Sektor dengan nilai Indeks Total Backward Linkage (ITBL) tertinggi adalah `r lin
 
 Sektor dengan nilai Indeks Total Forward Linkage (ITFL) tertinggi adalah `r linkages_table$SECTOR[which.max(linkages_table$ITFL)]` dengan nilai `r round(max(linkages_table$ITFL), 3)`. Hal ini menunjukkan bahwa output sektor tersebut banyak digunakan sebagai input oleh sektor-sektor lainnya.
 
-Sebanyak r nrow(subset(linkages_table, ITBL \>= 1 & ITFL \>= 1)) sektor memiliki nilai ITBL dan ITFL lebih besar atau sama dengan 1, yang mengindikasikan sektor-sektor tersebut berperan penting dalam mendorong aktivitas ekonomi baik dari sisi permintaan input maupun penyediaan output.
-
 ```{r, linkage-table, echo=FALSE, warning=FALSE, message=FALSE}
 dt_linkage <- linkages_table
 if ("ID" %in% colnames(dt_linkage)) dt_linkage$ID <- NULL
@@ -324,12 +329,12 @@ layout_columns(
   value_box(
     title = tags$div(style = "font-size:14px; font-weight:600;", "Total PDRB Seluruh Sektor"),
     value = tags$div(style = "font-size:20px; font-weight:700;", paste0("Rp ", format_dinamis(total_gdp))),
-    theme = "bg-success text-white"
+    theme = "bg-primary text-dark"
   ),
   value_box(
     title = tags$div(style = "font-size:14px; font-weight:600;", "Total PDRB Sektor Lahan"),
     value = tags$div(style = "font-size:20px; font-weight:700;", paste0("Rp ", format_dinamis(gdp_constrained))),
-    theme = "bg-primary text-white" 
+    theme = "bg-success text-dark" 
   ),
   value_box(
     title = tags$div(style = "font-size:14px; font-weight:600;", "Total PDRB Sektor Non-Lahan"),
@@ -498,9 +503,11 @@ Sektor dengan nilai PDRB terbesar adalah `r gdp_baseline$SECTOR[which.max(gdp_ba
 
 # Top 15 Sektor per Jenis Multiplier {.tabset}
 
-Analisis multiplier menunjukkan bahwa sektor `r multiplier_table$SECTOR[which.max(multiplier_table$Out.multiplier)]` memiliki Output Multiplier tertinggi (`r round(max(multiplier_table$Out.multiplier),3)`), sehingga memberikan dampak terbesar terhadap peningkatan output ekonomi. Sektor `r multiplier_table$SECTOR[which.max(multiplier_table$Inc.multiplier)]` memiliki Income Multiplier tertinggi (`r round(max(multiplier_table$Inc.multiplier),3)`), yang menunjukkan kemampuan terbesar dalam menciptakan pendapatan tenaga kerja. Sektor `r multiplier_table$SECTOR[which.max(multiplier_table$Lab.multiplier)]` memiliki Labour Multiplier tertinggi (`r signif(max(multiplier_table$Lab.multiplier),4)`), sehingga berpotensi memberikan dampak terbesar terhadap penciptaan kesempatan kerja. Di sisi lain, sektor `r multiplier_table$SECTOR[which.max(multiplier_table$SUB.multiplier)]` memiliki Surplus Usaha Bruto (SUB) Multiplier tertinggi (`r round(max(multiplier_table$SUB.multiplier),3)`), yang menunjukkan kemampuan terbesar dalam menghasilkan surplus usaha dan keuntungan ekonomi.s
+Analisis multiplier digunakan untuk mengetahui besarnya dampak ekonomi yang ditimbulkan oleh perubahan permintaan akhir pada suatu sektor terhadap perekonomian secara keseluruhan. Dampak ekonomi yang dianalisis meliputi output, tenaga kerja, pendapatan, dan kebutuhan impor.
 
 ## Output
+
+Output multiplier menunjukkan besarnya perubahan total output seluruh sektor yang ditimbulkan oleh adanya perubahan permintaan akhir pada suatu sektor. Hasil analisis output multiplier di wilayah **`r params$location`** tahun **`r params$io_period`** menunjukkan bahwa sektor `r multiplier_table$SECTOR[which.max(multiplier_table$Out.multiplier)]` memiliki nilai output multiplier tertinggi sebesar `r round(max(multiplier_table$Out.multiplier),3)`.
 
 ```{r, om-graph, echo=FALSE, warning=FALSE, message=FALSE}
 ggplotly(
@@ -520,6 +527,8 @@ ggplotly(
 
 ## Pendapatan
 
+Analisis pendapatan multiplier digunakan untuk mengetahui besarnya dampak peningkatan permintaan akhir suatu sektor terhadap pendapatan rumah tangga yang dihasilkan dalam perekonomian. Hasil analisis income multiplier di wilayah **`r params$location`** tahun **`r params$io_period`** menunjukkan bahwa sektor `r multiplier_table$SECTOR[which.max(multiplier_table$Inc.multiplier)]` memiliki nilai income multiplier tertinggi, yaitu sebesar `r round(max(multiplier_table$Inc.multiplier),3)`.
+
 ```{r, inc-graph, echo=FALSE, warning=FALSE, message=FALSE}
 ggplotly(
   generate_multiplier_bar_chart(
@@ -538,6 +547,8 @@ ggplotly(
 
 ## Tenaga Kerja
 
+Analisis Labour multiplier menunjukkan besarnya tambahan tenaga kerja yang terserap sebagai dampak dari peningkatan permintaan akhir pada suatu sektor, baik secara langsung maupun tidak langsung melalui keterkaitan antarsektor. Nilai labour multiplier dinyatakan dalam jumlah tenaga kerja yang terserap untuk setiap peningkatan permintaan akhir sebesar Rp1 juta. Hasil analisis labour effect di wilayah **`r params$location`** tahun **`r params$io_period`** menunjukkan bahwa sektor `r multiplier_table$SECTOR[which.max(multiplier_table$Lab.multiplier)]` memiliki labour multiplier tertinggi `r signif(max(multiplier_table$Lab.multiplier),4)`.
+
 ```{r, lab-graph, echo=FALSE, warning=FALSE, message=FALSE}
 ggplotly(
   generate_multiplier_bar_chart(
@@ -555,7 +566,9 @@ ggplotly(
   config(displayModeBar = FALSE)
 ```
 
-## Surplus Usaha Brut
+## Surplus Usaha Bruto
+
+Analisis SUB multiplier merupakan indikator ekonomi yang mengukur sejauh mana suntikan dana investasi atau pengeluaran di suatu sektor dapat melipatgandakan keuntungan bersih (surplus usaha) yang dihasilkan oleh seluruh sektor ekonomi. Hasil analisis SUB multiplier di wilayah **`r params$location`** tahun 2025 menunjukkan bahwa sektor `r multiplier_table$SECTOR[which.max(multiplier_table$SUB.multiplier)]` memiliki nilai SUB multiplier tertinggi, yaitu sebesar `r round(max(multiplier_table$SUB.multiplier),3)`.
 
 ```{r, sub-graph, echo=FALSE, warning=FALSE, message=FALSE}
 ggplotly(
@@ -601,6 +614,8 @@ DT::datatable(
   ) %>%
   DT::formatRound("Pengganda Tenaga Kerja", digits = 5)
 ```
+
+# Referensi
 
 ------------------------------------------------------------------------
 
