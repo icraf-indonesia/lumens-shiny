@@ -54,6 +54,10 @@ ui <- fluidPage(
         "Muat dari RDS praproses (lewati pembacaan Excel)",
         value = FALSE
       ),
+      
+      # ==========================================
+      # KONDISI 1: Jika load_rds == TRUE
+      # ==========================================
       conditionalPanel(
         condition = "input.load_rds == true",
         fileInput(
@@ -65,22 +69,38 @@ ui <- fluidPage(
           "new_lc_area",
           "Perbarui luas tutupan lahan dari berkas baru",
           value = FALSE
+        ),
+        # Land Use Lookup Table hanya muncul jika new_lc_area dicentang
+        conditionalPanel(
+          condition = "input.new_lc_area == true",
+          fileInput(
+            "landuse_table_file",
+            "Land Use Lookup Table (.xlsx)",
+            accept = c(".xlsx", ".xls"),
+            placeholder = "Pilih file Excel lookup table"
+          )
         )
       ),
-      # --- Input File IO (Excel, multi-sheet) ---
-      fileInput(
-        "io_file",
-        "Input-Output File (.xlsx)",
-        accept = c(".xlsx", ".xls"),
-        placeholder = "Pilih file Excel IO (multi-sheet)"
-      ),
       
-      # --- Input File Land Use Lookup Table (Excel) ---
-      fileInput(
-        "landuse_table_file",
-        "Land Use Lookup Table (.xlsx)",
-        accept = c(".xlsx", ".xls"),
-        placeholder = "Pilih file Excel lookup table"
+      # ==========================================
+      # KONDISI 2: Jika load_rds == FALSE
+      # ==========================================
+      conditionalPanel(
+        condition = "input.load_rds == false",
+        # Input IO Excel
+        fileInput(
+          "io_file",
+          "Input-Output File (.xlsx)",
+          accept = c(".xlsx", ".xls"),
+          placeholder = "Pilih file Excel IO (multi-sheet)"
+        ),
+        # Input Land Use Lookup Table
+        fileInput(
+          "landuse_table_file",
+          "Land Use Lookup Table (.xlsx)",
+          accept = c(".xlsx", ".xls"),
+          placeholder = "Pilih file Excel lookup table"
+        )
       ),
       
       # --- Metadata (read-only, dari profil) ---
@@ -250,7 +270,7 @@ server <- function(input, output, session) {
       return(NULL)
     }
     
-    withProgress(message = "Running TA Regional 1 Analysis", value = 0, {
+    withProgress(message = "Running TA Regional Economy Descriptive Analysis", value = 0, {
       tryCatch({
         
         output_dir <- rv$wd
@@ -452,6 +472,10 @@ server <- function(input, output, session) {
         )
         io_metadata$timestamp <- Sys.time()
         
+        metadata_txt_path <- file.path(output_dir, "metadata_input_data.txt")
+      
+        export_metadata_txt(io_metadata = io_metadata, output_path = metadata_txt_path)
+        
         # =====================================================================
         # SAVE INPUT PREPROCESSING (RDS)
         # =====================================================================
@@ -577,7 +601,7 @@ server <- function(input, output, session) {
           full_io_table   = full_io_table,
           code_registry   = code_registry,
           balance_detail  = balance_result$balance_detail,
-          output_path     = file.path(output_dir, "IO_Analysis_Output.xlsx")
+          output_path     = file.path(output_dir, "Hasil_Analisis_Modul_Deskriptif.xlsx")
         )
         
         save_analysis_data(
@@ -627,6 +651,8 @@ server <- function(input, output, session) {
             unit        = profile$currency,
             location    = profile$area_name,
             io_period   = profile$year,
+            io_source   = profile$io_source,
+            data_source = if (load_rds) "RDS" else "Excel",
             output_dir  = output_dir
           ),
           envir = new.env(parent = globalenv())
