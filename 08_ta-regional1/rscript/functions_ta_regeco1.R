@@ -2240,20 +2240,37 @@ generate_prs_plot <- function(linkages_table,
 #' Color code kategori sektor
 #' @export
 category_colors <- c(
-  "Pertanian"      = "#66BB6A",
-  "Perkebunan"     = "#2E7D32",
-  "Peternakan"     = "#9CCC65",
-  "Kehutanan"      = "#1B5E20",
-  "Perikanan"      = "#26C6DA",
-  "Pertambangan"   = "#795548",
-  "Industri"       = "#EF5350",
-  "Utilitas"       = "#FFA726",
-  "Konstruksi"     = "#8E24AA",
-  "Perdagangan"    = "#FB8C00",
-  "Transportasi"   = "#3949AB",
-  "Jasa & Layanan" = "#29B6F6",
-  "Pelayanan Umum" = "#546E7A",
-  "Lainnya"        = "#BDBDBD"
+  # --- English labels ---
+  "Agriculture"      = "#66BB6A",
+  "Plantation"       = "#2E7D32",
+  "Livestock"        = "#9CCC65",
+  "Forestry"         = "#1B5E20",
+  "Fishery"          = "#26C6DA",
+  "Mining"           = "#795548",
+  "Industry"         = "#EF5350",
+  "Utilities"        = "#FFA726",
+  "Construction"     = "#8E24AA",
+  "Trade"            = "#FB8C00",
+  "Transportation"   = "#3949AB",
+  "Services"         = "#29B6F6",
+  "Public Services"  = "#546E7A",
+  "Others"           = "#BDBDBD",
+  
+  # --- Indonesian labels ---
+  "Pertanian"        = "#66BB6A",
+  "Perkebunan"       = "#2E7D32",
+  "Peternakan"       = "#9CCC65",
+  "Kehutanan"        = "#1B5E20",
+  "Perikanan"        = "#26C6DA",
+  "Pertambangan"     = "#795548",
+  "Industri"         = "#EF5350",
+  "Utilitas"         = "#FFA726",
+  "Konstruksi"       = "#8E24AA",
+  "Perdagangan"      = "#FB8C00",
+  "Transportasi"     = "#3949AB",
+  "Jasa & Layanan"   = "#29B6F6",
+  "Pelayanan Umum"   = "#546E7A",
+  "Lainnya"          = "#BDBDBD"
 )
 
 #' Generate top-N multiplier bar chart (warna per kategori sektor)
