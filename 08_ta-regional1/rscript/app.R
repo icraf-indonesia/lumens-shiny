@@ -44,15 +44,71 @@ ui <- fluidPage(
   
   tags$head(tags$link(rel = "shortcut icon", href = "favicon.ico")),
   
-  titlePanel("Regional Economic Descriptive Analysis"),
+  titlePanel("Modul Analisis Deskriptif Ekonomi Regional"),
   
   sidebarLayout(
     sidebarPanel(
       # --- Opsi: Load dari RDS preprocessing (opsional) ---
       checkboxInput(
         "load_rds",
-        "Muat dari RDS praproses (lewati pembacaan Excel)",
+        tagList(
+          "Muat dari RDS praproses (lewati pembacaan Excel)",
+          tooltip(
+            # Ikon question-circle: merah + bold
+            bsicons::bs_icon(
+              "question-circle-fill"),
+            HTML(
+              "<b>Apa itu RDS?</b><br>",
+              "RDS adalah format file dari R (R Data Serialized) yang menyimpan ",
+              "objek hasil olahan data dalam bentuk terkompresi. File ini mempercepat ",
+              "proses karena semua input (tabel IO, tenaga kerja, lahan, dll.) ",
+              "sudah dibaca dan divalidasi sebelumnya.<br><br>",
+              "<b>Darimana mendapatkannya?</b><br>",
+              "File <code style='background:#2c3e50; color:#ffffff; padding:2px 6px; border-radius:4px;'>",
+              "descriptive_input_preprocessing.rds</code> dihasilkan ",
+              "otomatis setiap kali Anda menjalankan analisis deskriptif ",
+              "dengan input Excel. File ini tersimpan di folder output yang Anda pilih.<br><br>",
+              "Gunakan RDS jika Anda ingin mengulang analisis atau melanjutkan ke modul proyeksi tanpa harus mengunggah ulang file Excel."
+            ),
+            placement = "right"
+          )
+        ),
         value = FALSE
+      ),
+      tags$div(
+        class = "alert alert-info",
+        style = "font-size: 12px; margin-top: 5px; padding: 8px;",
+        tags$details(
+          tags$summary(
+            style = "cursor: pointer; font-weight: 600;",
+            "ℹ️ Apa itu RDS?"
+          ),
+          tags$ul(
+            style = "margin-top: 6px; padding-left: 18px;",
+            tags$li(
+              tags$br(),
+              tags$b("Apa itu RDS?"),
+              tags$br(),
+              "RDS (", tags$code(".rds"), ") adalah format file dari R (R Data Serialized) yang menyimpan ",
+              "objek hasil olahan data dalam bentuk terkompresi. File ini mempercepat ",
+              "proses karena semua input (tabel IO, tenaga kerja, lahan, dll.) ",
+              "sudah dibaca dan divalidasi sebelumnya."
+            ),
+            tags$li(
+              tags$b("Darimana?"),
+              tags$br(),
+              " File ", tags$code("descriptive_input_preprocessing.rds"),
+              " dihasilkan otomatis setiap kali Anda menjalankan analisis deskriptif ",
+              "dengan input Excel. Cek folder output yang Anda pilih pada langkah sebelumnya."
+            ),
+            tags$li(
+              tags$b("Kapan dipakai?"),
+              tags$br(),
+              " Saat mengulang analisis atau melanjutkan ke modul proyeksi ",
+              "tanpa ingin mengunggah ulang file Excel."
+            )
+          )
+        )
       ),
       
       # ==========================================
@@ -169,8 +225,8 @@ server <- function(input, output, session) {
   # --- User guide ---
   output$user_guide <- renderUI({
     guide_paths <- c(
-      "helpfile/ta-reg1_quick_user_guide.Rmd",
-      "../../08_ta-regional1/helpfile/ta-reg1_quick_user_guide.Rmd"
+      "helpfile/ta-reg1_quick_user_guide_ID.Rmd",
+      "../../08_ta-regional1/helpfile/ta-reg1_quick_user_guide_ID.Rmd"
     )
     for (path in guide_paths) {
       if (file.exists(path)) {
