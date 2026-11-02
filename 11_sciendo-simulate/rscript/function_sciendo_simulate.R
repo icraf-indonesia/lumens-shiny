@@ -1905,3 +1905,45 @@ dir_button_with_help <- function(id, label, title, help_id) {
     )
   )
 }
+
+#' Extract Calendar Year from Uploaded File Name
+#'
+#' Auto-detects 4-digit or 2-digit years from a filename string.
+#' 4-digit years (1900-2099) take precedence.
+#' 2-digit years: 00-70 -> 2000-2070, 71-99 -> 1971-1999.
+#'
+#' @param filename Character string.
+#' @return Integer year or NA_integer_.
+#' @export
+extract_year_from_filename <- function(filename) {
+  if (is.null(filename) || length(filename) == 0 || is.na(filename)) {
+    return(NA_integer_)
+  }
+  name_no_ext <- sub("\\.[^.]+$", "", basename(filename))
+  
+  # 1. 4-digit year (1900-2099)
+  m4 <- gregexpr("(?<![0-9])(?:19|20)[0-9]{2}(?![0-9])", name_no_ext, perl = TRUE)
+  matches4 <- regmatches(name_no_ext, m4)[[1]]
+  if (length(matches4) > 0) {
+    return(as.integer(tail(matches4, 1)))
+  }
+  
+  # Remove resolutions like 250m, 30m and versions like v1, v2
+  cleaned <- gsub("(?i)[0-9]+m(?![a-z])", "", name_no_ext, perl = TRUE)
+  cleaned <- gsub("(?i)v[0-9]+", "", cleaned, perl = TRUE)
+  
+  # 2. 2-digit year (00-70 -> 2000-2070, 71-99 -> 1971-1999)
+  m2 <- gregexpr("(?<![0-9])[0-9]{2}(?![0-9])", cleaned, perl = TRUE)
+  matches2 <- regmatches(cleaned, m2)[[1]]
+  if (length(matches2) > 0) {
+    val <- as.integer(tail(matches2, 1))
+    if (!is.na(val)) {
+      if (val >= 0 && val <= 70) {
+        return(2000L + val)
+      } else if (val >= 71 && val <= 99) {
+        return(1900L + val)
+      }
+    }
+  }
+  return(NA_integer_)
+}

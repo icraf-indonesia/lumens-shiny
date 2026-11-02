@@ -25,62 +25,116 @@ ui <- fluidPage(
   titlePanel("SCIENDO Train"),
   sidebarLayout(
     sidebarPanel(
-      fileInput("map1_file", "Land cover map at T1", accept = c("image/tiff")),
-      numericInput("map1_year", "Year of T1", value = 2015),
-      fileInput("map2_file", "Land cover map at T2", accept = c("image/tiff")),
-      numericInput("map2_year", "Year of T2", value = 2020),
-      fileInput("lc_file", "Land Use/Cover Lookup Table (CSV)", accept = c(".csv")),
-      radioButtons("zone_type", "Planning Unit Input Type", 
+      tags$head(
+        tags$style(HTML("
+      .alloc-label {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 4px;
+        width: 100%;
+      }
+      .alloc-help-icon {
+        display: inline-flex;
+        align-items: center;
+        color: #0d6efd;
+        cursor: pointer;
+        flex-shrink: 0;
+        margin-top: 2px;
+        line-height: 1;
+      }
+      .alloc-help-icon a,
+      .alloc-help-icon .action-button {
+        color: inherit !important;
+        text-decoration: none !important;
+        background: none !important;
+        border: none !important;
+        padding: 0 !important;
+        cursor: pointer !important;
+      }
+      .alloc-help-icon:hover,
+      .alloc-help-icon:hover a {
+        color: #0a58ca !important;
+      }
+      .dir-btn-wrapper {
+        position: relative;
+        width: 100%;
+      }
+      .dir-btn-wrapper .btn {
+        width: 100%;
+        text-align: center;
+      }
+      .dir-help-overlay {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        z-index: 10;
+      }
+      .selectize-dropdown-content .option {
+        padding-left: 20px;
+      }
+        "))
+      ),
+      fileInput("map1_file", label = label_with_help("Land cover map at T1", "map1_file"), accept = c("image/tiff")),
+      numericInput("map1_year", label = label_with_help("Year of T1", "map1_year"), value = 2015),
+      fileInput("map2_file", label = label_with_help("Land cover map at T2", "map2_file"), accept = c("image/tiff")),
+      numericInput("map2_year", label = label_with_help("Year of T2", "map2_year"), value = 2020),
+      fileInput("lc_file", label = label_with_help("Land Use/Cover Lookup Table (CSV)", "lc_file"), accept = c(".csv")),
+      radioButtons("zone_type", label = label_with_help("Planning Unit Input Type", "zone_type"),
                    choices = c("Raster" = "raster", "Shapefiles" = "shapefile"), inline = T),
       conditionalPanel(
         condition = "input.zone_type == 'shapefile'",
-        fileInput("mapz_file", 
-                  "Planning Unit", 
-                  accept = c(".shp", ".dbf", ".sbn", ".sbx", ".shx", ".prj"), 
-                  multiple = T, 
+        fileInput("mapz_file",
+                  label = label_with_help("Planning Unit", "mapz_file"),
+                  accept = c(".shp", ".dbf", ".sbn", ".sbx", ".shx", ".prj"),
+                  multiple = T,
                   placeholder = "All related shapefiles (.shp, .dbf, .prj, .shx)")
       ),
       conditionalPanel(
         condition = "input.zone_type == 'raster'",
-        fileInput("mapz_file", "Planning Unit", accept = c("image/tiff")),
-        fileInput("z_file", "Planning Unit Lookup Table (CSV)", accept = c(".csv"))
+        fileInput("mapz_file", label = label_with_help("Planning Unit", "mapz_file"), accept = c("image/tiff")),
+        fileInput("z_file", label = label_with_help("Planning Unit Lookup Table (CSV)", "z_file"), accept = c(".csv"))
       ),
-
-      tags$head(
-        tags$style(HTML("
-      .selectize-dropdown-content .option {
-        padding-left: 20px;
-      }
-    "))
-      ),
-      
-      selectizeInput("memory_allocation", "Choose Memory Allocation",
-                     choices = c("Balanced" = 1, "Prefer Memory" = 0, "Prefer Disk" = 2, 
-                                 "Memory Only" = 3, "Aggressive" = 4),
-                     options = list(render = I("
-                   {
-                     option: function(item, escape) {
-                       var explanations = {
-                         '1': 'Balanced: This memory management policy keeps input maps in memory and tries to keep resulting maps in memory whenever possible. However, resulting maps will be kept in disk if there is not enough free memory available to store them, or if Dinamica EGO suspects that by storing them in memory, it will hurt its ability of allocating memory to perform other types of operations in the future.',
-                         '0': 'Prefer Memory: This memory management policy keeps input maps and resulting maps in memory whenever possible. However, maps will be kept in disk and brought back to memory piece by piece if there is not enough free memory available to store them. Beware that a model execution might fail if there is not enough free memory left in the system to perform other types of operations.',
-                         '2': 'Prefer Disk: This memory management policy keeps all maps in disk, including the resulting ones, and brings them back to memory piece by piece, as necessary.',
-                         '3': 'Memory Only: This memory management policy keeps input maps and resulting maps only in memory. However, if there is not enough free memory available to store the maps, an ERROR will be reported and the model script execution will be aborted.',
-                         '4': 'Aggressive: This memory management policy keeps all input maps in disk and keeps resulting maps in memory whenever possible. However, maps will be kept in disk and brought back to memory piece by piece if there is not enough free memory available to store them. Beware that a model execution might fail if there is not enough free memory left in the system to perform other types of operations.'
-                       };
-                       var tooltip = explanations[item.value] || 'No explanation available';
-                       return '<div style=\"padding-left: 20px;\" title=\"' + tooltip + '\">' + escape(item.label) + '</div>';
-                     }
-                   }
-                 "))),
       
       div(style = "display: flex; flex-direction: column; gap: 10px;",
-          shinyDirButton("factors_path", "Factor(s) Folder Path", "Choose a folder contains factor files"),
+          dir_button_with_help("factors_path", "Factor(s) Folder Path", "Choose a folder contains factor files", "factors_path"),
           verbatimTextOutput("print_factor_dir", placeholder = TRUE),
-          shinyDirButton("wd", "Select output directory", "Please select a directory"),
+          dir_button_with_help("wd", "Select output directory", "Please select a directory", "wd"),
           verbatimTextOutput("print_output_dir", placeholder = TRUE),
-          shinyDirButton("dinamica_path", "DINAMICA EGO Path (Optional)", "(Optional)"),
-          verbatimTextOutput("print_dinamica_path", placeholder = TRUE),
-          actionButton("processTrain", "Run Analysis", 
+          
+          accordion(
+            open = FALSE,
+            accordion_panel(
+              title = "Advanced Settings",
+              icon = icon("gear"),
+              value = "advanced_settings",
+              
+              selectizeInput("memory_allocation", label = label_with_help("Choose Memory Allocation", "memory_allocation"),
+                             choices = c("Balanced" = 1, "Prefer Memory" = 0, "Prefer Disk" = 2,
+                                         "Memory Only" = 3, "Aggressive" = 4),
+                             options = list(render = I("
+                    {
+                      option: function(item, escape) {
+                        var explanations = {
+                          '1': 'Balanced: This memory management policy keeps input maps in memory and tries to keep resulting maps in memory whenever possible. However, resulting maps will be kept in disk if there is not enough free memory available to store them, or if Dinamica EGO suspects that by storing them in memory, it will hurt its ability of allocating memory to perform other types of operations in the future.',
+                          '0': 'Prefer Memory: This memory management policy keeps input maps and resulting maps in memory whenever possible. However, maps will be kept in disk and brought back to memory piece by piece if there is not enough free memory available to store them. Beware that a model execution might fail if there is not enough free memory left in the system to perform other types of operations.',
+                          '2': 'Prefer Disk: This memory management policy keeps all maps in disk, including the resulting ones, and brings them back to memory piece by piece, as necessary.',
+                          '3': 'Memory Only: This memory management policy keeps input maps and resulting maps only in memory. However, if there is not enough free memory available to store the maps, an ERROR will be reported and the model script execution will be aborted.',
+                          '4': 'Aggressive: This memory management policy keeps all input maps in disk and keeps resulting maps in memory whenever possible. However, maps will be kept in disk and brought back to memory piece by piece if there is not enough free memory available to store them. Beware that a model execution might fail if there is not enough free memory left in the system to perform other types of operations.'
+                        };
+                        var tooltip = explanations[item.value] || 'No explanation available';
+                        return '<div style=\"padding-left: 20px;\" title=\"' + tooltip + '\">' + escape(item.label) + '</div>';
+                      }
+                    }
+                  "))),
+              
+              dir_button_with_help("dinamica_path", "DINAMICA EGO Path (Optional)", "(Optional)", "dinamica_path"),
+              verbatimTextOutput("print_dinamica_path", placeholder = TRUE)
+            )
+          ),
+          
+          actionButton("processTrain", "Run Analysis",
                        style = "font-size: 18px; padding: 10px 15px; background-color: #4CAF50; color: white;"),
           hidden(
             actionButton("openReport", "Open Report",
@@ -90,7 +144,7 @@ ui <- fluidPage(
             actionButton("open_output_folder", "Open Output Folder",
                          style = "font-size: 18px; padding: 10px 15px; background-color: #008CBA; color: white;")
           ),
-          actionButton("returnButton", "Return to Main Menu", 
+          actionButton("returnButton", "Return to Main Menu",
                        style = "font-size: 18px; padding: 10px 15px; background-color: #FA8072; color: white;")
       )
     ),
@@ -149,6 +203,20 @@ server <- function(input, output, session) {
   is_numeric_str <- function(s) {
     return(!is.na(as.integer(as.character(s))))
   }
+
+  #### Click-to-open help modals ####
+  lapply(names(train_help_texts), function(id) {
+    observeEvent(input[[paste0("train_help_", id)]], {
+      info <- train_help_texts[[id]]
+      showModal(modalDialog(
+        title = tagList(icon("circle-info"), " ", info$title),
+        HTML(info$body),
+        easyClose = TRUE,
+        footer = modalButton("Close"),
+        size = "m"
+      ))
+    })
+  })
   
   #### Read file inputs ####
   lapply(lc_list, function(id) {
@@ -158,7 +226,17 @@ server <- function(input, output, session) {
     df <- paste0(id, "_df")
     
     observeEvent(input[[inputs]], {
-      rv[[files]] <- rename_uploaded_file(input[[inputs]])
+      f <- input[[inputs]]
+      rv[[files]] <- rename_uploaded_file(f)
+      
+      # Auto-detect year from filename and prefill year input
+      if (!is.null(f$name)) {
+        detected_yr <- extract_year_from_filename(f$name[1])
+        if (!is.na(detected_yr)) {
+          year_input_id <- paste0(id, "_year")
+          updateNumericInput(session, year_input_id, value = detected_yr)
+        }
+      }
       # rv[[rasters]] <- rv[[files]] %>% raster() 
     })
   })

@@ -1765,3 +1765,147 @@ render_dt_table <- function(data, caption = NULL, digits = 2, area_digits = 0, n
   
   htmltools::tagList(css_fix, dt)
 }
+
+#' Extract Calendar Year from Uploaded File Name
+#'
+#' Auto-detects 4-digit or 2-digit years from a filename string.
+#' 4-digit years (1900-2099) take precedence.
+#' 2-digit years: 00-70 -> 2000-2070, 71-99 -> 1971-1999.
+#'
+#' @param filename Character string.
+#' @return Integer year or NA_integer_.
+#' @export
+extract_year_from_filename <- function(filename) {
+  if (is.null(filename) || length(filename) == 0 || is.na(filename)) {
+    return(NA_integer_)
+  }
+  name_no_ext <- sub("\\.[^.]+$", "", basename(filename))
+  
+  # 1. 4-digit year (1900-2099)
+  m4 <- gregexpr("(?<![0-9])(?:19|20)[0-9]{2}(?![0-9])", name_no_ext, perl = TRUE)
+  matches4 <- regmatches(name_no_ext, m4)[[1]]
+  if (length(matches4) > 0) {
+    return(as.integer(tail(matches4, 1)))
+  }
+  
+  # Remove resolutions like 250m, 30m and versions like v1, v2
+  cleaned <- gsub("(?i)[0-9]+m(?![a-z])", "", name_no_ext, perl = TRUE)
+  cleaned <- gsub("(?i)v[0-9]+", "", cleaned, perl = TRUE)
+  
+  # 2. 2-digit year (00-70 -> 2000-2070, 71-99 -> 1971-1999)
+  m2 <- gregexpr("(?<![0-9])[0-9]{2}(?![0-9])", cleaned, perl = TRUE)
+  matches2 <- regmatches(cleaned, m2)[[1]]
+  if (length(matches2) > 0) {
+    val <- as.integer(tail(matches2, 1))
+    if (!is.na(val)) {
+      if (val >= 0 && val <= 70) {
+        return(2000L + val)
+      } else if (val >= 71 && val <= 99) {
+        return(1900L + val)
+      }
+    }
+  }
+  return(NA_integer_)
+}
+
+#' Help Text Definitions for SCIENDO Train Inputs
+#' @export
+train_help_texts <- list(
+  map1_file = list(
+    title = "Land Cover Map at T1 (Initial)",
+    body = "<p>Raster GeoTIFF (.tif) map representing land cover / use at the initial time period (T1).</p><p>Pixel values must correspond to the numeric IDs defined in the Land Use/Cover Lookup Table.</p>"
+  ),
+  map1_year = list(
+    title = "Year of T1",
+    body = "<p>Calendar year corresponding to the initial land cover map (T1), e.g. <code>2015</code>.</p><p>Used alongside the Year of T2 to determine the time interval for transition probability rates. This field is automatically prefilled if a year is detected in the uploaded file name.</p>"
+  ),
+  map2_file = list(
+    title = "Land Cover Map at T2 (Final)",
+    body = "<p>Raster GeoTIFF (.tif) map representing land cover / use at the final time period (T2).</p><p>Must share the spatial extent, resolution, and coordinate reference system of the T1 land cover map.</p>"
+  ),
+  map2_year = list(
+    title = "Year of T2",
+    body = "<p>Calendar year corresponding to the final land cover map (T2), e.g. <code>2020</code>.</p><p>Must be greater than the Year of T1. This field is automatically prefilled if a year is detected in the uploaded file name.</p>"
+  ),
+  lc_file = list(
+    title = "Land Use/Cover Lookup Table",
+    body = "<p>CSV file mapping numeric land cover IDs to descriptive class names.</p><p>It must contain at least two columns:</p><ol><li>Numeric ID (integer)</li><li>Land cover class name (text)</li></ol>"
+  ),
+  zone_type = list(
+    title = "Planning Unit Input Type",
+    body = "<p>Select whether the Planning Unit dataset is supplied as a categorical <b>Raster (.tif)</b> or a polygon <b>Shapefile (.shp)</b>.</p>"
+  ),
+  mapz_file = list(
+    title = "Planning Unit Map",
+    body = "<p>Spatial delineation of planning units or administrative zones (e.g. districts, watersheds, or spatial planning units).</p><p>Can be supplied as:</p><ul><li><b>Raster (.tif):</b> Categorical GeoTIFF where each integer pixel value corresponds to a planning unit ID.</li><li><b>Shapefile (.shp, .shx, .dbf, .prj):</b> Polygon vector features delineating planning units.</li></ul>"
+  ),
+  z_file = list(
+    title = "Planning Unit Lookup Table",
+    body = "<p>CSV table mapping numeric planning unit IDs to descriptive zone names.</p><p>Required when using raster planning units. Must contain at least two columns:</p><ol><li>Planning Unit ID (integer)</li><li>Planning Unit Name (text)</li></ol>"
+  ),
+  factors_path = list(
+    title = "Factor Maps Directory",
+    body = "<p>Directory containing spatial predictor / driving factor raster files in GeoTIFF (.tif) format.</p><p>These factors represent spatial drivers of land use change (e.g., elevation, slope, distance to roads, distance to rivers, distance to settlements). All factor maps will be assembled into a raster cube used to calculate Weights of Evidence.</p>"
+  ),
+  wd = list(
+    title = "Output Directory",
+    body = "<p>Folder where all SCIENDO Train analysis outputs, including transition matrices, raster cube, weights of evidence reports, and HTML summary reports, will be saved.</p>"
+  ),
+  memory_allocation = list(
+    title = "Memory Allocation Policy",
+    body = "<p>Controls how DINAMICA EGO manages RAM and disk space when executing the model.</p><ul><li><b>Balanced (default):</b> Keeps inputs in memory; keeps results in memory when RAM allows, otherwise writes to disk.</li><li><b>Prefer Memory:</b> Keeps both inputs and results in RAM whenever possible.</li><li><b>Prefer Disk:</b> Streams maps to/from disk to minimize RAM usage.</li><li><b>Memory Only:</b> Aborts execution if RAM is insufficient.</li><li><b>Aggressive:</b> Keeps inputs on disk while results are kept in RAM.</li></ul>"
+  ),
+  dinamica_path = list(
+    title = "DINAMICA EGO Path (Optional)",
+    body = "<p>Path to the DINAMICA EGO installation directory (e.g., <code>C:/Program Files/Dinamica EGO 7</code>).</p><p>If left blank, LUMENS automatically detects the installation under <code>Program Files</code>.</p>"
+  )
+)
+
+#' Clickable Help Icon for SCIENDO Train UI
+#'
+#' @param id Help topic ID.
+#' @return A `shiny.tag` containing an actionLink with circle-question icon.
+#' @export
+train_help_icon <- function(id) {
+  tags$span(
+    class = "alloc-help-icon",
+    actionLink(
+      inputId = paste0("train_help_", id),
+      label   = NULL,
+      icon    = icon("circle-question")
+    )
+  )
+}
+
+#' Label With a Right-Aligned Help Icon
+#'
+#' @param text Label text.
+#' @param help_id Help topic ID.
+#' @return A `shiny.tag` combining label text and a help icon.
+#' @export
+label_with_help <- function(text, help_id) {
+  tags$div(
+    class = "alloc-label",
+    tags$span(text),
+    train_help_icon(help_id)
+  )
+}
+
+#' Directory-Picker Button With an Inline Help Icon
+#'
+#' @param id Shiny input ID.
+#' @param label Button label.
+#' @param title Button title tooltip.
+#' @param help_id Help topic ID.
+#' @return A `shiny.tag` containing directory button and help icon.
+#' @export
+dir_button_with_help <- function(id, label, title, help_id) {
+  tags$div(
+    class = "dir-btn-wrapper",
+    shinyDirButton(id, label, title),
+    tags$div(
+      class = "dir-help-overlay",
+      train_help_icon(help_id)
+    )
+  )
+}

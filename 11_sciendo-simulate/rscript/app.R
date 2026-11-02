@@ -164,13 +164,6 @@ ui <- fluidPage(
           ),
           verbatimTextOutput("print_output_dir", placeholder = TRUE),
           
-          dir_button_with_help(
-            "dinamica_path",
-            "DINAMICA EGO Path (Optional)",
-            "(Optional)",
-            "dinamica_path"
-          ),
-          verbatimTextOutput("print_dinamica_path", placeholder = TRUE),
           
           accordion(
             open = FALSE,
@@ -199,6 +192,13 @@ ui <- fluidPage(
                    }
                  "))),
               
+              dir_button_with_help(
+                "dinamica_path",
+                "DINAMICA EGO Path (Optional)",
+                "(Optional)",
+                "dinamica_path"
+              ),
+              verbatimTextOutput("print_dinamica_path", placeholder = TRUE),
               tags$hr(),
               
               tags$div(
@@ -390,6 +390,12 @@ server <- function(input, output, session) {
       return()
     
     rv$map1_file <- rename_uploaded_file(map1)
+    if (!is.null(map1$name)) {
+      detected_yr <- extract_year_from_filename(map1$name[1])
+      if (!is.na(detected_yr)) {
+        updateNumericInput(session, "init_year", value = detected_yr)
+      }
+    }
     tryCatch({
       r_tmp <- terra::rast(rv$map1_file)
       res_xy <- terra::res(r_tmp)
