@@ -98,10 +98,35 @@ ui <- fluidPage(
       ),
       
       div(style = "display: flex; flex-direction: column; gap: 10px;",
-          dir_button_with_help("factors_path", "Factor(s) Folder Path", "Choose a folder contains factor files", "factors_path"),
-          verbatimTextOutput("print_factor_dir", placeholder = TRUE),
           dir_button_with_help("wd", "Select output directory", "Please select a directory", "wd"),
           verbatimTextOutput("print_output_dir", placeholder = TRUE),
+          
+          tags$div(
+            style = "margin-top: 10px; margin-bottom: 2px; border-top: 1px solid #e0e0e0; padding-top: 10px;",
+            tags$h5("Predictors", style = "font-weight: 600; margin: 0; color: #333;")
+          ),
+          
+          dir_button_with_help("factors_path", "Predictor(s) Folder Path", "Choose a folder contains predictor files", "factors_path"),
+          verbatimTextOutput("print_factor_dir", placeholder = TRUE),
+          
+          tags$div(
+            id = "eval_buttons_container",
+            style = "display: flex; gap: 8px; width: 100%; margin-top: 2px; margin-bottom: 2px;",
+            tags$div(
+              id = "eval_btn_wrapper",
+              style = "flex: 1 1 0px; width: 100%; min-width: 0;",
+              actionButton("evaluate_factors", "Evaluate Predictors", class = "btn-info", icon = icon("chart-line"), 
+                           style = "width: 100%; font-size: 13px; padding: 6px 4px; white-space: normal;")
+            ),
+            hidden(
+              tags$div(
+                id = "open_eval_wrapper",
+                style = "flex: 1 1 0px; width: 100%; min-width: 0;",
+                actionButton("open_eval_report", "Open Evaluation Report", class = "btn-success", icon = icon("arrow-up-right-from-square"), 
+                             style = "width: 100%; font-size: 13px; padding: 6px 4px; white-space: normal;")
+              )
+            )
+          ),
           
           accordion(
             open = FALSE,
@@ -175,6 +200,7 @@ server <- function(input, output, session) {
   #### Initialize all required reactive values ####
   rv <- reactiveValues(
     wd = NULL,
+    factor_eval_report_file = NULL,
     factors_path = NULL,
     dinamica_path = NULL,
     report_file = NULL,
@@ -269,8 +295,17 @@ server <- function(input, output, session) {
       
       # Check if map1_file is uploaded first
       if (is.null(rv$map1_file)) {
+        showModal(modalDialog(
+          title = "Peta Tutupan Lahan T1 Belum Diunggah",
+          div(
+            p("Silakan unggah peta tutupan lahan pada T1 terlebih dahulu sebelum mengunggah berkas Shapefile unit perencanaan."),
+            p("Peta T1 diperlukan sebagai acuan batas spasial (extent) dan resolusi sel untuk merasterisasi shapefile.")
+          ),
+          easyClose = TRUE,
+          footer = modalButton("Tutup")
+        ))
         showNotification(
-          "Please upload land cover map at T1 first to determine raster resolution.",
+          "Silakan unggah peta tutupan lahan (T1) terlebih dahulu untuk menentukan batas dan resolusi rasterisasi shapefile.",
           type = "error",
           duration = 10
         )
@@ -420,14 +455,15 @@ server <- function(input, output, session) {
   observe({
     if (!is.null(input$factors_path)) {
       rv$factors_path <- parseDirPath(volumes, input$factors_path)
+      shinyjs::hide("open_eval_wrapper")
     }
   })
   
   output$factor_directory <- renderText({
     if(!is.null(rv$factors_path)) {
-      paste0("Selected factors directory: ",  rv$factors_path)
+      paste0("Selected predictors directory: ",  rv$factors_path)
     } else {
-      "No factors directory selected"
+      "No predictors directory selected"
     }
   })
   
@@ -435,7 +471,83 @@ server <- function(input, output, session) {
     if(!is.null(rv$factors_path)) {
       cat(paste(rv$factors_path))
     } else {
-      cat("No factors directory selected")
+      cat("No predictors directory selected")
+    }
+  })
+  
+  #### Evaluate Predictors Handler ####
+  observeEvent(input$evaluate_factors, {
+    if (is.null(rv$factors_path) || identical(rv$factors_path, character(0)) || !dir.exists(rv$factors_path)) {
+      showModal(modalDialog(
+        title = "Direktori Prediktor Belum Dipilih",
+        "Silakan pilih direktori yang berisi berkas raster prediktor (.tif) terlebih dahulu.",
+        easyClose = TRUE,
+        footer = modalButton("Tutup")
+      ))
+      showNotification("Please select a valid predictors folder first.", type = "warning", duration = 8)
+      return()
+    }
+    
+    tif_files <- list.files(rv$factors_path, pattern = "\\.tif$", full.names = TRUE, ignore.case = TRUE)
+    if (length(tif_files) < 2) {
+      showModal(modalDialog(
+        title = "Berkas Prediktor Tidak Mencukupi",
+        paste0("Direktori prediktor minimal harus memuat 2 berkas GeoTIFF (.tif) untuk evaluasi multikolinearitas. Ditemukan: ", length(tif_files), " berkas."),
+        easyClose = TRUE,
+        footer = modalButton("Tutup")
+      ))
+      showNotification("Predictors folder must contain at least 2 .tif files.", type = "error", duration = 8)
+      return()
+    }
+    
+    # Determine output folder for report
+    eval_out_dir <- if (!is.null(rv$wd) && !identical(rv$wd, character(0)) && dir.exists(rv$wd)) {
+      rv$wd
+    } else {
+      file.path(rv$factors_path, "factor_evaluation")
+    }
+    
+    if (!dir.exists(eval_out_dir)) {
+      dir.create(eval_out_dir, recursive = TRUE, showWarnings = FALSE)
+    }
+    
+    withProgress(message = "Mengevaluasi variabel prediktor...", value = 0.2, {
+      incProgress(0.3, detail = "Menghitung VIF dan matriks korelasi...")
+      
+      tryCatch({
+        report_path <- generate_factor_evaluation_report(
+          factor_path = rv$factors_path,
+          output_dir = eval_out_dir,
+          vif_threshold = 5,
+          sample_size = 10000
+        )
+        
+        incProgress(0.5, detail = "Menyusun laporan HTML...")
+        rv$factor_eval_report_file <- report_path
+        
+        shinyjs::show("open_eval_wrapper")
+        showNotification(paste0("Evaluasi prediktor selesai. Laporan tersimpan di: ", report_path), type = "message", duration = 10)
+        
+      }, error = function(e) {
+        showModal(modalDialog(
+          title = "Evaluasi Prediktor Gagal",
+          div(
+            p("Terjadi kesalahan saat mengevaluasi variabel prediktor:"),
+            p(tags$code(e$message))
+          ),
+          easyClose = TRUE,
+          footer = modalButton("Tutup")
+        ))
+        showNotification(paste("Error evaluating predictors:", e$message), type = "error", duration = 10)
+      })
+    })
+  })
+  
+  observeEvent(input$open_eval_report, {
+    if (!is.null(rv$factor_eval_report_file) && file.exists(rv$factor_eval_report_file)) {
+      utils::browseURL(rv$factor_eval_report_file)
+    } else {
+      showNotification("Report file not found.", type = "error")
     }
   })
   
@@ -499,7 +611,7 @@ server <- function(input, output, session) {
   iv$add_rule("map2_year", sv_required(message = "Please define the year of T2"))
   iv$add_rule("lc_file", sv_required(message = "Please upload land cover lookup table"))
   iv$add_rule("memory_allocation", sv_required(message = "Please select memory allocation option"))
-  iv$add_rule("factors_path", sv_required(message = "Please select a directory of factors"))
+  iv$add_rule("factors_path", sv_required(message = "Please select a directory of predictors"))
   iv$add_rule("wd", sv_required(message = "Please select an output directory"))
   
   # Zone-specific validator (initially disabled)

@@ -1,0 +1,236 @@
+---
+title: "Laporan Evaluasi Multikolinearitas Variabel Prediktor"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+    theme: united
+    highlight: tango
+    df_print: paged
+params:
+  factor_path: NA
+  vif_threshold: 5
+  sample_size: 10000
+  start_time: NA
+  end_time: NA
+  collinearity_result: NULL
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+```
+
+```{r load_libraries, include=FALSE}
+library(terra)
+library(dplyr)
+library(DT)
+library(kableExtra)
+library(htmltools)
+library(corrplot)
+library(usdm)
+
+if (file.exists("../rscript/function_sciendo_train.R")) {
+  source("../rscript/function_sciendo_train.R")
+} else if (file.exists("11_sciendo-train/rscript/function_sciendo_train.R")) {
+  source("11_sciendo-train/rscript/function_sciendo_train.R")
+}
+```
+
+# Ringkasan Evaluasi Variabel Prediktor
+
+Laporan ini memuat hasil pemeriksaan awal multikolinearitas dan nilai *Variance Inflation Factor* (VIF) untuk variabel penjelas (prediktor) yang berada dalam direktori prediktor sebelum menjalankan pemodelan pelatihan (*SCIENDO-Train*).
+
+```{r factor_summary, results='asis'}
+factor_dir <- params$factor_path
+vif_th <- if (is.null(params$vif_threshold) || is.na(params$vif_threshold)) 5 else params$vif_threshold
+s_size <- if (is.null(params$sample_size) || is.na(params$sample_size)) 10000 else params$sample_size
+
+tif_files <- if (!is.null(factor_dir) && !is.na(factor_dir) && dir.exists(factor_dir)) {
+  list.files(path = factor_dir, pattern = "\\.tif$", full.names = TRUE, ignore.case = TRUE)
+} else {
+  character(0)
+}
+
+summary_df <- data.frame(
+  "Parameter" = c(
+    "Direktori Prediktor",
+    "Jumlah Berkas Prediktor (.tif)",
+    "Ambang Batas VIF (Threshold)",
+    "Jumlah Sampel Sel Raster",
+    "Waktu Mulai Evaluasi",
+    "Waktu Selesai Evaluasi"
+  ),
+  "Nilai" = c(
+    as.character(factor_dir),
+    as.character(length(tif_files)),
+    as.character(vif_th),
+    as.character(format(s_size, big.mark = ",")),
+    as.character(params$start_time),
+    as.character(params$end_time)
+  ),
+  stringsAsFactors = FALSE
+)
+
+summary_df %>% 
+  kbl(caption = "Ringkasan Eksekusi Evaluasi Prediktor", escape = FALSE) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE)
+```
+
+## Daftar Variabel Prediktor Terdeteksi
+
+```{r factor_list_table}
+if (length(tif_files) > 0) {
+  factor_info <- lapply(tif_files, function(f) {
+    tryCatch({
+      r <- rast(f)
+      res_val <- paste0(round(res(r)[1], 4), " x ", round(res(r)[2], 4))
+      crs_val <- crs(r, describe = TRUE)$name
+      if (is.null(crs_val) || is.na(crs_val) || crs_val == "") {
+        crs_val <- "Unknown / Projected"
+      }
+      data.frame(
+        "Nama_Prediktor" = gsub("\\.tif$", "", basename(f), ignore.case = TRUE),
+        "Resolusi" = res_val,
+        "Jumlah_Baris" = nrow(r),
+        "Jumlah_Kolom" = ncol(r),
+        "CRS" = crs_val,
+        stringsAsFactors = FALSE
+      )
+    }, error = function(e) {
+      data.frame(
+        "Nama_Prediktor" = basename(f),
+        "Resolusi" = "-",
+        "Jumlah_Baris" = NA,
+        "Jumlah_Kolom" = NA,
+        "CRS" = "Error membaca berkas",
+        stringsAsFactors = FALSE
+      )
+    })
+  }) %>% bind_rows()
+  
+  datatable(factor_info, 
+            caption = "Daftar Berkas Variabel Prediktor yang Terdeteksi",
+            options = list(pageLength = 10, scrollX = TRUE),
+            rownames = FALSE)
+} else {
+  cat("<div class='alert alert-warning'>Tidak ada berkas GeoTIFF (.tif) yang ditemukan dalam direktori prediktor.</div>")
+}
+```
+
+# Hasil Analisis Multikolinearitas {.tabset}
+
+```{r run_or_get_collinearity}
+collinearity <- params$collinearity_result
+
+if (is.null(collinearity) && length(tif_files) > 1) {
+  collinearity <- tryCatch({
+    analyze_multicollinearity(
+      folder_path = factor_dir,
+      sample_size = s_size,
+      vif_threshold = vif_th,
+      verbose = FALSE
+    )
+  }, error = function(e) {
+    NULL
+  })
+}
+```
+
+## Variance Inflation Factor (VIF)
+
+*Variance Inflation Factor* (VIF) mengukur tingkat multikolinearitas antara variabel penjelas dalam regresi/model spasial. Variabel dengan nilai VIF yang terlalu tinggi menandakan adanya redundansi informasi dengan variabel lain, sehingga estimasi bobot bukti (*Weights of Evidence*) menjadi tidak stabil.
+
+**Pedoman Interpretasi Nilai VIF:**
+- **VIF < 5**: Kolinieritas rendah (aman untuk dimasukkan ke dalam model).
+- **5 &le; VIF &le; 10**: Kolinieritas moderat (perlu diwaspadai, amati matriks korelasi).
+- **VIF > 10**: Kolinieritas tinggi/parah (sangat disarankan untuk dikeluarkan atau digabung).
+
+```{r render_vif, results='asis'}
+if (!is.null(collinearity$zero_variance_vars) && length(collinearity$zero_variance_vars) > 0) {
+  cat(paste0("<div class='alert alert-info'><strong>Catatan:</strong> Variabel prediktor berikut memiliki varians konstan/nol pada area sampel dan otomatis diabaikan dari perhitungan VIF: <strong>", 
+             paste(collinearity$zero_variance_vars, collapse = ", "), "</strong></div>"))
+}
+
+if (!is.null(collinearity$vif_table) && nrow(collinearity$vif_table) > 0) {
+  vif_df <- as.data.frame(collinearity$vif_table)
+  colnames(vif_df) <- c("Variabel", "VIF")
+  vif_df$VIF <- round(as.numeric(vif_df$VIF), 3)
+  
+  # Status column
+  vif_df$Status <- ifelse(
+    vif_df$VIF < 5,
+    "<span class='label label-success'>Aman (&lt; 5)</span>",
+    ifelse(vif_df$VIF <= 10,
+           "<span class='label label-warning'>Moderat (5-10)</span>",
+           "<span class='label label-danger'>Tinggi (&gt; 10)</span>")
+  )
+  
+  datatable(vif_df, 
+            caption = paste0("Tabel Variance Inflation Factor (VIF) — Ambang batas: ", vif_th),
+            escape = FALSE,
+            rownames = FALSE,
+            options = list(pageLength = 15, order = list(list(1, 'desc'))))
+} else {
+  cat("<div class='alert alert-warning'>Data sampel tidak mencukupi untuk menghitung tabel VIF atau prediktor yang diunggah kurang dari 2.</div>")
+}
+```
+
+```{r vif_exclusion_alert, results='asis'}
+if (!is.null(collinearity$excluded_vars) && length(collinearity$excluded_vars) > 0) {
+  cat("<div class='alert alert-danger' style='margin-top: 15px;'>")
+  cat("<h4><strong>Variabel yang Direkomendasikan untuk Dihapus / Dikeluarkan (VIF &gt; ", vif_th, "):</strong></h4>", sep = "")
+  cat("<ul>")
+  for (ev in collinearity$excluded_vars) {
+    cat("<li><strong>", ev, "</strong></li>", sep = "")
+  }
+  cat("</ul>")
+  cat("<p>Variabel-variabel di atas memiliki redundansi multikolinearitas yang melampaui ambang batas. Mengeluarkannya dari folder prediktor sebelum pelatihan akan meningkatkan akurasi dan stabilitas model.</p>")
+  cat("</div>")
+} else if (!is.null(collinearity$vif_table) && nrow(collinearity$vif_table) > 0) {
+  cat("<div class='alert alert-success' style='margin-top: 15px;'>")
+  cat("<strong>Semua variabel prediktor memenuhi kriteria (VIF &le; ", vif_th, ").</strong> Tidak ada variabel yang melampaui ambang batas multikolinearitas.", sep = "")
+  cat("</div>")
+}
+```
+
+## Matriks Kolinearitas (Korelasi)
+
+Matriks korelasi menyajikan koefisien korelasi Pearson berpasangan antarvariabel prediktor:
+- Nilai mendekati **+1** atau **-1** menunjukkan korelasi yang sangat kuat (satu variabel bertindak sebagai duplikat dari yang lain).
+- Nilai mendekati **0** menunjukkan kedua variabel saling independen.
+
+```{r render_corrplot, fig.width=8, fig.height=8, out.width='85%', fig.align='center'}
+if (!is.null(collinearity$correlation_plot)) {
+  collinearity$correlation_plot
+} else if (!is.null(collinearity$correlation_matrix)) {
+  corrplot::corrplot(
+    collinearity$correlation_matrix,
+    method = "color",
+    type = "full",
+    order = "hclust",
+    tl.cex = 0.8,
+    tl.col = "black",
+    mar = c(0, 0, 2, 0),
+    addCoef.col = "black",
+    number.cex = 0.7,
+    diag = TRUE
+  )
+} else {
+  cat("<p><em>Grafik matriks korelasi tidak tersedia.</em></p>")
+}
+```
+
+# Rekomendasi Sebelum Menjalankan Pelatihan (SCIENDO-Train)
+
+1. **Variabel Berkolinearitas Tinggi (VIF > `r vif_th`)**:
+   Apabila terdapat variabel yang masuk ke dalam daftar rekomendasi penghapusan di atas, pertimbangkan untuk mengeluarkan atau memindahkan salah satu dari pasangan variabel yang berkorelasi tinggi tersebut dari folder prediktor.
+2. **Kesesuaian Dimensi & Resolusi**:
+   Pastikan seluruh variabel prediktor memiliki sistem proyeksi (CRS), resolusi sel spasial, dan *bounding box* (luasan spasial) yang seragam dengan peta tutupan lahan T1 dan T2.
+3. **Penyelarasan Data**:
+   Setelah menyesuaikan berkas pada folder prediktor, Anda dapat menjalankan kembali tombol **Evaluate Predictors** untuk memverifikasi ulang sebelum menekan tombol **Run Analysis**.
+
+---
+<div style="text-align: center; color: #777; font-size: 0.9em; margin-top: 30px;">
+  <em>LUMENS — Land-Use Planning for Low-Emission Development Strategies</em>
+</div>

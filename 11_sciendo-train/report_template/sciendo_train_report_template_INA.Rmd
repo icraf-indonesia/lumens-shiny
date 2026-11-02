@@ -46,6 +46,11 @@ library(LUMENSR)
 library(knitr)
 library(corrplot)
 library(usdm)
+if ("conflicted" %in% loadedNamespaces()) {
+  conflicted::conflict_prefer("intersect", "base", quiet = TRUE)
+  conflicted::conflict_prefer("filter", "dplyr", quiet = TRUE)
+  conflicted::conflict_prefer("select", "dplyr", quiet = TRUE)
+}
 ```
 
 <details>
@@ -64,7 +69,7 @@ analysis_log <- tribble(
   "4. Year of T1",                as.character(params$inputs$year1),
   "5. Year of T2",                as.character(params$inputs$year2),
   "6. Land cover lookup table",   params$inputs$lc_lookup_table_path,
-  "7. Directory of factor maps ", params$inputs$factor_path,
+  "7. Direktori peta prediktor ", params$inputs$factor_path,
   "Output Workspace",             params$inputs$output_dir,
   "1. Raster Cube",               params$rc_path,
   "2. Directory of Weight of Evidence Report",               params$woe_report_path,
@@ -125,11 +130,11 @@ lc_t2 <- lc_t2 %>% terra::rast() %>%
 
 # Deskripsi singkat modul
 
-- Modul SCIENDO-Train secara sistematis menghimpun informasi-informasi penting yang merepresentasikan kondisi awal dan akhir penutupan lahan suatu lanskap. Informasi ini mencakup data peta faktor, yang berfungsi sebagai variabel penentu untuk memberikan konteks dan wawasan terhadap pemicu perubahan penutupan lahan yang diamati dari waktu ke waktu. Dengan melatih data-data ini, SCIENDO-Train membangun sebuah kerangka kerja komprehensif untuk memahami dinamika perubahan pentupan lahan suatu wilayah.
+- Modul SCIENDO-Train secara sistematis menghimpun informasi-informasi penting yang merepresentasikan kondisi awal dan akhir penutupan lahan suatu lanskap. Informasi ini mencakup data peta prediktor, yang berfungsi sebagai variabel penentu untuk memberikan konteks dan wawasan terhadap pemicu perubahan penutupan lahan yang diamati dari waktu ke waktu. Dengan melatih data-data ini, SCIENDO-Train membangun sebuah kerangka kerja komprehensif untuk memahami dinamika perubahan pentupan lahan suatu wilayah.
 
-- Raster cube adalah kumpulan peta-peta faktor terintegrasi yang menghimpun informasi geografis penting di suatu lanskap. Di antaranya peta yang menunjukkan jarak ke titik-titik objek penting, elevasi yang memengaruhi iklim dan dinamika ekosistem, serta berbagai kondisi lingkungan seperti keragaman penggunaan lahan dan tutupan vegetasi. Peta faktor ini sangat penting untuk menganalisis hubungan spasial dan memahami bagaimana berbagai elemen saling berinteraksi di dalam lanskap tersebut.
+- Raster cube adalah kumpulan peta-peta prediktor terintegrasi yang menghimpun informasi geografis penting di suatu lanskap. Di antaranya peta yang menunjukkan jarak ke titik-titik objek penting, elevasi yang memengaruhi iklim dan dinamika ekosistem, serta berbagai kondisi lingkungan seperti keragaman penggunaan lahan dan tutupan vegetasi. Peta prediktor ini sangat penting untuk menganalisis hubungan spasial dan memahami bagaimana berbagai elemen saling berinteraksi di dalam lanskap tersebut.
 
-- Untuk menghitung probabilitas weight of evidence, dilakukan analisis komparatif terhadap semua nilai data yang terkumpul. Proses ini melibatkan analisis hubungan dan variasi antar peta faktor serta pengaruhnya terhadap kondisi yang diamati.
+- Untuk menghitung probabilitas weight of evidence, dilakukan analisis komparatif terhadap semua nilai data yang terkumpul. Proses ini melibatkan analisis hubungan dan variasi antar peta prediktor serta pengaruhnya terhadap kondisi yang diamati.
 
 
 # Data yang digunakan {.tabset}
@@ -148,7 +153,7 @@ plot_categorical_raster(lc_t1)
 plot_categorical_raster(lc_t2)
 ```
 
-## Peta Faktor-faktor {.tabset}
+## Peta Variabel Prediktor {.tabset}
 
 ```{r plot factor, echo=FALSE, fig.keep='all', results='asis'}
 factor_path <- params$inputs$factor_path 
@@ -184,7 +189,7 @@ plot_categorical_raster(zone)
 
 # Hasil
 
-## Multikolinearitas Faktor-faktor {.tabset}
+## Multikolinearitas Variabel Prediktor {.tabset}
 
 ### Variance Inflation Factor (VIF)
 
@@ -254,7 +259,7 @@ for (key in pu_keys) {
 
 ```{r create expandable woe sections, echo=FALSE, results='asis'}
 pu_name_mapping <- as.list(setNames(as.character(df_pu$PU), paste0("pu", sprintf("%03d", as.numeric(df_pu$ID_PU)))))
-valid_pu_keys <- intersect(names(weighted_means_list), names(pu_name_mapping))
+valid_pu_keys <- base::intersect(names(weighted_means_list), names(pu_name_mapping))
 
 # create expandable sections 
 src <- lapply(valid_pu_keys, function(pu_key) {

@@ -220,24 +220,193 @@ generate_dummy_crosstab <- function(landcover, zone){
 #' }
 #'
 #' @export
-plot_categorical_raster <- function(raster_object, filename = "raster_plot.png", dpi = 300) {
-  # Color palette
-  if ("color_palette" %in% names(cats(raster_object)[[1]]) &&
-      all(grepl("^#[0-9A-Fa-f]{6}$", cats(raster_object)$color_pallete))) {
-    fill_scale <- scale_fill_manual(values = cats(raster_object)[[1]]$color_palette, na.value = "white")
+EOX_ATTRIBUTION <- "EOxCloudless - https://cloudless.eox.at by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2025)"
+EOX_TILE_URL <- "https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2025_3857/default/g/{z}/{y}/{x}.jpg"
+
+BASEMAP_PROVIDERS <- list(
+  eox = list(
+    id = "eox",
+    name = "Satelit",
+    sublabel = "Sentinel-2 Cloudless 2025",
+    url = EOX_TILE_URL,
+    attribution = EOX_ATTRIBUTION,
+    maxZoom = 18
+  ),
+  osm = list(
+    id = "osm",
+    name = "Peta Jalan",
+    sublabel = "OpenStreetMap",
+    url = "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+    attribution = "&copy; OpenStreetMap contributors",
+    maxZoom = 19
+  )
+)
+
+#' Interactive Categorical Raster Map with EOX Cloudless 2025 & OSM
+#'
+#' Builds an interactive mapview / leaflet map for a categorical raster,
+#' applying custom or predefined colors, layers control, and extent reset.
+#'
+#' @param cat_raster A `SpatRaster` object.
+#' @param cat_table A data frame with at least two columns: ID and Category.
+#' @param layer_title Character string for the layer name in mapview and legend.
+#' @return A `mapview` object with an added legend and basemap layers.
+#' @importFrom mapview mapview
+#' @importFrom leaflet colorFactor addLegend clearTiles addTiles addLayersControl addEasyButton easyButton JS
+#' @export
+plot_categorical_raster_mapview <- function(cat_raster, cat_table,
+                                            layer_title = "Layer") {
+  names(cat_table)[1] <- "ID"
+  names(cat_table)[2] <- "Category"
+  cat_table$ID <- as.numeric(cat_table$ID)
+  
+  unique_values    <- unique(values(cat_raster, na.rm = TRUE))
+  cat_tbl_filtered <- cat_table[cat_table$ID %in% unique_values, ]
+  
+  reclass_from   <- cat_tbl_filtered$ID
+  reclass_to     <- seq_along(cat_tbl_filtered$ID)
+  reclass_matrix <- cbind(reclass_from, reclass_to)
+  
+  cat_reclass <- classify(cat_raster, reclass_matrix, others = NA)
+  cat_factor  <- as.factor(cat_reclass)
+  
+  levels_df <- data.frame(
+    ID       = reclass_to,
+    Category = factor(cat_tbl_filtered$Category,
+                      levels = cat_tbl_filtered$Category)
+  )
+  
+  levels(cat_factor) <- levels_df
+  activeCat(cat_factor) <- "Category"
+  
+  predefined_colors <- c(
+    "#E6194B", "#3CB44B", "#FFE119", "#4363D8", "#F58231", "#911EB4", "#46F0F0", "#F032E6",
+    "#BCF60C", "#FABEBE", "#008080", "#E6BEFF", "#9A6324", "#FFFAC8", "#800000", "#AAFFC3",
+    "#808000", "#FFD8B1", "#000075", "#A9A9A9", "#231F20", "#1170AA", "#A2C8EC", "#FFBC79",
+    "#C85200", "#FF9DA7", "#D55E00", "#59A14F", "#EDC948", "#B07AA1", "#9C755F", "#BAB0AC",
+    "#1B9E77", "#D95F02", "#7570B3", "#E7298A", "#66A61E", "#E6AB02", "#A6761D", "#666666",
+    "#A6CEE3", "#1F78B4", "#B2DF8A", "#33A02C", "#FB9A99", "#E31A1C", "#FDBF6F", "#FF7F00",
+    "#CAB2D6", "#6A3D9A", "#FFFF99", "#B15928", "#8DD3C7", "#FFFFB3", "#BEBADA", "#FB8072",
+    "#80B1D3", "#FDB462", "#B3DE69", "#FCCDE5", "#D9D9D9", "#BC80BD", "#CCEBC5", "#FFED6F",
+    "#2F4F4F", "#556B2F", "#A0522D", "#191970", "#006400", "#8B0000", "#4B0082", "#008B8B",
+    "#00008B", "#FF4500", "#FF8C00", "#FFD700", "#00FF00", "#00FA9A", "#00FFFF", "#00BFFF",
+    "#0000FF", "#FF00FF", "#1E90FF", "#DDA0DD", "#FF1493", "#98FB98", "#708090", "#D2B48C",
+    "#00FF7F", "#4682B4", "#D2691E", "#9932CC", "#87CEEB", "#FF69B4", "#CD5C5C", "#E9967A",
+    "#8A2BE2", "#2E8B57", "#228B22", "#DC143C"
+  )
+  
+  if ("color_palette" %in% names(cat_tbl_filtered)) {
+    map_colors <- cat_tbl_filtered$color_palette
   } else {
-    fill_scale <- scale_fill_manual(values = c(
-      "#4E79A7", "#F28E2B", "#E15759", "#76B7B2", "#59A14F",
-      "#EDC948", "#B07AA1", "#FF9DA7", "#9C755F", "#BAB0AC",
-      "#86BCB6", "#FFB84D", "#A5C1DC", "#D37295", "#C4AD66",
-      "#7B8D8E", "#B17B62", "#8CD17D", "#DE9D9C", "#5A5A5A",
-      "#A0A0A0", "#D7B5A6", "#6D9EEB", "#E69F00", "#56B4E9",
-      "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7",
-      "#999999", "#E51E10", "#FF7F00", "#FFFF33", "#A65628",
-      "#F781BF", "#999933", "#8DD3C7", "#FFFFB3", "#BEBADA",
-      "#FB8072", "#80B1D3", "#FDB462", "#B3DE69", "#FCCDE5",
-      "#D9D9D9", "#BC80BD", "#CCEBC5", "#FFED6F", "#E41A1C"
-    ), na.value = "white")
+    if (nrow(cat_tbl_filtered) > length(predefined_colors)) {
+      warning("Not enough predefined colors for all categories. Colors will be recycled.")
+    }
+    map_colors <- predefined_colors[1:nrow(cat_tbl_filtered)]
+  }
+  
+  color_table <- data.frame(value = reclass_to, color = map_colors)
+  coltab(cat_factor) <- color_table
+  
+  # Calculate initial bounds in EPSG:4326 for reset button
+  initial_bb <- tryCatch({
+    e <- terra::ext(cat_raster)
+    poly_sf <- sf::st_as_sfc(sf::st_bbox(c(xmin = e$xmin, ymin = e$ymin, xmax = e$xmax, ymax = e$ymax),
+                                          crs = sf::st_crs(cat_raster)))
+    poly_4326 <- sf::st_transform(poly_sf, 4326)
+    sf::st_bbox(poly_4326)
+  }, error = function(e) NULL)
+  
+  map_result <- mapview::mapview(
+    cat_factor,
+    zcol       = "Category",
+    maxpixels  = ncell(cat_factor),
+    layer.name = layer_title,
+    na.color   = "transparent",
+    legend     = FALSE,
+    map.types  = "OpenStreetMap"
+  )
+  
+  pal <- leaflet::colorFactor(palette = color_table$color, domain = levels_df$Category)
+  
+  # Configure EOX Cloudless 2025 as default and OSM as secondary base tiles
+  leaflet_map <- map_result@map %>%
+    leaflet::clearTiles() %>%
+    leaflet::addTiles(
+      urlTemplate = BASEMAP_PROVIDERS$eox$url,
+      attribution = BASEMAP_PROVIDERS$eox$attribution,
+      group       = BASEMAP_PROVIDERS$eox$name,
+      options     = leaflet::tileOptions(maxZoom = BASEMAP_PROVIDERS$eox$maxZoom)
+    ) %>%
+    leaflet::addTiles(
+      urlTemplate = BASEMAP_PROVIDERS$osm$url,
+      attribution = BASEMAP_PROVIDERS$osm$attribution,
+      group       = BASEMAP_PROVIDERS$osm$name,
+      options     = leaflet::tileOptions(maxZoom = BASEMAP_PROVIDERS$osm$maxZoom)
+    ) %>%
+    leaflet::addLayersControl(
+      baseGroups = c(BASEMAP_PROVIDERS$eox$name, BASEMAP_PROVIDERS$osm$name),
+      overlayGroups = layer_title,
+      options = leaflet::layersControlOptions(collapsed = FALSE)
+    ) %>%
+    leaflet::addLegend(
+      position = "topright",
+      pal      = pal,
+      values   = levels_df$Category,
+      title    = layer_title
+    )
+  
+  # Add return to initial zoom level extent button
+  if (!is.null(initial_bb)) {
+    leaflet_map <- leaflet_map %>%
+      leaflet::addEasyButton(
+        leaflet::easyButton(
+          icon = "fa-globe",
+          title = "Kembalikan ke Batas / Zoom Awal (Reset Zoom)",
+          onClick = leaflet::JS(sprintf(
+            "function(btn, map){ map.fitBounds([[%f, %f], [%f, %f]]); }",
+            initial_bb$ymin, initial_bb$xmin, initial_bb$ymax, initial_bb$xmax
+          ))
+        )
+      )
+  }
+  
+  map_result@map <- leaflet_map
+  map_result
+}
+
+#'
+#' @export
+plot_categorical_raster <- function(raster_object, filename = "raster_plot.png", dpi = 300) {
+  default_palette <- c(
+    "#4E79A7", "#F28E2B", "#E15759", "#76B7B2", "#59A14F",
+    "#EDC948", "#B07AA1", "#FF9DA7", "#9C755F", "#BAB0AC",
+    "#86BCB6", "#FFB84D", "#A5C1DC", "#D37295", "#C4AD66",
+    "#7B8D8E", "#B17B62", "#8CD17D", "#DE9D9C", "#5A5A5A",
+    "#A0A0A0", "#D7B5A6", "#6D9EEB", "#E69F00", "#56B4E9",
+    "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7",
+    "#999999", "#E51E10", "#FF7F00", "#FFFF33", "#A65628",
+    "#F781BF", "#999933", "#8DD3C7", "#FFFFB3", "#BEBADA",
+    "#FB8072", "#80B1D3", "#FDB462", "#B3DE69", "#FCCDE5",
+    "#D9D9D9", "#BC80BD", "#CCEBC5", "#FFED6F", "#E41A1C"
+  )
+  
+  has_custom_colors <- length(cats(raster_object)) > 0 &&
+    !is.null(cats(raster_object)[[1]]) &&
+    "color_palette" %in% names(cats(raster_object)[[1]]) &&
+    all(grepl("^#[0-9A-Fa-f]{6}$", cats(raster_object)[[1]]$color_palette))
+  
+  if (has_custom_colors) {
+    fill_scale <- scale_fill_manual(
+      values = cats(raster_object)[[1]]$color_palette,
+      na.value = "transparent",
+      labels = scales::label_wrap(30)
+    )
+  } else {
+    fill_scale <- scale_fill_manual(
+      values = default_palette,
+      na.value = "transparent",
+      labels = scales::label_wrap(30)
+    )
   }
   
   if (!is.na(time(raster_object))) {
@@ -246,33 +415,54 @@ plot_categorical_raster <- function(raster_object, filename = "raster_plot.png",
     plot_title <- names(raster_object)
   }
   
+  n_cats <- if (length(cats(raster_object)) > 0 && !is.null(cats(raster_object)[[1]])) {
+    nrow(cats(raster_object)[[1]])
+  } else {
+    10
+  }
+  legend_ncol <- if (n_cats > 18) 2 else 1
+  
   # Generate the plot
   plot_lc <- ggplot() +
     tidyterra::geom_spatraster(data = raster_object) +
     fill_scale +
+    coord_sf(expand = FALSE) +
     theme_bw() +
     labs(title = plot_title, fill = NULL) +
-    guides(fill = guide_legend(title.position = "top", ncol = 2)) +
+    guides(
+      fill = guide_legend(
+        title.position = "top",
+        ncol = legend_ncol,
+        keywidth = grid::unit(0.4, "cm"),
+        keyheight = grid::unit(0.35, "cm")
+      )
+    ) +
     theme(
       axis.title.x = element_blank(),
       axis.title.y = element_blank(),
+      axis.text.x = element_text(size = 8),
+      axis.text.y = element_text(size = 8),
       panel.grid.major = element_blank(),
       panel.grid.minor = element_blank(),
-      legend.title = element_text(size = 12),
-      legend.text = element_text(size = 10),
-      legend.key.height = unit(0.25, "cm"),
-      legend.key.width = unit(0.25, "cm"),
-      legend.position = "bottom",
-      legend.justification = c(0, 0.8)
+      plot.title = element_text(size = 14, face = "bold", hjust = 0),
+      plot.margin = ggplot2::margin(t = 5, r = 5, b = 5, l = 5),
+      legend.title = element_text(size = 11),
+      legend.text = element_text(size = 8.5),
+      legend.position = "right",
+      legend.justification = c(0, 0.5),
+      legend.box.spacing = grid::unit(0.4, "cm"),
+      legend.margin = ggplot2::margin(0, 0, 0, 0)
     )
   
   if (!knitr::is_html_output()) {
     return(plot_lc)
   }
   
-  # Save PNG with custom dpi
+  # Save PNG with dynamic dimensions to prevent squishing and legend cropping
   tf <- tempfile(fileext = ".png")
-  ggsave(tf, plot_lc, width = 7, height = 5, dpi = dpi)
+  plot_width <- if (legend_ncol > 1) 10.5 else 9.0
+  plot_height <- max(5.5, min(9.0, 4.0 + (n_cats / legend_ncol) * 0.18))
+  ggsave(tf, plot_lc, width = plot_width, height = plot_height, dpi = dpi)
   img_data <- base64enc::dataURI(file = tf, mime = "image/png")
   
   # download button
@@ -280,7 +470,7 @@ plot_categorical_raster <- function(raster_object, filename = "raster_plot.png",
     tags$div(
       style = "margin-bottom:10px;",
       tags$img(
-        src = img_data, 
+        src = img_data,
         style = "max-width:100%; height:auto; display:block; margin-bottom:5px;"
       ),
       tags$button(
@@ -290,14 +480,15 @@ plot_categorical_raster <- function(raster_object, filename = "raster_plot.png",
           link.href = this.previousElementSibling.src; link.click();",
           filename
         ),
-        style = "padding:4px 8px; font-size:0.9em; 
-                 background:#d3d3d3; border-radius:4px; 
+        style = "padding:4px 8px; font-size:0.9em;
+                 background:#d3d3d3; border-radius:4px;
                  color:#333333; text-decoration:none;
                  border: none; outline: none;"
       )
     )
   )
 }
+
 
 create_list_of_weight_report <- function(woe_report_path, list_woe_report, df_zone, lc_lookup_table) {
   listWoeReport <- list_woe_report
@@ -1089,6 +1280,9 @@ analyze_multicollinearity <- function(folder_path, sample_size = 10000, vif_thre
   
   # Read raster stack
   tif_files <- list.files(path = folder_path, pattern = "\\.tif$", full.names = TRUE)
+  if (length(tif_files) < 2) {
+    stop("Folder predictors must contain at least 2 GeoTIFF (.tif) files for collinearity analysis.")
+  }
   rasters <- rast(tif_files)
   names(rasters) <- gsub(".tif", "", basename(tif_files))
   
@@ -1097,10 +1291,24 @@ analyze_multicollinearity <- function(folder_path, sample_size = 10000, vif_thre
   sample_points <- spatSample(rasters, size = sample_size, na.rm = TRUE)
   sample_df <- as.data.frame(sample_points)
   
+  # Detect and exclude zero-variance variables
+  zero_var <- sapply(sample_df, function(col) {
+    v <- stats::var(col, na.rm = TRUE)
+    is.na(v) || v == 0
+  })
+  zero_variance_vars <- names(sample_df)[zero_var]
+  if (length(zero_variance_vars) > 0) {
+    sample_df <- sample_df[, !zero_var, drop = FALSE]
+  }
+  
+  if (ncol(sample_df) < 2) {
+    stop("After removing zero-variance variables, less than 2 variables remain for collinearity analysis.")
+  }
+  
   # Calculate VIF
   vif_result <- vifstep(sample_df, th = vif_threshold)
   high_vif_vars <- vif_result@excluded
-  vif_table <- vif_result@results 
+  vif_table <- vif_result@results
   
   # Verbose printing
   if (verbose) {
@@ -1108,7 +1316,7 @@ analyze_multicollinearity <- function(folder_path, sample_size = 10000, vif_thre
     print(vif_table)
     
     if (length(high_vif_vars) > 0) {
-      message("\n️ Variables recommended for removal (VIF > ", vif_threshold, "):\n", paste(high_vif_vars, collapse = "\n"))
+      message("\n Variables recommended for removal (VIF > ", vif_threshold, "):\n", paste(high_vif_vars, collapse = "\n"))
     } else {
       message("\n No variables exceeded VIF threshold.")
     }
@@ -1133,10 +1341,76 @@ analyze_multicollinearity <- function(folder_path, sample_size = 10000, vif_thre
     vif_result = vif_result,
     vif_table = vif_table,
     excluded_vars = high_vif_vars,
+    zero_variance_vars = zero_variance_vars,
     correlation_matrix = cor_matrix,
     correlation_plot = corr_plot
   ))
 }
+
+#'
+#' Generate Standalone Factor Evaluation Report
+#'
+#' @param factor_path Character string of folder containing factor GeoTIFF files.
+#' @param output_dir Directory where the HTML report will be saved.
+#' @param vif_threshold Numeric VIF threshold (default 5).
+#' @param sample_size Sample size for raster sampling (default 10000).
+#' @return File path of the generated HTML report.
+#' @export
+generate_factor_evaluation_report <- function(factor_path, output_dir, vif_threshold = 5, sample_size = 10000) {
+  start_time <- Sys.time()
+  
+  collinearity_res <- analyze_multicollinearity(
+    folder_path = factor_path,
+    sample_size = sample_size,
+    vif_threshold = vif_threshold,
+    verbose = FALSE
+  )
+  
+  end_time <- Sys.time()
+  
+  report_params <- list(
+    factor_path = factor_path,
+    vif_threshold = vif_threshold,
+    sample_size = sample_size,
+    start_time = as.character(format(start_time, "%Y-%m-%d %H:%M:%S")),
+    end_time = as.character(format(end_time, "%Y-%m-%d %H:%M:%S")),
+    collinearity_result = collinearity_res
+  )
+  
+  template_candidates <- c(
+    "../report_template/sciendo_factor_evaluation_report_template.Rmd",
+    "11_sciendo-train/report_template/sciendo_factor_evaluation_report_template.Rmd",
+    file.path(getwd(), "11_sciendo-train/report_template/sciendo_factor_evaluation_report_template.Rmd"),
+    file.path(getwd(), "report_template/sciendo_factor_evaluation_report_template.Rmd")
+  )
+  template_path <- NULL
+  for (cand in template_candidates) {
+    if (file.exists(cand)) {
+      template_path <- cand
+      break
+    }
+  }
+  if (is.null(template_path)) {
+    template_path <- "../report_template/sciendo_factor_evaluation_report_template.Rmd"
+  }
+  
+  if (!dir.exists(output_dir)) {
+    dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+  }
+  
+  output_filename <- paste0("sciendo_factor_evaluation_report_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".html")
+  
+  out_path <- rmarkdown::render(
+    input = template_path,
+    output_file = output_filename,
+    output_dir = output_dir,
+    params = report_params,
+    quiet = TRUE
+  )
+  
+  return(out_path)
+}
+
 
 #' Add Period and Planning Unit Classes to Raster Metadata File
 #' 
@@ -1844,8 +2118,8 @@ train_help_texts <- list(
     body = "<p>CSV table mapping numeric planning unit IDs to descriptive zone names.</p><p>Required when using raster planning units. Must contain at least two columns:</p><ol><li>Planning Unit ID (integer)</li><li>Planning Unit Name (text)</li></ol>"
   ),
   factors_path = list(
-    title = "Factor Maps Directory",
-    body = "<p>Directory containing spatial predictor / driving factor raster files in GeoTIFF (.tif) format.</p><p>These factors represent spatial drivers of land use change (e.g., elevation, slope, distance to roads, distance to rivers, distance to settlements). All factor maps will be assembled into a raster cube used to calculate Weights of Evidence.</p>"
+    title = "Predictor Maps Directory",
+    body = "<p>Directory containing spatial predictor raster files in GeoTIFF (.tif) format.</p><p>These predictors represent spatial drivers of land use change (e.g., elevation, slope, distance to roads, distance to rivers, distance to settlements). All predictor maps will be assembled into a raster cube used to calculate Weights of Evidence.</p>"
   ),
   wd = list(
     title = "Output Directory",
