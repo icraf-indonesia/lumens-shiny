@@ -247,15 +247,15 @@ for (key in pu_keys) {
 ```
 
 ```{r create expandable woe sections, echo=FALSE, results='asis'}
-pu_name_mapping <- setNames(df_pu$PU, paste0("pu", sprintf("%03d", df_pu$ID_PU)))
+pu_name_mapping <- as.list(setNames(as.character(df_pu$PU), paste0("pu", sprintf("%03d", as.numeric(df_pu$ID_PU)))))
+valid_pu_keys <- intersect(names(weighted_means_list), names(pu_name_mapping))
 
 # create expandable sections 
-src <- lapply(names(weighted_means_list), function(pu_key) {
+src <- lapply(valid_pu_keys, function(pu_key) {
   descriptive_name <- pu_name_mapping[[pu_key]]
-  if (is.null(descriptive_name) || is.na(descriptive_name)) {
-    descriptive_name <- pu_key
+  if (is.null(descriptive_name) || is.na(descriptive_name) || descriptive_name == "") {
+    return(NULL)
   }
-  
   knitr::knit_expand(text = c(
     "",
     "<details style='margin-bottom: 20px; border: 1px solid #ddd; border-radius: 5px; padding: 10px;'>",
@@ -294,8 +294,10 @@ src <- lapply(names(weighted_means_list), function(pu_key) {
   ), pu_key = pu_key, descriptive_name = descriptive_name)
 })
 
-res <- knitr::knit_child(text = unlist(src), quiet = TRUE)
-cat(res, sep = '\n')
+if (length(unlist(src)) > 0) {
+  res <- knitr::knit_child(text = unlist(src), quiet = TRUE)
+  cat(res, sep = '\n')
+}
 ```
 ------------------------------------------------------------------------
 

@@ -306,16 +306,18 @@ create_list_of_weight_report <- function(woe_report_path, list_woe_report, df_zo
   
   vec <- c()
   for(j in listWoeReport) {
-    number <- gsub(paste0(woe_report_path, "/weight_report"), "", j) %>% substr(1, 2) %>% as.numeric()
+    number <- as.numeric(gsub("\\.csv$", "", gsub("^.*weight_report", "", j)))
     vec <- c(vec, number)
   }
   
   for(counter in 1:length(vec)){
     i <- vec[counter]
-    woe[[paste0("pu", sprintf("%03d", i))]][['name']] <- df_zone[i, 2]
+    pu_match <- which(df_zone[[1]] == i)
+    pu_name <- if (length(pu_match) > 0) as.character(df_zone[[2]][pu_match[1]]) else paste0("PU ", i)
+    woe[[paste0("pu", sprintf("%03d", i))]][['name']] <- pu_name
     woe[[paste0("pu", sprintf("%03d", i))]][['report']] <- listWoeReport[counter] %>%
       read.csv() %>%
-      dplyr::select(-X) %>% 
+      dplyr::select(-any_of(c("X", "X."))) %>%
       dplyr::left_join(lc_lookup_table, by = join_by(Transition_From. == ID_LC)) %>%
       dplyr::rename(LC_FROM = LC) %>%
       dplyr::left_join(lc_lookup_table, by = join_by(Transition_To. == ID_LC)) %>%
