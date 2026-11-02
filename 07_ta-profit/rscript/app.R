@@ -163,9 +163,9 @@ ui <- fluidPage(
       
       fileInput(
         "cstock_table",
-        "Carbon lookup table",
+        "Carbon lookup table (Opsional)",
         accept = c(".csv", ".xlsx", ".xls"),
-        placeholder = "Upload the carbon stock table (.csv, .xlsx, or .xls)"
+        placeholder = "Upload the carbon stock table (Optional)"
       ),
       
       selectInput(
@@ -359,7 +359,7 @@ server <- function(input, output, session) {
     validate(
       need(rv$lulc_t1, "Please upload Land Use/Cover T1 file (.tif)"),
       need(rv$lulc_t2, "Please upload Land Use/Cover T2 file (.tif)"),
-      need(rv$cstock_table, "Please upload Carbon Stock Lookup Table (.csv, .xlsx, or .xls)"),
+      # need(rv$cstock_table, "Please upload Carbon Stock Lookup Table (.csv, .xlsx, or .xls)"),
       need(rv$npv_table,    "Please upload NPV Lookup Table (.csv, .xlsx, or .xls)"),
       
       # PU Raster + lookup PU
@@ -433,11 +433,13 @@ server <- function(input, output, session) {
           pu_lookup_path <- input$pu_table$datapath
         }
         
+        cstock_path <- if (is.null(input$cstock_table)) NULL else input$cstock_table$datapath
+        
         result <- preprocess_data(
           pathLULCT1       = input$lulc_t1$datapath,
           pathLULCT2       = input$lulc_t2$datapath,
           pathPU           = pu_path,
-          pathLookupCstock = input$cstock_table$datapath,
+          pathLookupCstock = cstock_path,
           pathLookupPU     = pu_lookup_path,       # bisa NULL kalau vector
           pathLookupNPV    = input$npv_table$datapath,
           valueT1          = input$year1,
@@ -455,7 +457,7 @@ server <- function(input, output, session) {
           pathPU           = pu_path,
           pathLookupNPV    = input$npv_table$datapath,
           pathLookupPU     = pu_lookup_path,       # bisa NULL
-          pathLookupCstock = input$cstock_table$datapath
+          pathLookupCstock = cstock_path
         )
         
         times <- list(

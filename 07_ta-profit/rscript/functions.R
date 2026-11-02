@@ -285,26 +285,30 @@ preprocess_data <- function(pathLULCT1, pathLULCT2, pathPU,
   colnames(combinedRasterTable)[1:3] <- c("PU", "LC1", "LC2")
   
   # ---------- Lookup Carbon ----------
-  LookupCstock <- read_lookup_file(pathLookupCstock)
-  LookupCstock <- LookupCstock %>% dplyr::select(ID = 1, LC = 2, Carbon = 3)
-  LookupCstock[[1]] <- as.numeric(LookupCstock[[1]])
+  if (!is.null(pathLookupCstock)) {
+    LookupCstock <- read_lookup_file(pathLookupCstock)
+    LookupCstock <- LookupCstock %>% dplyr::select(ID = 1, LC = 2, Carbon = 3)
+    LookupCstock[[1]] <- as.numeric(LookupCstock[[1]])
+  } else {
+    # Jika tidak ada input karbon, buat tabel dummy agar join tidak error
+    LookupCstock <- data.frame(ID = 0, LC = "NoData", Carbon = 0)
+  }
   
   # ---------- Join ----------
   combinedRasterTable <- combinedRasterTable %>%
-    left_join(LookupNPV %>% rename_all(~paste0(., "_LC1")), 
-              by = c("LC1" = "LC_LC1")) %>%
-    left_join(LookupNPV %>% rename_all(~paste0(., "_LC2")), 
-              by = c("LC2" = "LC_LC2")) %>% 
-    left_join(LookupCstock %>% rename(C_T1 = Carbon), 
-              by = c("LC1" = "LC")) %>%
-    left_join(LookupCstock %>% rename(C_T2 = Carbon), 
-              by = c("LC2" = "LC")) %>%
+    left_join(LookupNPV %>% rename_all(~paste0(., "_LC1")), by = c("LC1" = "LC_LC1")) %>%
+    left_join(LookupNPV %>% rename_all(~paste0(., "_LC2")), by = c("LC2" = "LC_LC2")) %>% 
+    left_join(LookupCstock %>% rename(C_T1 = Carbon), by = c("LC1" = "LC")) %>%
+    left_join(LookupCstock %>% rename(C_T2 = Carbon), by = c("LC2" = "LC")) %>%
     select(-ID.x, -ID.y) %>%
     mutate(
       NPV1 = EAE_LC1 * Ha,
       NPV2 = EAE_LC2 * Ha,
       deltaNPV = NPV2 - NPV1,
-      LULCC = paste(LC1, "to", LC2)
+      LULCC = paste(LC1, "to", LC2),
+      # Jika C_T1/C_T2 NA (karena tidak ada file karbon), ganti dengan 0
+      C_T1 = ifelse(is.na(C_T1), 0, C_T1),
+      C_T2 = ifelse(is.na(C_T2), 0, C_T2)
     )
   
   total_area <- sum(combinedRasterTable$Ha, na.rm = TRUE)
@@ -1293,7 +1297,7 @@ generate_abatement_outputs <- function(opcost_table, currency) {
 #' generate_report_params(data, maps, paths, times, output_dir, pu_outputs, "IDR")
 #' @export
 generate_report_params <- function(data, maps, paths, times, output_dir, pu_outputs, currency) {
-
+  
   # Helper function to format column names with currency
   format_currency_col <- function(col_name, currency) {
     paste0(col_name, " (", currency, "/tahun)")
@@ -1321,14 +1325,75 @@ generate_report_params <- function(data, maps, paths, times, output_dir, pu_outp
   chart_dissolved_lc2 <- dissolve_lc2(data$combinedRasterTable, top_n = 10)
   chart_dissolved_lulcc <- dissolve_lulcc(data$combinedRasterTable, top_n = 10)
   
-  # --- Generate Abatement Curve Outputs ---
-  opcost_results <- build_opcost_table(data$combinedRasterTable, data$period, data$total_area)
-  opcost_table <- opcost_results$opcost_all
-  npv_output_table <- opcost_results$data_em_sel %>% 
-    select(-Freq, -ID_LC1, -ID_LC2, -C_T1, -C_T2, -EAE_LC1, -EAE_LC2) %>%
-    filter(!is.nan(opcost), !is.na(opcost))
-  abatement_outputs <- generate_abatement_outputs(opcost_table, currency)
+  # --- Inisialisasi Abatement Outputs ---
+  abatement_outputs <- list(
+    emission_plot = NULL, 
+    sequestration_plot = NULL, 
+    pu_plots = NULL
+  )
   
+  # --- Generate Abatement Curve Outputs (HANYA JIKA ADA FILE KARBON) ---
+  if (!is.null(paths$pathLookupCstock)) {
+    # 1. Hitung opportunity cost
+    opcost_results <- build_opcost_table(data$combinedRasterTable, data$period, data$total_area)
+    opcost_table <- opcost_results$opcost_all
+    
+    # 2. Generate grafik abatement (utama & per PU)
+    abatement_outputs <- generate_abatement_outputs(opcost_table, currency)
+    
+    # 3. Ambil tabel untuk export Excel
+    npv_output_table <- opcost_results$data_em_sel %>% 
+      select(-Freq, -ID_LC1, -ID_LC2, -C_T1, -C_T2, -EAE_LC1, -EAE_LC2) %>%
+      filter(!is.nan(opcost), !is.na(opcost))
+    
+  } else {
+    # Jika tidak ada file karbon, gunakan data mentah (tanpa em_rate, em_tot, opcost)
+    npv_output_table <- data$combinedRasterTable
+  }
+  
+  # --- Siapkan Tabel Excel (Readable & Conditional) ---
+  if (!is.null(paths$pathLookupCstock)) {
+    # SKENARIO A: Ada file karbon (Ambil dari hasil opcost)
+    npv_output_table <- opcost_results$data_em_sel %>% 
+      select(
+        PU, LC1, LC2, Ha, NPV1, NPV2, deltaNPV, LULCC, 
+        em_rate, em_tot, opcost
+      ) %>%
+      filter(!is.nan(opcost), !is.na(opcost)) %>%
+      # Rename seluruh kolom termasuk kolom abatement
+      dplyr::rename(
+        `Unit Perencanaan (PU)` = PU,
+        `Tutupan Lahan T1` = LC1,
+        `Tutupan Lahan T2` = LC2,
+        `Luas (Ha)` = Ha,
+        `Keuntungan Usaha Tani T1` = NPV1,
+        `Keuntungan Usaha Tani T2` = NPV2,
+        `Delta Keuntungan Usaha Tani` = deltaNPV,
+        `Perubahan Penggunaan Lahan` = LULCC,
+        `Laju Emisi (ton CO2-eq/ha/tahun)` = em_rate,
+        `Total Emisi (ton CO2-eq)` = em_tot,
+        `Biaya Peluang (IDR/ton CO2-eq)` = opcost
+      )
+  } else {
+    # SKENARIO B: Tidak ada file karbon (Pilih kolom esensial saja)
+    npv_output_table <- data$combinedRasterTable %>%
+      select(
+        PU, LC1, LC2, Ha, NPV1, NPV2, deltaNPV, LULCC
+      ) %>%
+      # Rename kolom dasar
+      dplyr::rename(
+        `Unit Perencanaan (PU)` = PU,
+        `Tutupan Lahan T1` = LC1,
+        `Tutupan Lahan T2` = LC2,
+        `Luas (Ha)` = Ha,
+        `Keuntungan Usaha Tani T1` = NPV1,
+        `Keuntungan Usaha Tani T2` = NPV2,
+        `Delta Keuntungan Usaha Tani` = deltaNPV,
+        `Perubahan Penggunaan Lahan` = LULCC
+      )
+  }
+  
+  # Generate output maps dan Excel
   generate_output_maps(maps$npv1_map, maps$npv2_map, maps$deltaNPV_map, npv_output_table, output_dir)
   
   # --- Return All Parameters for Report Rendering ---
@@ -1361,10 +1426,10 @@ generate_report_params <- function(data, maps, paths, times, output_dir, pu_outp
     pu_outputs = pu_outputs,
     output_dir = output_dir,
     currency = currency,
-    # abatement_main_plot = abatement_outputs$main_plot,
     emission_plot = abatement_outputs$emission_plot,
     sequestration_plot = abatement_outputs$sequestration_plot,
-    abatement_pu_plots = abatement_outputs$pu_plots
+    abatement_pu_plots = abatement_outputs$pu_plots,
+    has_cstock = !is.null(paths$pathLookupCstock)
   )
 }
 

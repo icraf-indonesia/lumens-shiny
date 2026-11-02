@@ -39,6 +39,7 @@ params:
   sequestration_plot : null
   abatement_pu_plots: null
   output_dir: null
+  has_cstock: false
 ---
 
 ```{r setup, include=FALSE}
@@ -362,51 +363,71 @@ if (!is.null(params$pu_table_path) && file.exists(params$pu_table_path)) {
 }
 ```
 
-### Tabel Acuan EAE
+### Tabel Acuan `r if(params$has_cstock) "EAE dan Karbon" else "EAE"`
 
-Tabel berikut menampilkan nilai EAE dan emisi karbon untuk setiap hektare lahan setiap tutupan lahan yang ada.
+```{r, echo=FALSE, results='asis'}
+if (params$has_cstock) {
+  cat("Tabel berikut menampilkan nilai EAE dan emisi karbon untuk setiap hektare lahan pada setiap tutupan lahan yang ada.\n")
+} else {
+  cat("Tabel berikut menampilkan nilai EAE untuk setiap hektare lahan pada setiap tutupan lahan yang ada.\n")
+}
+```
 
 ```{r NPV Lookup Table, echo=FALSE, message=FALSE, warning=FALSE}
 npv_tbl <- read_lookup_file(params$npv_file_path) |>
   select(LC, EAE)
 
-carbon_tbl <- read_lookup_file(params$cstock_table_path) |>
-  select(LC, CARBON)
+# CEK APAKAH ADA FILE KARBON
+if (params$has_cstock) {
+  
+  # Jika ada file karbon: Baca dan gabungkan
+  carbon_tbl <- read_lookup_file(params$cstock_table_path) |>
+    select(LC, CARBON)
+  
+  npv_carbon_tbl <- npv_tbl |>
+    left_join(carbon_tbl, by = "LC") |>
+    mutate(
+      CARBON = ifelse(is.na(CARBON), 0, CARBON)
+    ) |>
+    rename(
+      `Tutupan Lahan` = LC,
+      !!glue("EAE ({params$currency}/Ha/tahun)") := EAE,
+      `Karbon (ton C/ha)` = CARBON
+    )
+    
+} else {
+  
+  # Jika tidak ada file karbon: Hanya tampilkan tabel EAE
+  npv_carbon_tbl <- npv_tbl |>
+    rename(
+      `Tutupan Lahan` = LC,
+      !!glue("EAE ({params$currency}/Ha/tahun)") := EAE
+    )
+}
 
-# join NPV + Carbon
-npv_carbon_tbl <- npv_tbl |>
-  left_join(carbon_tbl, by = "LC") |>
-  mutate(
-    CARBON = ifelse(is.na(CARBON), 0, CARBON)
-  ) |>
-  rename(
-    `Tutupan Lahan` = LC,
-    !!glue("EAE ({params$currency}/Ha/tahun)") := EAE,
-    `Karbon (ton C/ha)` = CARBON
-  ) |>
+# Format angka dan tampilkan datatable
+npv_carbon_tbl %>%
   mutate(
     across(where(is.numeric), easy_to_read_numbers)
+  ) %>%
+  datatable(
+    extensions = c('Buttons', 'Responsive'),
+    rownames = FALSE,
+    options = list(
+      paging = TRUE,
+      searching = TRUE,
+      fixedColumns = TRUE,
+      autoWidth = TRUE,
+      ordering = TRUE,
+      dom = 'Blfrtip',
+      buttons = list(
+        list(extend = "copy",  className = "btn btn-light btn-sm"),
+        list(extend = "csv",   className = "btn btn-light btn-sm"),
+        list(extend = "excel", className = "btn btn-light btn-sm")
+      )
+    ),
+    class = "display stripe hover"
   )
-
-datatable(
-  npv_carbon_tbl,
-  extensions = c('Buttons', 'Responsive'),
-  rownames = FALSE,
-  options = list(
-    paging = TRUE,
-    searching = TRUE,
-    fixedColumns = TRUE,
-    autoWidth = TRUE,
-    ordering = TRUE,
-    dom = 'Blfrtip',
-    buttons = list(
-      list(extend = "copy",  className = "btn btn-light btn-sm"),
-      list(extend = "csv",   className = "btn btn-light btn-sm"),
-      list(extend = "excel", className = "btn btn-light btn-sm")
-    )
-  ),
-  class = "display stripe hover"
-)
 ```
 
 # Hasil Analisis
@@ -674,14 +695,12 @@ params$deltaNPV_table %>%
     )
 ```
 
-### Kurva Abatement Cost (Emisi)
-```{r, echo=FALSE, warning=FALSE, message=FALSE}
-params$emission_plot
-```
+```{r abatement-main, echo=FALSE, results='asis', eval=params$has_cstock}
+cat("### Kurva Abatement Cost (Emisi)\n\n")
+print(params$emission_plot)
 
-### Kurva Abatement Cost (Sekuestrasi)
-```{r, echo=FALSE, warning=FALSE, message=FALSE}
-params$sequestration_plot
+cat("\n\n### Kurva Abatement Cost (Sekuestrasi)\n\n")
+print(params$sequestration_plot)
 ```
 
 ## Analsis per Unit Perencanaan
@@ -809,7 +828,7 @@ render_child_pu <- function(results_list, pu_name, currency) {
   )
   
   # 6. Tambahkan Tab Kurva Abatement
-  if (has_abatement) {
+  if (has_abatement && params$has_cstock) {
     child_content <- c(child_content,
       "",
       paste0("#### Kurva Abatement per Perubahan Lahan di ", pu_name),
