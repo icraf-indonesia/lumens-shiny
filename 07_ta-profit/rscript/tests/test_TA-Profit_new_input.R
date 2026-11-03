@@ -15,6 +15,7 @@ pathLookupCstock <- "C:/users/ykarimah/Downloads/Download/New TA/data/03Tabular/
 pathPU <- "C:/users/ykarimah/Downloads/Download/New TA/data/01Raster/PolaRuangSumsel_F.tif"
 pathLookupPU<- "C:/users/ykarimah/Downloads/Download/New TA/data/03Tabular/tabel_pola_ruang.csv"
 pathLookupNPV<- "C:/users/ykarimah/Downloads/Download/New TA/data/03Tabular/tabel_acuan_NPV_idr.csv"
+pathLookupCARBON<- "C:/users/ykarimah/Downloads/Download/New TA/data/03Tabular/C-Stock.csv"
 output_dir <- "C:/users/ykarimah/Downloads/Dry Run Sulsel/"
 
 # Start timing
@@ -122,12 +123,19 @@ combinedRasterTable <- combinedRaster %>%
 colnames(combinedRasterTable)[1:3] <- c("PU", "LC1", "LC2")
 
 LookupNPV <- read_csv(pathLookupNPV)
-# LookupNPV$CARBON<-NULL
+LookupCARBON<- read_csv(pathLookupCARBON)
 
+# Join NPV lookup for LC1 and LC2
 combinedRasterTable <- combinedRasterTable %>%
+  # Join NPV lookup for LC1 and LC2
   left_join(LookupNPV %>% rename_all(~paste0(., "_LC1")), by = c("LC1" = "LC_LC1")) %>%
-  left_join(LookupNPV %>% rename_all(~paste0(., "_LC2")), by = c("LC2" = "LC_LC2"))
+  left_join(LookupNPV %>% rename_all(~paste0(., "_LC2")), by = c("LC2" = "LC_LC2")) %>%
+  # Join Carbon lookup for LC1 and LC2
+  left_join(LookupCARBON %>% rename(Carbon_LC1 = Karbon), by = c("LC1" = "LC")) %>%
+  left_join(LookupCARBON %>% rename(Carbon_LC2 = Karbon), by = c("LC2" = "LC")) %>%
+  select(-ID.x, -ID.y)
 
+# Compute NPV Change
 combinedRasterTable$NPV1 <- combinedRasterTable$NPV_LC1*combinedRasterTable$Ha
 combinedRasterTable$NPV2 <- combinedRasterTable$NPV_LC2*combinedRasterTable$Ha
 combinedRasterTable$deltaNPV <- combinedRasterTable$NPV2 - combinedRasterTable$NPV1
@@ -190,7 +198,7 @@ all_dissolve_lulcc <- function(data) {
     summarise(
       Total_deltaNPV = sum(deltaNPV, na.rm = TRUE),
       Total_abs_deltaNPV = sum(abs(deltaNPV), na.rm = TRUE),
-      Total_Ha2 = sum(Ha, na.rm = TRUE),
+      Total_Ha = sum(Ha, na.rm = TRUE),
       .groups = "drop"
     ) %>%
     mutate(LULCC = paste(LC1, "to", LC2)) %>%
