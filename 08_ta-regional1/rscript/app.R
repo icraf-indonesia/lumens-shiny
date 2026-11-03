@@ -646,6 +646,7 @@ server <- function(input, output, session) {
         
         export_io_analysis(
           sector          = sector,
+          profile         = profile,
           gdp_baseline    = gdp_baseline,
           linkage_result  = linkage_result,
           growth_rate     = growth_rate,
@@ -661,6 +662,7 @@ server <- function(input, output, session) {
         )
         
         save_analysis_data(
+          profile = profile,
           sector = sector,
           intermediate_consumption_m = intermediate_consumption.m,
           final_demand_m = final_demand.m,

@@ -1806,6 +1806,7 @@ set_tab_color <- function(wb, sheet, color) {
 }
 
 export_io_analysis <- function(sector,
+                               profile,
                                gdp_baseline,
                                linkage_result,
                                growth_rate,
@@ -1869,9 +1870,6 @@ export_io_analysis <- function(sector,
   # -------------------------------------------------------------------------
   # SHEET 1: README
   # -------------------------------------------------------------------------
-  # -------------------------------------------------------------------------
-  # SHEET 1: README
-  # -------------------------------------------------------------------------
   openxlsx::addWorksheet(wb, "Readme")
   readme_text <- data.frame(
     Info = c(
@@ -1904,6 +1902,30 @@ export_io_analysis <- function(sector,
   )
   
   openxlsx::writeData(wb, sheet = "Readme", x = readme_text, colNames = FALSE)
+  
+  # -------------------------------------------------------------------------
+  # SHEET: PROFILE DATA (TAMBAHAN BARU)
+  # -------------------------------------------------------------------------
+  if (!is.null(profile)) {
+    # Ubah list profile menjadi data frame 2 kolom (Parameter & Keterangan)
+    profile_df <- data.frame(
+      Parameter = c("Lokasi / Area", "Tahun IO", "Mata Uang", "Sumber IO"),
+      Keterangan = c(
+        as.character(profile$area_name),
+        as.numeric(profile$year),
+        as.character(profile$currency),
+        as.character(profile$io_source)
+      ),
+      stringsAsFactors = FALSE
+    )
+    
+    openxlsx::addWorksheet(wb, "Profile Data")
+    openxlsx::writeData(wb, sheet = "Profile Data", x = profile_df)
+    
+    # Opsional: Beri style bold pada header (baris 1)
+    header_style <- openxlsx::createStyle(textDecoration = "bold", fgFill = "#D9D9D9")
+    openxlsx::addStyle(wb, sheet = "Profile Data", style = header_style, rows = 1, cols = 1:2, gridExpand = TRUE)
+  }
   
   # -------------------------------------------------------------------------
   # SHEET OUTPUT
@@ -2070,7 +2092,8 @@ export_io_analysis <- function(sector,
 #' }
 #'
 #' @export
-save_analysis_data <- function(sector,
+save_analysis_data <- function(profile,
+                               sector,
                                intermediate_consumption_m,
                                final_demand_m,
                                added_value_m,
@@ -2100,6 +2123,7 @@ save_analysis_data <- function(sector,
   # Full combined list
   # -----------------------------------------------
   io <- list(
+    profile                  = profile,
     sector                   = sector,
     constrained              = constrained,
     unconstrained            = unconstrained,
