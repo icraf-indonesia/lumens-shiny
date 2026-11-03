@@ -507,7 +507,7 @@ Analisis multiplier digunakan untuk mengetahui besarnya dampak ekonomi yang diti
 
 ## Output
 
-Output multiplier menunjukkan besarnya perubahan total output seluruh sektor yang ditimbulkan oleh adanya perubahan permintaan akhir pada suatu sektor. Hasil analisis output multiplier di wilayah **`r params$location`** tahun **`r params$io_period`** menunjukkan bahwa sektor `r multiplier_table$SECTOR[which.max(multiplier_table$Out.multiplier)]` memiliki nilai output multiplier tertinggi sebesar `r round(max(multiplier_table$Out.multiplier),3)`.
+Output multiplier menunjukkan besarnya perubahan total output seluruh sektor yang ditimbulkan oleh adanya perubahan permintaan akhir pada suatu sektor. Hasil analisis output multiplier di wilayah **`r params$location`** tahun **`r params$io_period`** menunjukkan bahwa sektor *`r multiplier_table$SECTOR[which.max(multiplier_table$Out.multiplier)]`* memiliki nilai output multiplier tertinggi sebesar *`r round(max(multiplier_table$Out.multiplier),3)`*.
 
 ```{r, om-graph, echo=FALSE, warning=FALSE, message=FALSE}
 ggplotly(
@@ -527,7 +527,7 @@ ggplotly(
 
 ## Pendapatan
 
-Analisis pendapatan multiplier digunakan untuk mengetahui besarnya dampak peningkatan permintaan akhir suatu sektor terhadap pendapatan rumah tangga yang dihasilkan dalam perekonomian. Hasil analisis income multiplier di wilayah **`r params$location`** tahun **`r params$io_period`** menunjukkan bahwa sektor `r multiplier_table$SECTOR[which.max(multiplier_table$Inc.multiplier)]` memiliki nilai income multiplier tertinggi, yaitu sebesar `r round(max(multiplier_table$Inc.multiplier),3)`.
+Analisis pendapatan multiplier digunakan untuk mengetahui besarnya dampak peningkatan permintaan akhir suatu sektor terhadap pendapatan rumah tangga yang dihasilkan dalam perekonomian. Hasil analisis income multiplier di wilayah **`r params$location`** tahun **`r params$io_period`** menunjukkan bahwa *sektor `r multiplier_table$SECTOR[which.max(multiplier_table$Inc.multiplier)]`* memiliki nilai income multiplier tertinggi, yaitu sebesar *`r round(max(multiplier_table$Inc.multiplier),3)`*.
 
 ```{r, inc-graph, echo=FALSE, warning=FALSE, message=FALSE}
 ggplotly(
@@ -547,7 +547,7 @@ ggplotly(
 
 ## Tenaga Kerja
 
-Analisis Labour multiplier menunjukkan besarnya tambahan tenaga kerja yang terserap sebagai dampak dari peningkatan permintaan akhir pada suatu sektor, baik secara langsung maupun tidak langsung melalui keterkaitan antarsektor. Nilai labour multiplier dinyatakan dalam jumlah tenaga kerja yang terserap untuk setiap peningkatan permintaan akhir sebesar Rp1 juta. Hasil analisis labour effect di wilayah **`r params$location`** tahun **`r params$io_period`** menunjukkan bahwa sektor `r multiplier_table$SECTOR[which.max(multiplier_table$Lab.multiplier)]` memiliki labour multiplier tertinggi `r signif(max(multiplier_table$Lab.multiplier),4)`.
+Analisis Labour multiplier menunjukkan besarnya tambahan tenaga kerja yang terserap sebagai dampak dari peningkatan permintaan akhir pada suatu sektor, baik secara langsung maupun tidak langsung melalui keterkaitan antarsektor. Nilai labour multiplier dinyatakan dalam jumlah tenaga kerja yang terserap untuk setiap peningkatan permintaan akhir sebesar Rp1 juta. Hasil analisis labour effect di wilayah **`r params$location`** tahun **`r params$io_period`** menunjukkan bahwa *sektor `r multiplier_table$SECTOR[which.max(multiplier_table$Lab.multiplier)]`* memiliki labour multiplier tertinggi *`r signif(max(multiplier_table$Lab.multiplier),4)`*.
 
 ```{r, lab-graph, echo=FALSE, warning=FALSE, message=FALSE}
 ggplotly(
@@ -568,7 +568,7 @@ ggplotly(
 
 ## Surplus Usaha Bruto
 
-Analisis SUB multiplier merupakan indikator ekonomi yang mengukur sejauh mana suntikan dana investasi atau pengeluaran di suatu sektor dapat melipatgandakan keuntungan bersih (surplus usaha) yang dihasilkan oleh seluruh sektor ekonomi. Hasil analisis SUB multiplier di wilayah **`r params$location`** tahun 2025 menunjukkan bahwa sektor `r multiplier_table$SECTOR[which.max(multiplier_table$SUB.multiplier)]` memiliki nilai SUB multiplier tertinggi, yaitu sebesar `r round(max(multiplier_table$SUB.multiplier),3)`.
+Analisis SUB multiplier merupakan indikator ekonomi yang mengukur sejauh mana suntikan dana investasi atau pengeluaran di suatu sektor dapat melipatgandakan keuntungan bersih (surplus usaha) yang dihasilkan oleh seluruh sektor ekonomi. Hasil analisis SUB multiplier di wilayah **`r params$location`** tahun **`r params$io_period`** menunjukkan bahwa *sektor `r multiplier_table$SECTOR[which.max(multiplier_table$SUB.multiplier)]`* memiliki nilai SUB multiplier tertinggi, yaitu sebesar *`r round(max(multiplier_table$SUB.multiplier),3)`*.
 
 ```{r, sub-graph, echo=FALSE, warning=FALSE, message=FALSE}
 ggplotly(
