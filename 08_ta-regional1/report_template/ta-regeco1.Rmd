@@ -447,7 +447,9 @@ dt_gdp <- dt_gdp %>%
     # FORMAT DINAMIS: Ubah angka asli menjadi teks (string) berformat
     GDP = format_dinamis(GDP),
     OUTPUT = format_dinamis(OUTPUT),
-    FD = format_dinamis(FD)
+    FD = format_dinamis(FD),
+    GDP_PROP = GDP_PROP * 100,
+    Prop_FD = Prop_FD * 100
   ) %>%
   dplyr::rename(
     "Sektor"                        = SECTOR,
@@ -455,9 +457,9 @@ dt_gdp <- dt_gdp %>%
     !!col_out                       := OUTPUT,
     !!col_fd                        := FD,
     "Kebutuhan Lahan (Ha)"          = Land_Requirement,
-    "Proporsi PDRB (%)"             = GDP_PROP,
+    "PDRB / Output (%)"             = GDP_PROP,
     "Koef. Produktivitas Lahan"     = LPC,
-    "Proporsi Permintaan Akhir (%)" = Prop_FD
+    "Permintaan Akhir / Output (%)" = Prop_FD
   )
 
 # ---- Tampilkan ----
@@ -489,15 +491,15 @@ DT::datatable(
   ) %>%
   DT::formatRound(
     columns = intersect(
-      c("Proporsi PDRB (%)", "Koef. Produktivitas Lahan",
-        "Proporsi Permintaan Akhir (%)"),
+      c("PDRB / Output (%)", "Koef. Produktivitas Lahan",
+        "Permintaan Akhir / Output (%)"),
       colnames(dt_gdp)
     ),
     digits = 2
   )
 ```
 
-Tabel PDRB per sektor menunjukkan kontribusi ekonomi masing-masing sektor berdasarkan nilai tambah bruto (PDRB), output total, kebutuhan lahan, permintaan akhir (final demand), dan output total hasil model Leontief.
+Tabel PDRB per sektor menunjukkan kontribusi ekonomi masing-masing sektor berdasarkan nilai tambah bruto (PDRB), output total, kebutuhan lahan, permintaan akhir (final demand), dan output total hasil model Leontief. Persentase PDRB dan permintaan akhir masing-masing dibandingkan dengan output sektor yang sama.
 
 Sektor dengan nilai PDRB terbesar adalah `r gdp_baseline$SECTOR[which.max(gdp_baseline$GDP)]` dengan nilai `r format(round(max(gdp_baseline$GDP), 2), big.mark = ",")`. Sementara itu, sektor dengan output terbesar adalah `r gdp_baseline$SECTOR[which.max(gdp_baseline$OUTPUT)]` dengan nilai output sebesar `r format(round(max(gdp_baseline$OUTPUT), 2), big.mark = ",")`. Permintaan akhir (Final Demand) terbesar terdapat pada sektor `r gdp_baseline$SECTOR[which.max(gdp_baseline$FD)]` dengan nilai `r format(round(max(gdp_baseline$FD), 2), big.mark = ",")`.
 
