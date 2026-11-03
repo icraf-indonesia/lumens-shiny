@@ -32,6 +32,121 @@ Public Function SafeCDbl(ByVal val As Variant, Optional ByVal defaultVal As Doub
     On Error GoTo 0
 End Function
 
+' Get initial class area in hectares for a given From class
+Public Function GetInitialClassArea(ws As Worksheet, ByVal fromClassName As String, ByVal fromRow As Long, ByVal panelCol As Long, ByVal pStart As Long, ByVal pEnd As Long) As Double
+    Dim r As Long
+    If panelCol > 0 And pEnd >= pStart Then
+        For r = pStart To pEnd
+            If StrComp(Trim(CStr(ws.Cells(r, panelCol).Value)), Trim(fromClassName), vbTextCompare) = 0 Then
+                Dim br As Double: br = SafeCDbl(ws.Cells(r, panelCol + 2).Value)
+                Dim ba As Double: ba = SafeCDbl(ws.Cells(r, panelCol + 3).Value)
+                If br > 0.000001 And ba > 0.0001 Then
+                    GetInitialClassArea = Round(ba / br, 2)
+                    Exit Function
+                End If
+            End If
+        Next r
+    End If
+    
+    ' Fallback: check baseline sheet if available
+    Dim baseWs As Worksheet
+    Set baseWs = GetBaseSheet(ws)
+    If Not baseWs Is Nothing And panelCol > 0 Then
+        Dim basePEnd As Long: basePEnd = baseWs.Cells(baseWs.Rows.Count, panelCol).End(xlUp).Row
+        If basePEnd >= pStart Then
+            For r = pStart To basePEnd
+                If StrComp(Trim(CStr(baseWs.Cells(r, panelCol).Value)), Trim(fromClassName), vbTextCompare) = 0 Then
+                    Dim bBr As Double: bBr = SafeCDbl(baseWs.Cells(r, panelCol + 2).Value)
+                    Dim bBa As Double: bBa = SafeCDbl(baseWs.Cells(r, panelCol + 3).Value)
+                    If bBr > 0.000001 And bBa > 0.0001 Then
+                        GetInitialClassArea = Round(bBa / bBr, 2)
+                        Exit Function
+                    End If
+                End If
+            Next r
+        End If
+    End If
+    
+    ' Standard default if no other transition exists for this class
+    GetInitialClassArea = 1000#
+End Function
+
+' Locate an existing row in the recapitulation panel corresponding to (mRow, mCol)
+Public Function FindPanelRow(ws As Worksheet, ByVal mRow As Long, ByVal mCol As Long, ByVal panelCol As Long, ByVal pStart As Long, ByVal pEnd As Long) As Long
+    FindPanelRow = 0
+    If panelCol = 0 Or pEnd < pStart Then Exit Function
+    Dim r As Long
+    For r = pStart To pEnd
+        If Val(ws.Cells(r, panelCol + 8).Value) = mRow And Val(ws.Cells(r, panelCol + 9).Value) = mCol Then
+            FindPanelRow = r
+            Exit Function
+        End If
+    Next r
+End Function
+
+' Cleanly delete a single row from the recapitulation panel without disturbing matrix cells
+Public Sub DeletePanelRow(ws As Worksheet, ByVal delRow As Long, ByVal panelCol As Long)
+    If delRow <= 0 Or panelCol <= 0 Then Exit Sub
+    Dim pEnd As Long
+    pEnd = ws.Cells(ws.Rows.Count, panelCol).End(xlUp).Row
+    If delRow <= pEnd Then
+        ws.Range(ws.Cells(delRow, panelCol), ws.Cells(delRow, panelCol + 9)).Delete Shift:=xlUp
+    End If
+End Sub
+
+' Dynamically append a new 0-to-exist intervention row to the recapitulation panel
+Public Function AppendPanelRow(ws As Worksheet, ByVal mRow As Long, ByVal mCol As Long, ByVal newVal As Double, _
+                               ByVal matHeaderRow As Long, ByVal matLabelCol As Long, _
+                               ByVal panelCol As Long, ByVal pStart As Long, ByRef pEnd As Long) As Long
+    Dim newRow As Long
+    If pEnd < pStart Then
+        newRow = pStart
+    Else
+        newRow = pEnd + 1
+    End If
+    
+    Dim fromName As String, toName As String
+    fromName = CStr(ws.Cells(mRow, matLabelCol).Value)
+    toName = CStr(ws.Cells(matHeaderRow, mCol).Value)
+    
+    ws.Cells(newRow, panelCol + 0).Value = fromName
+    ws.Cells(newRow, panelCol + 1).Value = toName
+    ws.Cells(newRow, panelCol + 2).Value = 0#
+    ws.Cells(newRow, panelCol + 2).NumberFormat = "0.0000"
+    ws.Cells(newRow, panelCol + 3).Value = 0#
+    ws.Cells(newRow, panelCol + 3).NumberFormat = "#,##0.00"
+    ws.Cells(newRow, panelCol + 4).NumberFormat = "@"
+    ws.Cells(newRow, panelCol + 4).Value = "NEW"
+    ws.Cells(newRow, panelCol + 5).Value = newVal
+    ws.Cells(newRow, panelCol + 5).NumberFormat = "0.0000"
+    
+    Dim initArea As Double
+    initArea = GetInitialClassArea(ws, fromName, mRow, panelCol, pStart, pEnd)
+    ws.Cells(newRow, panelCol + 6).FormulaR1C1 = "=ROUND(" & Replace(CStr(initArea), ",", ".") & "*RC[-1], 2)"
+    ws.Cells(newRow, panelCol + 6).NumberFormat = "#,##0.00"
+    
+    ws.Cells(newRow, panelCol + 7).Value = "Intervened"
+    ws.Cells(newRow, panelCol + 7).Font.Bold = True
+    ws.Cells(newRow, panelCol + 7).Interior.Color = RGB(255, 235, 130)
+    
+    ws.Cells(newRow, panelCol + 8).Value = mRow
+    ws.Cells(newRow, panelCol + 9).Value = mCol
+    
+    pEnd = newRow
+    AppendPanelRow = newRow
+End Function
+
+' Trigger cell changes programmatically or via COM automation
+Public Sub TriggerCellChange(ByVal wsName As String, ByVal rowNum As Long, ByVal colNum As Long, ByVal newVal As Variant)
+    Dim ws As Worksheet
+    On Error Resume Next
+    Set ws = ThisWorkbook.Sheets(wsName)
+    On Error GoTo 0
+    If ws Is Nothing Then Exit Sub
+    ws.Cells(rowNum, colNum).Value = newVal
+    HandleSheetChange ws, ws.Cells(rowNum, colNum)
+End Sub
+
 ' Handle cell changes on any sheet
 Public Sub HandleSheetChange(ByVal ws As Worksheet, ByVal Target As Range)
     If IsUpdating Then Exit Sub
@@ -62,6 +177,9 @@ Public Sub HandleSheetChange(ByVal ws As Worksheet, ByVal Target As Range)
     sumCol = matEndCol + 1
     
     ' Locate Panel directly (placed 2 columns after Grand Total)
+    ' Layout: [From Class | To Class | Baseline Rate | Baseline Area (ha) | % Adjustment | Scenario Rate | Scenario Area (ha) | Intervention Status | _mRow | _mCol]
+    ' Offsets from panelCol:
+    ' 0: From Class, 1: To Class, 2: Baseline Rate, 3: Baseline Area (ha), 4: % Adjustment, 5: Scenario Rate, 6: Scenario Area (ha), 7: Intervention Status, 8: _mRow, 9: _mCol
     Dim panelCol As Long, panelRowStart As Long, panelRowEnd As Long
     panelCol = sumCol + 2
     If InStr(1, CStr(ws.Cells(matHeaderRow, panelCol).Value), "From Class", vbTextCompare) > 0 Then
@@ -80,7 +198,7 @@ Public Sub HandleSheetChange(ByVal ws As Worksheet, ByVal Target As Range)
     
     ' CASE 1: Cell in Matrix changed
     If tRow >= matStartRow And tRow <= matEndRow And tCol >= matStartCol And tCol <= matEndCol Then
-        If Not IsNumeric(Target.Value) Or Target.Value < 0 Or Target.Value > 1 Then
+        If Not IsNumeric(Target.Value) Or SafeCDbl(Target.Value) < 0 Or SafeCDbl(Target.Value) > 1 Then
             ShowMsg "Invalid value! Please enter a probability between 0 and 1.", vbExclamation, "Input Validation"
             IsUpdating = True
             Dim prevEvM1 As Boolean: prevEvM1 = Application.EnableEvents
@@ -113,24 +231,68 @@ Public Sub HandleSheetChange(ByVal ws As Worksheet, ByVal Target As Range)
             Exit Sub
         End If
         
+        Dim rIdx As Long, cIdx As Long, isDiagonal As Boolean
+        rIdx = tRow - matHeaderRow
+        cIdx = tCol - matLabelCol
+        isDiagonal = (rIdx = cIdx)
+        
         IsUpdating = True
         Dim prevEvents1 As Boolean
         prevEvents1 = Application.EnableEvents
         Application.EnableEvents = False
         
-        ' Highlight as user-modified / locked (amber yellow)
-        Target.Interior.Color = RGB(255, 235, 130)
-        
-        ' Sync to panel if this transition exists in panel
-        If panelCol > 0 And panelRowEnd >= panelRowStart Then
-            UpdatePanelFromMatrix ws, tRow, tCol, newVal, panelCol, panelRowStart, panelRowEnd
+        If isDiagonal Then
+            ' Diagonal persistence cell changed directly
+            Target.Value = newVal
+            Target.Interior.Color = RGB(255, 235, 130)
+            RebalanceRow ws, tRow, tCol, newVal, matStartCol, matEndCol, panelCol, panelRowStart, panelRowEnd
+            UpdateRowSumOnSheet ws, tRow, matStartCol, matEndCol, sumCol
+        Else
+            ' Off-diagonal transition cell changed
+            Dim pRow As Long
+            pRow = FindPanelRow(ws, tRow, tCol, panelCol, panelRowStart, panelRowEnd)
+            
+            If newVal > 0.000001 Then
+                Target.Value = newVal
+                Target.Interior.Color = RGB(255, 235, 130)
+                
+                If pRow > 0 Then
+                    UpdatePanelFromMatrix ws, tRow, tCol, newVal, panelCol, panelRowStart, panelRowEnd
+                Else
+                    ' 0-to-exist dynamic append
+                    AppendPanelRow ws, tRow, tCol, newVal, matHeaderRow, matLabelCol, panelCol, panelRowStart, panelRowEnd
+                End If
+                
+                RebalanceRow ws, tRow, tCol, newVal, matStartCol, matEndCol, panelCol, panelRowStart, panelRowEnd
+                UpdateRowSumOnSheet ws, tRow, matStartCol, matEndCol, sumCol
+            Else
+                ' newVal == 0
+                Target.Value = 0#
+                RestoreCellFormatting ws, tRow, tCol, matHeaderRow, matLabelCol
+                
+                If pRow > 0 Then
+                    Dim bRateRow As Double
+                    bRateRow = SafeCDbl(ws.Cells(pRow, panelCol + 2).Value)
+                    If bRateRow <= 0.000001 Then
+                        ' Dynamic 0-to-exist row returned to 0 -> cleanly delete from table
+                        DeletePanelRow ws, pRow, panelCol
+                        panelRowEnd = ws.Cells(ws.Rows.Count, panelCol).End(xlUp).Row
+                    Else
+                        ' Baseline transition set to 0 -> mark intervened with -100%
+                        ws.Cells(pRow, panelCol + 4).Value = -1#
+                        ws.Cells(pRow, panelCol + 5).Value = 0#
+                        ws.Cells(pRow, panelCol + 6).FormulaR1C1 = "=ROUND(RC[-3]*(1+RC[-2]), 2)"
+                        ws.Cells(pRow, panelCol + 7).Value = "Intervened"
+                        ws.Cells(pRow, panelCol + 7).Font.Bold = True
+                        ws.Cells(pRow, panelCol + 7).Interior.Color = RGB(255, 235, 130)
+                        Target.Interior.Color = RGB(255, 235, 130)
+                    End If
+                End If
+                
+                RebalanceRow ws, tRow, tCol, 0#, matStartCol, matEndCol, panelCol, panelRowStart, panelRowEnd
+                UpdateRowSumOnSheet ws, tRow, matStartCol, matEndCol, sumCol
+            End If
         End If
-        
-        ' Rebalance row
-        RebalanceRow ws, tRow, tCol, newVal, matStartCol, matEndCol, panelCol, panelRowStart, panelRowEnd
-        
-        ' Update row sum
-        UpdateRowSumOnSheet ws, tRow, matStartCol, matEndCol, sumCol
         
         Application.EnableEvents = prevEvents1
         IsUpdating = False
@@ -143,19 +305,31 @@ Public Sub HandleSheetChange(ByVal ws As Worksheet, ByVal Target As Range)
         colOffset = tCol - panelCol
         
         Dim mRow As Long, mCol As Long, baseRate As Double, scenRate As Double, pctAdj As Double
-        mRow = Val(ws.Cells(tRow, panelCol + 6).Value)
-        mCol = Val(ws.Cells(tRow, panelCol + 7).Value)
+        mRow = Val(ws.Cells(tRow, panelCol + 8).Value)
+        mCol = Val(ws.Cells(tRow, panelCol + 9).Value)
         baseRate = SafeCDbl(ws.Cells(tRow, panelCol + 2).Value)
+        Dim isAppended As Boolean: isAppended = (baseRate <= 0.000001)
         
         If mRow >= matStartRow And mRow <= matEndRow And mCol >= matStartCol And mCol <= matEndCol Then
-            ' Subcase 2A: % Adjustment column (offset 3)
-            If colOffset = 3 Then
+            ' Subcase 2A: % Adjustment column (offset 4)
+            If colOffset = 4 Then
+                If isAppended Then
+                    ShowMsg "Percentage adjustment is not available for new transitions. Please edit Scenario Rate or Scenario Area directly.", vbInformation
+                    IsUpdating = True
+                    Dim prevEvPAp As Boolean: prevEvPAp = Application.EnableEvents
+                    Application.EnableEvents = False
+                    Target.Value = "NEW"
+                    Application.EnableEvents = prevEvPAp
+                    IsUpdating = False
+                    Exit Sub
+                End If
+                
                 If Not IsNumeric(Target.Value) Then
                     ShowMsg "Please enter a valid percentage adjustment (e.g. -0.2 for -20%).", vbExclamation
                     IsUpdating = True
                     Dim prevEvP1 As Boolean: prevEvP1 = Application.EnableEvents
                     Application.EnableEvents = False
-                    Dim curScen1 As Double: curScen1 = SafeCDbl(ws.Cells(tRow, panelCol + 4).Value)
+                    Dim curScen1 As Double: curScen1 = SafeCDbl(ws.Cells(tRow, panelCol + 5).Value)
                     If baseRate > 0.000001 Then
                         Target.Value = (curScen1 - baseRate) / baseRate
                     Else
@@ -169,7 +343,6 @@ Public Sub HandleSheetChange(ByVal ws As Worksheet, ByVal Target As Range)
                 scenRate = baseRate * (1# + pctAdj)
                 If scenRate < 0 Then scenRate = 0
                 If scenRate > 1 Then scenRate = 1
-                ' Keep pctAdj synchronized with clamped scenRate
                 If baseRate > 0.000001 Then
                     pctAdj = (scenRate - baseRate) / baseRate
                 Else
@@ -180,7 +353,7 @@ Public Sub HandleSheetChange(ByVal ws As Worksheet, ByVal Target As Range)
                     IsUpdating = True
                     Dim prevEvP2 As Boolean: prevEvP2 = Application.EnableEvents
                     Application.EnableEvents = False
-                    Dim curScen2 As Double: curScen2 = SafeCDbl(ws.Cells(tRow, panelCol + 4).Value)
+                    Dim curScen2 As Double: curScen2 = SafeCDbl(ws.Cells(tRow, panelCol + 5).Value)
                     If baseRate > 0.000001 Then
                         Target.Value = (curScen2 - baseRate) / baseRate
                     Else
@@ -197,8 +370,11 @@ Public Sub HandleSheetChange(ByVal ws As Worksheet, ByVal Target As Range)
                 Application.EnableEvents = False
                 
                 Target.Value = pctAdj
-                ws.Cells(tRow, panelCol + 4).Value = scenRate
-                ws.Cells(tRow, panelCol + 5).Value = "Locked"
+                ws.Cells(tRow, panelCol + 5).Value = scenRate
+                ws.Cells(tRow, panelCol + 6).FormulaR1C1 = "=ROUND(RC[-3]*(1+RC[-2]), 2)"
+                ws.Cells(tRow, panelCol + 7).Value = "Intervened"
+                ws.Cells(tRow, panelCol + 7).Font.Bold = True
+                ws.Cells(tRow, panelCol + 7).Interior.Color = RGB(255, 235, 130)
                 ws.Cells(mRow, mCol).Value = scenRate
                 ws.Cells(mRow, mCol).Interior.Color = RGB(255, 235, 130)
                 
@@ -210,9 +386,9 @@ Public Sub HandleSheetChange(ByVal ws As Worksheet, ByVal Target As Range)
                 Exit Sub
             End If
             
-            ' Subcase 2B: Scenario Rate column (offset 4)
-            If colOffset = 4 Then
-                If Not IsNumeric(Target.Value) Or Target.Value < 0 Or Target.Value > 1 Then
+            ' Subcase 2B: Scenario Rate column (offset 5)
+            If colOffset = 5 Then
+                If Not IsNumeric(Target.Value) Or SafeCDbl(Target.Value) < 0 Or SafeCDbl(Target.Value) > 1 Then
                     ShowMsg "Please enter a valid scenario rate between 0 and 1.", vbExclamation
                     IsUpdating = True
                     Dim prevEvP3 As Boolean: prevEvP3 = Application.EnableEvents
@@ -223,60 +399,267 @@ Public Sub HandleSheetChange(ByVal ws As Worksheet, ByVal Target As Range)
                     Exit Sub
                 End If
                 scenRate = SafeCDbl(Target.Value)
-                If baseRate > 0.000001 Then
-                    pctAdj = (scenRate - baseRate) / baseRate
-                Else
-                    pctAdj = 0
-                End If
                 
-                If Not ValidateLockedSum(ws, mRow, mCol, scenRate, matStartCol, matEndCol, panelCol, panelRowStart, panelRowEnd) Then
+                If isAppended Then
+                    If scenRate <= 0.000001 Then
+                        ' Revert to 0 -> delete appended row
+                        IsUpdating = True
+                        Dim prevEvPAppDel As Boolean: prevEvPAppDel = Application.EnableEvents
+                        Application.EnableEvents = False
+                        ws.Cells(mRow, mCol).Value = 0#
+                        RestoreCellFormatting ws, mRow, mCol, matHeaderRow, matLabelCol
+                        DeletePanelRow ws, tRow, panelCol
+                        panelRowEnd = ws.Cells(ws.Rows.Count, panelCol).End(xlUp).Row
+                        RebalanceRow ws, mRow, mCol, 0#, matStartCol, matEndCol, panelCol, panelRowStart, panelRowEnd
+                        UpdateRowSumOnSheet ws, mRow, matStartCol, matEndCol, sumCol
+                        Application.EnableEvents = prevEvPAppDel
+                        IsUpdating = False
+                        Exit Sub
+                    Else
+                        If Not ValidateLockedSum(ws, mRow, mCol, scenRate, matStartCol, matEndCol, panelCol, panelRowStart, panelRowEnd) Then
+                            IsUpdating = True
+                            Dim prevEvPValApp As Boolean: prevEvPValApp = Application.EnableEvents
+                            Application.EnableEvents = False
+                            Target.Value = SafeCDbl(ws.Cells(mRow, mCol).Value)
+                            Application.EnableEvents = prevEvPValApp
+                            IsUpdating = False
+                            Exit Sub
+                        End If
+                        IsUpdating = True
+                        Dim prevEvPAppOk As Boolean: prevEvPAppOk = Application.EnableEvents
+                        Application.EnableEvents = False
+                        Target.Value = scenRate
+                        ws.Cells(tRow, panelCol + 4).Value = "NEW"
+                        Dim initA1 As Double
+                        initA1 = GetInitialClassArea(ws, CStr(ws.Cells(tRow, panelCol).Value), mRow, panelCol, panelRowStart, panelRowEnd)
+                        ws.Cells(tRow, panelCol + 6).FormulaR1C1 = "=ROUND(" & Replace(CStr(initA1), ",", ".") & "*RC[-1], 2)"
+                        ws.Cells(tRow, panelCol + 7).Value = "Intervened"
+                        ws.Cells(tRow, panelCol + 7).Font.Bold = True
+                        ws.Cells(tRow, panelCol + 7).Interior.Color = RGB(255, 235, 130)
+                        ws.Cells(mRow, mCol).Value = scenRate
+                        ws.Cells(mRow, mCol).Interior.Color = RGB(255, 235, 130)
+                        RebalanceRow ws, mRow, mCol, scenRate, matStartCol, matEndCol, panelCol, panelRowStart, panelRowEnd
+                        UpdateRowSumOnSheet ws, mRow, matStartCol, matEndCol, sumCol
+                        Application.EnableEvents = prevEvPAppOk
+                        IsUpdating = False
+                        Exit Sub
+                    End If
+                Else
+                    ' Standard baseline row
+                    If baseRate > 0.000001 Then
+                        pctAdj = (scenRate - baseRate) / baseRate
+                    Else
+                        pctAdj = 0#
+                    End If
+                    
+                    If Not ValidateLockedSum(ws, mRow, mCol, scenRate, matStartCol, matEndCol, panelCol, panelRowStart, panelRowEnd) Then
+                        IsUpdating = True
+                        Dim prevEvP4 As Boolean: prevEvP4 = Application.EnableEvents
+                        Application.EnableEvents = False
+                        Target.Value = SafeCDbl(ws.Cells(mRow, mCol).Value)
+                        Application.EnableEvents = prevEvP4
+                        IsUpdating = False
+                        Exit Sub
+                    End If
+                    
                     IsUpdating = True
-                    Dim prevEvP4 As Boolean: prevEvP4 = Application.EnableEvents
+                    Dim prevEvents2B As Boolean
+                    prevEvents2B = Application.EnableEvents
                     Application.EnableEvents = False
-                    Target.Value = SafeCDbl(ws.Cells(mRow, mCol).Value)
-                    Application.EnableEvents = prevEvP4
+                    
+                    ws.Cells(tRow, panelCol + 4).Value = pctAdj
+                    Target.Value = scenRate
+                    ws.Cells(tRow, panelCol + 6).FormulaR1C1 = "=ROUND(RC[-3]*(1+RC[-2]), 2)"
+                    ws.Cells(tRow, panelCol + 7).Value = "Intervened"
+                    ws.Cells(tRow, panelCol + 7).Font.Bold = True
+                    ws.Cells(tRow, panelCol + 7).Interior.Color = RGB(255, 235, 130)
+                    ws.Cells(mRow, mCol).Value = scenRate
+                    ws.Cells(mRow, mCol).Interior.Color = RGB(255, 235, 130)
+                    
+                    RebalanceRow ws, mRow, mCol, scenRate, matStartCol, matEndCol, panelCol, panelRowStart, panelRowEnd
+                    UpdateRowSumOnSheet ws, mRow, matStartCol, matEndCol, sumCol
+                    
+                    Application.EnableEvents = prevEvents2B
+                    IsUpdating = False
+                    Exit Sub
+                End If
+            End If
+            
+            ' Subcase 2C: Scenario Area column (offset 6)
+            If colOffset = 6 Then
+                If Not IsNumeric(Target.Value) Or SafeCDbl(Target.Value) < 0 Then
+                    ShowMsg "Please enter a valid positive area in hectares.", vbExclamation
+                    IsUpdating = True
+                    Dim prevEvP5 As Boolean: prevEvP5 = Application.EnableEvents
+                    Application.EnableEvents = False
+                    If isAppended Then
+                        Dim initAErr As Double
+                        initAErr = GetInitialClassArea(ws, CStr(ws.Cells(tRow, panelCol).Value), mRow, panelCol, panelRowStart, panelRowEnd)
+                        Target.FormulaR1C1 = "=ROUND(" & Replace(CStr(initAErr), ",", ".") & "*RC[-1], 2)"
+                    Else
+                        Target.FormulaR1C1 = "=ROUND(RC[-3]*(1+RC[-2]), 2)"
+                    End If
+                    Application.EnableEvents = prevEvP5
                     IsUpdating = False
                     Exit Sub
                 End If
                 
-                IsUpdating = True
-                Dim prevEvents2B As Boolean
-                prevEvents2B = Application.EnableEvents
-                Application.EnableEvents = False
+                Dim scenAreaInput As Double
+                scenAreaInput = SafeCDbl(Target.Value)
                 
-                ws.Cells(tRow, panelCol + 3).Value = pctAdj
-                ws.Cells(tRow, panelCol + 5).Value = "Locked"
-                ws.Cells(mRow, mCol).Value = scenRate
-                ws.Cells(mRow, mCol).Interior.Color = RGB(255, 235, 130)
-                
-                RebalanceRow ws, mRow, mCol, scenRate, matStartCol, matEndCol, panelCol, panelRowStart, panelRowEnd
-                UpdateRowSumOnSheet ws, mRow, matStartCol, matEndCol, sumCol
-                
-                Application.EnableEvents = prevEvents2B
-                IsUpdating = False
-                Exit Sub
+                If isAppended Then
+                    If scenAreaInput <= 0.0001 Then
+                        ' Setting 0 area deletes appended row
+                        IsUpdating = True
+                        Dim prevEvPAreaDel As Boolean: prevEvPAreaDel = Application.EnableEvents
+                        Application.EnableEvents = False
+                        ws.Cells(mRow, mCol).Value = 0#
+                        RestoreCellFormatting ws, mRow, mCol, matHeaderRow, matLabelCol
+                        DeletePanelRow ws, tRow, panelCol
+                        panelRowEnd = ws.Cells(ws.Rows.Count, panelCol).End(xlUp).Row
+                        RebalanceRow ws, mRow, mCol, 0#, matStartCol, matEndCol, panelCol, panelRowStart, panelRowEnd
+                        UpdateRowSumOnSheet ws, mRow, matStartCol, matEndCol, sumCol
+                        Application.EnableEvents = prevEvPAreaDel
+                        IsUpdating = False
+                        Exit Sub
+                    Else
+                        Dim initA2 As Double
+                        initA2 = GetInitialClassArea(ws, CStr(ws.Cells(tRow, panelCol).Value), mRow, panelCol, panelRowStart, panelRowEnd)
+                        If initA2 > 0 Then scenRate = scenAreaInput / initA2 Else scenRate = 0#
+                        If scenRate > 1# Then scenRate = 1#
+                        
+                        If Not ValidateLockedSum(ws, mRow, mCol, scenRate, matStartCol, matEndCol, panelCol, panelRowStart, panelRowEnd) Then
+                            IsUpdating = True
+                            Dim prevEvPValArea As Boolean: prevEvPValArea = Application.EnableEvents
+                            Application.EnableEvents = False
+                            Target.FormulaR1C1 = "=ROUND(" & Replace(CStr(initA2), ",", ".") & "*RC[-1], 2)"
+                            Application.EnableEvents = prevEvPValArea
+                            IsUpdating = False
+                            Exit Sub
+                        End If
+                        
+                        IsUpdating = True
+                        Dim prevEvPAreaOk As Boolean: prevEvPAreaOk = Application.EnableEvents
+                        Application.EnableEvents = False
+                        ws.Cells(tRow, panelCol + 4).Value = "NEW"
+                        ws.Cells(tRow, panelCol + 5).Value = scenRate
+                        Target.FormulaR1C1 = "=ROUND(" & Replace(CStr(initA2), ",", ".") & "*RC[-1], 2)"
+                        ws.Cells(tRow, panelCol + 7).Value = "Intervened"
+                        ws.Cells(tRow, panelCol + 7).Font.Bold = True
+                        ws.Cells(tRow, panelCol + 7).Interior.Color = RGB(255, 235, 130)
+                        ws.Cells(mRow, mCol).Value = scenRate
+                        ws.Cells(mRow, mCol).Interior.Color = RGB(255, 235, 130)
+                        RebalanceRow ws, mRow, mCol, scenRate, matStartCol, matEndCol, panelCol, panelRowStart, panelRowEnd
+                        UpdateRowSumOnSheet ws, mRow, matStartCol, matEndCol, sumCol
+                        Application.EnableEvents = prevEvPAreaOk
+                        IsUpdating = False
+                        Exit Sub
+                    End If
+                Else
+                    ' Standard baseline row
+                    Dim baseAreaVal As Double
+                    baseAreaVal = SafeCDbl(ws.Cells(tRow, panelCol + 3).Value)
+                    If baseAreaVal > 0.0001 Then
+                        pctAdj = (scenAreaInput - baseAreaVal) / baseAreaVal
+                    Else
+                        pctAdj = 0#
+                    End If
+                    scenRate = baseRate * (1# + pctAdj)
+                    If scenRate < 0# Then scenRate = 0#
+                    If scenRate > 1# Then scenRate = 1#
+                    
+                    If Not ValidateLockedSum(ws, mRow, mCol, scenRate, matStartCol, matEndCol, panelCol, panelRowStart, panelRowEnd) Then
+                        IsUpdating = True
+                        Dim prevEvP6 As Boolean: prevEvP6 = Application.EnableEvents
+                        Application.EnableEvents = False
+                        Target.FormulaR1C1 = "=ROUND(RC[-3]*(1+RC[-2]), 2)"
+                        Application.EnableEvents = prevEvP6
+                        IsUpdating = False
+                        Exit Sub
+                    End If
+                    
+                    IsUpdating = True
+                    Dim prevEvents2C As Boolean
+                    prevEvents2C = Application.EnableEvents
+                    Application.EnableEvents = False
+                    
+                    ws.Cells(tRow, panelCol + 4).Value = pctAdj
+                    ws.Cells(tRow, panelCol + 5).Value = scenRate
+                    Target.FormulaR1C1 = "=ROUND(RC[-3]*(1+RC[-2]), 2)"
+                    ws.Cells(tRow, panelCol + 7).Value = "Intervened"
+                    ws.Cells(tRow, panelCol + 7).Font.Bold = True
+                    ws.Cells(tRow, panelCol + 7).Interior.Color = RGB(255, 235, 130)
+                    ws.Cells(mRow, mCol).Value = scenRate
+                    ws.Cells(mRow, mCol).Interior.Color = RGB(255, 235, 130)
+                    
+                    RebalanceRow ws, mRow, mCol, scenRate, matStartCol, matEndCol, panelCol, panelRowStart, panelRowEnd
+                    UpdateRowSumOnSheet ws, mRow, matStartCol, matEndCol, sumCol
+                    
+                    Application.EnableEvents = prevEvents2C
+                    IsUpdating = False
+                    Exit Sub
+                End If
             End If
             
-            ' Subcase 2C: Lock Status column (offset 5)
-            If colOffset = 5 Then
+            ' Subcase 2D: Intervention Status column (offset 7)
+            If colOffset = 7 Then
                 Dim statusVal As String
                 statusVal = Trim(UCase(Target.Value))
-                IsUpdating = True
-                Dim prevEvents2C As Boolean
-                prevEvents2C = Application.EnableEvents
-                Application.EnableEvents = False
                 
-                If statusVal = "UNLOCKED" Or statusVal = "UNLOCK" Or statusVal = "NO" Then
-                    Target.Value = "Unlocked"
-                    RestoreCellFormatting ws, mRow, mCol, matHeaderRow, matLabelCol
+                If isAppended Then
+                    If statusVal = "BASELINE" Or statusVal = "RESET" Or statusVal = "UNLOCKED" Or statusVal = "UNLOCK" Or statusVal = "NO" Then
+                        IsUpdating = True
+                        Dim prevEvPAppStat As Boolean: prevEvPAppStat = Application.EnableEvents
+                        Application.EnableEvents = False
+                        ws.Cells(mRow, mCol).Value = 0#
+                        RestoreCellFormatting ws, mRow, mCol, matHeaderRow, matLabelCol
+                        DeletePanelRow ws, tRow, panelCol
+                        panelRowEnd = ws.Cells(ws.Rows.Count, panelCol).End(xlUp).Row
+                        RebalanceRow ws, mRow, mCol, 0#, matStartCol, matEndCol, panelCol, panelRowStart, panelRowEnd
+                        UpdateRowSumOnSheet ws, mRow, matStartCol, matEndCol, sumCol
+                        Application.EnableEvents = prevEvPAppStat
+                        IsUpdating = False
+                        Exit Sub
+                    Else
+                        IsUpdating = True
+                        Dim prevEvPAppStat2 As Boolean: prevEvPAppStat2 = Application.EnableEvents
+                        Application.EnableEvents = False
+                        Target.Value = "Intervened"
+                        Target.Font.Bold = True
+                        Target.Interior.Color = RGB(255, 235, 130)
+                        ws.Cells(mRow, mCol).Interior.Color = RGB(255, 235, 130)
+                        Application.EnableEvents = prevEvPAppStat2
+                        IsUpdating = False
+                        Exit Sub
+                    End If
                 Else
-                    Target.Value = "Locked"
-                    ws.Cells(mRow, mCol).Interior.Color = RGB(255, 235, 130)
+                    IsUpdating = True
+                    Dim prevEvents2D As Boolean
+                    prevEvents2D = Application.EnableEvents
+                    Application.EnableEvents = False
+                    
+                    If statusVal = "BASELINE" Or statusVal = "UNLOCKED" Or statusVal = "UNLOCK" Or statusVal = "NO" Or statusVal = "RESET" Then
+                        Target.Value = "Baseline"
+                        Target.Font.Bold = False
+                        Target.Interior.ColorIndex = xlNone
+                        ws.Cells(tRow, panelCol + 4).Value = 0#
+                        ws.Cells(tRow, panelCol + 5).Value = baseRate
+                        ws.Cells(tRow, panelCol + 6).FormulaR1C1 = "=ROUND(RC[-3]*(1+RC[-2]), 2)"
+                        ws.Cells(mRow, mCol).Value = baseRate
+                        RestoreCellFormatting ws, mRow, mCol, matHeaderRow, matLabelCol
+                        RebalanceRow ws, mRow, mCol, baseRate, matStartCol, matEndCol, panelCol, panelRowStart, panelRowEnd
+                        UpdateRowSumOnSheet ws, mRow, matStartCol, matEndCol, sumCol
+                    Else
+                        Target.Value = "Intervened"
+                        Target.Font.Bold = True
+                        Target.Interior.Color = RGB(255, 235, 130)
+                        ws.Cells(mRow, mCol).Interior.Color = RGB(255, 235, 130)
+                    End If
+                    
+                    Application.EnableEvents = prevEvents2D
+                    IsUpdating = False
+                    Exit Sub
                 End If
-                
-                Application.EnableEvents = prevEvents2C
-                IsUpdating = False
-                Exit Sub
             End If
         End If
     End If
@@ -297,23 +680,24 @@ Function ValidateLockedSum(ws As Worksheet, rowNum As Long, changedCol As Long, 
     Next c
     
     If lockedSum > 1.00001 Then
-        ShowMsg "Cannot modify cell: The sum of locked cells in this row would be " & _
+        ShowMsg "Cannot modify cell: The sum of intervened cells in this row would be " & _
                Format(lockedSum, "0.0000") & " which exceeds 1.000." & vbCrLf & _
-               "Please enter a smaller value or unlock other cells first.", vbExclamation, "Row Sum Constraint"
+               "Please enter a smaller value or reset other intervened cells first.", vbExclamation, "Row Sum Constraint"
         ValidateLockedSum = False
     Else
         ValidateLockedSum = True
     End If
 End Function
 
-' Check if a cell is currently marked locked
+' Check if a cell is currently marked intervened / locked
 Function IsCellLockedOnSheet(ws As Worksheet, rowNum As Long, colNum As Long, _
                             panelCol As Long, pStart As Long, pEnd As Long) As Boolean
     If panelCol > 0 And pEnd >= pStart Then
         Dim r As Long
         For r = pStart To pEnd
-            If Val(ws.Cells(r, panelCol + 6).Value) = rowNum And Val(ws.Cells(r, panelCol + 7).Value) = colNum Then
-                If UCase(Trim(ws.Cells(r, panelCol + 5).Value)) = "LOCKED" Then
+            If Val(ws.Cells(r, panelCol + 8).Value) = rowNum And Val(ws.Cells(r, panelCol + 9).Value) = colNum Then
+                Dim st As String: st = UCase(Trim(ws.Cells(r, panelCol + 7).Value))
+                If st = "INTERVENED" Or st = "LOCKED" Then
                     IsCellLockedOnSheet = True
                     Exit Function
                 Else
@@ -351,7 +735,11 @@ Sub RebalanceRow(ws As Worksheet, rowNum As Long, changedCol As Long, newVal As 
             lockedSum = lockedSum + newVal
         ElseIf IsCellLockedOnSheet(ws, rowNum, c, panelCol, pStart, pEnd) Then
             lockedSum = lockedSum + SafeCDbl(ws.Cells(rowNum, c).Value)
-        Else
+        End If
+    Next c
+    
+    For c = matStartCol To matEndCol
+        If c <> changedCol And Not IsCellLockedOnSheet(ws, rowNum, c, panelCol, pStart, pEnd) Then
             nUnlocked = nUnlocked + 1
             unlockedCols(nUnlocked) = c
             totalUnlockedOriginal = totalUnlockedOriginal + SafeCDbl(ws.Cells(rowNum, c).Value)
@@ -426,36 +814,46 @@ Sub SyncMatrixToPanel(ws As Worksheet, rowNum As Long, colNum As Long, newVal As
     If panelCol = 0 Or pEnd < pStart Then Exit Sub
     Dim r As Long
     For r = pStart To pEnd
-        If Val(ws.Cells(r, panelCol + 6).Value) = rowNum And Val(ws.Cells(r, panelCol + 7).Value) = colNum Then
-            ws.Cells(r, panelCol + 4).Value = newVal
+        If Val(ws.Cells(r, panelCol + 8).Value) = rowNum And Val(ws.Cells(r, panelCol + 9).Value) = colNum Then
+            ws.Cells(r, panelCol + 5).Value = newVal
             Dim baseRate As Double
             baseRate = SafeCDbl(ws.Cells(r, panelCol + 2).Value)
             If baseRate > 0.000001 Then
-                ws.Cells(r, panelCol + 3).Value = (newVal - baseRate) / baseRate
+                ws.Cells(r, panelCol + 4).Value = (newVal - baseRate) / baseRate
+                ws.Cells(r, panelCol + 6).FormulaR1C1 = "=ROUND(RC[-3]*(1+RC[-2]), 2)"
             Else
-                ws.Cells(r, panelCol + 3).Value = 0
+                ws.Cells(r, panelCol + 4).Value = "NEW"
+                Dim initA As Double
+                initA = GetInitialClassArea(ws, CStr(ws.Cells(r, panelCol).Value), rowNum, panelCol, pStart, pEnd)
+                ws.Cells(r, panelCol + 6).FormulaR1C1 = "=ROUND(" & Replace(CStr(initA), ",", ".") & "*RC[-1], 2)"
             End If
             Exit Sub
         End If
     Next r
 End Sub
 
-' Update panel row from modified matrix cell and mark locked
+' Update panel row from modified matrix cell and mark intervened
 Sub UpdatePanelFromMatrix(ws As Worksheet, rowNum As Long, colNum As Long, newVal As Double, _
                           panelCol As Long, pStart As Long, pEnd As Long)
     If panelCol = 0 Or pEnd < pStart Then Exit Sub
     Dim r As Long
     For r = pStart To pEnd
-        If Val(ws.Cells(r, panelCol + 6).Value) = rowNum And Val(ws.Cells(r, panelCol + 7).Value) = colNum Then
-            ws.Cells(r, panelCol + 4).Value = newVal
+        If Val(ws.Cells(r, panelCol + 8).Value) = rowNum And Val(ws.Cells(r, panelCol + 9).Value) = colNum Then
+            ws.Cells(r, panelCol + 5).Value = newVal
             Dim baseRate As Double
             baseRate = SafeCDbl(ws.Cells(r, panelCol + 2).Value)
             If baseRate > 0.000001 Then
-                ws.Cells(r, panelCol + 3).Value = (newVal - baseRate) / baseRate
+                ws.Cells(r, panelCol + 4).Value = (newVal - baseRate) / baseRate
+                ws.Cells(r, panelCol + 6).FormulaR1C1 = "=ROUND(RC[-3]*(1+RC[-2]), 2)"
             Else
-                ws.Cells(r, panelCol + 3).Value = 0
+                ws.Cells(r, panelCol + 4).Value = "NEW"
+                Dim initA As Double
+                initA = GetInitialClassArea(ws, CStr(ws.Cells(r, panelCol).Value), rowNum, panelCol, pStart, pEnd)
+                ws.Cells(r, panelCol + 6).FormulaR1C1 = "=ROUND(" & Replace(CStr(initA), ",", ".") & "*RC[-1], 2)"
             End If
-            ws.Cells(r, panelCol + 5).Value = "Locked"
+            ws.Cells(r, panelCol + 7).Value = "Intervened"
+            ws.Cells(r, panelCol + 7).Font.Bold = True
+            ws.Cells(r, panelCol + 7).Interior.Color = RGB(255, 235, 130)
             Exit Sub
         End If
     Next r
@@ -521,7 +919,7 @@ Function ValidateSingleSheet(ws As Worksheet) As Boolean
     ValidateSingleSheet = True
 End Function
 
-' Count active interventions on a PU sheet (only user-locked policies)
+' Count active interventions on a PU sheet (only user-intervened policies)
 Function CountActiveInterventions(ws As Worksheet) As Long
     Dim matHeaderRow As Long, matStartCol As Long, colScan As Long
     matHeaderRow = 4
@@ -545,14 +943,15 @@ Function CountActiveInterventions(ws As Worksheet) As Long
     
     Dim r As Long, count As Long: count = 0
     For r = pStart To pEnd
-        If UCase(Trim(ws.Cells(r, pCol + 5).Value)) = "LOCKED" Then
+        Dim st As String: st = UCase(Trim(ws.Cells(r, pCol + 7).Value))
+        If st = "INTERVENED" Or st = "LOCKED" Then
             count = count + 1
         End If
     Next r
     CountActiveInterventions = count
 End Function
 
-' Update Dashboard Summary Table dynamically
+' Update Dashboard Summary Table dynamically (Row 12 headers, Row 13+ data)
 Sub UpdateDashboardSummary()
     Dim dashWs As Worksheet
     On Error Resume Next
@@ -562,18 +961,16 @@ Sub UpdateDashboardSummary()
     
     Dim lastRow As Long
     lastRow = dashWs.Cells(dashWs.Rows.Count, 2).End(xlUp).Row
-    If lastRow < 6 Then Exit Sub
+    If lastRow < 13 Then Exit Sub
     
     Dim ws As Worksheet, r As Long
-    For r = 6 To lastRow
+    For r = 13 To lastRow
         Dim puIdCell As Range
         Set puIdCell = dashWs.Cells(r, 2)
         If Trim(CStr(puIdCell.Value)) = "" Then Exit For
         
-        Dim targetSheetName As String
-        targetSheetName = ""
-        Dim puIdStr As String
-        puIdStr = Trim(CStr(puIdCell.Value))
+        Dim targetSheetName As String: targetSheetName = ""
+        Dim puIdStr As String: puIdStr = Trim(CStr(puIdCell.Value))
         
         ' Look through sheets to find match
         For Each ws In ThisWorkbook.Worksheets
@@ -618,7 +1015,7 @@ Sub ValidateAllSheets()
     validPUs = 0
     invalidCount = 0
     
-    For r = 6 To lastRow
+    For r = 13 To lastRow
         If Trim(CStr(dashWs.Cells(r, 2).Value)) = "" Then Exit For
         totalPUs = totalPUs + 1
         If dashWs.Cells(r, 6).Value = "VALID" Then
@@ -698,15 +1095,34 @@ Public Sub ResetCurrentSheetToBaseline(Optional ByVal wsTarget As Variant)
         UpdateRowSumOnSheet ws, r, matStartCol, matEndCol, sumCol
     Next r
     
-    ' Reset panel in one block assignment
-    Dim pCol As Long, pStart As Long, pEnd As Long
+    ' Reset panel
+    Dim pCol As Long, pStart As Long, wsPEnd As Long, basePEnd As Long
     pCol = sumCol + 2
     If InStr(1, CStr(ws.Cells(matHeaderRow, pCol).Value), "From Class", vbTextCompare) > 0 Then
         pStart = matHeaderRow + 1
-        pEnd = ws.Cells(ws.Rows.Count, pCol).End(xlUp).Row
-        If pEnd >= pStart Then
-            ws.Range(ws.Cells(pStart, pCol), ws.Cells(pEnd, pCol + 7)).Value = _
-                baseWs.Range(baseWs.Cells(pStart, pCol), baseWs.Cells(pEnd, pCol + 7)).Value
+        wsPEnd = ws.Cells(ws.Rows.Count, pCol).End(xlUp).Row
+        basePEnd = baseWs.Cells(baseWs.Rows.Count, pCol).End(xlUp).Row
+        
+        ' 1. Clear any dynamically appended rows beyond basePEnd
+        If wsPEnd > basePEnd And wsPEnd >= pStart Then
+            Dim cleanStart As Long
+            cleanStart = IIf(basePEnd >= pStart, basePEnd + 1, pStart)
+            With ws.Range(ws.Cells(cleanStart, pCol), ws.Cells(wsPEnd, pCol + 9))
+                .ClearContents
+                .Interior.ColorIndex = xlNone
+                .Font.Bold = False
+                .Borders.LineStyle = xlNone
+            End With
+        End If
+        
+        ' 2. Restore baseline rows
+        If basePEnd >= pStart Then
+            ws.Range(ws.Cells(pStart, pCol), ws.Cells(basePEnd, pCol + 9)).Value = _
+                baseWs.Range(baseWs.Cells(pStart, pCol), baseWs.Cells(basePEnd, pCol + 9)).Value
+            ' Re-apply Scenario Area dynamic formulas
+            ws.Range(ws.Cells(pStart, pCol + 6), ws.Cells(basePEnd, pCol + 6)).FormulaR1C1 = "=ROUND(RC[-3]*(1+RC[-2]), 2)"
+            ws.Range(ws.Cells(pStart, pCol + 7), ws.Cells(basePEnd, pCol + 7)).Font.Bold = False
+            ws.Range(ws.Cells(pStart, pCol + 7), ws.Cells(basePEnd, pCol + 7)).Interior.ColorIndex = xlNone
         End If
     End If
 
@@ -758,6 +1174,13 @@ Function ApplyPolicyToSheet(ws As Worksheet, fromClass As String, toClass As Str
         If colScan > 200 Then Exit Do
     Loop
     Dim matEndCol As Long: matEndCol = colScan - 1
+    Dim nClasses As Long: nClasses = matEndCol - matStartCol + 1
+    If nClasses <= 0 Then
+        ApplyPolicyToSheet = False
+        Exit Function
+    End If
+    
+    Dim matEndRow As Long: matEndRow = matHeaderRow + nClasses
     Dim sumCol As Long: sumCol = colScan
     Dim pCol As Long: pCol = sumCol + 2
     
@@ -770,78 +1193,403 @@ Function ApplyPolicyToSheet(ws As Worksheet, fromClass As String, toClass As Str
     pStart = matHeaderRow + 1
     pEnd = ws.Cells(ws.Rows.Count, pCol).End(xlUp).Row
     
-    Dim r As Long, found As Boolean: found = False
-    For r = pStart To pEnd
-        Dim fc As String, tc As String
-        fc = Trim(CStr(ws.Cells(r, pCol).Value))
-        tc = Trim(CStr(ws.Cells(r, pCol + 1).Value))
+    ' Find matrix row for fromClass
+    Dim mRow As Long, rIdx As Long
+    mRow = 0
+    For rIdx = matHeaderRow + 1 To matEndRow
+        If StrComp(Trim(CStr(ws.Cells(rIdx, matLabelCol).Value)), fromClass, vbTextCompare) = 0 Then
+            mRow = rIdx
+            Exit For
+        End If
+    Next rIdx
+    If mRow = 0 Then
+        For rIdx = matHeaderRow + 1 To matEndRow
+            If InStr(1, Trim(CStr(ws.Cells(rIdx, matLabelCol).Value)), fromClass, vbTextCompare) > 0 Then
+                mRow = rIdx
+                Exit For
+            End If
+        Next rIdx
+    End If
+    If mRow = 0 Then
+        ApplyPolicyToSheet = False
+        Exit Function
+    End If
+    
+    ' Find matrix col for toClass
+    Dim mCol As Long, cIdx As Long
+    mCol = 0
+    For cIdx = matStartCol To matEndCol
+        If StrComp(Trim(CStr(ws.Cells(matHeaderRow, cIdx).Value)), toClass, vbTextCompare) = 0 Then
+            mCol = cIdx
+            Exit For
+        End If
+    Next cIdx
+    If mCol = 0 Then
+        For cIdx = matStartCol To matEndCol
+            If InStr(1, Trim(CStr(ws.Cells(matHeaderRow, cIdx).Value)), toClass, vbTextCompare) > 0 Then
+                mCol = cIdx
+                Exit For
+            End If
+        Next cIdx
+    End If
+    If mCol = 0 Then
+        ApplyPolicyToSheet = False
+        Exit Function
+    End If
+    
+    Dim baseWs As Worksheet
+    Set baseWs = GetBaseSheet(ws)
+    
+    ' CASE A: fromClass == toClass (Diagonal persistence)
+    If (mRow - matHeaderRow) = (mCol - matLabelCol) Then
+        IsUpdating = True
+        Dim prevEventsDiag As Boolean: prevEventsDiag = Application.EnableEvents
+        Application.EnableEvents = False
         
-        If InStr(1, fc, fromClass, vbTextCompare) > 0 And InStr(1, tc, toClass, vbTextCompare) > 0 Then
-            Dim mRow As Long, mCol As Long, baseRate As Double, scenRate As Double, effPct As Double
-            mRow = Val(ws.Cells(r, pCol + 6).Value)
-            mCol = Val(ws.Cells(r, pCol + 7).Value)
-            baseRate = SafeCDbl(ws.Cells(r, pCol + 2).Value)
+        If Abs(pctVal - 1#) < 0.0001 Or pctVal >= 1# Then
+            ' 100% persistence moratorium
+            ws.Cells(mRow, mCol).Value = 1#
+            ws.Cells(mRow, mCol).Interior.Color = RGB(255, 235, 130)
             
+            ' Rebalance all other cells in row to 0
+            Dim c As Long
+            For c = matStartCol To matEndCol
+                If c <> mCol Then
+                    ws.Cells(mRow, c).Value = 0#
+                    RestoreCellFormatting ws, mRow, c, matHeaderRow, matLabelCol
+                End If
+            Next c
+            
+            ' Update all panel rows for mRow
+            Dim pr As Long
+            pr = pStart
+            Do While pr <= pEnd And pEnd >= pStart
+                If Val(ws.Cells(pr, pCol + 8).Value) = mRow Then
+                    Dim bRateD As Double
+                    bRateD = SafeCDbl(ws.Cells(pr, pCol + 2).Value)
+                    If bRateD > 0.000001 Then
+                        ws.Cells(pr, pCol + 4).Value = -1#
+                        ws.Cells(pr, pCol + 5).Value = 0#
+                        ws.Cells(pr, pCol + 6).FormulaR1C1 = "=ROUND(RC[-3]*(1+RC[-2]), 2)"
+                        ws.Cells(pr, pCol + 7).Value = "Intervened"
+                        ws.Cells(pr, pCol + 7).Font.Bold = True
+                        ws.Cells(pr, pCol + 7).Interior.Color = RGB(255, 235, 130)
+                        pr = pr + 1
+                    Else
+                        ' Delete previously appended 0-to-exist row since rate is now 0
+                        DeletePanelRow ws, pr, pCol
+                        pEnd = ws.Cells(ws.Rows.Count, pCol).End(xlUp).Row
+                    End If
+                Else
+                    pr = pr + 1
+                End If
+            Loop
+            
+            UpdateRowSumOnSheet ws, mRow, matStartCol, matEndCol, sumCol
+        Else
+            ' Arbitrary persistence adjustment (e.g. +10% or -20%)
+            Dim baseDiagRate As Double
+            If Not baseWs Is Nothing Then
+                baseDiagRate = SafeCDbl(baseWs.Cells(mRow, mCol).Value)
+            Else
+                baseDiagRate = SafeCDbl(ws.Cells(mRow, mCol).Value)
+            End If
+            
+            Dim newDiagRate As Double
+            newDiagRate = baseDiagRate * (1# + pctVal)
+            If newDiagRate < 0# Then newDiagRate = 0#
+            If newDiagRate > 1# Then newDiagRate = 1#
+            
+            ws.Cells(mRow, mCol).Value = newDiagRate
+            ws.Cells(mRow, mCol).Interior.Color = RGB(255, 235, 130)
+            
+            Dim remP As Double: remP = 1# - newDiagRate
+            Dim sumOffDiagBase As Double: sumOffDiagBase = 0#
+            For c = matStartCol To matEndCol
+                If c <> mCol Then
+                    If Not baseWs Is Nothing Then
+                        sumOffDiagBase = sumOffDiagBase + SafeCDbl(baseWs.Cells(mRow, c).Value)
+                    Else
+                        sumOffDiagBase = sumOffDiagBase + SafeCDbl(ws.Cells(mRow, c).Value)
+                    End If
+                End If
+            Next c
+            
+            If remP <= 0.000001 Then
+                For c = matStartCol To matEndCol
+                    If c <> mCol Then
+                        ws.Cells(mRow, c).Value = 0#
+                        RestoreCellFormatting ws, mRow, c, matHeaderRow, matLabelCol
+                    End If
+                Next c
+                pr = pStart
+                Do While pr <= pEnd And pEnd >= pStart
+                    If Val(ws.Cells(pr, pCol + 8).Value) = mRow Then
+                        Dim bRateZ As Double: bRateZ = SafeCDbl(ws.Cells(pr, pCol + 2).Value)
+                        If bRateZ > 0.000001 Then
+                            ws.Cells(pr, pCol + 4).Value = -1#
+                            ws.Cells(pr, pCol + 5).Value = 0#
+                            ws.Cells(pr, pCol + 6).FormulaR1C1 = "=ROUND(RC[-3]*(1+RC[-2]), 2)"
+                            ws.Cells(pr, pCol + 7).Value = "Intervened"
+                            ws.Cells(pr, pCol + 7).Font.Bold = True
+                            ws.Cells(pr, pCol + 7).Interior.Color = RGB(255, 235, 130)
+                            pr = pr + 1
+                        Else
+                            DeletePanelRow ws, pr, pCol
+                            pEnd = ws.Cells(ws.Rows.Count, pCol).End(xlUp).Row
+                        End If
+                    Else
+                        pr = pr + 1
+                    End If
+                Loop
+            ElseIf sumOffDiagBase > 0.000001 Then
+                For c = matStartCol To matEndCol
+                    If c <> mCol Then
+                        Dim bCVal As Double
+                        If Not baseWs Is Nothing Then bCVal = SafeCDbl(baseWs.Cells(mRow, c).Value) Else bCVal = SafeCDbl(ws.Cells(mRow, c).Value)
+                        Dim cRate As Double
+                        cRate = (bCVal / sumOffDiagBase) * remP
+                        ws.Cells(mRow, c).Value = cRate
+                        RestoreCellFormatting ws, mRow, c, matHeaderRow, matLabelCol
+                    End If
+                Next c
+                pr = pStart
+                Do While pr <= pEnd And pEnd >= pStart
+                    If Val(ws.Cells(pr, pCol + 8).Value) = mRow Then
+                        Dim targetCol As Long: targetCol = Val(ws.Cells(pr, pCol + 9).Value)
+                        Dim rateVal As Double: rateVal = SafeCDbl(ws.Cells(mRow, targetCol).Value)
+                        Dim bRateVal As Double: bRateVal = SafeCDbl(ws.Cells(pr, pCol + 2).Value)
+                        
+                        If bRateVal > 0.000001 Then
+                            ws.Cells(pr, pCol + 5).Value = rateVal
+                            ws.Cells(pr, pCol + 4).Value = (rateVal - bRateVal) / bRateVal
+                            ws.Cells(pr, pCol + 6).FormulaR1C1 = "=ROUND(RC[-3]*(1+RC[-2]), 2)"
+                            ws.Cells(pr, pCol + 7).Value = "Intervened"
+                            ws.Cells(pr, pCol + 7).Font.Bold = True
+                            ws.Cells(pr, pCol + 7).Interior.Color = RGB(255, 235, 130)
+                            pr = pr + 1
+                        Else
+                            ' Appended 0-to-exist row
+                            If rateVal <= 0.000001 Then
+                                DeletePanelRow ws, pr, pCol
+                                pEnd = ws.Cells(ws.Rows.Count, pCol).End(xlUp).Row
+                            Else
+                                ws.Cells(pr, pCol + 5).Value = rateVal
+                                ws.Cells(pr, pCol + 4).Value = "NEW"
+                                Dim initADiag As Double
+                                initADiag = GetInitialClassArea(ws, CStr(ws.Cells(pr, pCol).Value), mRow, pCol, pStart, pEnd)
+                                ws.Cells(pr, pCol + 6).FormulaR1C1 = "=ROUND(" & Replace(CStr(initADiag), ",", ".") & "*RC[-1], 2)"
+                                ws.Cells(pr, pCol + 7).Value = "Intervened"
+                                ws.Cells(pr, pCol + 7).Font.Bold = True
+                                ws.Cells(pr, pCol + 7).Interior.Color = RGB(255, 235, 130)
+                                pr = pr + 1
+                            End If
+                        End If
+                    Else
+                        pr = pr + 1
+                    End If
+                Loop
+            Else
+                ' sumOffDiagBase is 0 (100% persistence in baseline) and remP > 0
+                Dim nOffDiag As Long: nOffDiag = (matEndCol - matStartCol)
+                If nOffDiag > 0 Then
+                    Dim eqShare As Double: eqShare = remP / nOffDiag
+                    Dim runShare As Double: runShare = 0#
+                    Dim lastOffCol As Long: lastOffCol = 0
+                    For c = matStartCol To matEndCol
+                        If c <> mCol Then lastOffCol = c
+                    Next c
+                    For c = matStartCol To matEndCol
+                        If c <> mCol Then
+                            Dim cellValC As Double
+                            If c = lastOffCol Then
+                                cellValC = remP - runShare
+                                If cellValC < 0# Then cellValC = 0#
+                            Else
+                                cellValC = eqShare
+                                runShare = runShare + eqShare
+                            End If
+                            ws.Cells(mRow, c).Value = cellValC
+                            RestoreCellFormatting ws, mRow, c, matHeaderRow, matLabelCol
+                        End If
+                    Next c
+                End If
+            End If
+            UpdateRowSumOnSheet ws, mRow, matStartCol, matEndCol, sumCol
+        End If
+        
+        Application.EnableEvents = prevEventsDiag
+        IsUpdating = False
+        ApplyPolicyToSheet = True
+        Exit Function
+    End If
+    
+    ' CASE B: fromClass != toClass (Off-diagonal transition)
+    Dim pRow As Long
+    pRow = FindPanelRow(ws, mRow, mCol, pCol, pStart, pEnd)
+    
+    If pRow > 0 Then
+        ' Transition already exists in panel
+        Dim baseRate As Double, scenRate As Double, effPct As Double
+        baseRate = SafeCDbl(ws.Cells(pRow, pCol + 2).Value)
+        
+        If baseRate > 0.000001 Then
             scenRate = baseRate * (1# + pctVal)
             If scenRate < 0 Then scenRate = 0
             If scenRate > 1 Then scenRate = 1
-            If baseRate > 0.000001 Then
-                effPct = (scenRate - baseRate) / baseRate
-            Else
-                effPct = 0#
-            End If
+            effPct = (scenRate - baseRate) / baseRate
             
             If ValidateLockedSum(ws, mRow, mCol, scenRate, matStartCol, matEndCol, pCol, pStart, pEnd) Then
                 IsUpdating = True
-                Dim prevEvents As Boolean: prevEvents = Application.EnableEvents
+                Dim prevEventsB1 As Boolean: prevEventsB1 = Application.EnableEvents
                 Application.EnableEvents = False
                 
-                ws.Cells(r, pCol + 3).Value = effPct
-                ws.Cells(r, pCol + 4).Value = scenRate
-                ws.Cells(r, pCol + 5).Value = "Locked"
+                ws.Cells(pRow, pCol + 4).Value = effPct
+                ws.Cells(pRow, pCol + 5).Value = scenRate
+                ws.Cells(pRow, pCol + 6).FormulaR1C1 = "=ROUND(RC[-3]*(1+RC[-2]), 2)"
+                ws.Cells(pRow, pCol + 7).Value = "Intervened"
+                ws.Cells(pRow, pCol + 7).Font.Bold = True
+                ws.Cells(pRow, pCol + 7).Interior.Color = RGB(255, 235, 130)
                 ws.Cells(mRow, mCol).Value = scenRate
                 ws.Cells(mRow, mCol).Interior.Color = RGB(255, 235, 130)
                 
                 RebalanceRow ws, mRow, mCol, scenRate, matStartCol, matEndCol, pCol, pStart, pEnd
                 UpdateRowSumOnSheet ws, mRow, matStartCol, matEndCol, sumCol
                 
-                Application.EnableEvents = prevEvents
+                Application.EnableEvents = prevEventsB1
                 IsUpdating = False
-                found = True
+                ApplyPolicyToSheet = True
+                Exit Function
+            End If
+        Else
+            ' Appended row already existed
+            scenRate = pctVal
+            If scenRate < 0 Then scenRate = 0
+            If scenRate > 1 Then scenRate = 1
+            If scenRate <= 0.000001 Then
+                ' Set to 0 -> delete appended row
+                IsUpdating = True
+                Dim prevEventsB2 As Boolean: prevEventsB2 = Application.EnableEvents
+                Application.EnableEvents = False
+                
+                ws.Cells(mRow, mCol).Value = 0#
+                RestoreCellFormatting ws, mRow, mCol, matHeaderRow, matLabelCol
+                DeletePanelRow ws, pRow, pCol
+                pEnd = ws.Cells(ws.Rows.Count, pCol).End(xlUp).Row
+                RebalanceRow ws, mRow, mCol, 0#, matStartCol, matEndCol, pCol, pStart, pEnd
+                UpdateRowSumOnSheet ws, mRow, matStartCol, matEndCol, sumCol
+                
+                Application.EnableEvents = prevEventsB2
+                IsUpdating = False
+                ApplyPolicyToSheet = True
+                Exit Function
+            Else
+                If ValidateLockedSum(ws, mRow, mCol, scenRate, matStartCol, matEndCol, pCol, pStart, pEnd) Then
+                    IsUpdating = True
+                    Dim prevEventsB3 As Boolean: prevEventsB3 = Application.EnableEvents
+                    Application.EnableEvents = False
+                    
+                    ws.Cells(pRow, pCol + 4).Value = "NEW"
+                    ws.Cells(pRow, pCol + 5).Value = scenRate
+                    Dim iArea1 As Double
+                    iArea1 = GetInitialClassArea(ws, CStr(ws.Cells(mRow, matLabelCol).Value), mRow, pCol, pStart, pEnd)
+                    ws.Cells(pRow, pCol + 6).FormulaR1C1 = "=ROUND(" & Replace(CStr(iArea1), ",", ".") & "*RC[-1], 2)"
+                    ws.Cells(pRow, pCol + 7).Value = "Intervened"
+                    ws.Cells(pRow, pCol + 7).Font.Bold = True
+                    ws.Cells(pRow, pCol + 7).Interior.Color = RGB(255, 235, 130)
+                    ws.Cells(mRow, mCol).Value = scenRate
+                    ws.Cells(mRow, mCol).Interior.Color = RGB(255, 235, 130)
+                    
+                    RebalanceRow ws, mRow, mCol, scenRate, matStartCol, matEndCol, pCol, pStart, pEnd
+                    UpdateRowSumOnSheet ws, mRow, matStartCol, matEndCol, sumCol
+                    
+                    Application.EnableEvents = prevEventsB3
+                    IsUpdating = False
+                    ApplyPolicyToSheet = True
+                    Exit Function
+                End If
             End If
         End If
-    Next r
-    ApplyPolicyToSheet = found
+    Else
+        ' Transition does NOT exist in panel (0-to-exist intervention via Batch Policy!)
+        If pctVal > 0.000001 Then
+            Dim newRate As Double: newRate = pctVal
+            If newRate > 1# Then newRate = 1#
+            
+            If ValidateLockedSum(ws, mRow, mCol, newRate, matStartCol, matEndCol, pCol, pStart, pEnd) Then
+                IsUpdating = True
+                Dim prevEventsB4 As Boolean: prevEventsB4 = Application.EnableEvents
+                Application.EnableEvents = False
+                
+                AppendPanelRow ws, mRow, mCol, newRate, matHeaderRow, matLabelCol, pCol, pStart, pEnd
+                
+                ws.Cells(mRow, mCol).Value = newRate
+                ws.Cells(mRow, mCol).Interior.Color = RGB(255, 235, 130)
+                
+                RebalanceRow ws, mRow, mCol, newRate, matStartCol, matEndCol, pCol, pStart, pEnd
+                UpdateRowSumOnSheet ws, mRow, matStartCol, matEndCol, sumCol
+                
+                Application.EnableEvents = prevEventsB4
+                IsUpdating = False
+                ApplyPolicyToSheet = True
+                Exit Function
+            End If
+        End If
+    End If
+    
+    ApplyPolicyToSheet = False
 End Function
 
 ' Apply Policy Across PUs button macro
+' Reads From Class (C8), To Class (C9), % Adjustment (E8), and Target PU (E9) from Dashboard
 Sub ApplyPolicyAcrossPUs()
-    Dim fromClass As String, toClass As String, pctStr As String, targetPU As String
+    Dim dashWs As Worksheet
+    On Error Resume Next
+    Set dashWs = ThisWorkbook.Sheets("Dashboard")
+    On Error GoTo 0
+    If dashWs Is Nothing Then Exit Sub
     
-    fromClass = Trim(InputBox("Enter the origin Land Cover class name (or part of name):" & vbCrLf & _
-                             "Example: Primary Forest", "Apply Policy - From Class"))
-    If fromClass = "" Then Exit Sub
+    Dim fromClass As String, toClass As String, targetPU As String
+    fromClass = Trim(CStr(dashWs.Range("C8").Value))
+    toClass   = Trim(CStr(dashWs.Range("C9").Value))
     
-    toClass = Trim(InputBox("Enter the target Land Cover class name (or part of name):" & vbCrLf & _
-                           "Example: Oil Palm", "Apply Policy - To Class"))
-    If toClass = "" Then Exit Sub
-    
-    pctStr = Trim(InputBox("Enter the percentage adjustment (e.g. -30 for -30%, 50 for +50%):", _
-                          "Apply Policy - % Adjustment", "-20"))
-    If pctStr = "" Or Not IsNumeric(pctStr) Then
-        ShowMsg "Invalid percentage value.", vbExclamation
+    If fromClass = "" Or toClass = "" Then
+        ShowMsg "Please select both 'From Class' and 'To Class' on the Dashboard before applying policy.", vbExclamation, "Missing Class Selection"
         Exit Sub
     End If
-    Dim pctVal As Double: pctVal = CDbl(pctStr) / 100#
     
-    targetPU = Trim(InputBox("Enter Planning Unit ID to apply to (e.g., '1', '2,3', or 'ALL'):", _
-                            "Apply Policy - Scope", "ALL"))
-    If targetPU = "" Then Exit Sub
+    Dim pctRaw As Variant
+    pctRaw = dashWs.Range("E8").Value
+    If Not IsNumeric(pctRaw) Then
+        ShowMsg "Please enter a valid percentage adjustment in cell E8 (e.g., -50%, 100%, or 0.05).", vbExclamation, "Invalid Percentage"
+        Exit Sub
+    End If
+    Dim pctVal As Double
+    pctVal = SafeCDbl(pctRaw)
+    If Abs(pctVal) > 1# Then
+        pctVal = pctVal / 100#
+    End If
     
-    Dim isAll As Boolean: isAll = (UCase(targetPU) = "ALL")
-    Dim puList As Variant
+    targetPU = Trim(CStr(dashWs.Range("E9").Value))
+    If targetPU = "" Then targetPU = "ALL"
+    
+    Dim isAll As Boolean
+    isAll = (UCase(targetPU) = "ALL" Or InStr(1, targetPU, "All Planning Units", vbTextCompare) > 0)
+    
+    ' Extract PU ID if specific PU chosen (e.g. "PU 1: ...", "PU 1", or numeric "1")
+    Dim targetId As String: targetId = ""
     If Not isAll Then
-        puList = Split(targetPU, ",")
+        Dim matchId As String: matchId = ""
+        Dim chIdx As Long
+        For chIdx = 1 To Len(targetPU)
+            Dim ch As String: ch = Mid(targetPU, chIdx, 1)
+            If ch >= "0" And ch <= "9" Then
+                matchId = matchId & ch
+            ElseIf Len(matchId) > 0 Then
+                Exit For
+            End If
+        Next chIdx
+        targetId = matchId
     End If
     
     Dim ws As Worksheet, modifiedCount As Long: modifiedCount = 0
@@ -850,16 +1598,14 @@ Sub ApplyPolicyAcrossPUs()
             Dim shouldApply As Boolean: shouldApply = False
             If isAll Then
                 shouldApply = True
+            ElseIf targetId <> "" Then
+                If InStr(1, ws.Name, "PU_" & targetId & "_") = 1 Or ws.Name = "PU_" & targetId Then
+                    shouldApply = True
+                End If
             Else
-                Dim item As Variant
-                For Each item In puList
-                    Dim targetIdStr As String
-                    targetIdStr = Trim(CStr(item))
-                    If InStr(1, ws.Name, "PU_" & targetIdStr & "_") = 1 Or ws.Name = "PU_" & targetIdStr Then
-                        shouldApply = True
-                        Exit For
-                    End If
-                Next item
+                If InStr(1, ws.Name, targetPU, vbTextCompare) > 0 Then
+                    shouldApply = True
+                End If
             End If
             
             If shouldApply Then

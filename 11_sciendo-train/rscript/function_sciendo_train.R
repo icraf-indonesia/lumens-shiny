@@ -1170,7 +1170,9 @@ run_sciendo_train_process <- function(lc_t1_path, lc_t2_path, zone_path, lc_look
       lc_lookup_path = lc_lookup_table_path,
       output_dir = macro_dir,
       template_path = "../macro_template/macro_template.xlsm",
-      pu_lookup = z_lookup_table
+      pu_lookup = z_lookup_table,
+      lc_t1_path = lc_t1_path,
+      zone_path = zone_path
     )
   }, error = function(e) {
     stop("TPM conversion failed: ", e$message)
@@ -1619,7 +1621,7 @@ add_period_pu_classes_to_pam <- function(output_dir, pu_classes, time_points, ov
 #' @importFrom dplyr select mutate left_join arrange
 #' @importFrom tools file_path_sans_ext
 #' @export
-tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, template_path, pu_lookup = NULL) {
+tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, template_path, pu_lookup = NULL, lc_t1_path = NULL, zone_path = NULL) {
   # Load required libraries
   if (!requireNamespace("openxlsx2", quietly = TRUE)) {
     stop("openxlsx2 package is required. Please install it with: install.packages('openxlsx2')")
@@ -1681,6 +1683,42 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, temp
     }
   }
   
+  # Calculate initial baseline class area per PU in hectares if rasters available
+  pu_class_areas <- list() # key: paste0(pu_id, "_", lc_id) -> area_ha
+  if (!is.null(lc_t1_path) && !is.null(zone_path) && file.exists(lc_t1_path) && file.exists(zone_path)) {
+    tryCatch({
+      if (requireNamespace("terra", quietly = TRUE)) {
+        r_lc <- terra::rast(lc_t1_path)
+        r_zone <- terra::rast(zone_path)
+        cs_ha <- tryCatch({
+          if (!terra::is.lonlat(r_lc)) {
+            (terra::xres(r_lc) * terra::yres(r_lc)) / 10000
+          } else {
+            mean(terra::values(terra::cellSize(r_lc, unit = "ha")), na.rm = TRUE)
+          }
+        }, error = function(e) 1.0)
+        
+        if (!terra::same.crs(r_zone, r_lc)) {
+          r_zone <- terra::project(r_zone, r_lc, method = "near")
+        }
+        if (terra::ext(r_zone) != terra::ext(r_lc) || terra::res(r_zone)[1] != terra::res(r_lc)[1]) {
+          r_zone <- terra::resample(r_zone, r_lc, method = "near")
+        }
+        
+        ct <- terra::crosstab(c(r_zone, r_lc), long = TRUE)
+        if (ncol(ct) >= 3) {
+          colnames(ct)[1:3] <- c("PU", "LC", "Count")
+          for (k in seq_len(nrow(ct))) {
+            key <- paste0(ct$PU[k], "_", ct$LC[k])
+            pu_class_areas[[key]] <- round(as.numeric(ct$Count[k]) * cs_ha, 2)
+          }
+        }
+      }
+    }, error = function(e) {
+      message("Warning: could not calculate raster areas: ", e$message)
+    })
+  }
+  
   macro_dir <- file.path(output_dir, "baseline_tpm_macro")
   dir.create(macro_dir, recursive = TRUE, showWarnings = FALSE)
   output_file <- file.path(macro_dir, "sciendo_tpm_scenario.xlsm")
@@ -1699,6 +1737,26 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, temp
   tpm_dinamica <- tpm_dinamica[ord]
   pu_ids <- raw_ids[ord]
   
+  # Pre-compute sheet names and PU names for navigation linking
+  all_sheet_names <- character(length(tpm_dinamica))
+  all_pu_names <- character(length(tpm_dinamica))
+  for (idx in seq_along(tpm_dinamica)) {
+    pu_id <- pu_ids[idx]
+    pu_name <- if (as.character(pu_id) %in% names(pu_map)) {
+      pu_map[[as.character(pu_id)]]
+    } else {
+      paste("Planning Unit", pu_id)
+    }
+    all_pu_names[idx] <- pu_name
+    
+    clean_label <- gsub("[\\\\/?*\\[\\]:]", "_", pu_name)
+    clean_label <- gsub("\\s+", "_", trimws(clean_label))
+    prefix <- paste0("PU_", pu_id, "_")
+    max_label_len <- max(1, 25 - nchar(prefix))
+    short_label <- substr(clean_label, 1, max_label_len)
+    all_sheet_names[idx] <- paste0(prefix, short_label)
+  }
+  
   # Initialize workbook from template
   file.copy(resolved_template, output_file, overwrite = TRUE)
   wb <- openxlsx2::wb_load(output_file)
@@ -1716,18 +1774,8 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, temp
   for (idx in seq_along(tpm_dinamica)) {
     tpm <- tpm_dinamica[idx]
     pu_id <- pu_ids[idx]
-    pu_name <- if (as.character(pu_id) %in% names(pu_map)) {
-      pu_map[[as.character(pu_id)]]
-    } else {
-      paste("Planning Unit", pu_id)
-    }
-    
-    clean_label <- gsub("[\\\\/?*\\[\\]:]", "_", pu_name)
-    clean_label <- gsub("\\s+", "_", trimws(clean_label))
-    prefix <- paste0("PU_", pu_id, "_")
-    max_label_len <- max(1, 25 - nchar(prefix))
-    short_label <- substr(clean_label, 1, max_label_len)
-    sheet_name <- paste0(prefix, short_label)
+    pu_name <- all_pu_names[idx]
+    sheet_name <- all_sheet_names[idx]
     
     # Read TPM CSV
     matrix1 <- read.csv(tpm, stringsAsFactors = FALSE)
@@ -1805,20 +1853,29 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, temp
     n_cols <- ncol(result_matrix)
     
     # Build active transitions intervention panel (non-zero off-diagonal historical transitions)
+    # Layout: [From Class | To Class | Baseline Rate | Baseline Area (ha) | % Adjustment | Scenario Rate | Scenario Area (ha) | Intervention Status | _mRow | _mCol]
     active_records <- list()
     for (ri in 1:n_rows) {
       for (ci in 1:n_cols) {
         if (ri != ci && result_matrix[ri, ci] > 0.000001) {
+          from_id <- row_ids[ri]
+          area_key <- paste0(pu_id, "_", from_id)
+          init_class_area <- if (area_key %in% names(pu_class_areas)) pu_class_areas[[area_key]] else 1000.00
+          base_rate <- round(result_matrix[ri, ci], 6)
+          base_area <- round(init_class_area * base_rate, 2)
+          
           active_records[[length(active_records) + 1]] <- data.frame(
-            From_Class     = row_labels[ri],
-            To_Class       = col_labels[ci],
-            Baseline_Rate  = round(result_matrix[ri, ci], 6),
-            Pct_Adjustment = 0.0,
-            Scenario_Rate  = round(result_matrix[ri, ci], 6),
-            Lock_Status    = "Unlocked",
-            Matrix_Row     = 4 + ri, # Sheet row
-            Matrix_Col     = 2 + ci, # Sheet col (B=2 is row header, C=3.. is matrix data)
-            stringsAsFactors = FALSE
+            From_Class          = row_labels[ri],
+            To_Class            = col_labels[ci],
+            Baseline_Rate       = base_rate,
+            Baseline_Area_ha    = base_area,
+            Pct_Adjustment      = 0.0,
+            Scenario_Rate       = base_rate,
+            Scenario_Area_ha    = base_area,
+            Intervention_Status = "Baseline",
+            Matrix_Row          = 4 + ri, # Sheet row
+            Matrix_Col          = 2 + ci, # Sheet col (B=2 is row header, C=3.. is matrix data)
+            stringsAsFactors    = FALSE
           )
         }
       }
@@ -1827,26 +1884,36 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, temp
       panel_df <- do.call(rbind, active_records)
     } else {
       panel_df <- data.frame(
-        From_Class     = character(0),
-        To_Class       = character(0),
-        Baseline_Rate  = numeric(0),
-        Pct_Adjustment = numeric(0),
-        Scenario_Rate  = numeric(0),
-        Lock_Status    = character(0),
-        Matrix_Row     = integer(0),
-        Matrix_Col     = integer(0),
-        stringsAsFactors = FALSE
+        From_Class          = character(0),
+        To_Class            = character(0),
+        Baseline_Rate       = numeric(0),
+        Baseline_Area_ha    = numeric(0),
+        Pct_Adjustment      = numeric(0),
+        Scenario_Rate       = numeric(0),
+        Scenario_Area_ha    = numeric(0),
+        Intervention_Status = character(0),
+        Matrix_Row          = integer(0),
+        Matrix_Col          = integer(0),
+        stringsAsFactors    = FALSE
       )
     }
     
     # Add PU sheet
     wb$add_worksheet(sheet_name)
     
-    # 1. Title and back-link
+    # 1. Title and Navigation Hyperlinks (Row 1 & 2)
     wb$add_data(sheet = sheet_name, x = paste0("Planning Unit ", pu_id, ": ", pu_name, " - Transition Probability Matrix"), start_col = 2, start_row = 1)
     wb$add_font(sheet = sheet_name, dims = "B1", size = 13, bold = TRUE, color = openxlsx2::wb_color("navy"))
+    
+    # Back to Dashboard link at B2
     wb$add_formula(sheet = sheet_name, x = '=HYPERLINK("#\'Dashboard\'!A1", "<- Back to Master Dashboard")', dims = "B2")
     wb$add_font(sheet = sheet_name, dims = "B2", bold = TRUE, color = openxlsx2::wb_color("blue"), underline = "single")
+    
+    # Next Planning Unit link at D2 (loops to PU 1 at end)
+    next_sheet <- if (idx < length(all_sheet_names)) all_sheet_names[idx + 1] else all_sheet_names[1]
+    next_label <- if (idx < length(all_sheet_names)) "Go to Next Planning Unit >" else paste0("Go to First Planning Unit (PU ", pu_ids[1], ") >")
+    wb$add_formula(sheet = sheet_name, x = paste0('=HYPERLINK("#\'', next_sheet, '\'!A1", "', next_label, '")'), dims = "D2")
+    wb$add_font(sheet = sheet_name, dims = "D2", bold = TRUE, color = openxlsx2::wb_color("blue"), underline = "single")
     
     # 2. Transition Matrix Headers (Row 4)
     matrix_header <- c("From \\ To", col_labels, "Grand Total")
@@ -1901,37 +1968,47 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, temp
       }
     }
     
-    # 4. Active Transitions Intervention Panel
+    # 4. Active Transitions Recapitulation Panel (8 visible columns)
     panel_col <- mat_sum_col + 2 # Leave 1 empty column gap
-    panel_headers <- c("From Class", "To Class", "Baseline Rate", "% Adjustment", "Scenario Rate", "Lock Status", "_mRow", "_mCol")
+    panel_headers <- c("From Class", "To Class", "Baseline Rate", "Baseline Area (ha)", "% Adjustment", "Scenario Rate", "Scenario Area (ha)", "Intervention Status", "_mRow", "_mCol")
     wb$add_data(sheet = sheet_name, x = as.data.frame(t(panel_headers)), start_col = panel_col, start_row = 4, col_names = FALSE)
     
-    # Panel Header style
-    panel_hdr_range <- paste0(openxlsx2::int2col(panel_col), "4:", openxlsx2::int2col(panel_col + 5), "4")
+    # Panel Header style (Col panel_col to panel_col + 7)
+    panel_hdr_range <- paste0(openxlsx2::int2col(panel_col), "4:", openxlsx2::int2col(panel_col + 7), "4")
     wb$add_fill(sheet = sheet_name, dims = panel_hdr_range, color = openxlsx2::wb_color(hex = "0F766E")) # Dark teal
     wb$add_font(sheet = sheet_name, dims = panel_hdr_range, color = openxlsx2::wb_color("white"), bold = TRUE)
     
     if (nrow(panel_df) > 0) {
       wb$add_data(sheet = sheet_name, x = panel_df, start_col = panel_col, start_row = 5, col_names = FALSE)
       
-      panel_end_row <- 4 + nrow(panel_df)
-      base_col_let <- openxlsx2::int2col(panel_col + 2)
-      adj_col_let  <- openxlsx2::int2col(panel_col + 3)
-      scen_col_let <- openxlsx2::int2col(panel_col + 4)
+      panel_end_row     <- 4 + nrow(panel_df)
+      base_rate_col_let <- openxlsx2::int2col(panel_col + 2)
+      base_area_col_let <- openxlsx2::int2col(panel_col + 3)
+      adj_col_let       <- openxlsx2::int2col(panel_col + 4)
+      scen_rate_col_let <- openxlsx2::int2col(panel_col + 5)
+      scen_area_col_let <- openxlsx2::int2col(panel_col + 6)
       
-      wb$add_numfmt(sheet = sheet_name, dims = paste0(base_col_let, "5:", base_col_let, panel_end_row), numfmt = "0.0000")
+      # Add dynamic formula for Scenario Area (ha): =ROUND(Baseline_Area_ha * (1 + Pct_Adjustment), 2)
+      for (pr in 5:panel_end_row) {
+        form_str <- paste0("=ROUND(", base_area_col_let, pr, "*(1+", adj_col_let, pr, "), 2)")
+        wb$add_formula(sheet = sheet_name, x = form_str, dims = paste0(scen_area_col_let, pr))
+      }
+      
+      wb$add_numfmt(sheet = sheet_name, dims = paste0(base_rate_col_let, "5:", base_rate_col_let, panel_end_row), numfmt = "0.0000")
+      wb$add_numfmt(sheet = sheet_name, dims = paste0(base_area_col_let, "5:", base_area_col_let, panel_end_row), numfmt = "#,##0.00")
       wb$add_numfmt(sheet = sheet_name, dims = paste0(adj_col_let, "5:", adj_col_let, panel_end_row), numfmt = "0.0%")
-      wb$add_numfmt(sheet = sheet_name, dims = paste0(scen_col_let, "5:", scen_col_let, panel_end_row), numfmt = "0.0000")
+      wb$add_numfmt(sheet = sheet_name, dims = paste0(scen_rate_col_let, "5:", scen_rate_col_let, panel_end_row), numfmt = "0.0000")
+      wb$add_numfmt(sheet = sheet_name, dims = paste0(scen_area_col_let, "5:", scen_area_col_let, panel_end_row), numfmt = "#,##0.00")
     }
     
     # Hide helper columns _mRow, _mCol
-    wb$set_col_widths(sheet = sheet_name, cols = c(panel_col + 6, panel_col + 7), widths = 0.1, hidden = TRUE)
+    wb$set_col_widths(sheet = sheet_name, cols = c(panel_col + 8, panel_col + 9), widths = 0.1, hidden = TRUE)
     
     # Set column widths for readability
     wb$set_col_widths(sheet = sheet_name, cols = 2, widths = 28)
     wb$set_col_widths(sheet = sheet_name, cols = 3:mat_sum_col, widths = 14)
     wb$set_col_widths(sheet = sheet_name, cols = panel_col:(panel_col + 1), widths = 24)
-    wb$set_col_widths(sheet = sheet_name, cols = (panel_col + 2):(panel_col + 5), widths = 15)
+    wb$set_col_widths(sheet = sheet_name, cols = (panel_col + 2):(panel_col + 7), widths = 18)
     
     # 5. Hidden Baseline Backup Sheet (_Base_<sheet_name>)
     base_sheet_name <- substr(paste0("_Base_", sheet_name), 1, 31)
@@ -1942,6 +2019,10 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, temp
     if (nrow(panel_df) > 0) {
       wb$add_data(sheet = base_sheet_name, x = as.data.frame(t(panel_headers)), start_col = panel_col, start_row = 4, col_names = FALSE)
       wb$add_data(sheet = base_sheet_name, x = panel_df, start_col = panel_col, start_row = 5, col_names = FALSE)
+      for (pr in 5:(4 + nrow(panel_df))) {
+        form_str <- paste0("=ROUND(", base_area_col_let, pr, "*(1+", adj_col_let, pr, "), 2)")
+        wb$add_formula(sheet = base_sheet_name, x = form_str, dims = paste0(scen_area_col_let, pr))
+      }
     }
     
     dashboard_rows[[length(dashboard_rows) + 1]] <- data.frame(
@@ -1955,24 +2036,94 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, temp
     )
   }
   
-  # Populate Dashboard Sheet
   dash_df <- do.call(rbind, dashboard_rows)
   
-  # Title Block
+  # 6. Reference Sheet for Dropdowns (_LULC_List)
+  wb$add_worksheet("_LULC_List")
+  wb$set_sheet_visibility(sheet = "_LULC_List", value = "hidden")
+  
+  unique_classes <- sort(unique(as.character(lc_lookup_table$LC)))
+  if (length(unique_classes) == 0) unique_classes <- c("Class 1", "Class 2")
+  wb$add_data(sheet = "_LULC_List", x = unique_classes, start_col = 1, start_row = 1, col_names = FALSE)
+  
+  pu_options <- c("All Planning Units", sprintf("PU %s: %s", dash_df$PU_ID, dash_df$PU_Name))
+  wb$add_data(sheet = "_LULC_List", x = pu_options, start_col = 2, start_row = 1, col_names = FALSE)
+  
+  # 7. Populate Master Dashboard Sheet
+  # Title Block (Rows 2 & 3)
   wb$add_data(sheet = "Dashboard", x = "SCIENDO Land Use Change - Transition Probability Matrix (TPM) Scenario Builder", start_col = 2, start_row = 2)
   wb$add_font(sheet = "Dashboard", dims = "B2", size = 15, bold = TRUE, color = openxlsx2::wb_color(hex = "1E3A8A"))
-  wb$add_data(sheet = "Dashboard", x = "Consolidated Planning Units (PU) Scenario Workbook. Use buttons above or edit PU sheets directly.", start_col = 2, start_row = 3)
+  wb$add_data(sheet = "Dashboard", x = "Consolidated Planning Units (PU) Scenario Workbook", start_col = 2, start_row = 3)
   wb$add_font(sheet = "Dashboard", dims = "B3", size = 10, italic = TRUE, color = openxlsx2::wb_color(hex = "475569"))
   
-  # Dashboard Table Headers (Row 5)
-  dash_headers <- c("PU ID", "Planning Unit Name", "Navigation Link", "Active Interventions", "Validation Status", "Historical Transitions")
-  wb$add_data(sheet = "Dashboard", x = as.data.frame(t(dash_headers)), start_col = 2, start_row = 5, col_names = FALSE)
-  wb$add_fill(sheet = "Dashboard", dims = "B5:G5", color = openxlsx2::wb_color(hex = "1E3A8A"))
-  wb$add_font(sheet = "Dashboard", dims = "B5:G5", color = openxlsx2::wb_color("white"), bold = TRUE)
+  # Row 5: Action Toolbar space (height 32, buttons anchored in drawing1.xml)
+  wb$set_row_heights(sheet = "Dashboard", rows = 5, heights = 32)
   
-  # Dashboard Table Data (Rows 6 to 5 + K)
+  # Rows 7-10: Dedicated Dashboard-Embedded Policy Card
+  wb$set_row_heights(sheet = "Dashboard", rows = c(7, 8, 9, 10), heights = c(22, 25, 25, 20))
+  
+  # Card Header (Row 7)
+  wb$add_data(sheet = "Dashboard", x = "Batch Policy Across Planning Units", start_col = 2, start_row = 7)
+  wb$add_fill(sheet = "Dashboard", dims = "B7:G7", color = openxlsx2::wb_color(hex = "0F766E"))
+  wb$add_font(sheet = "Dashboard", dims = "B7:G7", size = 11, bold = TRUE, color = openxlsx2::wb_color("white"))
+  
+  # Card Body styling (Rows 8-10 across columns B to G)
+  wb$add_fill(sheet = "Dashboard", dims = "B8:G10", color = openxlsx2::wb_color(hex = "F8FAFC"))
+  
+  # Row 8: From Class & % Adjustment (and Apply Policy button in F8:G9)
+  wb$add_data(sheet = "Dashboard", x = "From Class:", start_col = 2, start_row = 8)
+  wb$add_font(sheet = "Dashboard", dims = "B8", bold = TRUE, color = openxlsx2::wb_color(hex = "334155"))
+  wb$add_data(sheet = "Dashboard", x = unique_classes[1], start_col = 3, start_row = 8)
+  
+  wb$add_data(sheet = "Dashboard", x = "% Adjustment:", start_col = 4, start_row = 8)
+  wb$add_font(sheet = "Dashboard", dims = "D8", bold = TRUE, color = openxlsx2::wb_color(hex = "334155"))
+  wb$add_data(sheet = "Dashboard", x = -0.50, start_col = 5, start_row = 8)
+  wb$add_numfmt(sheet = "Dashboard", dims = "E8", numfmt = "0.0%")
+  
+  # Row 9: To Class & Target PU
+  to_init <- if (length(unique_classes) > 1) unique_classes[2] else unique_classes[1]
+  wb$add_data(sheet = "Dashboard", x = "To Class:", start_col = 2, start_row = 9)
+  wb$add_font(sheet = "Dashboard", dims = "B9", bold = TRUE, color = openxlsx2::wb_color(hex = "334155"))
+  wb$add_data(sheet = "Dashboard", x = to_init, start_col = 3, start_row = 9)
+  
+  wb$add_data(sheet = "Dashboard", x = "Target PU:", start_col = 4, start_row = 9)
+  wb$add_font(sheet = "Dashboard", dims = "D9", bold = TRUE, color = openxlsx2::wb_color(hex = "334155"))
+  wb$add_data(sheet = "Dashboard", x = "All Planning Units", start_col = 5, start_row = 9)
+  
+  # Row 10: Instructions hint
+  wb$add_data(sheet = "Dashboard", x = "Instructions: Select From/To classes, specify % Adjustment, choose Target PU, and click Apply Policy.", start_col = 2, start_row = 10)
+  wb$add_font(sheet = "Dashboard", dims = "B10", size = 9, italic = TRUE, color = openxlsx2::wb_color(hex = "64748B"))
+  
+  # Attach native Excel Data Validation dropdowns to From Class, To Class, Target PU
+  wb$add_data_validation(
+    sheet = "Dashboard",
+    dims  = "C8",
+    type  = "list",
+    value = paste0("'_LULC_List'!$A$1:$A$", length(unique_classes))
+  )
+  wb$add_data_validation(
+    sheet = "Dashboard",
+    dims  = "C9",
+    type  = "list",
+    value = paste0("'_LULC_List'!$A$1:$A$", length(unique_classes))
+  )
+  wb$add_data_validation(
+    sheet = "Dashboard",
+    dims  = "E9",
+    type  = "list",
+    value = paste0("'_LULC_List'!$B$1:$B$", length(pu_options))
+  )
+  
+  # Row 12: Planning Unit Summary Table Headers
+  wb$set_row_heights(sheet = "Dashboard", rows = 12, heights = 24)
+  dash_headers <- c("PU ID", "Planning Unit Name", "Navigation Link", "Active Interventions", "Validation Status", "Historical Transitions")
+  wb$add_data(sheet = "Dashboard", x = as.data.frame(t(dash_headers)), start_col = 2, start_row = 12, col_names = FALSE)
+  wb$add_fill(sheet = "Dashboard", dims = "B12:G12", color = openxlsx2::wb_color(hex = "1E3A8A"))
+  wb$add_font(sheet = "Dashboard", dims = "B12:G12", color = openxlsx2::wb_color("white"), bold = TRUE)
+  
+  # Rows 13+: Planning Unit Summary Table Data
   for (i in seq_len(nrow(dash_df))) {
-    row_num <- 5 + i
+    row_num <- 12 + i
     wb$add_data(sheet = "Dashboard", x = dash_df$PU_ID[i], start_col = 2, start_row = row_num)
     wb$add_data(sheet = "Dashboard", x = dash_df$PU_Name[i], start_col = 3, start_row = row_num)
     
@@ -1989,11 +2140,11 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, temp
   }
   
   # Column widths for Dashboard
-  wb$set_col_widths(sheet = "Dashboard", cols = 2, widths = 10)
-  wb$set_col_widths(sheet = "Dashboard", cols = 3, widths = 30)
-  wb$set_col_widths(sheet = "Dashboard", cols = 4, widths = 32)
-  wb$set_col_widths(sheet = "Dashboard", cols = 5, widths = 20)
-  wb$set_col_widths(sheet = "Dashboard", cols = 6, widths = 20)
+  wb$set_col_widths(sheet = "Dashboard", cols = 2, widths = 14)
+  wb$set_col_widths(sheet = "Dashboard", cols = 3, widths = 28)
+  wb$set_col_widths(sheet = "Dashboard", cols = 4, widths = 26)
+  wb$set_col_widths(sheet = "Dashboard", cols = 5, widths = 22)
+  wb$set_col_widths(sheet = "Dashboard", cols = 6, widths = 18)
   wb$set_col_widths(sheet = "Dashboard", cols = 7, widths = 22)
   
   # Save workbook
