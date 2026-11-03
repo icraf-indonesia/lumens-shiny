@@ -387,7 +387,10 @@ server <- function(input, output, session) {
   #' @return TRUE if all inputs are valid, otherwise displays validation messages.
   validate_inputs <- reactive({
     if (input$analysis_mode == "historis") {
+      years <- suppressWarnings(as.numeric(c(input$year1, input$year2)))
       validate(
+        need(length(years) == 2 && all(is.finite(years)) && years[2] > years[1],
+             "Enter valid years with T2 later than T1."),
         need(rv$lulc_t1, "Please upload Land Use/Cover T1 file"),
         need(rv$lulc_t2, "Please upload Land Use/Cover T2 file"),
         need(rv$npv_table, "Please upload EAE Lookup Table")

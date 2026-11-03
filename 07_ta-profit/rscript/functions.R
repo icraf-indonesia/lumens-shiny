@@ -180,6 +180,11 @@ preprocess_data <- function(pathLULCT1, pathLULCT2, pathPU,
                             valueT1, valueT2,
                             puIsVector = FALSE) {
   
+  years <- suppressWarnings(as.numeric(c(valueT1, valueT2)))
+  if (length(years) != 2 || any(!is.finite(years)) || years[2] <= years[1]) {
+    stop("T1 and T2 must be valid years, and T2 must be later than T1.", call. = FALSE)
+  }
+
   # ---------- LULC T1 ----------
   LULCT1 <- terra::rast(pathLULCT1)
   LookupNPV <- read_lookup_file(pathLookupNPV)
@@ -289,6 +294,7 @@ preprocess_data <- function(pathLULCT1, pathLULCT2, pathPU,
     LookupCstock <- read_lookup_file(pathLookupCstock)
     LookupCstock <- LookupCstock %>% dplyr::select(ID = 1, LC = 2, Carbon = 3)
     LookupCstock[[1]] <- as.numeric(LookupCstock[[1]])
+    LookupCstock$Carbon <- suppressWarnings(as.numeric(LookupCstock$Carbon))
   } else {
     # Jika tidak ada input karbon, buat tabel dummy agar join tidak error
     LookupCstock <- data.frame(ID = 0, LC = "NoData", Carbon = 0)
@@ -305,11 +311,22 @@ preprocess_data <- function(pathLULCT1, pathLULCT2, pathPU,
       NPV1 = EAE_LC1 * Ha,
       NPV2 = EAE_LC2 * Ha,
       deltaNPV = NPV2 - NPV1,
-      LULCC = paste(LC1, "to", LC2),
-      # Jika C_T1/C_T2 NA (karena tidak ada file karbon), ganti dengan 0
-      C_T1 = ifelse(is.na(C_T1), 0, C_T1),
-      C_T2 = ifelse(is.na(C_T2), 0, C_T2)
+      LULCC = paste(LC1, "to", LC2)
     )
+
+  if (!is.null(pathLookupCstock)) {
+    missing_carbon <- unique(c(
+      as.character(combinedRasterTable$LC1[!is.finite(combinedRasterTable$C_T1)]),
+      as.character(combinedRasterTable$LC2[!is.finite(combinedRasterTable$C_T2)])
+    ))
+    if (length(missing_carbon) > 0) {
+      stop("Nilai karbon tidak tersedia atau tidak valid untuk kelas: ",
+           paste(sort(missing_carbon), collapse = ", "), call. = FALSE)
+    }
+  } else {
+    combinedRasterTable$C_T1 <- 0
+    combinedRasterTable$C_T2 <- 0
+  }
   
   total_area <- sum(combinedRasterTable$Ha, na.rm = TRUE)
   period <- as.numeric(valueT2) - as.numeric(valueT1)
@@ -356,6 +373,9 @@ generate_output_maps <- function(npv1_map, npv2_map, deltaNPV_map, npv_table, wd
 #' build_opcost_table(data$combinedRasterTable, data$period, data$total_area)
 #' @export
 build_opcost_table <- function(dt_quesc_npv, period, total_area) {
+  if (length(period) != 1 || !is.finite(period) || period <= 0) {
+    stop("The analysis period must be a positive number of years.", call. = FALSE)
+  }
   required_values <- dt_quesc_npv[c("C_T1", "C_T2", "Ha", "NPV1", "NPV2")]
   if (any(!vapply(required_values, function(x) all(is.finite(x)), logical(1)))) {
     stop("Opportunity cost inputs contain missing or non-finite values.")
@@ -385,13 +405,10 @@ build_opcost_table <- function(dt_quesc_npv, period, total_area) {
   opcost_tab_p <- opcost_tab[opcost_tab$opcost >= 0, ]
   opcost_tab_p <- opcost_tab_p[order(opcost_tab_p$opcost), ]
   opcost_tab_p$cum_emrate <- cumsum(opcost_tab_p$emrate)
-  opcost_tab_p$opcost_log <- log10(opcost_tab_p$opcost)
-  opcost_tab_p$opcost_log[is.infinite(opcost_tab_p$opcost_log)] <- NA_real_
   
   opcost_tab_n <- opcost_tab[opcost_tab$opcost < 0, ]
   opcost_tab_n <- opcost_tab_n[order(opcost_tab_n$opcost), ]
   opcost_tab_n$cum_emrate <- cumsum(opcost_tab_n$emrate)
-  opcost_tab_n$opcost_log <- log10(-1 * opcost_tab_n$opcost) * -1
   
   opcost_all <- rbind(opcost_tab_n, opcost_tab_p)
   opcost_all$cum_emrate2 <- as.factor(opcost_all$cum_emrate)
@@ -413,7 +430,6 @@ prepare_curve_data <- function(opcost_table) {
   df_curve <- data.frame(
     emission_rate = opcost_table$emrate,
     opportunity_cost = opcost_table$opcost,
-    log_opportunity_cost = opcost_table$opcost_log,
     land_use_change = opcost_table$luchg,
     planning_unit = opcost_table$zone,
     area = opcost_table$area,
@@ -444,14 +460,7 @@ build_grouped_data <- function(df_curve) {
       .groups = "drop"
     ) %>%
     mutate(opportunity_cost = ifelse(emissions_tco2 != 0, economic_change / emissions_tco2, NA_real_)) %>%
-    mutate(
-      opportunity_cost_log = case_when(
-        opportunity_cost > 0 ~ log10(abs(opportunity_cost)),
-        opportunity_cost < 0 ~ -log10(abs(opportunity_cost)),
-        TRUE ~ 0
-      )
-    ) %>%
-    arrange(opportunity_cost_log)
+    arrange(opportunity_cost)
   
   return(df_grouped)
 }
@@ -533,12 +542,17 @@ prepare_final_dataset <- function(df_split, df_pu_dominance) {
     mutate(
       hover_text = paste0(
         "Perubahan Lahan: ", land_use_change, "<br>",
-        "Abatement Cost: ", scales::comma(opportunity_cost), "<br>",
-        "Laju Emisi: ", scales::comma(emission_rate), "<br>",
+        "Abatement cost (berdasarkan EAE tahunan): ", scales::comma(opportunity_cost), "<br>",
+        "Laju perubahan stok karbon ternormalisasi: ", scales::comma(emission_rate), "<br>",
         "Unit Perencanaan Dominan: ", planning_unit, " (", scales::percent(pct_of_largest_pu, accuracy = 0.1), ")"
       )
     )
   return(df_s_final)
+}
+
+responsive_plot <- function(plot) {
+  plot$width <- "100%"
+  plot
 }
 
 #' Plot Abatement Cost Curve
@@ -559,7 +573,7 @@ plot_abatement_curve <- function(df_s_final, currency) {
   x_range <- c(x_limits[1], max_abs)
   
   # Calculate y-axis limits
-  y_limits <- range(c(0, df_s_final$opportunity_cost_log), na.rm = TRUE)
+  y_limits <- range(c(0, df_s_final$opportunity_cost), na.rm = TRUE)
   
   p <- ggplot(df_s_final) +
     # Add background for x < 0 (emissions/negative side)
@@ -575,13 +589,13 @@ plot_abatement_curve <- function(df_s_final, currency) {
       fill = "#e6f7e6", alpha = 0.8, inherit.aes = FALSE
     ) +
     geom_rect(aes(
-      xmin = xmin, xmax = xmax, ymin = 0, ymax = opportunity_cost_log,
+      xmin = xmin, xmax = xmax, ymin = 0, ymax = opportunity_cost,
       fill = land_use_change,
       text = hover_text
     ), color = "black") +
     labs(
       x = "Laju Emisi (ton CO<sub>2</sub>-eq/ha.tahun)",
-      y = paste0("Abatement Cost (", currency, "/year per ton CO<sub>2</sub>-eq)"),
+      y = paste0("Abatement cost (", currency, "/year per t CO<sub>2</sub>e)"),
       title = "Kurva Abatement Cost"
     ) +
     scale_x_continuous(
@@ -589,22 +603,19 @@ plot_abatement_curve <- function(df_s_final, currency) {
       labels = function(x) scales::comma(x, accuracy = 0.01)
     ) +
     scale_y_continuous(
-      breaks = function(x) floor(min(x)):ceiling(max(x)),
-      labels = function(x) {
-        values <- ifelse(x >= 0, 10^x, -10^abs(x))
-        ifelse(values == floor(values),
-               scales::comma(values, accuracy = 1),
-               scales::comma(values))
-      }
+      trans = scales::pseudo_log_trans(sigma = 1, base = 10),
+      labels = scales::label_comma()
     ) +
     theme_minimal() +
     theme(legend.position = "none")
   
   ggplotly(p, tooltip = "text") %>%
+    responsive_plot() %>%
     layout(
       hovermode = "x+y",
+      margin = list(l = 90),
       xaxis = list(showspikes = TRUE, spikemode = 'across', spikesnap = 'cursor', spikethickness = 0.8, spikecolor = 'grey'),
-      yaxis = list(showspikes = TRUE, spikemode = 'across', spikesnap = 'cursor', spikethickness = 0.8, spikecolor = 'grey')
+      yaxis = list(automargin = TRUE, showspikes = TRUE, spikemode = 'across', spikesnap = 'cursor', spikethickness = 0.8, spikecolor = 'grey')
       # hoverlabel = list(bgcolor = "white")
     ) %>%
     config(
@@ -853,16 +864,18 @@ create_lulcc_bar <- function(data, title = "Top 10 LULCC by ΔKeuntungan Usaha T
            negative = ifelse(Total_deltaNPV < 0, Total_deltaNPV, 0))
   
   plotly::plot_ly(data = data) %>%
+    responsive_plot() %>%
     add_bars(x = ~positive, y = ~LULCC, name = "Positive ΔKeuntungan Usaha Tani", 
              marker = list(color = "lightgreen"), orientation = "h") %>%
     add_bars(x = ~negative, y = ~LULCC, name = "Negative ΔKeuntungan Usaha Tani", 
              marker = list(color = "red"), orientation = "h") %>%
     layout(
       title = title,
-      xaxis = list(title = paste("ΔKeuntungan Usaha Tani (", currency, ")")),
+      xaxis = list(title = paste0("ΔEAE total (", currency, "/tahun)")),
       yaxis = list(title = "", categoryorder = "array", categoryarray = rev(levels(data$LULCC))),
       barmode = "relative",
-      margin = list(l = 150),
+      legend = list(orientation = "h", x = 0, y = -0.25, xanchor = "left", yanchor = "top"),
+      margin = list(l = 150, b = 120),
       hoverlabel = list(bgcolor = "white", font = list(color = "black"))
     )
 }
@@ -934,7 +947,7 @@ process_pu_data <- function(pu_data, pu_name, currency = "IDR") {
 process_unit <- function(df) {
   df_pos <- df %>%
     filter(emission_rate >= 0) %>%
-    arrange(opportunity_cost_log) %>%
+    arrange(opportunity_cost) %>%
     mutate(
       xmin = lag(cumsum(emission_rate), default = 0),
       xmax = cumsum(emission_rate)
@@ -942,7 +955,7 @@ process_unit <- function(df) {
   
   df_neg <- df %>%
     filter(emission_rate < 0) %>%
-    arrange(opportunity_cost_log) %>%
+    arrange(opportunity_cost) %>%
     mutate(
       xmax = lag(cumsum(emission_rate), default = 0),
       xmin = cumsum(emission_rate)
@@ -952,8 +965,8 @@ process_unit <- function(df) {
     mutate(
       hover_text = paste0(
         "Perubahan Lahan: ", land_use_change, "<br>",
-        "Abatement Cost: ", scales::comma(opportunity_cost), "<br>",
-        "Laju Emisi: ", scales::comma(emission_rate)
+        "Abatement cost (berdasarkan EAE tahunan): ", scales::comma(opportunity_cost), "<br>",
+        "Laju perubahan stok karbon ternormalisasi: ", scales::comma(emission_rate)
       )
     )
 }
@@ -970,15 +983,7 @@ process_unit <- function(df) {
 #' generate_plots_by_pu(curve_data, "IDR")
 #' @export
 generate_plots_by_pu <- function(df_curve, currency) {
-  df_pu <- df_curve %>%
-    filter(opportunity_cost != 0) %>%
-    mutate(
-      opportunity_cost_log = case_when(
-        opportunity_cost > 0 ~ log10(abs(opportunity_cost)),
-        opportunity_cost < 0 ~ -log10(abs(opportunity_cost)),
-        TRUE ~ 0
-      )
-    )
+  df_pu <- df_curve
   
   df_pu_processed <- df_pu %>%
     group_split(planning_unit) %>%
@@ -998,7 +1003,7 @@ generate_plots_by_pu <- function(df_curve, currency) {
       x_range <- c(x_limits[1], max_abs)
       
       # Calculate y-axis limits
-      y_limits <- range(c(0, .x$opportunity_cost_log), na.rm = TRUE)
+      y_limits <- range(c(0, .x$opportunity_cost), na.rm = TRUE)
       
       # Pastikan y_limits valid (tidak Inf)
       if (any(is.infinite(y_limits))) {
@@ -1020,36 +1025,33 @@ generate_plots_by_pu <- function(df_curve, currency) {
           fill = "#e6f7e6", alpha = 0.8, inherit.aes = FALSE
         ) +
         geom_rect(aes(
-          xmin = xmin, xmax = xmax, ymin = 0, ymax = opportunity_cost_log,
+          xmin = xmin, xmax = xmax, ymin = 0, ymax = opportunity_cost,
           fill = land_use_change,
           text = hover_text
         ), color = "black") +
         labs(
-          x = "Laju Emisi (ton CO<sub>2</sub>-eq/ha/tahun)",
-          y = paste0("Abatement Cost (", currency, "/year per ton CO<sub>2</sub>-eq)"),
-          title = paste("Kurva Abatement Cost -", pu_title)
+          x = "Laju karbon (t CO<sub>2</sub>e/ha/tahun)",
+          y = paste0("Abatement cost (", currency, "/year per t CO<sub>2</sub>e)"),
+          title = paste("Kurva abatement cost -", pu_title)
         ) +
         scale_x_continuous(
           breaks = function(x) pretty(x, n = 6),
           labels = function(x) scales::comma(x, accuracy = 0.01)
         ) +
         scale_y_continuous(
-          breaks = function(x) floor(min(x)):ceiling(max(x)),
-          labels = function(x) {
-            values <- ifelse(x >= 0, 10^x, -10^abs(x))
-            ifelse(values == floor(values),
-                   scales::comma(values, accuracy = 1),
-                   scales::comma(values))
-          }
+          trans = scales::pseudo_log_trans(sigma = 1, base = 10),
+          labels = scales::label_comma()
         ) +
         theme_minimal() +
         theme(legend.position = "none")
       
       ggplotly(p, tooltip = "text") %>%
+        responsive_plot() %>%
         layout(
           hovermode = "x+y",
+          margin = list(l = 90),
           xaxis = list(showspikes = TRUE, spikemode = 'across', spikesnap = 'cursor', spikethickness = 0.8, spikecolor = 'grey'),
-          yaxis = list(showspikes = TRUE, spikemode = 'across', spikesnap = 'cursor', spikethickness = 0.8, spikecolor = 'grey')
+          yaxis = list(automargin = TRUE, showspikes = TRUE, spikemode = 'across', spikesnap = 'cursor', spikethickness = 0.8, spikecolor = 'grey')
         ) %>%
         config(
           displaylogo = FALSE,
@@ -1122,7 +1124,7 @@ generate_plots_by_pu <- function(df_curve, currency) {
 prepare_curve_positions <- function(df) {
   
   df %>%
-    arrange(opportunity_cost_log) %>%
+    arrange(opportunity_cost) %>%
     mutate(
       xmin = lag(
         cumsum(width),
@@ -1149,7 +1151,7 @@ plot_emission_curve <- function(df, currency){
         xmin = xmin,
         xmax = xmax,
         ymin = 0,
-        ymax = opportunity_cost_log,
+        ymax = opportunity_cost,
         fill = land_use_change,
         text = hover_text
       ),
@@ -1157,28 +1159,14 @@ plot_emission_curve <- function(df, currency){
     ) +
     
     labs(
-      title = "Emission Cost Curve",
-      x = "Emission Rate (ton CO₂-eq/ha/year)",
-      y = paste0(
-        "Abatement Cost (",
-        currency,
-        "/year per ton CO₂-eq)"
-      )
+      title = "Abatement cost curve - carbon-stock loss",
+      x = "Carbon loss (t CO<sub>2</sub>e/ha/year)",
+      y = paste0("Abatement cost (", currency, "/year per t CO<sub>2</sub>e)")
     ) +
     
     scale_y_continuous(
-      breaks = function(x)
-        floor(min(x)):ceiling(max(x)),
-      labels = function(x){
-        
-        values <- ifelse(
-          x >= 0,
-          10^x,
-          -10^abs(x)
-        )
-        
-        scales::comma(values)
-      }
+      trans = scales::pseudo_log_trans(sigma = 1, base = 10),
+      labels = scales::label_comma()
     ) +
     
     theme_minimal() +
@@ -1189,7 +1177,7 @@ plot_emission_curve <- function(df, currency){
   ggplotly(
     p,
     tooltip = "text"
-  )
+  ) %>% responsive_plot() %>% layout(yaxis = list(automargin = TRUE), margin = list(l = 90))
 }
 
 plot_sequestration_curve <- function(df, currency){
@@ -1208,7 +1196,7 @@ plot_sequestration_curve <- function(df, currency){
         xmin = xmin,
         xmax = xmax,
         ymin = 0,
-        ymax = opportunity_cost_log,
+        ymax = opportunity_cost,
         fill = land_use_change,
         text = hover_text
       ),
@@ -1216,28 +1204,14 @@ plot_sequestration_curve <- function(df, currency){
     ) +
     
     labs(
-      title = "Sequestration Cost Curve",
-      x = "Sequestration Rate (ton CO₂-eq/ha/year)",
-      y = paste0(
-        "Abatement Cost (",
-        currency,
-        "/year per ton CO₂-eq)"
-      )
+      title = "Abatement cost curve - carbon-stock increase",
+      x = "Carbon gain (t CO<sub>2</sub>e/ha/year)",
+      y = paste0("Abatement cost (", currency, "/year per t CO<sub>2</sub>e)")
     ) +
     
     scale_y_continuous(
-      breaks = function(x)
-        floor(min(x)):ceiling(max(x)),
-      labels = function(x){
-        
-        values <- ifelse(
-          x >= 0,
-          10^x,
-          -10^abs(x)
-        )
-        
-        scales::comma(values)
-      }
+      trans = scales::pseudo_log_trans(sigma = 1, base = 10),
+      labels = scales::label_comma()
     ) +
     
     theme_minimal() +
@@ -1248,7 +1222,7 @@ plot_sequestration_curve <- function(df, currency){
   ggplotly(
     p,
     tooltip = "text"
-  )
+  ) %>% responsive_plot() %>% layout(yaxis = list(automargin = TRUE), margin = list(l = 90))
 }
 
 generate_abatement_outputs <- function(opcost_table, currency) {
