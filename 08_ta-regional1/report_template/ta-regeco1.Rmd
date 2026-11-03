@@ -347,42 +347,52 @@ tags$div(style = "height:30px;")
 ```
 
 ```{r, contribution-table, echo=FALSE, warning=FALSE, message=FALSE}
-# ---- Siapkan nama kolom dinamis (TANPA kata Triliun) ----
-col_pdrb  <- paste0("PDRB (", params$unit, ")")
-col_out   <- paste0("Output Total (", params$unit, ")")
-col_fd    <- paste0("Permintaan Akhir (", params$unit, ")")
-
-# 1. Siapkan data kontribusi
+# 1. Siapkan data kontribusi (Sama seperti sebelumnya)
 gdp_contribution <- gdp_baseline %>%
   mutate(
-    GDP_num = as.numeric(GDP), # Simpan sebagai angka untuk hitung persentase
+    GDP_num    = as.numeric(GDP),
     OUTPUT_num = as.numeric(OUTPUT),
-    FD_num = as.numeric(FD)
+    FD_num     = as.numeric(FD)
   ) %>%
   arrange(desc(GDP_num)) %>%
   mutate(
     PERCENTAGE = GDP_num / sum(GDP_num, na.rm = TRUE) * 100,
-    RANK = row_number(),
-    # FORMAT DINAMIS: Ubah untuk tampilan
-    PDRB_FMT = format_dinamis(GDP_num),
-    OUT_FMT = format_dinamis(OUTPUT_num),
-    FD_FMT = format_dinamis(FD_num)
-  )
-
-# 2. Join dengan data sector
-sector_ref <- sector %>%
-  select(SECTOR = Nama_Sektor, Constrained) %>%
+    RANK       = row_number(),
+    PDRB_FMT   = format_dinamis(GDP_num),
+    OUT_FMT    = format_dinamis(OUTPUT_num),
+    FD_FMT     = format_dinamis(FD_num)
+  ) %>%
+  left_join(
+    sector %>% select(SECTOR = Nama_Sektor, Constrained),
+    by = "SECTOR"
+  ) %>%
   mutate(`Sektor Berbasis Lahan` = ifelse(Constrained == 1, "Ya", "Tidak"))
 
-# 3. Gabungkan dan susun urutan kolom
+# 2. Buat kolom BARU untuk visualisasi bar (HTML div)
+# Kita ambil nilai persentase tertinggi untuk skala maksimum
+max_pct <- max(gdp_contribution$PERCENTAGE, na.rm = TRUE)
+
+gdp_contribution$`Kontribusi (%)` <- paste0(
+  "<div style='display: flex; align-items: center; gap: 8px;'>",
+  "  <div style='flex: 1; background-color: #eee; height: 12px; border-radius: 2px;'>",
+  "    <div style='width: ", round(gdp_contribution$PERCENTAGE / max_pct * 100, 1), "%; background-color: #A8DADC; height: 100%; border-radius: 2px;'></div>",
+  "  </div>",
+  "  <span style='font-size: 12px;'>", sprintf("%.2f", gdp_contribution$PERCENTAGE), "%</span>",
+  "</div>"
+)
+
+# 3. Susun urutan kolom
+col_pdrb  <- paste0("PDRB (", params$unit, ")")
+col_out   <- paste0("Output Total (", params$unit, ")")
+col_fd    <- paste0("Permintaan Akhir (", params$unit, ")")
+
 gdp_contribution <- gdp_contribution %>%
-  left_join(sector_ref, by = "SECTOR") %>%
   select(
     Peringkat = RANK,
     Sektor = SECTOR,
     `Sektor Berbasis Lahan`,
     !!col_pdrb := PDRB_FMT,
-    `Kontribusi (%)` = PERCENTAGE,
+    `Kontribusi (%)`, # Ini sekarang berisi HTML bar
     !!col_out := OUT_FMT,
     !!col_fd := FD_FMT
   )
@@ -391,6 +401,7 @@ gdp_contribution <- gdp_contribution %>%
 DT::datatable(
   gdp_contribution,
   rownames   = FALSE,
+  escape     = FALSE, # <-- WAJIB FALSE agar HTML bar dirender
   caption    = "Kontribusi PDRB Seluruh Sektor",
   extensions = "Buttons",
   options    = list(
@@ -401,17 +412,6 @@ DT::datatable(
     order      = list(list(4, "desc"))
   )
 ) %>%
-  # 5. Format kolom persentase (yang masih numerik)
-  DT::formatRound("Kontribusi (%)", digits = 2) %>%
-  DT::formatStyle(
-    "Kontribusi (%)",
-    background         = DT::styleColorBar(
-      gdp_contribution$`Kontribusi (%)`, "#A8DADC"
-    ),
-    backgroundSize     = "100% 90%",
-    backgroundRepeat   = "no-repeat",
-    backgroundPosition = "center"
-  ) %>%
   DT::formatStyle(
     "Sektor Berbasis Lahan",
     color = DT::styleEqual(c("Ya", "Tidak"), c("#2E7D32", "#757575")),
