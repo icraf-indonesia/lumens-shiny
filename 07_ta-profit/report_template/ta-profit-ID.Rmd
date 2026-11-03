@@ -104,7 +104,7 @@ Analisis dilakukan dalam tiga tahap:
 
 2.	**Emisi dan sekuestrasi**. Selisih stok karbon antara tutupan lahan awal (T1) dan akhir (T2) dikonversi menjadi emisi atau sekuestrasi CO₂-eq (faktor 3,67).
 
-3.	**Trade-off melalui abatement cost**. Abatement cost (biaya pengurangan emisi, `r params$currency`/ton CO₂-eq) menyatakan keuntungan yang dikorbankan untuk menurunkan satu ton CO₂-eq. Nilai ini dibandingkan dengan harga karbon untuk mengetahui berapa keuntungan ekonomi yang harus dikorbankan untuk menurunkan emisi, Nilai ini mendukung pengambilan keputusan terhadap tujuan ekonomi dan penurunan emisi.
+3.	**Trade-off melalui abatement cost**. Abatement cost (biaya pengurangan emisi, `r params$currency`/tahun per ton CO₂-eq) menyatakan keuntungan yang dikorbankan untuk menurunkan satu ton CO₂-eq. Perbandingan langsung dengan harga karbon memerlukan penyetaraan periode terlebih dahulu.
 
 4.  **Total Keuntungan Usaha Tani**
 
@@ -146,7 +146,9 @@ Nominal interest rate yang digunakan adalah suku bunga kredit bank umum untuk mo
 
 ### Abatement Cost
 
-Abatement Cost adalah besarnya keuntungan ekonomi yang dikorbankan untuk menurunkan satu ton CO₂-eq emisi akibat perubahan penggunaan lahan, dibandingkan kondisi dasar (baseline). Satuannya `r params$currency`/ton CO₂-eq. Nilai ini juga disebut biaya peluang (opportunity cost) pengurangan emisi.
+Pada hasil ini, pembilang biaya peluang adalah perubahan EAE tahunan dan penyebutnya adalah perubahan stok karbon total. Karena itu, satuan hasil adalah `r params$currency`/tahun per ton CO₂-eq. Nilai ini belum disetarakan dengan harga karbon per ton dan tidak boleh dibandingkan langsung tanpa metode penyetaraan periode yang sesuai.
+
+Abatement Cost adalah besarnya keuntungan ekonomi yang dikorbankan untuk menurunkan satu ton CO₂-eq emisi akibat perubahan penggunaan lahan, dibandingkan kondisi dasar (baseline). Satuannya `r params$currency`/tahun per ton CO₂-eq. Nilai ini juga disebut biaya peluang (opportunity cost) pengurangan emisi.
 
 Dalam konteks ekonomi lingkungan dan perubahan penggunaan lahan, abatement cost sering digunakan untuk menghitung:
 
@@ -154,14 +156,11 @@ Dalam konteks ekonomi lingkungan dan perubahan penggunaan lahan, abatement cost 
 
 •	trade-off antara keuntungan ekonomi dan penurunan emisi, 
 
-Kurva biaya pengurangan emisi (abatement cost) menunjukkan perbandingan biaya peluang dari berbagai jenis perubahan penggunaan lahan dalam `r params$currency` per ton CO₂-eq dan menunjukkan kuantitas potensi pengurangan emisi per jenis perubahan penggunaan lahan, satuan yang digunakan adalah `r params$currency`/ton CO₂-eq. Kurva biaya pengurangan emisi (abatement cost) tidak menentukan siapa yang harus dibayar, tetapi memberikan perkiraan biaya peluang rata-rata dan marginal dari pengurangan emisi. Rumus untuk menghitung biaya peluang dalam `r params$currency`/ton CO₂-eq adalah:
+Kurva biaya pengurangan emisi (abatement cost) menunjukkan perbandingan biaya peluang dari berbagai jenis perubahan penggunaan lahan dalam `r params$currency` per tahun per ton CO₂-eq dan menunjukkan kuantitas potensi pengurangan emisi per jenis perubahan penggunaan lahan, satuan yang digunakan adalah `r params$currency`/tahun per ton CO₂-eq. Kurva biaya pengurangan emisi (abatement cost) tidak menentukan siapa yang harus dibayar, tetapi memberikan perkiraan biaya peluang rata-rata dan marginal dari pengurangan emisi. Rumus untuk menghitung biaya peluang dalam `r params$currency`/tahun per ton CO₂-eq adalah:
 
 $$
 \frac{EAE_{T2} - EAE_{T1}}
 {3.67 \left( C_{stok,T1} - C_{stok,T2} \right)}
-=
-\frac{\text{Opportunity Cost}}
-{\text{Additional Carbon Stock}}
 $$
 Keterangan:
 
@@ -178,7 +177,7 @@ Sumbu X adalah abatement potential (ton CO₂-eq/tahun), dan sumbu Y adalah besa
 
 1. Nilai abatement cost positif dan abatement potential positif: Kuadran 1
 
-Kondisi yang memerlukan trade off analysis karena semakin tinggi abatement cost maka semakin kurang visible untuk project carbon, jika semakin rendah abatement cost maka semakin kurang layak untuk proyek karbon (layak bila abatement cost lebih rendah dari harga karbon).
+Kondisi ini menunjukkan perubahan lahan yang meningkatkan keuntungan sekaligus menurunkan stok karbon. Perbandingan dengan harga karbon memerlukan penyetaraan periode.
 
 2. Nilai abatement cost positif dan abatement potential negatif: Kuadran 2
 

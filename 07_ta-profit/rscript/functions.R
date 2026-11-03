@@ -356,14 +356,19 @@ generate_output_maps <- function(npv1_map, npv2_map, deltaNPV_map, npv_table, wd
 #' build_opcost_table(data$combinedRasterTable, data$period, data$total_area)
 #' @export
 build_opcost_table <- function(dt_quesc_npv, period, total_area) {
+  required_values <- dt_quesc_npv[c("C_T1", "C_T2", "Ha", "NPV1", "NPV2")]
+  if (any(!vapply(required_values, function(x) all(is.finite(x)), logical(1)))) {
+    stop("Opportunity cost inputs contain missing or non-finite values.")
+  }
   
   data_em_sel <- dt_quesc_npv
   
   data_em_sel <- data_em_sel %>%
     mutate(
       em_rate = ((C_T1 - C_T2) * (Ha * 3.67)) / (total_area * period),
-      em_tot  = (C_T1 - C_T2) * 3.67,
-      opcost  = ifelse(em_tot != 0, (NPV2 - NPV1) / em_tot, NA)
+      economic_change = NPV2 - NPV1,
+      em_tot = (C_T1 - C_T2) * Ha * 3.67,
+      opcost = ifelse(em_tot != 0, economic_change / em_tot, NA_real_)
     )
   
   opcost_tab <- data.frame(
@@ -371,7 +376,9 @@ build_opcost_table <- function(dt_quesc_npv, period, total_area) {
     zone = data_em_sel$PU,
     opcost = data_em_sel$opcost,
     emrate = data_em_sel$em_rate,
-    area = data_em_sel$Ha
+    area = data_em_sel$Ha,
+    economic_change = data_em_sel$economic_change,
+    emissions_tco2 = data_em_sel$em_tot
   ) %>%
     filter(!is.nan(opcost), !is.na(opcost))
   
@@ -379,8 +386,7 @@ build_opcost_table <- function(dt_quesc_npv, period, total_area) {
   opcost_tab_p <- opcost_tab_p[order(opcost_tab_p$opcost), ]
   opcost_tab_p$cum_emrate <- cumsum(opcost_tab_p$emrate)
   opcost_tab_p$opcost_log <- log10(opcost_tab_p$opcost)
-  is.na(opcost_tab_p) <- sapply(opcost_tab_p, is.infinite)
-  opcost_tab_p[is.na(opcost_tab_p)] <- 0
+  opcost_tab_p$opcost_log[is.infinite(opcost_tab_p$opcost_log)] <- NA_real_
   
   opcost_tab_n <- opcost_tab[opcost_tab$opcost < 0, ]
   opcost_tab_n <- opcost_tab_n[order(opcost_tab_n$opcost), ]
@@ -410,7 +416,9 @@ prepare_curve_data <- function(opcost_table) {
     log_opportunity_cost = opcost_table$opcost_log,
     land_use_change = opcost_table$luchg,
     planning_unit = opcost_table$zone,
-    area = opcost_table$area
+    area = opcost_table$area,
+    economic_change = opcost_table$economic_change,
+    emissions_tco2 = opcost_table$emissions_tco2
   )
   return(df_curve)
 }
@@ -426,20 +434,19 @@ prepare_curve_data <- function(opcost_table) {
 #' build_grouped_data(curve_data)
 #' @export
 build_grouped_data <- function(df_curve) {
-  print("Column names in df_curve:")
-  print(colnames(df_curve))
-  
   df_grouped <- df_curve %>%
-    group_by(land_use_change) %>% 
+    mutate(carbon_direction = sign(emissions_tco2)) %>%
+    group_by(land_use_change, carbon_direction) %>%
     summarise(
       emission_rate = sum(emission_rate),
-      opportunity_cost = sum(opportunity_cost),
+      economic_change = sum(economic_change),
+      emissions_tco2 = sum(emissions_tco2),
       .groups = "drop"
     ) %>%
-    filter(opportunity_cost != 0) %>%
+    mutate(opportunity_cost = ifelse(emissions_tco2 != 0, economic_change / emissions_tco2, NA_real_)) %>%
     mutate(
       opportunity_cost_log = case_when(
-        opportunity_cost > 0 ~ log10(opportunity_cost),
+        opportunity_cost > 0 ~ log10(abs(opportunity_cost)),
         opportunity_cost < 0 ~ -log10(abs(opportunity_cost)),
         TRUE ~ 0
       )
@@ -493,16 +500,17 @@ split_emission_direction <- function(df_s) {
 #' @export
 calculate_pu_dominance <- function(df_curve) {
   df_pu_dominance <- df_curve %>%
-    group_by(land_use_change, planning_unit) %>%
+    mutate(carbon_direction = sign(emissions_tco2)) %>%
+    group_by(land_use_change, carbon_direction, planning_unit) %>%
     summarise(total_area = sum(area), .groups = "drop") %>%
-    group_by(land_use_change) %>%
+    group_by(land_use_change, carbon_direction) %>%
     mutate(
       land_use_total_area = sum(total_area),
       pct_of_largest_pu = total_area / land_use_total_area
     ) %>%
     slice_max(total_area, n = 1, with_ties = FALSE) %>%
     ungroup() %>%
-    select(land_use_change, planning_unit, pct_of_largest_pu)
+    select(land_use_change, carbon_direction, planning_unit, pct_of_largest_pu)
   
   return(df_pu_dominance)
 }
@@ -521,7 +529,7 @@ calculate_pu_dominance <- function(df_curve) {
 #' @export
 prepare_final_dataset <- function(df_split, df_pu_dominance) {
   df_s_final <- df_split %>%
-    left_join(df_pu_dominance, by = "land_use_change") %>%
+    left_join(df_pu_dominance, by = c("land_use_change", "carbon_direction")) %>%
     mutate(
       hover_text = paste0(
         "Perubahan Lahan: ", land_use_change, "<br>",
@@ -573,7 +581,7 @@ plot_abatement_curve <- function(df_s_final, currency) {
     ), color = "black") +
     labs(
       x = "Laju Emisi (ton CO<sub>2</sub>-eq/ha.tahun)",
-      y = paste0("Abatement Cost (", currency, "/ton CO<sub>2</sub>-eq)"),
+      y = paste0("Abatement Cost (", currency, "/year per ton CO<sub>2</sub>-eq)"),
       title = "Kurva Abatement Cost"
     ) +
     scale_x_continuous(
@@ -966,7 +974,7 @@ generate_plots_by_pu <- function(df_curve, currency) {
     filter(opportunity_cost != 0) %>%
     mutate(
       opportunity_cost_log = case_when(
-        opportunity_cost > 0 ~ log10(opportunity_cost),
+        opportunity_cost > 0 ~ log10(abs(opportunity_cost)),
         opportunity_cost < 0 ~ -log10(abs(opportunity_cost)),
         TRUE ~ 0
       )
@@ -1018,7 +1026,7 @@ generate_plots_by_pu <- function(df_curve, currency) {
         ), color = "black") +
         labs(
           x = "Laju Emisi (ton CO<sub>2</sub>-eq/ha/tahun)",
-          y = paste0("Abatement Cost (", currency, "/ton CO<sub>2</sub>-eq)"),
+          y = paste0("Abatement Cost (", currency, "/year per ton CO<sub>2</sub>-eq)"),
           title = paste("Kurva Abatement Cost -", pu_title)
         ) +
         scale_x_continuous(
@@ -1154,7 +1162,7 @@ plot_emission_curve <- function(df, currency){
       y = paste0(
         "Abatement Cost (",
         currency,
-        "/ton CO₂-eq)"
+        "/year per ton CO₂-eq)"
       )
     ) +
     
@@ -1213,7 +1221,7 @@ plot_sequestration_curve <- function(df, currency){
       y = paste0(
         "Abatement Cost (",
         currency,
-        "/ton CO₂-eq)"
+        "/year per ton CO₂-eq)"
       )
     ) +
     
@@ -1372,7 +1380,7 @@ generate_report_params <- function(data, maps, paths, times, output_dir, pu_outp
         `Perubahan Penggunaan Lahan` = LULCC,
         `Laju Emisi (ton CO2-eq/ha/tahun)` = em_rate,
         `Total Emisi (ton CO2-eq)` = em_tot,
-        `Biaya Peluang (IDR/ton CO2-eq)` = opcost
+        !!paste0("Biaya Peluang (", currency, "/tahun per ton CO2-eq)") := opcost
       )
   } else {
     # SKENARIO B: Tidak ada file karbon (Pilih kolom esensial saja)
