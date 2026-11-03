@@ -88,6 +88,28 @@ test_that('report export and chart receive corrected values', {
   expect_s3_class(result$emission_plot, 'plotly')
   expect_s3_class(result$sequestration_plot, 'plotly')
   text <- unlist(lapply(result$emission_plot$x$data, function(trace) trace$text))
-  expect_true(any(grepl('Abatement Cost: 5', text, fixed = TRUE)))
+  expect_true(any(grepl('Abatement cost (berdasarkan EAE tahunan): 5', text, fixed = TRUE)))
 })
 
+
+test_that('the Bungo rubber and open-land example occupies quadrants 3 and 4', {
+  lookup <- read.csv('../../../data/table/profitability_table_bungo.csv')
+  open_land <- lookup[lookup$LC == 'Open Land', ]
+  rubber <- lookup[lookup$LC == 'Rubber Monoculture', ]
+  expect_equal(nrow(open_land), 1)
+  expect_equal(nrow(rubber), 1)
+  transitions <- data.frame(
+    LULCC = c('Open to rubber', 'Rubber to open'),
+    PU = c('Example', 'Example'), Ha = c(1, 1),
+    C_T1 = c(open_land$CARBON, rubber$CARBON),
+    C_T2 = c(rubber$CARBON, open_land$CARBON),
+    NPV1 = c(open_land$EAE, rubber$EAE),
+    NPV2 = c(rubber$EAE, open_land$EAE)
+  )
+  output <- build_opcost_table(transitions, 10, 2)$data_em_sel
+  expect_lt(output$em_tot[1], 0)
+  expect_lt(output$opcost[1], 0)
+  expect_gt(output$em_tot[2], 0)
+  expect_lt(output$opcost[2], 0)
+  expect_equal(output$opcost, rep(-23.56599836438916, 2))
+})

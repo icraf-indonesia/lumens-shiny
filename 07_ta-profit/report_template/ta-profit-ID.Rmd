@@ -104,7 +104,7 @@ Analisis dilakukan dalam tiga tahap:
 
 2.	**Emisi dan sekuestrasi**. Selisih stok karbon antara tutupan lahan awal (T1) dan akhir (T2) dikonversi menjadi emisi atau sekuestrasi CO₂-eq (faktor 3,67).
 
-3.	**Trade-off melalui abatement cost**. Abatement cost (biaya pengurangan emisi, `r params$currency`/tahun per ton CO₂-eq) menyatakan keuntungan yang dikorbankan untuk menurunkan satu ton CO₂-eq. Perbandingan langsung dengan harga karbon memerlukan penyetaraan periode terlebih dahulu.
+3.	**Trade-off melalui abatement cost**. Abatement cost (biaya pengurangan emisi, `r params$currency`/tahun per ton CO₂-eq) menyatakan keuntungan yang dikorbankan untuk menurunkan satu ton CO₂-eq. Interpretasi dan perbandingan dengan harga karbon perlu memperhatikan periode dan satuan yang digunakan.
 
 4.  **Total Keuntungan Usaha Tani**
 
@@ -122,7 +122,7 @@ Keterangan:
 - $i$ = Tingkat suku bunga riil (faktor diskonto)
 - $t$ = Tahun ke-1, 2, 3, ..., $n$ selama periode analisis
 
-Sedangkan Net Present Value (NPV) merupakan keuntungan atau pendapatan bersih saat ini yang didapat dari selisih antara penerimaan dengan biaya selama periode tertentu. NPV adalah penerimaan yang terdiskonto, dalam perhitungannya menggunakan faktor diskonto karena menormalkan nilai keuntungan di masa depan ke masa kini. Suatu kegiatan dikatakan memiliki manfaat dan layak dijalankan bila NPV > 0. Rumus NPV adalah:  
+Sedangkan Net Present Value (NPV) merupakan keuntungan atau pendapatan bersih saat ini yang didapat dari selisih antara penerimaan dengan biaya selama periode tertentu. NPV adalah penerimaan yang terdiskonto, dalam perhitungannya menggunakan faktor diskonto karena menormalkan nilai keuntungan di masa depan ke masa kini. Suatu kegiatan dikatakan memiliki manfaat dan layak dijalankan bila NPV > 0. Rumus NPV adalah:
 
 $$
 NPV = \sum_{t=0}^{n}
@@ -142,19 +142,19 @@ i = \frac{1 + \text{Nominal Interest Rate}}
 {1 + \text{Inflation Rate}} - 1
 $$
 
-Nominal interest rate yang digunakan adalah suku bunga kredit bank umum untuk modal kerja, sedangkan inflation rate adalah tingkat inflasi tahunan. Asumsi harga input-output, suku bunga riil, dan tingkat inflasi tahunan yang digunakan adalah nilai dari tahun `r params$eae_year` baik untuk perhitungan T1 `r params$year1` maupun T2 `r params$year2`. Asumsi makro yang digunakan adalah data 10 tahun terakhir.
+Nilai EAE yang digunakan berasal dari tabel profitabilitas yang disediakan untuk tahun `r params$eae_year`. Sumber, periode, harga, tingkat diskonto, dan asumsi lain mengikuti data yang digunakan untuk menyusun tabel tersebut.
 
 ### Abatement Cost
 
-Pada hasil ini, pembilang biaya peluang adalah perubahan EAE tahunan dan penyebutnya adalah perubahan stok karbon total. Karena itu, satuan hasil adalah `r params$currency`/tahun per ton CO₂-eq. Nilai ini belum disetarakan dengan harga karbon per ton dan tidak boleh dibandingkan langsung tanpa metode penyetaraan periode yang sesuai.
+Pada hasil ini, pembilang biaya peluang adalah perubahan EAE tahunan dan penyebutnya adalah perubahan stok karbon total. Karena itu, satuan hasil adalah `r params$currency`/tahun per ton CO₂-eq. Dalam ABACUS SP, biaya peluang dapat dibandingkan dengan ambang harga karbon untuk menilai potensi pengurangan emisi. Pada hasil LUMENS ini, periode dan satuan perlu diperhatikan sebelum melakukan perbandingan tersebut karena pembilang menggunakan EAE tahunan.
 
 Abatement Cost adalah besarnya keuntungan ekonomi yang dikorbankan untuk menurunkan satu ton CO₂-eq emisi akibat perubahan penggunaan lahan, dibandingkan kondisi dasar (baseline). Satuannya `r params$currency`/tahun per ton CO₂-eq. Nilai ini juga disebut biaya peluang (opportunity cost) pengurangan emisi.
 
 Dalam konteks ekonomi lingkungan dan perubahan penggunaan lahan, abatement cost sering digunakan untuk menghitung:
 
-•	biaya pengurangan emisi, 
+•	biaya pengurangan emisi,
 
-•	trade-off antara keuntungan ekonomi dan penurunan emisi, 
+•	trade-off antara keuntungan ekonomi dan penurunan emisi,
 
 Kurva biaya pengurangan emisi (abatement cost) menunjukkan perbandingan biaya peluang dari berbagai jenis perubahan penggunaan lahan dalam `r params$currency` per tahun per ton CO₂-eq dan menunjukkan kuantitas potensi pengurangan emisi per jenis perubahan penggunaan lahan, satuan yang digunakan adalah `r params$currency`/tahun per ton CO₂-eq. Kurva biaya pengurangan emisi (abatement cost) tidak menentukan siapa yang harus dibayar, tetapi memberikan perkiraan biaya peluang rata-rata dan marginal dari pengurangan emisi. Rumus untuk menghitung biaya peluang dalam `r params$currency`/tahun per ton CO₂-eq adalah:
 
@@ -169,27 +169,14 @@ Keterangan:
 - $C_{stok,T1}$ = Stok karbon pada tutupan lahan T1
 - $C_{stok,T2}$ = Stok karbon pada tutupan lahan T2
 
-Berikut contoh kurva abatement cost yang memiliki 4 kuadran:
+Pada kurva gabungan per unit perencanaan, sumbu horizontal menunjukkan laju perubahan stok karbon yang dinormalisasi terhadap luas lanskap. Nilai positif menunjukkan kehilangan stok karbon, sedangkan nilai negatif menunjukkan kenaikan stok karbon. Sumbu vertikal menunjukkan abatement cost. Lebar balok menunjukkan besarnya laju perubahan stok karbon, bukan luas lahan yang tersedia untuk tindakan di masa depan. Empat kombinasi dapat dibaca sebagai berikut:
 
-![](img/acc figure.png)
+1. **Kuadran 1, kehilangan karbon dan biaya positif.** Transisi meningkatkan EAE dan mengurangi stok karbon. Menghindari transisi ini mengorbankan keuntungan yang diperkirakan.
+2. **Kuadran 2, kenaikan karbon dan biaya positif.** Transisi meningkatkan stok karbon dan menurunkan EAE. Biaya positif mencerminkan keuntungan yang dikorbankan.
+3. **Kuadran 3, kenaikan karbon dan biaya negatif.** Transisi meningkatkan stok karbon dan EAE.
+4. **Kuadran 4, kehilangan karbon dan biaya negatif.** Transisi menurunkan stok karbon dan EAE. Menghindarinya dapat mempertahankan karbon sekaligus menghindari penurunan keuntungan yang diperkirakan.
 
-Sumbu X adalah abatement potential (ton CO₂-eq/tahun), dan sumbu Y adalah besarnya potensi pengurangan emisi per tahun (Semakin lebar balok, menandakan semakin besar kontribusi penurunan emisinya). Terdapat 4 kondisi yang akan disertakan contoh kasus untuk kempat hal ini:
-
-1. Nilai abatement cost positif dan abatement potential positif: Kuadran 1
-
-Kondisi ini menunjukkan perubahan lahan yang meningkatkan keuntungan sekaligus menurunkan stok karbon. Perbandingan dengan harga karbon memerlukan penyetaraan periode.
-
-2. Nilai abatement cost positif dan abatement potential negatif: Kuadran 2
-
-Kondisi sequestrasi untuk carbon.
-
-3. Nilai abatement cost negatif dan abatement potential positif: Kuadran 3
-
-Biaya negatif, potensi positif: perubahan lahan menurunkan keuntungan sekaligus stok karbon, sehingga mencegahnya adalah win-win (no-regret mitigation). Contoh karet monokultur → lahan terbuka, −`r params$currency` 23,56/ton CO₂-eq.
-
-4. Nilai abatement cost negatif dan abatement potential negatif: Kuadran 4
-
-Biaya negatif, potensi negatif: perubahan lahan menaikkan keuntungan sekaligus stok karbon (win-win). Contoh Bungo: karet monokultur → kebun campur, −`r params$currency` 17,39/ton CO₂-eq.
+Kurva emisi dan sekuestrasi terpisah menampilkan besaran laju masing-masing sebagai nilai positif pada sumbu horizontal. Sumbu abatement cost menggunakan skala pseudo-logaritmik yang mempertahankan nilai positif, negatif, dan nol. Nilai biaya didasarkan pada EAE tahunan.
 
 ## Cara Kerja Analisis
 Alur kerja analisis melibatkan beberapa langkah kunci:
@@ -226,7 +213,7 @@ fill_scale <- ggplot2::scale_fill_manual(
 lc1_map <- ggplot() +
   tidyterra::geom_spatraster(data = params$LULCT1) +
   fill_scale +
-  guides(fill = guide_legend(ncol = 2, byrow = TRUE)) + 
+  guides(fill = guide_legend(ncol = 2, byrow = TRUE)) +
   theme_bw() +
   theme(
     axis.title = element_blank(),
@@ -268,8 +255,8 @@ fill_scale <- ggplot2::scale_fill_manual(
 
 lc2_map <- ggplot() +
   tidyterra::geom_spatraster(data = params$LULCT2) +
-  fill_scale + 
-  guides(fill = guide_legend(ncol = 2, byrow = TRUE)) + 
+  fill_scale +
+  guides(fill = guide_legend(ncol = 2, byrow = TRUE)) +
   theme_bw() +
   theme(
     axis.title = element_blank(),
@@ -311,8 +298,8 @@ fill_scale <- ggplot2::scale_fill_manual(
 
 pu_map <- ggplot() +
   tidyterra::geom_spatraster(data = params$PU) +
-  fill_scale + 
-  guides(fill = guide_legend(ncol = 2, byrow = TRUE)) + 
+  fill_scale +
+  guides(fill = guide_legend(ncol = 2, byrow = TRUE)) +
   theme_bw() +
   theme(
     axis.title = element_blank(),
@@ -333,10 +320,10 @@ pu_map
 
 ```{r pu-lookup-tab, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
 if (!is.null(params$pu_table_path) && file.exists(params$pu_table_path)) {
-  
+
   # Cetak judul tab secara manual jika menggunakan raster
   cat("### Tabel Acuan Unit Perencanaan\n\n")
-  
+
   # Tampilkan datatable
   print(
     datatable(
@@ -378,32 +365,32 @@ npv_tbl <- read_lookup_file(params$npv_file_path) |>
 
 # CEK APAKAH ADA FILE KARBON
 if (params$has_cstock) {
-  
+
   # Baca karbon secara general:
   # Ambil kolom 1 (ID), kolom 2 (LC), dan kolom 3 (apapun namanya)
   carbon_raw <- read_lookup_file(params$cstock_table_path)
-  
+
   if (ncol(carbon_raw) < 3) {
   stop("File tabel karbon harus memiliki minimal 3 kolom: ID, LC, dan Nilai Karbon.")
 }
-  
+
   carbon_tbl <- carbon_raw |>
     # Ambil 3 kolom pertama, lalu rename kolom ke-3 menjadi "CARBON"
     dplyr::select(ID = 1, LC = 2, CARBON = 3)
-  
+
   npv_carbon_tbl <- npv_tbl |>
     dplyr::left_join(carbon_tbl, by = "LC") |>
     dplyr::mutate(
-      CARBON = ifelse(is.na(CARBON), 0, CARBON)
+      CARBON = as.numeric(CARBON)
     ) |>
     dplyr::rename(
       `Tutupan Lahan` = LC,
       !!glue("EAE ({params$currency}/Ha/tahun)") := EAE,
       `Karbon (ton C/ha)` = CARBON
     )
-    
+
 } else {
-  
+
   # Jika tidak ada file karbon: Hanya tampilkan tabel EAE
   npv_carbon_tbl <- npv_tbl |>
     dplyr::rename(
@@ -459,7 +446,7 @@ params$total_table %>%
   DT::datatable()
 ```
 
-Tabel ini mengakomodir informasi jika terdapat perubahan luasan lahan pada setiap tutupan lahan diantara T1 (`r params$year1`) dengan T2 (`r params$year2`). Perubahan luasan lahan tersebut mempengaruhi besaran total EAE. **Asumsi harga input-output, suku bunga riil, dan tingkat inflasi tahunan yang digunakan adalah nilai dari tahun `r params$eae_year`**. baik untuk perhitungan T1 `r params$year1` maupun T2 `r params$year2`. Perbedaan luasan setiap tutupan lahan antara T1 dan T2 disajikan pada tabel dibawah ini:
+Tabel ini mengakomodir informasi jika terdapat perubahan luasan lahan pada setiap tutupan lahan diantara T1 (`r params$year1`) dengan T2 (`r params$year2`). Perubahan luasan lahan tersebut mempengaruhi besaran total EAE. Nilai EAE untuk kedua peta menggunakan tabel profitabilitas yang disediakan untuk tahun `r params$eae_year`. Perbedaan luasan setiap tutupan lahan antara T1 dan T2 disajikan pada tabel dibawah ini:
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 eae_area_summary <- params$npv1_table %>%
@@ -502,7 +489,7 @@ eae_area_summary %>%
 ```
 
 ## Keuntungan Usaha Tani untuk Tahun `r params$year1` {.tabset}
-Bagian ini menyajikan sepuluh kategori tutupan lahan dengan total EAE tertinggi pada tahun `r params$year1`. EAE mewakili indikator keuntungan bersih suatu tutupan lahan yang ekuivalen dengan rataan NPV per tahun yang terdiskonto. EAE untuk tahun T1: `r params$year1` merupakan hasil perhitungan yang didapat dari asumsi biaya input-output, suku bunga riil, dan tingkat inflasi tahunan dari tahun `r params$eae_year`.
+Bagian ini menyajikan sepuluh kategori tutupan lahan dengan total EAE tertinggi pada tahun `r params$year1`. EAE mewakili indikator keuntungan bersih suatu tutupan lahan yang ekuivalen dengan rataan NPV per tahun yang terdiskonto. EAE untuk tahun T1: `r params$year1` menggunakan tabel profitabilitas yang disediakan untuk tahun `r params$eae_year`.
 
 ### Grafik
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
@@ -526,17 +513,17 @@ mapview(
 ### Tabel
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 fluidRow(
-  column(6, 
+  column(6,
     div(class = "card text-white bg-success mb-3", style = "max-width: 100%;",
         div(class = "card-header", "Total Luas Area Kajian"),
-        div(class = "card-body", 
+        div(class = "card-body",
             h4(class = "card-title", paste0(scales::label_comma()(total_luas_area), " Ha")))
     )
   ),
-  column(6, 
+  column(6,
     div(class = "card text-white bg-primary mb-3", style = "max-width: 100%;",
         div(class = "card-header", "Total Keuntungan Usaha Tani T1"),
-        div(class = "card-body", 
+        div(class = "card-body",
             h4(class = "card-title", paste0(params$currency, " ", scales::label_comma()(total_untung_t1))))
     )
   )
@@ -570,7 +557,7 @@ params$npv1_table %>%
 ```
 
 ## Keuntungan Usaha Tani untuk Tahun `r params$year2` {.tabset}
-Bagian ini menyajikan sepuluh kategori tutupan lahan dengan total EAE tertinggi pada tahun `r params$year2` EAE mewakili indikator keuntungan bersih suatu tutupan lahan yang ekuivalen dengan rataan NPV per tahun yang terdiskonto. EAE untuk tahun T2: `r params$year2` merupakan hasil perhitungan yang didapat dari asumsi biaya input-output, suku bunga riil, dan tingkat inflasi tahunan dari tahun `r params$eae_year`. 
+Bagian ini menyajikan sepuluh kategori tutupan lahan dengan total EAE tertinggi pada tahun `r params$year2` EAE mewakili indikator keuntungan bersih suatu tutupan lahan yang ekuivalen dengan rataan NPV per tahun yang terdiskonto. EAE untuk tahun T2: `r params$year2` menggunakan tabel profitabilitas yang disediakan untuk tahun `r params$eae_year`.
 
 ### Grafik
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
@@ -582,7 +569,7 @@ params$npv2_chart
 r2 <- shrink_raster(params$npv2_map)
 
 mapview(
-  r1,
+  r2,
   maxpixels = terra::ncell(r2),   # jangan di-resample lagi
   na.color = "transparent",
   layer.name = "EAE T2",
@@ -594,17 +581,17 @@ mapview(
 ### Tabel
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 fluidRow(
-  column(6, 
+  column(6,
     div(class = "card text-white bg-success mb-3", style = "max-width: 100%;",
         div(class = "card-header", "Total Luas Area Kajian"),
-        div(class = "card-body", 
+        div(class = "card-body",
             h4(class = "card-title", paste0(scales::label_comma()(total_luas_area), " Ha")))
     )
   ),
-  column(6, 
+  column(6,
     div(class = "card text-white bg-primary mb-3", style = "max-width: 100%;",
         div(class = "card-header", "Total Keuntungan Usaha Tani T2"),
-        div(class = "card-body", 
+        div(class = "card-body",
             h4(class = "card-title", paste0(params$currency, " ", scales::label_comma()(total_untung_t2))))
     )
   )
@@ -725,22 +712,22 @@ render_child_pu <- function(results_list, pu_name, currency) {
   env$pu_name <- pu_name
   env$currency <- currency
   env$easy_to_read_numbers <- easy_to_read_numbers
-  
+
   # Cek apakah PU ini memiliki nilai EAE (T1 atau T2) yang valid
   total_vals <- as.data.frame(results_list[[pu_name]][['total_values']])
   has_valid_eae <- any(total_vals$Nilai != 0, na.rm = TRUE)
-  
+
   # Cek apakah data grafik benar-benar tersedia
   has_lulcc_bar <- !is.null(results_list[[pu_name]][['lulcc_bar']]) && has_valid_eae
   has_lc1_bar   <- !is.null(results_list[[pu_name]][['lc1_bar']]) && has_valid_eae
   has_lc2_bar   <- !is.null(results_list[[pu_name]][['lc2_bar']]) && has_valid_eae
   has_abatement <- !is.null(params$abatement_pu_plots[[pu_name]])
-  
+
   # Inisialisasi list konten dengan Tab Utama
   child_content <- c(
     paste0("### ", pu_name, " {.tabset}")
   )
-  
+
   # 1. Tambahkan Tab ΔEAE
   if (has_lulcc_bar) {
     child_content <- c(child_content,
@@ -752,7 +739,7 @@ render_child_pu <- function(results_list, pu_name, currency) {
       "```"
     )
   }
-  
+
   # 2. Tambahkan Tab Tabel Nilai Total
   if (has_valid_eae) {
     child_content <- c(child_content,
@@ -781,7 +768,7 @@ render_child_pu <- function(results_list, pu_name, currency) {
       "```"
     )
   }
-  
+
   # 3. Tambahkan Tab EAE LC1
   if (has_lc1_bar) {
     child_content <- c(child_content,
@@ -793,7 +780,7 @@ render_child_pu <- function(results_list, pu_name, currency) {
       "```"
     )
   }
-  
+
   # 4. Tambahkan Tab EAE LC2
   if (has_lc2_bar) {
     child_content <- c(child_content,
@@ -805,7 +792,7 @@ render_child_pu <- function(results_list, pu_name, currency) {
       "```"
     )
   }
-  
+
   # 5. Tambahkan Tab Seluruh Transisi LULCC (Selalu ditampilkan)
   child_content <- c(child_content,
     "",
@@ -840,7 +827,7 @@ render_child_pu <- function(results_list, pu_name, currency) {
     "  )",
     "```"
   )
-  
+
   # 6. Tambahkan Tab Kurva Abatement
   if (has_abatement && params$has_cstock) {
     child_content <- c(child_content,
@@ -852,14 +839,14 @@ render_child_pu <- function(results_list, pu_name, currency) {
       "```"
     )
   }
-  
+
   # Knit the child document
   res <- knitr::knit_child(
     text = child_content,
     envir = env,
     quiet = TRUE
   )
-  
+
   cat(res, sep = "\n")
 }
 
@@ -875,13 +862,7 @@ Hasil analisis menekankan pentingnya mempertimbangkan aspek keuangan dalam peren
 
 **Profitabilitas**. Nilai Equal Annual Equivalent (EAE) menunjukkan tutupan lahan yang paling menguntungkan pada tahun awal (T1) dan akhir (T2), sedangkan ΔEAE menunjukkan perubahan keuntungan akibat perubahan tutupan lahan. Total ΔEAE lanskap dan per unit perencanaan menunjukkan di mana keuntungan meningkat atau menurun.
 
-**Trade-off keuntungan dan emisi**. Abatement cost menyatakan keuntungan yang dikorbankan untuk setiap ton CO₂-eq yang dihindari. Kurva abatement cost mengurutkan perubahan lahan dari yang paling murah sampai paling mahal untuk dikurangi emisinya, dan lebar balok menunjukkan besar potensi pengurangan emisinya. Hasilnya dibaca menurut kuadran:
-
-- **Kuadran 1 (biaya positif, emisi)**: perubahan lahan menambah keuntungan tetapi melepas karbon. Transisi dengan abatement cost rendah dan potensi besar adalah prioritas untuk dikendalikan karena pengorbanan keuntungannya kecil.
-
-- **Kuadran 2 (biaya positif, sekuestrasi)**: penambahan stok karbon membutuhkan pengorbanan keuntungan.
-
-- **Kuadran 3 dan 4 (biaya negatif)**: perubahan lahan menurunkan emisi atau mencegahnya tanpa mengorbankan keuntungan (win-win), sehingga dapat didahulukan.
+**Trade-off keuntungan dan karbon**. Kurva abatement cost membandingkan perubahan EAE dengan perubahan stok karbon. Kurva emisi dan sekuestrasi disajikan secara terpisah. Kurva gabungan per unit perencanaan menunjukkan empat kombinasi arah perubahan karbon dan tanda biaya sebagaimana dijelaskan pada bagian Abatement Cost.
 
 <div style="font-size: 10pt;">
 
