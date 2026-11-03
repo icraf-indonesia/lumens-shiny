@@ -127,39 +127,49 @@ datatable(df_lc)
 
 ```{r lu projected maps, echo=FALSE, fig.keep='all', results='asis'}
 list_luc <- params$inputs$output_dir %>% 
-  list.files(full.names = TRUE, pattern = "^landscape\\d+\\.tif$")
+  list.files(full.names = TRUE, pattern = '^landscape\\d+\\.tif$')
 
-# Sort files numerically by their year number
-list_luc <- list_luc[order(as.numeric(stringr::str_extract(basename(list_luc), "\\d+")))]
+lc_tbl_path <- params$inputs$lc_lookup_table_path
+lc_tbl_ext  <- tolower(tools::file_ext(lc_tbl_path))
+all_names   <- c('ID', 'Category', 'color_palette')
 
+lc_table <- if (lc_tbl_ext %in% c('xlsx', 'xls')) {
+  as.data.frame(openxlsx::read.xlsx(lc_tbl_path, startRow = 2, colNames = FALSE))
+} else {
+  as.data.frame(readr::read_csv(lc_tbl_path, skip = 1, col_names = FALSE, show_col_types = FALSE))
+}
+names(lc_table) <- all_names[seq_len(ncol(lc_table))]
+
+list_luc <- list_luc[order(as.numeric(stringr::str_extract(basename(list_luc), '\\d+')))]
 rst_list <- list()
-counter <- 0
 
-for(i in list_luc){
-  r <- i %>% rast() %>%
-    add_legend_to_categorical_raster(., lookup_table = df_lc)
-  rst_list[[i]] <- r
-  counter <- counter + 1
-  
-  # Extract year from filename (pattern: landscapeYYYY.tif)
-  year <- stringr::str_extract(basename(i), "\\d{4}")
-  
-  cat(paste0("### Projected land cover in ", year, " \n\n"))
+for(i in seq_along(list_luc)){
+  file_path <- list_luc[i]
+  r <- rast(file_path)
+  rst_list[[file_path]] <- r
+  year <- stringr::str_extract(basename(file_path), '\\d{4}')
+  if(is.na(year)) year <- stringr::str_extract(basename(file_path), '\\d+')
+  lyr_title <- paste0('Landscape ', year)
+
+  cat(paste0('### Projected Land Cover in ', year, ' \n\n'))
+  child_env <- new.env()
+  child_env$r <- r
+  child_env$lc_table <- lc_table
+  child_env$year <- year
+  child_env$plot_categorical_raster_mapview <- plot_categorical_raster_mapview
+
   cat(
-    knitr::knit_child(
-      text = c(
-        "```{r}",
-        "#| echo: false",
-        "#| message: false",
-        "#| warning: false",
-        "r %>% plot_categorical_raster()",
-        "```"
-      ), quiet = TRUE
-    ), sep = "\n"
+  knitr::knit_child(
+    text = c(
+      '```{r, echo=FALSE, message=FALSE, warning=FALSE, out.width="100%", out.height="500px"}',
+      'plot_categorical_raster_mapview(r, lc_table, lyr_title)',
+      '```'
+    ),
+    envir = child_env,
+    quiet = TRUE
+  ), sep = '\n'
   )
-  
-  cat('\n')
-  
+  cat('\n\n')
 }
 ```
 
@@ -168,14 +178,28 @@ for(i in list_luc){
 ```{r lut change, echo=FALSE, message=FALSE, warning=FALSE}
 # Calculate freq table
 lc_dir <- params$inputs$output_dir
-lc_freq_table <- multiple_lc_freq_combined(lc_dir, df_lc, PU = "NO")
+init_yr <- if (!is.null(params$inputs$initial_year) && !is.na(params$inputs$initial_year) && nzchar(as.character(params$inputs$initial_year))) {
+  as.character(params$inputs$initial_year)
+} else {
+  detected_yr <- stringr::str_extract(basename(params$inputs$lc_t1_path), "\\d{4}")
+  if (!is.na(detected_yr) && nzchar(detected_yr)) detected_yr else "Initial"
+}
+
+lc_freq_table <- multiple_lc_freq_combined(
+  lc_dir,
+  df_lc,
+  PU = "NO",
+  initial_raster = lc_t1,
+  initial_year = init_yr
+)
 
 # Export csv
 ref_subset <- df_lc[, 1:2]
 colnames(ref_subset) <- c("ID", "Landcover")
 
 lc_freq_table_raw <- merge(ref_subset, lc_freq_table, by = "Landcover", all.y = TRUE)
-lc_freq_table_export <- lc_freq_table_raw[, c("ID", "Landcover", setdiff(names(lc_freq_table_raw), c("ID", "Landcover")))]
+proj_cols <- setdiff(names(lc_freq_table), "Landcover")
+lc_freq_table_export <- lc_freq_table_raw[, c("ID", "Landcover", proj_cols)]
 lc_freq_table_export <- lc_freq_table_export[order(lc_freq_table_export$ID), ]
 
 write.table(lc_freq_table_export,
@@ -188,7 +212,7 @@ write.table(lc_freq_table_export,
 
 ### Projected Land Use/Cover Area Chart
 ```{r Stacked Area Chart, echo=FALSE, message=FALSE, warning=FALSE}
-plot_interactive_stacked_area(lc_freq_table_export)
+plot_interactive_stacked_area(lc_freq_table_export, cat_table = df_lc)
 ```
 
 ### Projected Land Use/Cover Area Lookup Table
@@ -200,7 +224,7 @@ DT::datatable(lc_freq_table) %>%
 ## Land Use/Cover Change Lookup Table at the Planning Unit Level {.tabset}
 
 ```{r child_document, echo=FALSE, message=FALSE, warning=FALSE, fig.keep='all', results='asis'}
-all_freq_pu_list <- multiple_lc_freq_combined(lc_dir, df_lc, PU = "YES", zone = zone, split = "YES")
+all_freq_pu_list <- multiple_lc_freq_combined(lc_dir, df_lc, PU = "YES", zone = zone, split = "YES", initial_raster = lc_t1, initial_year = init_yr)
 zone_df <- params$inputs$zone_lookup_table
 
 # create expandable sections for each zone

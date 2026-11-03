@@ -190,14 +190,28 @@ for(i in seq_along(list_luc)){
 ```{r lut change, echo=FALSE, message=FALSE, warning=FALSE}
 # Calculate freq table
 lc_dir <- params$inputs$output_dir
-lc_freq_table <- multiple_lc_freq_combined(lc_dir, df_lc, PU = "NO")
+init_yr <- if (!is.null(params$inputs$initial_year) && !is.na(params$inputs$initial_year) && nzchar(as.character(params$inputs$initial_year))) {
+  as.character(params$inputs$initial_year)
+} else {
+  detected_yr <- stringr::str_extract(basename(params$inputs$lc_t1_path), "\\d{4}")
+  if (!is.na(detected_yr) && nzchar(detected_yr)) detected_yr else "Initial"
+}
+
+lc_freq_table <- multiple_lc_freq_combined(
+  lc_dir,
+  df_lc,
+  PU = "NO",
+  initial_raster = lc_t1,
+  initial_year = init_yr
+)
 
 # Export csv
 ref_subset <- df_lc[, 1:2]
 colnames(ref_subset) <- c("ID", "Landcover")
 
 lc_freq_table_raw <- merge(ref_subset, lc_freq_table, by = "Landcover", all.y = TRUE)
-lc_freq_table_export <- lc_freq_table_raw[, c("ID", "Landcover", setdiff(names(lc_freq_table_raw), c("ID", "Landcover")))]
+proj_cols <- setdiff(names(lc_freq_table), "Landcover")
+lc_freq_table_export <- lc_freq_table_raw[, c("ID", "Landcover", proj_cols)]
 lc_freq_table_export <- lc_freq_table_export[order(lc_freq_table_export$ID), ]
 
 write.table(lc_freq_table_export,
@@ -210,7 +224,7 @@ write.table(lc_freq_table_export,
 
 ### Grafik Luas Tutupan/Penggunaan Lahan Terproyeksi
 ```{r Stacked Area Chart, echo=FALSE, message=FALSE, warning=FALSE}
-plot_interactive_stacked_area(lc_freq_table_export)
+plot_interactive_stacked_area(lc_freq_table_export, cat_table = df_lc)
 ```
 
 ### Tabel Proyeksi Luas Tutupan/Penggunaan Lahan
@@ -235,7 +249,7 @@ DT::datatable(
 ## Tabel Proyeksi Perubahan Tutupan/Penggunaan Lahan pada Tingkat Unit Perencanaan {.tabset}
 
 ```{r child_document, echo=FALSE, message=FALSE, warning=FALSE, fig.keep='all', results='asis'}
-all_freq_pu_list <- multiple_lc_freq_combined(lc_dir, df_lc, PU = "YES", zone = zone, split = "YES")
+all_freq_pu_list <- multiple_lc_freq_combined(lc_dir, df_lc, PU = "YES", zone = zone, split = "YES", initial_raster = lc_t1, initial_year = init_yr)
 zone_df <- params$inputs$zone_lookup_table
 
 # create expandable sections for each zone

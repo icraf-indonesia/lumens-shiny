@@ -231,28 +231,20 @@ BASEMAP_PROVIDERS <- list(
     url = EOX_TILE_URL,
     attribution = EOX_ATTRIBUTION,
     maxZoom = 18
-  ),
-  osm = list(
-    id = "osm",
-    name = "Peta Jalan",
-    sublabel = "OpenStreetMap",
-    url = "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-    attribution = "&copy; OpenStreetMap contributors",
-    maxZoom = 19
   )
 )
 
-#' Interactive Categorical Raster Map with EOX Cloudless 2025 & OSM
+#' Interactive Categorical Raster Map with EOX Cloudless 2025 Satellite Basemap
 #'
 #' Builds an interactive mapview / leaflet map for a categorical raster,
-#' applying custom or predefined colors, layers control, and extent reset.
+#' applying custom or predefined colors, layer checklist control, and extent reset.
 #'
 #' @param cat_raster A `SpatRaster` object.
 #' @param cat_table A data frame with at least two columns: ID and Category.
 #' @param layer_title Character string for the layer name in mapview and legend.
-#' @return A `mapview` object with an added legend and basemap layers.
+#' @return A `mapview` object with an added legend and satellite basemap.
 #' @importFrom mapview mapview
-#' @importFrom leaflet colorFactor addLegend clearTiles addTiles addLayersControl addEasyButton easyButton JS
+#' @importFrom leaflet colorFactor addLegend clearTiles addTiles addLayersControl addEasyButton easyButton JS fitBounds
 #' @export
 plot_categorical_raster_mapview <- function(cat_raster, cat_table,
                                             layer_title = "Layer") {
@@ -299,52 +291,57 @@ plot_categorical_raster_mapview <- function(cat_raster, cat_table,
     map_colors <- cat_tbl_filtered$color_palette
   } else {
     if (nrow(cat_tbl_filtered) > length(predefined_colors)) {
-      warning("Not enough predefined colors for all categories. Colors will be recycled.")
+      map_colors <- grDevices::colorRampPalette(predefined_colors)(nrow(cat_tbl_filtered))
+    } else {
+      map_colors <- predefined_colors[1:nrow(cat_tbl_filtered)]
     }
-    map_colors <- predefined_colors[1:nrow(cat_tbl_filtered)]
   }
   
   color_table <- data.frame(value = reclass_to, color = map_colors)
   coltab(cat_factor) <- color_table
   
-  # Calculate initial bounds in EPSG:4326 for reset button
+  # Calculate initial bounds in EPSG:4326 for reset button & fitBounds
   initial_bb <- tryCatch({
-    e <- terra::ext(cat_raster)
-    poly_sf <- sf::st_as_sfc(sf::st_bbox(c(xmin = e$xmin, ymin = e$ymin, xmax = e$xmax, ymax = e$ymax),
-                                          crs = sf::st_crs(cat_raster)))
+    poly_sf <- sf::st_as_sfc(sf::st_bbox(cat_raster))
     poly_4326 <- sf::st_transform(poly_sf, 4326)
     sf::st_bbox(poly_4326)
   }, error = function(e) NULL)
   
-  map_result <- mapview::mapview(
-    cat_factor,
-    zcol       = "Category",
-    maxpixels  = ncell(cat_factor),
-    layer.name = layer_title,
-    na.color   = "transparent",
-    legend     = FALSE,
-    map.types  = "OpenStreetMap"
-  )
-  
-  pal <- leaflet::colorFactor(palette = color_table$color, domain = levels_df$Category)
-  
-  # Configure EOX Cloudless 2025 as default and OSM as secondary base tiles
-  leaflet_map <- map_result@map %>%
-    leaflet::clearTiles() %>%
+  # Initialize base map with EOX Satellite tiles FIRST so raster renders ON TOP
+  m_base <- leaflet::leaflet() %>%
     leaflet::addTiles(
       urlTemplate = BASEMAP_PROVIDERS$eox$url,
       attribution = BASEMAP_PROVIDERS$eox$attribution,
       group       = BASEMAP_PROVIDERS$eox$name,
       options     = leaflet::tileOptions(maxZoom = BASEMAP_PROVIDERS$eox$maxZoom)
-    ) %>%
-    leaflet::addTiles(
-      urlTemplate = BASEMAP_PROVIDERS$osm$url,
-      attribution = BASEMAP_PROVIDERS$osm$attribution,
-      group       = BASEMAP_PROVIDERS$osm$name,
-      options     = leaflet::tileOptions(maxZoom = BASEMAP_PROVIDERS$osm$maxZoom)
-    ) %>%
+    )
+  
+  map_result <- mapview::mapview(
+    cat_factor,
+    map        = m_base,
+    zcol       = "Category",
+    maxpixels  = ncell(cat_factor),
+    layer.name = layer_title,
+    na.color   = "transparent",
+    legend     = FALSE
+  )
+  
+  pal <- leaflet::colorFactor(palette = color_table$color, domain = levels_df$Category)
+  leaflet_map <- map_result@map
+  
+  if (!is.null(initial_bb)) {
+    leaflet_map <- leaflet_map %>%
+      leaflet::fitBounds(
+        lng1 = unname(initial_bb$xmin),
+        lat1 = unname(initial_bb$ymin),
+        lng2 = unname(initial_bb$xmax),
+        lat2 = unname(initial_bb$ymax)
+      )
+  }
+  
+  leaflet_map <- leaflet_map %>%
     leaflet::addLayersControl(
-      baseGroups = c(BASEMAP_PROVIDERS$eox$name, BASEMAP_PROVIDERS$osm$name),
+      baseGroups = BASEMAP_PROVIDERS$eox$name,
       overlayGroups = layer_title,
       options = leaflet::layersControlOptions(collapsed = FALSE)
     ) %>%
@@ -373,6 +370,7 @@ plot_categorical_raster_mapview <- function(cat_raster, cat_table,
   map_result@map <- leaflet_map
   map_result
 }
+
 
 #'
 #' @export

@@ -41,9 +41,20 @@ ui <- fluidPage(
       numericInput("init_year",
                    label = label_with_help("Initial Year", "init_year"),
                    value = 2025),
-      fileInput("mapz_file",
-                label = label_with_help("Planning Unit Map", "mapz_file"),
-                accept = c("image/tiff"), placeholder = "Upload raster file (.tif)"),
+      radioButtons("zone_type", label = label_with_help("Planning Unit Input Type", "zone_type"),
+                   choices = c("Raster" = "raster", "Shapefiles" = "shapefile"), inline = TRUE),
+      conditionalPanel(
+        condition = "input.zone_type == 'shapefile'",
+        fileInput("mapz_file",
+                  label = label_with_help("Planning Unit", "mapz_file"),
+                  accept = c(".shp", ".dbf", ".sbn", ".sbx", ".shx", ".prj"),
+                  multiple = TRUE,
+                  placeholder = "All related shapefiles (.shp, .dbf, .prj, .shx)")
+      ),
+      conditionalPanel(
+        condition = "input.zone_type == 'raster'",
+        fileInput("mapz_file", label = label_with_help("Planning Unit Map", "mapz_file"), accept = c("image/tiff"), placeholder = "Upload raster file (.tif)")
+      ),
       fileInput("lc_file",
                 label = label_with_help("Land Use/Cover Lookup Table", "lc_file"),
                 accept = c(".csv", ".xlsx"), placeholder = "Upload table file (.csv/.xlsx)"),
@@ -412,10 +423,104 @@ server <- function(input, output, session) {
   
   observeEvent(input$mapz_file, {
     mapz <- input$mapz_file
-    if(is.null(mapz))
-      return()
+    if (is.null(mapz)) return()
     
-    rv$mapz_file <- rename_uploaded_file(mapz)
+    if (is.null(input$zone_type) || input$zone_type == "raster") {
+      rv$mapz_file <- rename_uploaded_file(mapz)
+    } else {
+      # Check if map1_file is uploaded first
+      if (is.null(rv$map1_file)) {
+        showModal(modalDialog(
+          title = "Peta Tutupan Lahan Awal Belum Diunggah",
+          div(
+            p("Silakan unggah peta tutupan lahan awal (T1) terlebih dahulu sebelum mengunggah berkas Shapefile unit perencanaan."),
+            p("Peta awal diperlukan sebagai acuan batas spasial (extent) dan resolusi sel untuk merasterisasi shapefile.")
+          ),
+          easyClose = TRUE,
+          footer = modalButton("Tutup")
+        ))
+        showNotification(
+          "Silakan unggah peta tutupan lahan awal (T1) terlebih dahulu untuk menentukan batas dan resolusi rasterisasi shapefile.",
+          type = "error",
+          duration = 10
+        )
+        return()
+      }
+      
+      # Check if all shapefile components are present
+      has_shp <- any(grepl("\\.shp$", mapz$name, ignore.case = TRUE))
+      has_shx <- any(grepl("\\.shx$", mapz$name, ignore.case = TRUE))
+      has_dbf <- any(grepl("\\.dbf$", mapz$name, ignore.case = TRUE))
+      has_prj <- any(grepl("\\.prj$", mapz$name, ignore.case = TRUE))
+      
+      if (!has_shp || !has_shx || !has_dbf || !has_prj) {
+        showNotification(
+          "Please upload all shapefile components (.shp, .shx, .dbf, .prj)",
+          type = "error",
+          duration = 8
+        )
+        return()
+      }
+      
+      shp <- mapz
+      prev_wd <- getwd()
+      uploaded_dir <- dirname(shp$datapath[1])
+      setwd(uploaded_dir)
+      for (i in 1:nrow(shp)) {
+        file.rename(shp$datapath[i], shp$name[i])
+      }
+      setwd(prev_wd)
+      
+      shp_path <- paste(uploaded_dir, shp$name[grep(pattern="*\\.shp$", shp$name, ignore.case = TRUE)][1], sep = "/")
+      zone_sf <- tryCatch({
+        sf::st_read(shp_path, quiet = TRUE)
+      }, error = function(e) {
+        showNotification(paste("Error reading shapefile:", e$message), type = "error", duration = 8)
+        NULL
+      })
+      if (is.null(zone_sf)) return()
+      
+      numeric_cols <- sapply(zone_sf, function(x) is.numeric(x) || is.factor(x) || is.character(x))
+      if (sum(numeric_cols) == 0) {
+        showNotification(
+          "Shapefile must contain at least one numeric, factor, or character column for rasterization.",
+          type = "error",
+          duration = 10
+        )
+        return()
+      }
+      
+      id_field <- names(zone_sf)[numeric_cols][1]
+      if (is.null(id_field) || length(id_field) == 0) {
+        zone_sf$IDS <- seq_len(nrow(zone_sf))
+        id_field <- "IDS"
+      }
+      
+      tryCatch({
+        map1_raster <- raster::raster(rv$map1_file)
+        raster_res <- raster::res(map1_raster)
+        
+        zone <- zone_sf %>%
+          rasterise_multipolygon(
+            raster_res = raster_res,
+            field = id_field
+          )
+        
+        zone_tif_path <- file.path(uploaded_dir, "planning_unit_rasterized.tif")
+        raster::writeRaster(zone %>% raster::raster(), zone_tif_path, datatype = "INT1U", overwrite = TRUE)
+        
+        rv$mapz_file <- zone_tif_path
+        rv$mapz_rast <- zone %>% raster::raster()
+        
+        showNotification("Shapefile planning unit successfully rasterized!", type = "message", duration = 6)
+      }, error = function(e) {
+        showNotification(
+          paste("Error processing raster resolution:", e$message),
+          type = "error",
+          duration = 10
+        )
+      })
+    }
   })
   
   # Read file inputs

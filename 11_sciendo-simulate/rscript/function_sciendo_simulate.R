@@ -191,52 +191,88 @@ generate_dummy_crosstab <- function(landcover, zone) {
 #' @export
 plot_categorical_raster <- function(raster_object, filename = "raster_plot.png",
                                     dpi = 300) {
-  if ("color_palette" %in% names(cats(raster_object)[[1]]) &&
-      all(grepl("^#[0-9A-Fa-f]{6}$", cats(raster_object)$color_palette))) {
+  default_palette <- c(
+    "#4E79A7", "#F28E2B", "#E15759", "#76B7B2", "#59A14F",
+    "#EDC948", "#B07AA1", "#FF9DA7", "#9C755F", "#BAB0AC",
+    "#86BCB6", "#FFB84D", "#A5C1DC", "#D37295", "#C4AD66",
+    "#7B8D8E", "#B17B62", "#8CD17D", "#DE9D9C", "#5A5A5A",
+    "#A0A0A0", "#D7B5A6", "#6D9EEB", "#E69F00", "#56B4E9",
+    "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7",
+    "#999999", "#E51E10", "#FF7F00", "#FFFF33", "#A65628",
+    "#F781BF", "#999933", "#8DD3C7", "#FFFFB3", "#BEBADA",
+    "#FB8072", "#80B1D3", "#FDB462", "#B3DE69", "#FCCDE5",
+    "#D9D9D9", "#BC80BD", "#CCEBC5", "#FFED6F", "#E41A1C"
+  )
+  
+  has_custom_colors <- length(cats(raster_object)) > 0 &&
+    !is.null(cats(raster_object)[[1]]) &&
+    "color_palette" %in% names(cats(raster_object)[[1]]) &&
+    all(grepl("^#[0-9A-Fa-f]{6}$", cats(raster_object)[[1]]$color_palette))
+  
+  if (has_custom_colors) {
     fill_scale <- scale_fill_manual(
-      values   = cats(raster_object)[[1]]$color_palette,
-      na.value = "white"
+      values = cats(raster_object)[[1]]$color_palette,
+      na.value = "transparent",
+      labels = scales::label_wrap(30)
     )
   } else {
-    fill_scale <- scale_fill_manual(values = c(
-      "#4E79A7", "#F28E2B", "#E15759", "#76B7B2", "#59A14F",
-      "#EDC948", "#B07AA1", "#FF9DA7", "#9C755F", "#BAB0AC",
-      "#86BCB6", "#FFB84D", "#A5C1DC", "#D37295", "#C4AD66",
-      "#7B8D8E", "#B17B62", "#8CD17D", "#DE9D9C", "#5A5A5A",
-      "#A0A0A0", "#D7B5A6", "#6D9EEB", "#E69F00", "#56B4E9",
-      "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7",
-      "#999999", "#E51E10", "#FF7F00", "#FFFF33", "#A65628",
-      "#F781BF", "#999933", "#8DD3C7", "#FFFFB3", "#BEBADA",
-      "#FB8072", "#80B1D3", "#FDB462", "#B3DE69", "#FCCDE5",
-      "#D9D9D9", "#BC80BD", "#CCEBC5", "#FFED6F", "#E41A1C"
-    ), na.value = "white")
+    fill_scale <- scale_fill_manual(
+      values = default_palette,
+      na.value = "transparent",
+      labels = scales::label_wrap(30)
+    )
   }
   
-  plot_title <- if (!is.na(time(raster_object))) time(raster_object) else names(raster_object)
+  if (!is.na(time(raster_object))) {
+    plot_title <- time(raster_object)
+  } else {
+    plot_title <- names(raster_object)
+  }
+  
+  n_cats <- if (length(cats(raster_object)) > 0 && !is.null(cats(raster_object)[[1]])) {
+    nrow(cats(raster_object)[[1]])
+  } else {
+    10
+  }
+  legend_ncol <- if (n_cats > 18) 2 else 1
   
   plot_lc <- ggplot() +
     tidyterra::geom_spatraster(data = raster_object) +
     fill_scale +
+    coord_sf(expand = FALSE) +
     theme_bw() +
     labs(title = plot_title, fill = NULL) +
-    guides(fill = guide_legend(title.position = "top", ncol = 2)) +
+    guides(
+      fill = guide_legend(
+        title.position = "top",
+        ncol = legend_ncol,
+        keywidth = grid::unit(0.4, "cm"),
+        keyheight = grid::unit(0.35, "cm")
+      )
+    ) +
     theme(
-      axis.title.x     = element_blank(),
-      axis.title.y     = element_blank(),
+      axis.title.x = element_blank(),
+      axis.title.y = element_blank(),
+      axis.text.x = element_text(size = 8),
+      axis.text.y = element_text(size = 8),
       panel.grid.major = element_blank(),
       panel.grid.minor = element_blank(),
-      legend.title     = element_text(size = 12),
-      legend.text      = element_text(size = 10),
-      legend.key.height = unit(0.25, "cm"),
-      legend.key.width  = unit(0.25, "cm"),
-      legend.position   = "bottom",
-      legend.justification = c(0, 0.8)
+      plot.title = element_text(size = 14, face = "bold", hjust = 0),
+      plot.margin = ggplot2::margin(t = 5, r = 5, b = 5, l = 5),
+      legend.title = element_text(size = 11),
+      legend.text = element_text(size = 8.5),
+      legend.position = "right",
+      legend.justification = c(0, 0.5),
+      legend.box.spacing = grid::unit(0.4, "cm"),
+      legend.margin = ggplot2::margin(0, 0, 0, 0)
     )
   
   if (!knitr::is_html_output()) return(plot_lc)
   
   tf <- tempfile(fileext = ".png")
-  ggsave(tf, plot_lc, width = 7, height = 5, dpi = dpi)
+  plot_width <- if (legend_ncol > 1) 10.5 else 9.0
+  plot_height <- max(5.5, min(9.0, 4.0 + (n_cats / legend_ncol) * 0.18))
+  ggsave(tf, plot_lc, width = plot_width, height = plot_height, dpi = dpi)
   img_data <- base64enc::dataURI(file = tf, mime = "image/png")
   
   htmltools::tagList(
@@ -249,8 +285,7 @@ plot_categorical_raster <- function(raster_object, filename = "raster_plot.png",
       tags$button(
         "Download PNG",
         onclick = sprintf(
-          "var link = document.createElement('a'); link.download = '%s';
-           link.href = this.previousElementSibling.src; link.click();",
+          "var link = document.createElement('a'); link.download = '%s'; link.href = this.previousElementSibling.src; link.click();",
           filename
         ),
         style = "padding:4px 8px; font-size:0.9em;
@@ -734,6 +769,7 @@ run_sciendo_simulate_process <- function(lc_t1_path, initial_year, period_value,
     end_time   = as.character(format(end_time,   "%Y-%m-%d %H:%M:%S")),
     inputs     = list(
       lc_t1_path           = lc_t1_path,
+      initial_year         = initial_year,
       lc_lookup_table_path = lc_lookup_table_path,
       zone_path            = zone_path,
       zone_lookup_table    = zone_lookup_table,
@@ -819,11 +855,12 @@ generate_sciendo_simulate_report <- function(output, dir) {
 #' @importFrom plotly plot_ly layout
 #' @export
 plot_interactive_stacked_area <- function(luc_data_wide,
-                                          class_col = names(luc_data_wide)[2],
-                                          id_col    = names(luc_data_wide)[1],
+                                          class_col = if ("Landcover" %in% names(luc_data_wide)) "Landcover" else if ("LC" %in% names(luc_data_wide)) "LC" else "LC",
+                                          id_col    = if ("ID" %in% names(luc_data_wide)) "ID" else "ID",
+                                          cat_table = NULL,
                                           chart_title  = "Land Use Change",
-                                          x_axis_label = "Time Step",
-                                          y_axis_label = "Area (Hectares)") {
+                                          x_axis_label = "Year / Time Step",
+                                          y_axis_label = "Proportion (%)") {
   required_cols <- c(class_col, id_col)
   if (!all(required_cols %in% names(luc_data_wide))) {
     stop(paste("The provided data frame must contain the columns:",
@@ -834,42 +871,82 @@ plot_interactive_stacked_area <- function(luc_data_wide,
     dplyr::mutate(
       dplyr::across(
         .cols = -dplyr::all_of(required_cols),
-        .fns  = ~ ifelse(is.numeric(.), ., readr::parse_number(as.character(.)))
+        .fns  = ~ if (is.numeric(.x)) .x else readr::parse_number(as.character(.x))
       )
     )
   
+  clean_data_wide[[class_col]] <- factor(
+    clean_data_wide[[class_col]],
+    levels = unique(clean_data_wide[[class_col]])
+  )
+  
   luc_data_long <- clean_data_wide %>%
-    dplyr::mutate(
-      !!rlang::sym(class_col) := factor(
-        !!rlang::sym(class_col),
-        levels = unique(!!rlang::sym(class_col))
-      )
-    ) %>%
     tidyr::pivot_longer(
       cols      = -dplyr::all_of(required_cols),
       names_to  = "Year",
       values_to = "Area"
     ) %>%
-    dplyr::mutate(Year = readr::parse_number(Year))
+    dplyr::mutate(
+      Year_Clean = sub("^X(?=[0-9])", "", Year, perl = TRUE),
+      Year = factor(Year_Clean, levels = unique(Year_Clean))
+    ) %>%
+    dplyr::group_by(Year) %>%
+    dplyr::mutate(
+      Total_Area = sum(Area, na.rm = TRUE),
+      Percentage = ifelse(Total_Area > 0, (Area / Total_Area) * 100, 0)
+    ) %>%
+    dplyr::ungroup()
   
-  n_colors        <- length(unique(luc_data_long[[class_col]]))
-  tableau_palette <- ggthemes::tableau_color_pal("Tableau 20", direction = 1)(n_colors)
+  unique_classes <- levels(clean_data_wide[[class_col]])
+  n_colors       <- length(unique_classes)
+  
+  predefined_50_colors <- c(
+    "#4E79A7", "#A0CBE8", "#F28E2B", "#FFBE7D", "#59A14F", "#8CD17D", "#B6992D", "#F1CE63",
+    "#499894", "#86BCB6", "#E15759", "#FF9D9A", "#79706E", "#BAB0AC", "#D37295", "#FABFD2",
+    "#B07AA1", "#D4A6C8", "#9D7660", "#D7B5A6", "#E6194B", "#3CB44B", "#FFE119", "#4363D8",
+    "#F58231", "#911EB4", "#46F0F0", "#F032E6", "#BCF60C", "#FABEBE", "#008080", "#E6BEFF",
+    "#9A6324", "#FFFAC8", "#800000", "#AAFFC3", "#808000", "#FFD8B1", "#000075", "#A9A9A9",
+    "#231F20", "#1170AA", "#A2C8EC", "#FFBC79", "#C85200", "#FF9DA7", "#D55E00", "#59A14F",
+    "#EDC948", "#66A61E"
+  )
+  
+  if (!is.null(cat_table) && "color_palette" %in% names(cat_table) && ncol(cat_table) >= 2) {
+    category_col_name <- names(cat_table)[2]
+    matched_colors <- cat_table$color_palette[match(unique_classes, cat_table[[category_col_name]])]
+    missing_idx <- which(is.na(matched_colors) | matched_colors == "")
+    if (length(missing_idx) > 0) {
+      fallback_cols <- if (length(missing_idx) <= length(predefined_50_colors)) {
+        predefined_50_colors[seq_along(missing_idx)]
+      } else {
+        grDevices::colorRampPalette(predefined_50_colors)(length(missing_idx))
+      }
+      matched_colors[missing_idx] <- fallback_cols
+    }
+    selected_palette <- matched_colors
+  } else {
+    selected_palette <- if (n_colors <= length(predefined_50_colors)) {
+      predefined_50_colors[1:n_colors]
+    } else {
+      grDevices::colorRampPalette(predefined_50_colors)(n_colors)
+    }
+  }
   
   color_formula <- as.formula(paste0("~`", class_col, "`"))
   text_formula  <- as.formula(
     paste0(
-      "~paste('<b>', `", class_col, "`, '</b><br>', ",
-      "'Time Step (T+n):', Year, '<br>', ",
-      "'Area:', scales::comma(Area), ' ha')"
+      "~paste0('<b>', `", class_col, "`, '</b><br>', ",
+      "'Tahun / Step: ', Year, '<br>', ",
+      "'Proporsi: ', sprintf('%.2f', Percentage), '%<br>', ",
+      "'Luas: ', scales::comma(round(Area, 2)), ' ha')"
     )
   )
   
   plotly::plot_ly(
     data       = luc_data_long,
     x          = ~Year,
-    y          = ~Area,
+    y          = ~Percentage,
     color      = color_formula,
-    colors     = tableau_palette,
+    colors     = selected_palette,
     type       = "scatter",
     mode       = "lines",
     stackgroup = "one",
@@ -879,8 +956,15 @@ plot_interactive_stacked_area <- function(luc_data_wide,
   ) %>%
     plotly::layout(
       title = chart_title,
-      xaxis = list(title = x_axis_label, dtick = 1),
-      yaxis = list(title = y_axis_label),
+      xaxis = list(
+        title = x_axis_label,
+        type = "category",
+        categoryorder = "array",
+        categoryarray = levels(luc_data_long$Year),
+        tickmode = "array",
+        tickvals = levels(luc_data_long$Year)
+      ),
+      yaxis = list(title = y_axis_label, range = c(0, 100)),
       legend = list(orientation = "h", x = 0.5, y = -0.2, xanchor = "center")
     )
 }
@@ -1005,7 +1089,23 @@ add_legend_to_categorical_raster <- function(raster_file, lookup_table, year = N
     stop("year should be a numeric value consisting of 4 digits")
   }
   
-  lookup_table <- lookup_table[lookup_table[[1]] %in% terra::freq(raster_file)[["value"]], ]
+  if (isTRUE(terra::is.factor(raster_file)[[1]])) {
+    cur_levels <- tryCatch(terra::levels(raster_file)[[1]], error = function(e) NULL)
+    if (!is.null(cur_levels) && is.data.frame(cur_levels) && nrow(cur_levels) > 0) {
+      if (!is.null(year)) {
+        terra::time(raster_file, tstep = "years") <- year
+      }
+      return(raster_file)
+    }
+  }
+  
+  raw_vals <- tryCatch({
+    unique(as.numeric(values(raster_file, na.rm = TRUE)))
+  }, error = function(e) {
+    as.numeric(terra::freq(raster_file)[["value"]])
+  })
+  
+  lookup_table <- lookup_table[lookup_table[[1]] %in% raw_vals, ]
   lookup_table <- data.frame(lookup_table)
   
   if (!is.numeric(first_column)) {
@@ -1043,26 +1143,109 @@ add_legend_to_categorical_raster <- function(raster_file, lookup_table, year = N
 #' @importFrom sf st_crs
 #' @export
 multiple_lc_freq_combined <- function(lc_dir, df_lc, PU = "NO", zone = NULL,
-                                      split = "NO") {
+                                      split = "NO", initial_raster = NULL, initial_year = NULL) {
   list_luc <- lc_dir %>%
     list.files(full.names = TRUE, pattern = "^landscape\\d{4}\\.tif$")
   
   list_luc <- list_luc[order(as.numeric(stringr::str_extract(basename(list_luc), "\\d{4}")))]
   
-  rst_list <- list()
-  years    <- stringr::str_extract(basename(list_luc), "\\d{4}")
+  if (length(list_luc) == 0) {
+    stop("No landscape*.tif files found in ", lc_dir)
+  }
+  
+  ref_raster <- terra::rast(list_luc[1])
+  rst_list   <- list()
+  years      <- character(0)
+  init_yr_str <- NULL
+  
+  if (!is.null(initial_raster)) {
+    r_init <- if (inherits(initial_raster, "SpatRaster")) {
+      initial_raster
+    } else if (inherits(initial_raster, "RasterLayer")) {
+      terra::rast(initial_raster)
+    } else if (is.character(initial_raster) && file.exists(initial_raster)) {
+      terra::rast(initial_raster)
+    } else {
+      NULL
+    }
+    
+    if (!is.null(r_init)) {
+      geom_matches <- tryCatch({
+        terra::compareGeom(r_init, ref_raster, stopOnError = FALSE)
+      }, error = function(e) FALSE)
+      
+      if (!isTRUE(geom_matches)) {
+        r_init <- terra::resample(r_init, ref_raster, method = "near")
+      }
+      
+      r_init <- add_legend_to_categorical_raster(r_init, lookup_table = df_lc)
+      init_yr_str <- if (!is.null(initial_year) && !is.na(initial_year) && nzchar(as.character(initial_year))) {
+        as.character(initial_year)
+      } else {
+        detected_yr <- tryCatch({
+          src <- if (inherits(r_init, "SpatRaster")) terra::sources(r_init) else ""
+          if (is.character(initial_raster)) src <- initial_raster
+          y <- stringr::str_extract(basename(src), "\\d{4}")
+          if (!is.na(y)) y else NULL
+        }, error = function(e) NULL)
+        if (!is.null(detected_yr)) detected_yr else "Initial"
+      }
+      names(r_init) <- paste0("landscape_", init_yr_str)
+      rst_list[[1]] <- r_init
+      years <- c(years, init_yr_str)
+    }
+  }
   
   for (i in seq_along(list_luc)) {
     r <- list_luc[i] %>%
-      rast() %>%
-      add_legend_to_categorical_raster(., lookup_table = df_lc)
-    names(r) <- paste0("landscape_", years[i])
-    rst_list[[i]] <- r
-    r %>% plot_categorical_raster()
+      rast()
+    
+    geom_matches <- tryCatch({
+      terra::compareGeom(r, ref_raster, stopOnError = FALSE)
+    }, error = function(e) FALSE)
+    
+    if (!isTRUE(geom_matches)) {
+      r <- terra::resample(r, ref_raster, method = "near")
+    }
+    
+    r <- add_legend_to_categorical_raster(r, lookup_table = df_lc)
+    yr_i <- stringr::str_extract(basename(list_luc[i]), "\\d{4}")
+    names(r) <- paste0("landscape_", yr_i)
+    rst_list[[length(rst_list) + 1]] <- r
+    years <- c(years, yr_i)
   }
+  
+  # Compute chronological column order: initial year first, followed by projected years
+  proj_year_cols <- if (!is.null(init_yr_str)) years[years != init_yr_str] else years
+  proj_year_cols <- proj_year_cols[order(as.numeric(proj_year_cols))]
+  year_cols_ordered <- if (!is.null(init_yr_str)) c(init_yr_str, proj_year_cols) else proj_year_cols
   
   if (toupper(PU) == "YES") {
     if (is.null(zone)) stop("Zone parameter must be provided when PU = YES")
+    
+    zone_r <- if (inherits(zone, "SpatRaster")) {
+      zone
+    } else if (inherits(zone, "RasterLayer")) {
+      terra::rast(zone)
+    } else if (is.character(zone) && file.exists(zone)) {
+      terra::rast(zone)
+    } else {
+      zone
+    }
+    
+    zone_matches <- tryCatch({
+      terra::compareGeom(zone_r, ref_raster, stopOnError = FALSE)
+    }, error = function(e) FALSE)
+    
+    if (!isTRUE(zone_matches)) {
+      has_levels <- isTRUE(terra::is.factor(zone_r)[[1]])
+      z_levels <- if (has_levels) tryCatch(terra::levels(zone_r)[[1]], error = function(e) NULL) else NULL
+      zone_r <- terra::resample(zone_r, ref_raster, method = "near")
+      if (!is.null(z_levels) && is.data.frame(z_levels) && nrow(z_levels) > 0) {
+        levels(zone_r) <- z_levels
+      }
+    }
+    zone <- zone_r
     
     year_data_list <- list()
     for (i in seq_along(rst_list)) {
@@ -1074,7 +1257,7 @@ multiple_lc_freq_combined <- function(lc_dir, df_lc, PU = "NO", zone = NULL,
       colnames(freq_df) <- c("landcover", "PU", "value")
       freq_df$year <- year
       
-      year_data_list[[year]] <- freq_df
+      year_data_list[[as.character(year)]] <- freq_df
     }
     
     combined_data <- do.call(rbind, year_data_list)
@@ -1084,15 +1267,14 @@ multiple_lc_freq_combined <- function(lc_dir, df_lc, PU = "NO", zone = NULL,
                                      values_from  = value,
                                      values_fill  = 0) %>%
       dplyr::arrange(PU, landcover) %>%
-      dplyr::select(PU, landcover, dplyr::everything())
+      dplyr::select(PU, landcover, dplyr::all_of(year_cols_ordered))
     
-    lc_ref <- rst_list[[1]]
-    if (grepl("\\+units=m", st_crs(lc_ref)$proj4string)) {
-      spatRes    <- calc_res_conv_factor_to_ha(lc_ref)
-      final_data <- mutate(final_data, across(c(3:ncol(final_data)), ~ (spatRes * .x)))
-    } else {
-      cat("Frequency is shown in number of pixels instead of hectares")
-    }
+    spatRes <- tryCatch({
+      calc_res_conv_factor_to_ha(rst_list[[1]])
+    }, error = function(e) {
+      1
+    })
+    final_data <- dplyr::mutate(final_data, dplyr::across(c(3:ncol(final_data)), ~ (spatRes * .x)))
     
     if (toupper(split) == "YES") {
       pu_list <- final_data %>%
@@ -1111,19 +1293,17 @@ multiple_lc_freq_combined <- function(lc_dir, df_lc, PU = "NO", zone = NULL,
     colnames(freq_data) <- c("Landcover", years)
   }
   
+  spatRes <- tryCatch({
+    calc_res_conv_factor_to_ha(rst_list[[1]])
+  }, error = function(e) {
+    1
+  })
+  
   freq_tbl <- freq_data %>%
     tibble::as_tibble() %>%
-    tidyr::pivot_longer(cols = -Landcover, names_to = "Year", values_to = "value") %>%
-    dplyr::arrange(Landcover, Year) %>%
-    tidyr::pivot_wider(names_from = Year, values_from = value)
-  
-  if (grepl("\\+units=m", st_crs(rst_list[[1]])$proj4string)) {
-    spatRes  <- calc_res_conv_factor_to_ha(rst_list[[1]])
-    freq_tbl <- freq_tbl %>%
-      dplyr::mutate(dplyr::across(-Landcover, ~ .x * spatRes))
-  } else {
-    cat("Frequency is shown in number of pixels instead of hectares")
-  }
+    dplyr::select(Landcover, dplyr::all_of(year_cols_ordered)) %>%
+    dplyr::arrange(Landcover) %>%
+    dplyr::mutate(dplyr::across(-Landcover, ~ .x * spatRes))
   
   freq_tbl
 }
@@ -1473,6 +1653,20 @@ render_dt_table <- function(data, caption = NULL, digits = 2, area_digits = 0,
 #' @importFrom leaflet colorFactor addLegend
 #' @importFrom dplyr %>%
 #' @export
+EOX_ATTRIBUTION <- "EOxCloudless - https://cloudless.eox.at by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2025)"
+EOX_TILE_URL <- "https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2025_3857/default/g/{z}/{y}/{x}.jpg"
+
+BASEMAP_PROVIDERS <- list(
+  eox = list(
+    id = "eox",
+    name = "Satelit",
+    sublabel = "Sentinel-2 Cloudless 2025",
+    url = EOX_TILE_URL,
+    attribution = EOX_ATTRIBUTION,
+    maxZoom = 18
+  )
+)
+
 plot_categorical_raster_mapview <- function(cat_raster, cat_table,
                                             layer_title = "Layer") {
   names(cat_table)[1] <- "ID"
@@ -1518,34 +1712,83 @@ plot_categorical_raster_mapview <- function(cat_raster, cat_table,
     map_colors <- cat_tbl_filtered$color_palette
   } else {
     if (nrow(cat_tbl_filtered) > length(predefined_colors)) {
-      warning("Not enough predefined colors for all categories. Colors will be recycled.")
+      map_colors <- grDevices::colorRampPalette(predefined_colors)(nrow(cat_tbl_filtered))
+    } else {
+      map_colors <- predefined_colors[1:nrow(cat_tbl_filtered)]
     }
-    map_colors <- predefined_colors[1:nrow(cat_tbl_filtered)]
   }
   
   color_table <- data.frame(value = reclass_to, color = map_colors)
   coltab(cat_factor) <- color_table
   
-  map_result <- mapview(
+  # Calculate initial bounds in EPSG:4326 for reset button & fitBounds
+  initial_bb <- tryCatch({
+    poly_sf <- sf::st_as_sfc(sf::st_bbox(cat_raster))
+    poly_4326 <- sf::st_transform(poly_sf, 4326)
+    sf::st_bbox(poly_4326)
+  }, error = function(e) NULL)
+  
+  # Initialize base map with EOX Satellite tiles FIRST so raster renders ON TOP
+  m_base <- leaflet::leaflet() %>%
+    leaflet::addTiles(
+      urlTemplate = BASEMAP_PROVIDERS$eox$url,
+      attribution = BASEMAP_PROVIDERS$eox$attribution,
+      group       = BASEMAP_PROVIDERS$eox$name,
+      options     = leaflet::tileOptions(maxZoom = BASEMAP_PROVIDERS$eox$maxZoom)
+    )
+  
+  map_result <- mapview::mapview(
     cat_factor,
+    map        = m_base,
     zcol       = "Category",
     maxpixels  = ncell(cat_factor),
     layer.name = layer_title,
     na.color   = "transparent",
-    legend     = FALSE,
-    map.types  = "Esri.WorldTopoMap"
+    legend     = FALSE
   )
   
-  pal <- colorFactor(palette = color_table$color, domain = levels_df$Category)
+  pal <- leaflet::colorFactor(palette = color_table$color, domain = levels_df$Category)
+  leaflet_map <- map_result@map
   
-  map_result@map <- map_result@map %>%
-    addLegend(
+  if (!is.null(initial_bb)) {
+    leaflet_map <- leaflet_map %>%
+      leaflet::fitBounds(
+        lng1 = unname(initial_bb$xmin),
+        lat1 = unname(initial_bb$ymin),
+        lng2 = unname(initial_bb$xmax),
+        lat2 = unname(initial_bb$ymax)
+      )
+  }
+  
+  leaflet_map <- leaflet_map %>%
+    leaflet::addLayersControl(
+      baseGroups = BASEMAP_PROVIDERS$eox$name,
+      overlayGroups = layer_title,
+      options = leaflet::layersControlOptions(collapsed = FALSE)
+    ) %>%
+    leaflet::addLegend(
       position = "topright",
       pal      = pal,
       values   = levels_df$Category,
       title    = layer_title
     )
   
+  # Add return to initial zoom level extent button
+  if (!is.null(initial_bb)) {
+    leaflet_map <- leaflet_map %>%
+      leaflet::addEasyButton(
+        leaflet::easyButton(
+          icon = "fa-globe",
+          title = "Kembalikan ke Batas / Zoom Awal (Reset Zoom)",
+          onClick = leaflet::JS(sprintf(
+            "function(btn, map){ map.fitBounds([[%f, %f], [%f, %f]]); }",
+            initial_bb$ymin, initial_bb$xmin, initial_bb$ymax, initial_bb$xmax
+          ))
+        )
+      )
+  }
+  
+  map_result@map <- leaflet_map
   map_result
 }
 
