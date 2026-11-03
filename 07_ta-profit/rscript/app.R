@@ -527,8 +527,6 @@ server <- function(input, output, session) {
           # ==========================================
           req(input$scenario_excel)
           
-          browser()
-          
           result <- process_scenario_comparison(
             pathScenarioExcel = input$scenario_excel$datapath,
             pathPU            = pu_path,             # Path PU yang sudah disiapkan
