@@ -151,7 +151,7 @@ params$projection_table %>%
     !!glue::glue("Keuntungan BAU ({params$currency})") := `Keuntungan BAU`,
     !!glue::glue("Keuntungan Intervensi ({params$currency})") := `Keuntungan Intervensi`,
     !!glue::glue("Selisih ({params$currency})") := `Selisih`,
-    `Persentase Selisih (%)` = `Persentase Selisih (%)`
+    `Persentase Selisih` = `Persentase Selisih (%)`
   ) %>%
   # 4. Tampilkan DataTable
   DT::datatable(
@@ -182,18 +182,34 @@ Tabel berikut menampilkan perbandingan keuntungan antara Skenario BAU dan Interv
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 if (!is.null(params$pu_summary) && nrow(params$pu_summary) > 0) {
   params$pu_summary %>%
+    # 1. Hitung Persentase Selisih
+    mutate(
+      `Persentase Selisih (%)` = ifelse(
+        `Keuntungan BAU per PU` > 0,
+        (`Selisih per PU` / `Keuntungan BAU per PU`) * 100,
+        0
+      )
+    ) %>%
+    # 2. Format angka & persentase
+    mutate(
+      across(
+        .cols = c(Area_Ha, `Keuntungan BAU per PU`, `Keuntungan Intervensi per PU`, `Selisih per PU`),
+        .fns = ~scales::comma(.x)
+      ),
+      `Persentase Selisih (%)` = paste0(round(`Persentase Selisih (%)`, 2), "%")
+    ) %>%
+    # 3. Pilih & Rename kolom dengan satuan mata uang
     select(
       `PU ID` = PU_ID,
       `Unit Perencanaan` = PU_Name,
       `Luas (Ha)` = Area_Ha,
       `Tahun` = Tahun,
-      `Keuntungan BAU` = `Keuntungan BAU per PU`,
-      `Keuntungan Intervensi` = `Keuntungan Intervensi per PU`,
-      `Selisih` = `Selisih per PU`
+      !!glue::glue("Keuntungan BAU ({params$currency})") := `Keuntungan BAU per PU`,
+      !!glue::glue("Keuntungan Intervensi ({params$currency})") := `Keuntungan Intervensi per PU`,
+      !!glue::glue("Selisih ({params$currency})") := `Selisih per PU`,
+      `Persentase Selisih` = `Persentase Selisih (%)`
     ) %>%
-    mutate(
-      across(where(is.numeric), scales::comma)
-    ) %>%
+    # 4. Tampilkan DataTable
     DT::datatable(
       rownames = FALSE,
       extensions = c('Buttons', 'Scroller'),
@@ -212,7 +228,7 @@ if (!is.null(params$pu_summary) && nrow(params$pu_summary) > 0) {
       )
     )
 } else {
-  cat("*Data per Unit Perencanaan (PU) tidak tersedia.*")
+  cat("Data per Unit Perencanaan (PU) tidak tersedia.")
 }
 ```
 

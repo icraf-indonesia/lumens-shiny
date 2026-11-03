@@ -702,12 +702,19 @@ params$deltaNPV_table %>%
     )
 ```
 
-```{r abatement-main, echo=FALSE, results='asis', eval=params$has_cstock}
+```{r abatement-title1, echo=FALSE, results='asis', eval=params$has_cstock}
 cat("### Kurva Abatement Cost (Emisi)\n\n")
-print(params$emission_plot)
+```
+```{r echo=FALSE, eval=params$has_cstock}
+params$emission_plot
+```
 
+```{r abatement-title2, echo=FALSE, results='asis', eval=params$has_cstock}
 cat("\n\n### Kurva Abatement Cost (Sekuestrasi)\n\n")
-print(params$sequestration_plot)
+```
+
+```{r echo=FALSE, eval=params$has_cstock}
+params$sequestration_plot
 ```
 
 ## Analsis per Unit Perencanaan
