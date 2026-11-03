@@ -374,21 +374,29 @@ if (params$has_cstock) {
 
 ```{r NPV Lookup Table, echo=FALSE, message=FALSE, warning=FALSE}
 npv_tbl <- read_lookup_file(params$npv_file_path) |>
-  select(LC, EAE)
+  dplyr::select(LC, EAE)
 
 # CEK APAKAH ADA FILE KARBON
 if (params$has_cstock) {
   
-  # Jika ada file karbon: Baca dan gabungkan
-  carbon_tbl <- read_lookup_file(params$cstock_table_path) |>
-    select(LC, CARBON)
+  # Baca karbon secara general:
+  # Ambil kolom 1 (ID), kolom 2 (LC), dan kolom 3 (apapun namanya)
+  carbon_raw <- read_lookup_file(params$cstock_table_path)
+  
+  if (ncol(carbon_raw) < 3) {
+  stop("File tabel karbon harus memiliki minimal 3 kolom: ID, LC, dan Nilai Karbon.")
+}
+  
+  carbon_tbl <- carbon_raw |>
+    # Ambil 3 kolom pertama, lalu rename kolom ke-3 menjadi "CARBON"
+    dplyr::select(ID = 1, LC = 2, CARBON = 3)
   
   npv_carbon_tbl <- npv_tbl |>
-    left_join(carbon_tbl, by = "LC") |>
-    mutate(
+    dplyr::left_join(carbon_tbl, by = "LC") |>
+    dplyr::mutate(
       CARBON = ifelse(is.na(CARBON), 0, CARBON)
     ) |>
-    rename(
+    dplyr::rename(
       `Tutupan Lahan` = LC,
       !!glue("EAE ({params$currency}/Ha/tahun)") := EAE,
       `Karbon (ton C/ha)` = CARBON
@@ -398,7 +406,7 @@ if (params$has_cstock) {
   
   # Jika tidak ada file karbon: Hanya tampilkan tabel EAE
   npv_carbon_tbl <- npv_tbl |>
-    rename(
+    dplyr::rename(
       `Tutupan Lahan` = LC,
       !!glue("EAE ({params$currency}/Ha/tahun)") := EAE
     )
@@ -406,8 +414,8 @@ if (params$has_cstock) {
 
 # Format angka dan tampilkan datatable
 npv_carbon_tbl %>%
-  mutate(
-    across(where(is.numeric), easy_to_read_numbers)
+  dplyr::mutate(
+    dplyr::across(where(is.numeric), easy_to_read_numbers)
   ) %>%
   datatable(
     extensions = c('Buttons', 'Responsive'),
