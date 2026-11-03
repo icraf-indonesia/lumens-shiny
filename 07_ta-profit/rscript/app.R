@@ -86,21 +86,47 @@ ui <- fluidPage(
   titlePanel("Profitability Analysis"),
   sidebarLayout(
     sidebarPanel(
-      fileInput(
-        "lulc_t1",
-        "Land cover map at T1",
-        accept = c("image/tiff", ".tif"),
-        placeholder = "Upload the .tif LULC file for T1"
+      # --- TAMBAHAN BARU: Pilihan Mode Analisis ---
+      radioButtons(
+        "analysis_mode",
+        "Pilih Jenis Analisis:",
+        choices = c("Analisis Historis" = "historis", 
+                    "Komparasi Skenario" = "komparasi"),
+        selected = "historis"
       ),
-      textInput("year1", "Year of T1", value = "1990"),
-      fileInput(
-        "lulc_t2",
-        "Land cover map at T2",
-        accept = c("image/tiff", ".tif"),
-        placeholder = "Upload the .tif LULC file for T2"
-      ),
-      textInput("year2", "Year of T2", value = "2000"),
+      tags$hr(),
       
+      # --- BLOK HISTORIS ---
+      conditionalPanel(
+        condition = "input.analysis_mode == 'historis'",
+        fileInput(
+          "lulc_t1",
+          "Land cover map at T1",
+          accept = c("image/tiff", ".tif"),
+          placeholder = "Upload the .tif LULC file for T1"
+        ),
+        textInput("year1", "Year of T1", value = "1990"),
+        fileInput(
+          "lulc_t2",
+          "Land cover map at T2",
+          accept = c("image/tiff", ".tif"),
+          placeholder = "Upload the .tif LULC file for T2"
+        ),
+        textInput("year2", "Year of T2", value = "2000")
+      ),
+      
+      # --- BLOK KOMPARASI SKENARIO ---
+      conditionalPanel(
+        condition = "input.analysis_mode == 'komparasi'",
+        fileInput(
+          "scenario_excel",
+          "Upload Data Proyeksi Skenario (.xlsx)",
+          accept = c(".xlsx", ".xls"),
+          placeholder = "Upload Excel with 6 sheets (Luas BAU/Int, EAE BAU/Int, Pct BAU/Int)"
+        )
+      ),
+      
+      tags$hr(),
       radioButtons(
         "pu_type",
         "Planning Unit input type:",
@@ -137,11 +163,22 @@ ui <- fluidPage(
         )
       ),
       
-      fileInput(
-        "npv_table",
-        "EAE lookup table",
-        accept = c(".csv", ".xlsx", ".xls"),
-        placeholder = "Upload the EAE table (.csv, .xlsx, or .xls)"
+      # --- BLOK INPUT HISTORIS (NPV & CStock) ---
+      conditionalPanel(
+        condition = "input.analysis_mode == 'historis'",
+        fileInput(
+          "npv_table",
+          "EAE lookup table",
+          accept = c(".csv", ".xlsx", ".xls"),
+          placeholder = "Upload the EAE table"
+        ),
+        
+        fileInput(
+          "cstock_table",
+          "Carbon lookup table (Opsional)",
+          accept = c(".csv", ".xlsx", ".xls"),
+          placeholder = "Upload the carbon stock table (Optional)"
+        )
       ),
       
       selectInput(
@@ -159,13 +196,6 @@ ui <- fluidPage(
           value = as.numeric(format(Sys.Date(), "%Y")),
           min = 1900
         )
-      ),
-      
-      fileInput(
-        "cstock_table",
-        "Carbon lookup table (Opsional)",
-        accept = c(".csv", ".xlsx", ".xls"),
-        placeholder = "Upload the carbon stock table (Optional)"
       ),
       
       selectInput(
@@ -356,32 +386,32 @@ server <- function(input, output, session) {
   #' Prevents execution if any required file or field is missing.
   #' @return TRUE if all inputs are valid, otherwise displays validation messages.
   validate_inputs <- reactive({
+    if (input$analysis_mode == "historis") {
+      validate(
+        need(rv$lulc_t1, "Please upload Land Use/Cover T1 file"),
+        need(rv$lulc_t2, "Please upload Land Use/Cover T2 file"),
+        need(rv$npv_table, "Please upload EAE Lookup Table")
+      )
+    } else {
+      validate(
+        need(input$scenario_excel, "Please upload Scenario Excel file")
+      )
+    }
+    
+    # Validasi PU & Output Directory
+    if (input$pu_type == "raster") {
+      validate(
+        need(rv$pu_raster, "Please upload Planning Unit Raster"),
+        need(rv$pu_table, "Please upload PU Lookup Table")
+      )
+    } else {
+      validate(
+        need(rv$pu_vector, "Please upload Planning Unit Shapefile"),
+        need(length(rv$pu_vector$datapath) >= 4, "Shapefile requires 4 files")
+      )
+    }
+    
     validate(
-      need(rv$lulc_t1, "Please upload Land Use/Cover T1 file (.tif)"),
-      need(rv$lulc_t2, "Please upload Land Use/Cover T2 file (.tif)"),
-      # need(rv$cstock_table, "Please upload Carbon Stock Lookup Table (.csv, .xlsx, or .xls)"),
-      need(rv$npv_table,    "Please upload NPV Lookup Table (.csv, .xlsx, or .xls)"),
-      
-      # PU Raster + lookup PU
-      need(
-        input$pu_type != "raster" || !is.null(rv$pu_raster),
-        "Please upload Planning Units Raster"
-      ),
-      need(
-        input$pu_type != "raster" || !is.null(rv$pu_table),
-        "Please upload Planning Units Lookup Table (.csv, .xlsx, or .xls)"
-      ),
-      
-      # PU Vector (shapefile 4 komponen)
-      need(
-        input$pu_type != "vector" || !is.null(rv$pu_vector),
-        "Please upload Planning Units Shapefile"
-      ),
-      need(
-        input$pu_type != "vector" || length(rv$pu_vector$datapath) >= 4,
-        "Shapefile requires .shp, .dbf, .prj, and .shx files."
-      ),
-      
       need(rv$currency, "Please select your currency"),
       need(rv$wd != "", "Please select an output directory")
     )
@@ -416,12 +446,12 @@ server <- function(input, output, session) {
     
     showNotification("Analysis is running. Please wait...", type = "message", duration = NULL, id = "running_notification")
     
-    withProgress(message = 'Running TA Profitability Analysis', value = 0, {
+    withProgress(message = 'Running Analysis', value = 0, {
       tryCatch({
         incProgress(0.1, detail = "Starting analysis...")
-        
         start_time <- Sys.time()
         
+        # --- TENTUKAN PATH PU (BERLAKU UNTUK KEDUA MODE) ---
         if (input$pu_type == "vector") {
           pu_path        <- prepare_shapefile(input$pu_vector)
           pu_is_vector   <- TRUE
@@ -433,72 +463,116 @@ server <- function(input, output, session) {
           pu_lookup_path <- input$pu_table$datapath
         }
         
-        cstock_path <- if (is.null(input$cstock_table)) NULL else input$cstock_table$datapath
-        
-        result <- preprocess_data(
-          pathLULCT1       = input$lulc_t1$datapath,
-          pathLULCT2       = input$lulc_t2$datapath,
-          pathPU           = pu_path,
-          pathLookupCstock = cstock_path,
-          pathLookupPU     = pu_lookup_path,       # bisa NULL kalau vector
-          pathLookupNPV    = input$npv_table$datapath,
-          valueT1          = input$year1,
-          valueT2          = input$year2,
-          puIsVector       = pu_is_vector
-        )
-        
-        incProgress(0.5, detail = "Generating report...")
-        
-        end_time <- Sys.time()
-        
-        paths <- list(
-          pathLULCT1       = input$lulc_t1$datapath,
-          pathLULCT2       = input$lulc_t2$datapath,
-          pathPU           = pu_path,
-          pathLookupNPV    = input$npv_table$datapath,
-          pathLookupPU     = pu_lookup_path,       # bisa NULL
-          pathLookupCstock = cstock_path
-        )
-        
-        times <- list(
-          start_time = start_time, 
-          end_time = end_time, 
-          valueT1 = input$year1, 
-          valueT2 = input$year2,
-          eae_year = selected_eae_year()
+        # --- PERCABANGAN MODE ANALISIS ---
+        if (input$analysis_mode == "historis") {
+          
+          # ==========================================
+          # ALUR 1: ANALISIS HISTORIS (Raster T1 & T2)
+          # ==========================================
+          cstock_path <- if (is.null(input$cstock_table)) NULL else input$cstock_table$datapath
+          
+          result <- preprocess_data(
+            pathLULCT1       = input$lulc_t1$datapath,
+            pathLULCT2       = input$lulc_t2$datapath,
+            pathPU           = pu_path,
+            pathLookupCstock = cstock_path,
+            pathLookupPU     = pu_lookup_path,
+            pathLookupNPV    = input$npv_table$datapath,
+            valueT1          = input$year1,
+            valueT2          = input$year2,
+            puIsVector       = pu_is_vector
           )
+          
+          paths <- list(
+            pathLULCT1       = input$lulc_t1$datapath,
+            pathLULCT2       = input$lulc_t2$datapath,
+            pathPU           = pu_path,
+            pathLookupNPV    = input$npv_table$datapath,
+            pathLookupPU     = pu_lookup_path,
+            pathLookupCstock = cstock_path
+          )
+          
+          times <- list(
+            start_time = start_time, 
+            end_time = Sys.time(), 
+            valueT1 = input$year1, 
+            valueT2 = input$year2,
+            eae_year = selected_eae_year()
+          )
+          
+          pu_list <- unique(result$combinedRasterTable$PU)
+          pu_outputs <- list()
+          for (pu_name in pu_list) {
+            pu_data <- result$combinedRasterTable %>% filter(PU == pu_name)
+            pu_outputs[[pu_name]] <- process_pu_data(pu_data, pu_name, input$currency)
+          }  
+          
+          params <- generate_report_params(
+            data = result,
+            maps = result,
+            paths = paths,
+            times = times,
+            pu_outputs = pu_outputs,
+            output_dir = rv$wd,
+            currency = input$currency 
+          )
+          
+          report_template <- "../report_template/ta-profit-ID.Rmd"
+          output_file <- paste0("ta-profit_report_historis_", format(Sys.time(), "%Y-%m-%d_%H-%M-%S"), ".html")
+          
+        } else {
+          
+          # ==========================================
+          # ALUR 2: KOMPARASI SKENARIO (Excel)
+          # ==========================================
+          req(input$scenario_excel)
+          
+          browser()
+          
+          result <- process_scenario_comparison(
+            pathScenarioExcel = input$scenario_excel$datapath,
+            pathPU            = pu_path,             # Path PU yang sudah disiapkan
+            pathLookupPU      = pu_lookup_path,      # Bisa NULL jika vector
+            puIsVector        = pu_is_vector,
+            currency          = input$currency
+          )
+          
+          paths <- list(
+            pathScenarioExcel = input$scenario_excel$datapath,
+            pathPU            = pu_path
+          )
+          
+          times <- list(
+            start_time = start_time, 
+            end_time = Sys.time()
+          )
+          
+          params <- generate_scenario_report_params(
+            data = result, 
+            paths = paths, 
+            times = times, 
+            output_dir = rv$wd, 
+            currency = input$currency
+          )
+          
+          report_template <- "../report_template/ta-profit-komparasi.Rmd"
+          output_file <- paste0("ta-profit_report_komparasi_", format(Sys.time(), "%Y-%m-%d_%H-%M-%S"), ".html")
+        }
         
-        pu_list <- unique(result$combinedRasterTable$PU)
-        pu_outputs <- list()
-        for (pu_name in pu_list) {
-          pu_data <- result$combinedRasterTable %>% filter(PU == pu_name)
-          pu_outputs[[pu_name]] <- process_pu_data(pu_data, pu_name, input$currency)
-        }  
-        
-        # And update the main chart generation:
-        params <- generate_report_params(
-          data = result,
-          maps = result,
-          paths = paths,
-          times = times,
-          pu_outputs = pu_outputs,
-          output_dir = rv$wd,
-          currency = input$currency 
-        )
-
-        output_file <- paste0("ta-profit_report_", format(Sys.time(), "%Y-%m-%d_%H-%M-%S"), ".html")
+        # --- RENDER REPORT (BERLAKU UNTUK KEDUA MODE) ---
+        incProgress(0.5, detail = "Generating report...")
         report_path <- file.path(rv$wd, output_file)
         
         rmarkdown::render(
-          input = "../report_template/ta-profit-ID.Rmd",
+          input = report_template,
           output_file = report_path,
           params = params,
           envir = new.env(parent = globalenv()),
           quiet = TRUE
         )
         
+        # --- SELESAI ---
         rv$report_file <- report_path
-        
         incProgress(0.9, detail = "Finished.")
         
         output$status_messages <- renderText("Analysis completed successfully!")
@@ -506,6 +580,7 @@ server <- function(input, output, session) {
         shinyjs::show("open_output_folder")
         shinyjs::show("open_report")
         showNotification("Analysis completed successfully!", type = "message")
+        
       }, error = function(e) {
         output$status_messages <- renderText(paste("Error in analysis:", e$message))
         output$error_messages <- renderText(paste("Error in analysis:", e$message))

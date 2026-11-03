@@ -122,7 +122,7 @@ intisari_data <- tibble::tibble(
     as.character(params$io_period),
     as.character(params$unit),
     paste0("Juta (nilai aktual = angka × ", 
-           format(1000000, big.mark = ",", scientific = FALSE), ")"),
+           format(1000000, big.mark = ".", scientific = FALSE), ")"),
     as.character(params$io_source)
   )
 )

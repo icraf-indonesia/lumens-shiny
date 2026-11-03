@@ -1438,3 +1438,291 @@ shrink_raster <- function(r, target = 3e5, fun = "modal") {
   if (n <= target) return(r)
   terra::aggregate(r, fact = ceiling(sqrt(n / target)), fun = fun, na.rm = TRUE)
 }
+
+#' Process Scenario Comparison Data (Adapted to Actual Excel Format)
+#' @export
+process_scenario_comparison <- function(pathScenarioExcel, pathPU, pathLookupPU, puIsVector, currency) {
+  
+  # --- HELPER 1: Baca sheet format wide & ubah ke long ---
+  read_wide_sheet <- function(path, sheet_num, value_name) {
+    df <- readxl::read_excel(path, sheet = sheet_num)
+    
+    df_long <- df %>%
+      tidyr::pivot_longer(
+        cols = -c(1, 2), # Kolom 1 = ID, Kolom 2 = KELAS
+        names_to = "Tahun",
+        values_to = value_name
+      ) %>%
+      rename(ID = 1, Land_Cover = 2) %>%
+      mutate(
+        Tahun = as.numeric(Tahun),
+        ID = as.numeric(ID),
+        !!value_name := as.numeric(.data[[value_name]])
+      )
+    
+    return(df_long)
+  }
+  
+  # --- HELPER 2: Baca sheet EAE (wide tapi tanpa kolom Tahun) ---
+  read_eae_sheet <- function(path, sheet_num) {
+    df <- readxl::read_excel(path, sheet = sheet_num)
+    
+    df_clean <- df %>%
+      rename(ID = 1, Land_Cover = 2, EAE_BAU = 3, EAE_Intervensi = 4) %>%
+      mutate(
+        ID = as.numeric(ID),
+        EAE_BAU = as.numeric(EAE_BAU),
+        EAE_Intervensi = as.numeric(EAE_Intervensi)
+      )
+    
+    return(df_clean)
+  }
+  
+  # =====================================================
+  # 1. Baca Sheet Data (dimulai dari Sheet 2 karena Sheet 1 README)
+  # =====================================================
+  
+  # Sheet 2: Luas Proyeksi BAU
+  df_area_bau <- read_wide_sheet(pathScenarioExcel, 2, "Luas_BAU")
+  
+  # Sheet 3: Luas Proyeksi Intervensi
+  df_area_int <- read_wide_sheet(pathScenarioExcel, 3, "Luas_Intervensi")
+  
+  # Sheet 4: Persentase BAU
+  df_pct_bau <- read_wide_sheet(pathScenarioExcel, 4, "Pct_BAU")
+  
+  # Sheet 5: Persentase Intervensi
+  df_pct_int <- read_wide_sheet(pathScenarioExcel, 5, "Pct_Intervensi")
+  
+  # Sheet 6: EAE (BAU & Intervensi dalam satu sheet, tanpa Tahun)
+  df_eae <- read_eae_sheet(pathScenarioExcel, 6)
+  
+  # =====================================================
+  # 2. Gabungkan Semua Data
+  # =====================================================
+  
+  # Gabungkan data yang memiliki Tahun (Luas & Persentase)
+  df_proj <- df_area_bau %>%
+    full_join(df_area_int, by = c("ID", "Land_Cover", "Tahun")) %>%
+    full_join(df_pct_bau, by = c("ID", "Land_Cover", "Tahun")) %>%
+    full_join(df_pct_int, by = c("ID", "Land_Cover", "Tahun")) %>%
+    # Gabungkan EAE (berdasarkan ID & Land_Cover saja, karena EAE berlaku untuk semua tahun)
+    left_join(df_eae, by = c("ID", "Land_Cover")) %>%
+    arrange(Tahun, ID) %>%
+    # Ganti NA dengan 0
+    mutate(across(where(is.numeric), ~ifelse(is.na(.), 0, .)))
+  
+  # =====================================================
+  # 3. Hitung Keuntungan Usaha Tani
+  # =====================================================
+  
+  df_proj <- df_proj %>%
+    mutate(
+      # Keuntungan BAU = EAE BAU * Luas BAU
+      Keuntungan_BAU = EAE_BAU * Luas_BAU,
+      
+      # Keuntungan Intervensi = (Keuntungan BAU * Pct BAU) + (EAE Intervensi * Pct Intervensi * Luas Intervensi)
+      Keuntungan_Intervensi = (Keuntungan_BAU * Pct_BAU) + (EAE_Intervensi * Pct_Intervensi * Luas_Intervensi),
+      
+      # Selisih dan Persentase
+      Selisih = Keuntungan_Intervensi - Keuntungan_BAU,
+      Persentase_Selisih = ifelse(Keuntungan_BAU > 0, (Selisih / Keuntungan_BAU) * 100, 0)
+    )
+  
+  # =====================================================
+  # 4. Agregasi per Tahun untuk Grafik Garis
+  # =====================================================
+  
+  df_yearly <- df_proj %>%
+    group_by(Tahun) %>%
+    summarise(
+      Total_Luas_BAU = sum(Luas_BAU, na.rm = TRUE),
+      Total_Luas_Intervensi = sum(Luas_Intervensi, na.rm = TRUE),
+      Total_Keuntungan_BAU = sum(Keuntungan_BAU, na.rm = TRUE),
+      Total_Keuntungan_Intervensi = sum(Keuntungan_Intervensi, na.rm = TRUE),
+      Total_Selisih = sum(Selisih, na.rm = TRUE),
+      .groups = "drop"
+    )
+  
+  # =====================================================
+  # 5. Hitung Luas per PU (dari Raster/Vector)
+  # =====================================================
+  
+  if (puIsVector) {
+    PU_vect <- terra::vect(pathPU)
+    
+    # Deteksi nama kolom ID dan Nama dari shapefile
+    attr_df <- as.data.frame(PU_vect)
+    
+    id_col <- NULL
+    for (nm in names(attr_df)) {
+      if (is.numeric(attr_df[[nm]]) && length(unique(attr_df[[nm]])) > 1) {
+        id_col <- nm
+        break
+      }
+    }
+    if (is.null(id_col)) id_col <- names(attr_df)[1]
+    
+    name_col <- NULL
+    for (nm in names(attr_df)) {
+      if (is.character(attr_df[[nm]]) || is.factor(attr_df[[nm]])) {
+        name_col <- nm
+        break
+      }
+    }
+    if (is.null(name_col)) name_col <- id_col
+    
+    # Hitung luas per poligon
+    PU_vect$Area_Ha <- terra::expanse(PU_vect, unit = "ha")
+    
+    df_pu_area <- as.data.frame(PU_vect) %>%
+      dplyr::rename(
+        PU_ID = !!id_col,
+        PU_Name = !!name_col,
+        Area_Ha = Area_Ha
+      ) %>%
+      dplyr::select(PU_ID, PU_Name, Area_Ha) %>%
+      dplyr::distinct()
+    
+  } else {
+    # Mode Raster
+    PU_rast <- terra::rast(pathPU)
+    LookupPU <- read_lookup_file(pathLookupPU)
+    
+    # Deteksi nama kolom nama PU di LookupPU (ambil kolom ke-2 atau cari yang bertipe karakter)
+    name_col_pu <- NULL
+    for (nm in names(LookupPU)[-1]) {
+      if (is.character(LookupPU[[nm]]) || is.factor(LookupPU[[nm]])) {
+        name_col_pu <- nm
+        break
+      }
+    }
+    if (is.null(name_col_pu)) name_col_pu <- names(LookupPU)[2] # Fallback kolom ke-2
+    
+    # Hitung luas per kelas di raster PU
+    res_m <- terra::res(PU_rast)
+    area_per_pixel <- (res_m[1] * res_m[2]) / 10000
+    
+    freq_table <- as.data.frame(terra::freq(PU_rast))
+    
+    df_pu_area <- freq_table %>%
+      dplyr::rename(PU_ID = value, Count = count) %>%
+      dplyr::filter(!is.na(PU_ID)) %>%
+      dplyr::mutate(Area_Ha = Count * area_per_pixel) %>%
+      # Join dengan lookup menggunakan nama kolom yang sudah dideteksi
+      dplyr::left_join(
+        LookupPU %>% dplyr::rename(PU_ID = 1, PU_Name = !!name_col_pu), 
+        by = "PU_ID"
+      ) %>%
+      dplyr::select(PU_ID, PU_Name, Area_Ha)
+  }
+  
+  # =====================================================
+  # 6. Alokasikan Keuntungan ke Setiap PU
+  # =====================================================
+  
+  # Hitung total luas keseluruhan
+  total_area <- sum(df_pu_area$Area_Ha, na.rm = TRUE)
+  
+  # Hitung proporsi luas tiap PU
+  df_pu_area <- df_pu_area %>%
+    dplyr::mutate(Proporsi = Area_Ha / total_area)
+  
+  # Gabungkan dengan data yearly_summary (total keuntungan per tahun)
+  # Gunakan nama kolom dengan garis bawah (sesuai output df_yearly asli)
+  df_yearly_pu <- df_yearly %>%
+    tidyr::crossing(df_pu_area) %>%
+    dplyr::mutate(
+      `Keuntungan BAU per PU` = Total_Keuntungan_BAU * Proporsi,
+      `Keuntungan Intervensi per PU` = Total_Keuntungan_Intervensi * Proporsi,
+      `Selisih per PU` = Total_Selisih * Proporsi
+    )
+  
+  return(list(
+    projection_table = df_proj,
+    yearly_summary = df_yearly,
+    pu_summary = df_yearly_pu,
+    pu_area = df_pu_area
+  ))
+}
+
+#' Generate Scenario Report Parameters
+#'
+#' Prepares all necessary parameters for RMarkdown report generation
+#' for the Scenario Comparison module.
+#'
+#' @param data List output from `process_scenario_comparison()` containing
+#'   `projection_table` and `yearly_summary`.
+#' @param paths List of file paths used in the analysis.
+#' @param times List containing start_time, end_time, etc.
+#' @param output_dir Directory where output files are saved.
+#' @param currency Currency symbol for display (e.g., "IDR", "USD").
+#'
+#' @return A comprehensive list of parameters ready for RMarkdown rendering.
+#' @export
+generate_scenario_report_params <- function(data, paths, times, output_dir, currency) {
+  
+  # 1. Hitung Total Keuntungan Keseluruhan (untuk Kesimpulan)
+  total_keuntungan_bau <- sum(data$projection_table$Keuntungan_BAU, na.rm = TRUE)
+  total_keuntungan_intervensi <- sum(data$projection_table$Keuntungan_Intervensi, na.rm = TRUE)
+  total_selisih <- total_keuntungan_intervensi - total_keuntungan_bau
+  total_persentase_selisih <- ifelse(
+    total_keuntungan_bau > 0, 
+    (total_selisih / total_keuntungan_bau) * 100, 
+    0
+  )
+  
+  # 2. Siapkan Tabel Detail (Projection Table) dengan nama kolom yang rapi
+  #    (Opsional: di-rename di sini agar RMarkdown lebih bersih)
+  projection_table <- data$projection_table %>%
+    dplyr::rename(
+      `ID` = ID,
+      `Tutupan Lahan` = Land_Cover,
+      `Tahun` = Tahun,
+      `Luas BAU (Ha)` = Luas_BAU,
+      `Luas Intervensi (Ha)` = Luas_Intervensi,
+      `EAE BAU` = EAE_BAU,
+      `EAE Intervensi` = EAE_Intervensi,
+      `Persentase BAU` = Pct_BAU,
+      `Persentase Intervensi` = Pct_Intervensi,
+      `Keuntungan BAU` = Keuntungan_BAU,
+      `Keuntungan Intervensi` = Keuntungan_Intervensi,
+      `Selisih` = Selisih,
+      `Persentase Selisih (%)` = Persentase_Selisih
+    )
+  
+  # 3. Siapkan Tabel Agregat Tahunan (Yearly Summary) dengan nama kolom yang rapi
+  yearly_summary <- data$yearly_summary %>%
+    dplyr::rename(
+      `Tahun` = Tahun,
+      `Total Luas BAU (Ha)` = Total_Luas_BAU,
+      `Total Luas Intervensi (Ha)` = Total_Luas_Intervensi,
+      `Total Keuntungan BAU` = Total_Keuntungan_BAU,
+      `Total Keuntungan Intervensi` = Total_Keuntungan_Intervensi,
+      `Total Selisih` = Total_Selisih
+    )
+  
+  # 4. Return semua parameter untuk RMarkdown
+  list(
+    session_log = format_session_info_table(),
+    start_time = format(times$start_time, "%Y-%m-%d %H:%M:%S"),
+    end_time = format(times$end_time, "%Y-%m-%d %H:%M:%S"),
+    scenario_file_path = paths$pathScenarioExcel,
+    pu_file_path = paths$pathPU,
+    output_dir = output_dir,
+    currency = currency,
+    
+    # Data Utama
+    projection_table = projection_table,
+    yearly_summary = yearly_summary,
+    
+    # Statistik Ringkasan
+    total_keuntungan_bau = total_keuntungan_bau,
+    total_keuntungan_intervensi = total_keuntungan_intervensi,
+    total_selisih = total_selisih,
+    total_persentase_selisih = total_persentase_selisih,
+    
+    pu_summary = data$pu_summary,
+    pu_area = data$pu_area
+  )
+}

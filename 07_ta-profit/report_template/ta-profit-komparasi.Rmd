@@ -1,0 +1,234 @@
+---
+title: "Laporan Analisis Komparasi Skenario"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+    df_print: kable
+params:
+  session_log: NA
+  start_time: NA
+  end_time: NA
+  projection_table: NA
+  yearly_summary: NA
+  pu_summary: NA
+  pu_area: NA
+  total_keuntungan_bau: NA
+  total_keuntungan_intervensi: NA
+  total_selisih: NA
+  total_persentase_selisih: NA
+  scenario_file_path: null
+  pu_file_path: null
+  output_dir: null
+  currency: null
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(knitr)
+library(kableExtra)
+library(dplyr)
+library(plotly)
+library(scales)
+library(glue)
+library(DT)
+```
+
+# Pendahuluan
+
+Laporan ini menyajikan hasil Komparasi Skenario antara Skenario Business As Usual (BAU) dan Skenario Intervensi. Analisis ini menghitung Keuntungan Usaha Tani berdasarkan data luas proyeksi, persentase penerapan, dan nilai EAE per tahun yang disediakan dalam file Excel.
+
+# Data Input
+
+File Proyeksi Skenario: `r params$scenario_file_path`
+
+# Perbandingan Skenario BAU dan Intervensi {.tabset}
+
+## Grafik Garis per Tahun
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+# Grafik menggunakan data agregat per tahun (yearly_summary)
+plot_ly(params$yearly_summary, x = ~Tahun) %>%
+  add_trace(y = ~`Total Keuntungan BAU`, name = 'Skenario BAU', 
+            type = 'scatter', mode = 'lines+markers', 
+            line = list(color = 'blue')) %>%
+  add_trace(y = ~`Total Keuntungan Intervensi`, name = 'Skenario Intervensi', 
+            type = 'scatter', mode = 'lines+markers', 
+            line = list(color = 'green')) %>%
+  layout(
+    title = "Perbandingan Total Keuntungan Usaha Tani (BAU vs Intervensi) per Tahun",
+    xaxis = list(title = "Tahun"),
+    yaxis = list(title = paste("Total Keuntungan Usaha Tani (", params$currency, ")", sep = "")),
+    hovermode = "x unified"
+  )
+```
+
+## Tabel Komparasi per Tahun
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+params$yearly_summary %>%
+  # Hitung Persentase Selisih
+  mutate(
+    `Persentase Selisih (%)` = ifelse(
+      `Total Keuntungan BAU` > 0, 
+      (`Total Selisih` / `Total Keuntungan BAU`) * 100, 
+      0
+    )
+  ) %>%
+  # Format angka
+  mutate(
+    across(
+      .cols = c(`Total Luas BAU (Ha)`, `Total Luas Intervensi (Ha)`, 
+                `Total Keuntungan BAU`, `Total Keuntungan Intervensi`, `Total Selisih`),
+      .fns = ~scales::comma(.x)
+    ),
+    `Persentase Selisih (%)` = paste0(round(`Persentase Selisih (%)`, 2), "%")
+  ) %>%
+  # Rename kolom dengan tambahan mata uang
+  rename(
+    `Tahun` = Tahun,
+    `Total Luas BAU (Ha)` = `Total Luas BAU (Ha)`,
+    `Total Luas Intervensi (Ha)` = `Total Luas Intervensi (Ha)`,
+    !!glue::glue("Total Keuntungan BAU ({params$currency})") := `Total Keuntungan BAU`,
+    !!glue::glue("Total Keuntungan Intervensi ({params$currency})") := `Total Keuntungan Intervensi`,
+    !!glue::glue("Total Selisih ({params$currency})") := `Total Selisih`,
+    `Persentase Selisih (%)` = `Persentase Selisih (%)`
+  ) %>%
+  DT::datatable(
+    rownames = FALSE,
+    extensions = c('Buttons'), 
+    options = list(
+      paging = TRUE,
+      searching = TRUE,
+      responsive = FALSE,
+      dom = 'Blfrtip',
+      buttons = list(
+        list(extend = "copy", className = "btn btn-light btn-sm"),
+        list(extend = "csv",  className = "btn btn-light btn-sm"),
+        list(extend = "excel",className = "btn btn-light btn-sm")
+      )
+    )
+  )
+```
+
+## Tabel Detail Per Kelas Tutupan Lahan
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+params$projection_table %>%
+  # 1. Format kolom Persentase (Gunakan nama kolom yang sudah di-rename)
+  mutate(
+    `Persentase BAU` = paste0(round(`Persentase BAU` * 100, 2), "%"),
+    `Persentase Intervensi` = paste0(round(`Persentase Intervensi` * 100, 2), "%"),
+    `Persentase Selisih (%)` = paste0(round(`Persentase Selisih (%)`, 2), "%")
+  ) %>%
+  # 2. Format angka ribuan untuk kolom numerik
+  mutate(
+    across(
+      .cols = c(
+        `Luas BAU (Ha)`, 
+        `Luas Intervensi (Ha)`, 
+        `EAE BAU`, 
+        `EAE Intervensi`, 
+        `Keuntungan BAU`, 
+        `Keuntungan Intervensi`, 
+        `Selisih`
+      ),
+      .fns = ~scales::comma(.x)
+    )
+  ) %>%
+  # 3. Rename kolom dan tambahkan satuan mata uang
+  rename(
+    `ID` = ID,
+    `Tutupan Lahan` = `Tutupan Lahan`,
+    `Tahun` = Tahun,
+    `Luas BAU (Ha)` = `Luas BAU (Ha)`,
+    `Luas Intervensi (Ha)` = `Luas Intervensi (Ha)`,
+    !!glue::glue("EAE BAU ({params$currency})") := `EAE BAU`,
+    !!glue::glue("EAE Intervensi ({params$currency})") := `EAE Intervensi`,
+    `Persentase BAU` = `Persentase BAU`,
+    `Persentase Intervensi` = `Persentase Intervensi`,
+    !!glue::glue("Keuntungan BAU ({params$currency})") := `Keuntungan BAU`,
+    !!glue::glue("Keuntungan Intervensi ({params$currency})") := `Keuntungan Intervensi`,
+    !!glue::glue("Selisih ({params$currency})") := `Selisih`,
+    `Persentase Selisih (%)` = `Persentase Selisih (%)`
+  ) %>%
+  # 4. Tampilkan DataTable
+  DT::datatable(
+    rownames = FALSE,
+    # HAPUS 'Responsive' DARI EXTENSIONS
+    extensions = c('Buttons', 'Scroller'), 
+    options = list(
+      paging = FALSE,
+      scrollY = "400px",
+      scrollX = TRUE,
+      searching = TRUE,
+      fixedColumns = FALSE,
+      responsive = FALSE,  # MATIKAN FITUR RESPONSIVE
+      dom = 'Blfrtip',
+      buttons = list(
+        list(extend = "copy", className = "btn btn-light btn-sm"),
+        list(extend = "csv",  className = "btn btn-light btn-sm"),
+        list(extend = "excel",className = "btn btn-light btn-sm")
+      )
+    )
+  )
+```
+
+## Perbandingan Skenario BAU dan Intervensi per Unit Perencanaan
+
+Tabel berikut menampilkan perbandingan keuntungan antara Skenario BAU dan Intervensi untuk masing-masing Unit Perencanaan (PU).
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+if (!is.null(params$pu_summary) && nrow(params$pu_summary) > 0) {
+  params$pu_summary %>%
+    select(
+      `PU ID` = PU_ID,
+      `Unit Perencanaan` = PU_Name,
+      `Luas (Ha)` = Area_Ha,
+      `Tahun` = Tahun,
+      `Keuntungan BAU` = `Keuntungan BAU per PU`,
+      `Keuntungan Intervensi` = `Keuntungan Intervensi per PU`,
+      `Selisih` = `Selisih per PU`
+    ) %>%
+    mutate(
+      across(where(is.numeric), scales::comma)
+    ) %>%
+    DT::datatable(
+      rownames = FALSE,
+      extensions = c('Buttons', 'Scroller'),
+      options = list(
+        paging = FALSE,
+        scrollY = "400px",
+        scrollX = TRUE,
+        searching = TRUE,
+        responsive = FALSE,
+        dom = 'Blfrtip',
+        buttons = list(
+          list(extend = "copy", className = "btn btn-light btn-sm"),
+          list(extend = "csv",  className = "btn btn-light btn-sm"),
+          list(extend = "excel",className = "btn btn-light btn-sm")
+        )
+      )
+    )
+} else {
+  cat("*Data per Unit Perencanaan (PU) tidak tersedia.*")
+}
+```
+
+# Kesimpulan
+
+Total keuntungan Skenario BAU adalah `r params$currency` `r scales::label_comma()(params$total_keuntungan_bau)`, sedangkan total keuntungan Skenario Intervensi adalah `r params$currency` `r scales::label_comma()(params$total_keuntungan_intervensi)`.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, results='asis'}
+selisih <- params$total_selisih
+pct <- params$total_persentase_selisih
+
+if (selisih > 0) {
+  cat(glue::glue("\n\nSkenario Intervensi memberikan keuntungan **lebih tinggi sebesar {params$currency}  {scales::label_comma()(selisih)} ({round(pct, 2)}%)** dibandingkan Skenario BAU.\n"))
+} else if (selisih < 0) {
+  cat(glue::glue("\n\nSkenario Intervensi memberikan keuntungan **lebih rendah sebesar {params$currency} {scales::label_comma()(abs(selisih))} ({round(abs(pct), 2)}%)** dibandingkan Skenario BAU.\n"))
+} else {
+  cat("\n\nSkenario Intervensi dan Skenario BAU menghasilkan **total keuntungan yang sama**.\n")
+}
+```
