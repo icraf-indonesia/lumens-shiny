@@ -718,8 +718,17 @@ run_sciendo_simulate_process <- function(lc_t1_path, initial_year, period_value,
   start_time <- Sys.time()
   cat("Started at:", format(start_time, "%Y-%m-%d %H:%M:%S"), "\n")
   
-  files      <- list.files(path = tm_path, full.names = TRUE, ignore.case = TRUE)
-  xlsm_files <- files[grep("\\.xlsm$", files, ignore.case = TRUE)]
+  if (file.exists(tm_path) && !dir.exists(tm_path)) {
+    if (grepl("\\.xlsm$", tm_path, ignore.case = TRUE) && !grepl("^~\\$", basename(tm_path))) {
+      xlsm_files <- tm_path
+    } else {
+      xlsm_files <- character(0)
+    }
+  } else {
+    files      <- list.files(path = tm_path, full.names = TRUE, ignore.case = TRUE)
+    xlsm_files <- files[grep("\\.xlsm$", files, ignore.case = TRUE)]
+    xlsm_files <- xlsm_files[!grepl("^~\\$", basename(xlsm_files))]
+  }
   
   if (length(xlsm_files) > 0) {
     matrix_to_tpm(tm_path, lc_lookup_table, output_dir)
@@ -1378,24 +1387,49 @@ matrix_to_tpm <- function(input_folder_path, lc_lookup, output_dir) {
   tpm_dir <- file.path(output_dir, "scenario_tpm")
   dir.create(tpm_dir, recursive = TRUE, showWarnings = FALSE)
   
-  xlsm_files <- list.files(path = input_folder_path, pattern = "\\.xlsm$",
-                           full.names = TRUE, ignore.case = TRUE)
+  if (file.exists(input_folder_path) && !dir.exists(input_folder_path)) {
+    xlsm_files <- input_folder_path
+  } else {
+    xlsm_files <- list.files(path = input_folder_path, pattern = "\\.xlsm$",
+                             full.names = TRUE, ignore.case = TRUE)
+  }
+  xlsm_files <- xlsm_files[!grepl("^~\\$", basename(xlsm_files))]
   
   if (length(xlsm_files) == 0) {
     message("No .xlsm files found in: ", input_folder_path)
     return(invisible(NULL))
   }
   
-  convert_to_id <- function(data, lc_lookup) {
-    clean_text <- function(x) tolower(trimws(gsub("\\s+", " ", as.character(x))))
+  clean_text <- function(x) tolower(trimws(gsub("\\s+", " ", as.character(x))))
+  lc_lookup_clean <- lc_lookup %>% dplyr::mutate(LC_clean = clean_text(LC))
+  
+  convert_to_id <- function(data, lc_lookup_clean) {
+    row_raw <- data[[1]]
+    col_raw <- colnames(data)[-1]
     
-    lc_lookup_clean <- lc_lookup %>% mutate(LC_clean = clean_text(LC))
+    if (all(!is.na(suppressWarnings(as.numeric(row_raw))))) {
+      row_ids <- as.numeric(row_raw)
+    } else {
+      row_clean <- clean_text(row_raw)
+      row_ids   <- lc_lookup_clean$ID[match(row_clean, lc_lookup_clean$LC_clean)]
+      na_idx    <- which(is.na(row_ids))
+      if (length(na_idx) > 0) {
+        fallback_ids <- suppressWarnings(as.numeric(gsub(".*?([0-9]+).*", "\\1", row_clean[na_idx])))
+        row_ids[na_idx] <- ifelse(!is.na(fallback_ids), fallback_ids, row_ids[na_idx])
+      }
+    }
     
-    row_names <- clean_text(data[[1]])
-    row_ids   <- lc_lookup_clean$ID[match(row_names, lc_lookup_clean$LC_clean)]
-    
-    col_names <- clean_text(colnames(data)[-1])
-    col_ids   <- lc_lookup_clean$ID[match(col_names, lc_lookup_clean$LC_clean)]
+    if (all(!is.na(suppressWarnings(as.numeric(col_raw))))) {
+      col_ids <- as.numeric(col_raw)
+    } else {
+      col_clean <- clean_text(col_raw)
+      col_ids   <- lc_lookup_clean$ID[match(col_clean, lc_lookup_clean$LC_clean)]
+      na_idx    <- which(is.na(col_ids))
+      if (length(na_idx) > 0) {
+        fallback_ids <- suppressWarnings(as.numeric(gsub(".*?([0-9]+).*", "\\1", col_clean[na_idx])))
+        col_ids[na_idx] <- ifelse(!is.na(fallback_ids), fallback_ids, col_ids[na_idx])
+      }
+    }
     
     list(row_ids = row_ids, col_ids = col_ids)
   }
@@ -1405,43 +1439,152 @@ matrix_to_tpm <- function(input_folder_path, lc_lookup, output_dir) {
   for (xlsm_path in xlsm_files) {
     message("\nProcessing: ", basename(xlsm_path))
     
-    tryCatch({
-      data <- read_excel(xlsm_path, sheet = 1, col_names = TRUE) %>% as.data.frame()
+    all_sheets <- readxl::excel_sheets(xlsm_path)
+    is_consolidated <- any(grepl("^dashboard$", all_sheets, ignore.case = TRUE)) ||
+                       sum(grepl("^PU_", all_sheets, ignore.case = TRUE)) > 1
+    
+    if (is_consolidated) {
+      pu_sheets <- all_sheets[
+        !grepl("^dashboard$", all_sheets, ignore.case = TRUE) &
+        !grepl("^_", all_sheets) &
+        !grepl("_original$", all_sheets, ignore.case = TRUE) &
+        !grepl("_backup$", all_sheets, ignore.case = TRUE) &
+        !grepl("_baseline$", all_sheets, ignore.case = TRUE)
+      ]
       
-      if (nrow(data) == 0) {
-        message("Empty dataset in file: ", basename(xlsm_path))
-        next
+      message("Found consolidated workbook with ", length(pu_sheets), " Planning Unit sheets.")
+      
+      for (sh_idx in seq_along(pu_sheets)) {
+        sh_name <- pu_sheets[sh_idx]
+        tryCatch({
+          pu_id_match <- regmatches(sh_name, regexec("^PU_?([0-9]+)", sh_name, ignore.case = TRUE))[[1]]
+          if (length(pu_id_match) >= 2) {
+            pu_id <- as.numeric(pu_id_match[2])
+          } else {
+            num_match <- regmatches(sh_name, regexec("([0-9]+)", sh_name))[[1]]
+            if (length(num_match) >= 2) {
+              pu_id <- as.numeric(num_match[2])
+            } else {
+              pu_id <- sh_idx
+            }
+          }
+          
+          raw_data <- readxl::read_excel(xlsm_path, sheet = sh_name, col_names = FALSE) %>% as.data.frame()
+          if (nrow(raw_data) == 0) next
+          
+          header_row_idx <- which(apply(raw_data, 1, function(r) any(grepl("From", r, ignore.case = TRUE))))
+          if (length(header_row_idx) == 0) header_row_idx <- 1 else header_row_idx <- header_row_idx[1]
+          
+          header_row_vals <- as.character(raw_data[header_row_idx, ])
+          start_col_idx <- which(grepl("From", header_row_vals, ignore.case = TRUE))
+          if (length(start_col_idx) == 0) start_col_idx <- 1 else start_col_idx <- start_col_idx[1]
+          
+          gt_col_idx <- which(grepl("grand total", header_row_vals, ignore.case = TRUE))
+          if (length(gt_col_idx) == 0) {
+            non_empty <- which(!is.na(header_row_vals) & header_row_vals != "")
+            end_col_idx <- max(non_empty)
+          } else {
+            end_col_idx <- gt_col_idx[1] - 1
+          }
+          
+          col_names_vec <- as.character(raw_data[header_row_idx, (start_col_idx + 1):end_col_idx])
+          
+          row_scan <- (header_row_idx + 1):nrow(raw_data)
+          valid_rows <- integer(0)
+          for (ri in row_scan) {
+            val <- raw_data[ri, start_col_idx]
+            if (!is.na(val) && as.character(val) != "" && !grepl("grand total", as.character(val), ignore.case = TRUE)) {
+              valid_rows <- c(valid_rows, ri)
+            } else {
+              break
+            }
+          }
+          
+          if (length(valid_rows) == 0) next
+          
+          row_names_vec <- as.character(raw_data[valid_rows, start_col_idx])
+          matrix_vals <- raw_data[valid_rows, (start_col_idx + 1):end_col_idx, drop = FALSE]
+          
+          data <- as.data.frame(matrix_vals)
+          colnames(data) <- col_names_vec
+          data <- cbind(From = row_names_vec, data)
+          
+          ids <- convert_to_id(data, lc_lookup_clean)
+          data[[1]] <- ids$row_ids
+          colnames(data)[-1] <- ids$col_ids
+          
+          parse_num <- function(x) suppressWarnings(as.numeric(trimws(gsub(",", ".", as.character(x)))))
+          
+          long_data <- data %>%
+            tidyr::pivot_longer(
+              cols             = -1,
+              names_to         = "To*",
+              values_to        = "Rate",
+              values_transform = list(Rate = parse_num)
+            ) %>%
+            dplyr::rename("From*" = 1) %>%
+            dplyr::mutate(
+              `From*` = as.numeric(`From*`),
+              `To*`   = as.numeric(`To*`)
+            ) %>%
+            dplyr::filter(
+              `From*` != `To*`,
+              !is.na(Rate),
+              Rate != 0,
+              !is.na(`From*`),
+              !is.na(`To*`)
+            )
+          
+          out_file <- file.path(tpm_dir, sprintf("single_step%06d.csv", pu_id))
+          write.csv(long_data, out_file, row.names = FALSE, quote = FALSE)
+          processed_files <- c(processed_files, out_file)
+          message("  Extracted: ", sh_name, " -> ", basename(out_file))
+        }, error = function(e) {
+          message("Error processing sheet ", sh_name, " in ", basename(xlsm_path), ": ", e$message)
+        })
       }
-      
-      ids <- convert_to_id(data, lc_lookup)
-      
-      data[[1]] <- ids$row_ids
-      colnames(data)[-1] <- ids$col_ids
-      data <- data[, -ncol(data), drop = FALSE]
-      
-      long_data <- data %>%
-        pivot_longer(
-          cols              = -1,
-          names_to          = "To*",
-          values_to         = "Rate",
-          values_transform  = list(Rate = as.numeric)
-        ) %>%
-        rename("From*" = 1) %>%
-        filter(
-          `From*` != `To*`,
-          !is.na(Rate),
-          Rate != 0,
-          !is.na(`From*`),
-          !is.na(`To*`)
-        )
-      
-      clean_name <- gsub("_macros", "", basename(xlsm_path))
-      out_file   <- file.path(tpm_dir, sub("\\.xlsm$", ".csv", clean_name))
-      write.csv(long_data, out_file, row.names = FALSE, quote = FALSE)
-      processed_files <- c(processed_files, out_file)
-    }, error = function(e) {
-      message("Error processing ", basename(xlsm_path), ": ", e$message)
-    })
+    } else {
+      # Legacy individual .xlsm file processing
+      tryCatch({
+        data <- readxl::read_excel(xlsm_path, sheet = 1, col_names = TRUE) %>% as.data.frame()
+        if (nrow(data) == 0) {
+          message("Empty dataset in file: ", basename(xlsm_path))
+          next
+        }
+        
+        ids <- convert_to_id(data, lc_lookup_clean)
+        data[[1]] <- ids$row_ids
+        colnames(data)[-1] <- ids$col_ids
+        data <- data[, -ncol(data), drop = FALSE]
+        
+        long_data <- data %>%
+          tidyr::pivot_longer(
+            cols             = -1,
+            names_to         = "To*",
+            values_to        = "Rate",
+            values_transform = list(Rate = function(x) suppressWarnings(as.numeric(trimws(gsub(",", ".", as.character(x))))))
+          ) %>%
+          dplyr::rename("From*" = 1) %>%
+          dplyr::mutate(
+            `From*` = as.numeric(`From*`),
+            `To*`   = as.numeric(`To*`)
+          ) %>%
+          dplyr::filter(
+            `From*` != `To*`,
+            !is.na(Rate),
+            Rate != 0,
+            !is.na(`From*`),
+            !is.na(`To*`)
+          )
+        
+        clean_name <- gsub("_macros", "", basename(xlsm_path))
+        out_file   <- file.path(tpm_dir, sub("\\.xlsm$", ".csv", clean_name))
+        write.csv(long_data, out_file, row.names = FALSE, quote = FALSE)
+        processed_files <- c(processed_files, out_file)
+      }, error = function(e) {
+        message("Error processing ", basename(xlsm_path), ": ", e$message)
+      })
+    }
   }
   
   invisible(processed_files)

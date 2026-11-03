@@ -1169,7 +1169,8 @@ run_sciendo_train_process <- function(lc_t1_path, lc_t2_path, zone_path, lc_look
       input_dir = tpm_input_dir,
       lc_lookup_path = lc_lookup_table_path,
       output_dir = macro_dir,
-      template_path = "../macro_template/macro_template.xlsm"
+      template_path = "../macro_template/macro_template.xlsm",
+      pu_lookup = z_lookup_table
     )
   }, error = function(e) {
     stop("TPM conversion failed: ", e$message)
@@ -1618,282 +1619,387 @@ add_period_pu_classes_to_pam <- function(output_dir, pu_classes, time_points, ov
 #' @importFrom dplyr select mutate left_join arrange
 #' @importFrom tools file_path_sans_ext
 #' @export
-tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, template_path) {
+tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, template_path, pu_lookup = NULL) {
   # Load required libraries
-  if (!require(openxlsx2, quietly = TRUE)) {
+  if (!requireNamespace("openxlsx2", quietly = TRUE)) {
     stop("openxlsx2 package is required. Please install it with: install.packages('openxlsx2')")
   }
-  if (!require(dplyr, quietly = TRUE)) {
+  if (!requireNamespace("dplyr", quietly = TRUE)) {
     stop("dplyr package is required. Please install it with: install.packages('dplyr')")
   }
-  if (!require(tidyr, quietly = TRUE)) {
+  if (!requireNamespace("tidyr", quietly = TRUE)) {
     stop("tidyr package is required. Please install it with: install.packages('tidyr')")
   }
   
-  # Normalize paths to avoid issues
-  output_dir <- normalizePath(output_dir, winslash = "/")
-  
-  # Ensure output_dir does not already contain "baseline_tpm_macro"
+  # Normalize paths
+  output_dir <- normalizePath(output_dir, winslash = "/", mustWork = FALSE)
   if (basename(output_dir) == "baseline_tpm_macro") {
     output_dir <- dirname(output_dir)
   }
   
-  # Check if template file exists
-  if (!file.exists(template_path)) {
+  # Locate template file with fallbacks if not found at template_path
+  resolved_template <- template_path
+  if (!file.exists(resolved_template)) {
+    candidates <- c(
+      file.path(getwd(), template_path),
+      file.path("11_sciendo-train/macro_template/macro_template.xlsm"),
+      file.path(getwd(), "11_sciendo-train/macro_template/macro_template.xlsm"),
+      file.path("..", "macro_template", "macro_template.xlsm")
+    )
+    for (cand in candidates) {
+      if (file.exists(cand)) {
+        resolved_template <- cand
+        break
+      }
+    }
+  }
+  if (!file.exists(resolved_template)) {
     stop("Template file not found: ", template_path)
   }
   
-  lc_lookup_table <- read.csv(lc_lookup_path)
+  # Read LC lookup table (supports file path or data.frame)
+  if (is.character(lc_lookup_path)) {
+    lc_lookup_table <- read.csv(lc_lookup_path, stringsAsFactors = FALSE)
+  } else if (is.data.frame(lc_lookup_path)) {
+    lc_lookup_table <- lc_lookup_path
+  } else {
+    stop("lc_lookup_path must be a file path or data.frame")
+  }
+  
+  # Read PU lookup table if provided
+  pu_map <- list()
+  if (!is.null(pu_lookup)) {
+    pu_df <- NULL
+    if (is.character(pu_lookup) && file.exists(pu_lookup)) {
+      pu_df <- read.csv(pu_lookup, stringsAsFactors = FALSE)
+    } else if (is.data.frame(pu_lookup)) {
+      pu_df <- pu_lookup
+    }
+    if (!is.null(pu_df) && ncol(pu_df) >= 2) {
+      colnames(pu_df)[1:2] <- c("ID", "Name")
+      pu_map <- setNames(as.character(pu_df$Name), as.character(pu_df$ID))
+    }
+  }
   
   macro_dir <- file.path(output_dir, "baseline_tpm_macro")
   dir.create(macro_dir, recursive = TRUE, showWarnings = FALSE)
+  output_file <- file.path(macro_dir, "sciendo_tpm_scenario.xlsm")
   
-  message("Macros will be saved to: ", macro_dir)
+  message("Consolidated scenario macro will be saved to: ", output_file)
   
   tpm_dinamica <- list.files(path = input_dir, pattern = "\\.csv$", full.names = TRUE)
+  if (length(tpm_dinamica) == 0) {
+    stop("No CSV files found in input directory: ", input_dir)
+  }
   
-  # Process each CSV file
-  for (tpm in tpm_dinamica) {
-    base_name <- tools::file_path_sans_ext(basename(tpm))
-    matrix1 <- read.csv(tpm)
+  # Extract numeric PU IDs to process files in numerical order
+  raw_ids <- suppressWarnings(as.numeric(gsub(".*?([0-9]+).*", "\\1", basename(tpm_dinamica))))
+  raw_ids[is.na(raw_ids)] <- seq_along(raw_ids)[is.na(raw_ids)]
+  ord <- order(raw_ids)
+  tpm_dinamica <- tpm_dinamica[ord]
+  pu_ids <- raw_ids[ord]
+  
+  # Initialize workbook from template
+  file.copy(resolved_template, output_file, overwrite = TRUE)
+  wb <- openxlsx2::wb_load(output_file)
+  
+  # Rename initial template sheet to Dashboard
+  init_sheets <- wb$get_sheet_names()
+  if (length(init_sheets) > 0) {
+    wb$set_sheet_names(old = init_sheets[1], new = "Dashboard")
+  } else {
+    wb$add_worksheet("Dashboard")
+  }
+  
+  dashboard_rows <- list()
+  
+  for (idx in seq_along(tpm_dinamica)) {
+    tpm <- tpm_dinamica[idx]
+    pu_id <- pu_ids[idx]
+    pu_name <- if (as.character(pu_id) %in% names(pu_map)) {
+      pu_map[[as.character(pu_id)]]
+    } else {
+      paste("Planning Unit", pu_id)
+    }
     
-    # Prepare the matrix data and get all unique IDs from both From and To columns
-    matrix1 <- matrix1 %>%
-      dplyr::select(-X) %>%  # drop the unused column
-      dplyr::mutate(
-        From. = as.numeric(From.),
-        To. = as.numeric(To.),
-        Rate = as.numeric(Rate)
-      )
+    clean_label <- gsub("[\\\\/?*\\[\\]:]", "_", pu_name)
+    clean_label <- gsub("\\s+", "_", trimws(clean_label))
+    prefix <- paste0("PU_", pu_id, "_")
+    max_label_len <- max(1, 25 - nchar(prefix))
+    short_label <- substr(clean_label, 1, max_label_len)
+    sheet_name <- paste0(prefix, short_label)
     
-    # Get all unique IDs present in matrix1 (from both From and To columns)
-    all_ids <- sort(unique(c(matrix1$From., matrix1$To.)))
+    # Read TPM CSV
+    matrix1 <- read.csv(tpm, stringsAsFactors = FALSE)
+    if ("X" %in% colnames(matrix1)) {
+      matrix1 <- matrix1[, colnames(matrix1) != "X", drop = FALSE]
+    }
+    colnames(matrix1) <- gsub("[*.]", "", colnames(matrix1))
+    if (ncol(matrix1) >= 3) {
+      matrix1 <- matrix1[, 1:3]
+      colnames(matrix1) <- c("From", "To", "Rate")
+    }
+    matrix1$From <- as.numeric(matrix1$From)
+    matrix1$To   <- as.numeric(matrix1$To)
+    matrix1$Rate <- as.numeric(matrix1$Rate)
+    matrix1 <- matrix1[!is.na(matrix1$From) & !is.na(matrix1$To) & !is.na(matrix1$Rate), ]
     
-    # Create a complete grid of all possible combinations
-    complete_grid <- expand.grid(
-      From. = all_ids,
-      To. = all_ids
-    ) %>%
-      dplyr::left_join(matrix1, by = c("From.", "To.")) %>%
-      dplyr::mutate(Rate = ifelse(is.na(Rate), 0, Rate))
+    all_ids <- sort(unique(c(matrix1$From, matrix1$To)))
+    if (length(all_ids) == 0) {
+      next
+    }
     
-    # Pivot to wide format
-    wide_df <- complete_grid %>%
-      tidyr::pivot_wider(
-        names_from = To., 
-        values_from = Rate,
-        values_fill = 0
-      ) %>%
-      dplyr::arrange(From.)  # sort rows by From.
+    complete_grid <- expand.grid(From = all_ids, To = all_ids)
+    complete_grid <- merge(complete_grid, matrix1, by = c("From", "To"), all.x = TRUE)
+    complete_grid$Rate[is.na(complete_grid$Rate)] <- 0
     
-    # Reorder columns numerically
-    ordered_cols <- sort(as.numeric(names(wide_df)[-1]))
-    wide_df <- wide_df[, c("From.", as.character(ordered_cols))]
+    wide_df <- as.data.frame(tidyr::pivot_wider(
+      complete_grid,
+      names_from = To,
+      values_from = Rate,
+      values_fill = 0
+    ))
+    wide_df <- wide_df[order(wide_df$From), ]
     
-    # Convert to matrix
-    result_matrix <- as.matrix(wide_df[, -1])
-    rownames(result_matrix) <- wide_df$From.
+    ord_cols <- sort(as.numeric(colnames(wide_df)[-1]))
+    wide_df <- wide_df[, c("From", as.character(ord_cols))]
     
-    # Calculate diagonal values and normalize rows
-    for(i in 1:nrow(result_matrix)) {
-      # First, set diagonal to 0 temporarily
+    result_matrix <- as.matrix(wide_df[, -1, drop = FALSE])
+    rownames(result_matrix) <- wide_df$From
+    
+    # Calculate diagonal values and normalize rows to exactly 1.0
+    for (i in 1:nrow(result_matrix)) {
       result_matrix[i, i] <- 0
-      
-      # Calculate sum of off-diagonal elements
       row_sum_off_diag <- sum(result_matrix[i, ])
-      
-      # If off-diagonal sum is >= 1, proportionally scale them down
       if (row_sum_off_diag >= 1) {
-        # Scale off-diagonal elements to sum to 0.999999
         if (row_sum_off_diag > 0) {
           result_matrix[i, ] <- result_matrix[i, ] * (0.999999 / row_sum_off_diag)
         }
-        result_matrix[i, i] <- 0.000001  # Small persistence probability
+        result_matrix[i, i] <- 0.000001
       } else {
-        # Normal case: set diagonal to make row sum = 1
         result_matrix[i, i] <- 1 - row_sum_off_diag
       }
-      
-      # Force exact normalization to handle floating point precision
-      current_row_sum <- sum(result_matrix[i, ])
-      if (current_row_sum > 0) {
-        result_matrix[i, ] <- result_matrix[i, ] / current_row_sum
+      cur_sum <- sum(result_matrix[i, ])
+      if (cur_sum > 0) {
+        result_matrix[i, ] <- result_matrix[i, ] / cur_sum
       }
-      
-      # Final precision check - adjust the largest element if needed
       final_sum <- sum(result_matrix[i, ])
       if (abs(final_sum - 1) > .Machine$double.eps) {
-        # Find the largest element and adjust it
         max_idx <- which.max(result_matrix[i, ])
         result_matrix[i, max_idx] <- result_matrix[i, max_idx] + (1 - final_sum)
       }
     }
     
-    # Verify that all rows sum to exactly 1 (for debugging)
-    row_sums <- rowSums(result_matrix)
-    max_deviation <- max(abs(row_sums - 1))
-    message("Maximum deviation from 1: ", format(max_deviation, scientific = TRUE))
+    # Map row and col names to LC labels
+    row_ids <- as.numeric(rownames(result_matrix))
+    row_labels <- lc_lookup_table$LC[match(row_ids, lc_lookup_table$ID)]
+    row_labels[is.na(row_labels)] <- paste("LC", row_ids[is.na(row_labels)])
+    rownames(result_matrix) <- row_labels
     
-    if (any(abs(row_sums - 1) > 1e-10)) {
-      warning("Some rows do not sum to exactly 1 in file: ", basename(tpm))
-      problematic_rows <- which(abs(row_sums - 1) > 1e-10)
-      for (row_idx in problematic_rows) {
-        message("Row ", row_idx, " (", rownames(result_matrix)[row_idx], ") sum: ", 
-                format(row_sums[row_idx], digits = 15))
+    col_ids <- as.numeric(colnames(result_matrix))
+    col_labels <- lc_lookup_table$LC[match(col_ids, lc_lookup_table$ID)]
+    col_labels[is.na(col_labels)] <- paste("LC", col_ids[is.na(col_labels)])
+    colnames(result_matrix) <- col_labels
+    
+    n_rows <- nrow(result_matrix)
+    n_cols <- ncol(result_matrix)
+    
+    # Build active transitions intervention panel (non-zero off-diagonal historical transitions)
+    active_records <- list()
+    for (ri in 1:n_rows) {
+      for (ci in 1:n_cols) {
+        if (ri != ci && result_matrix[ri, ci] > 0.000001) {
+          active_records[[length(active_records) + 1]] <- data.frame(
+            From_Class     = row_labels[ri],
+            To_Class       = col_labels[ci],
+            Baseline_Rate  = round(result_matrix[ri, ci], 6),
+            Pct_Adjustment = 0.0,
+            Scenario_Rate  = round(result_matrix[ri, ci], 6),
+            Lock_Status    = "Unlocked",
+            Matrix_Row     = 4 + ri, # Sheet row
+            Matrix_Col     = 2 + ci, # Sheet col (B=2 is row header, C=3.. is matrix data)
+            stringsAsFactors = FALSE
+          )
+        }
+      }
+    }
+    if (length(active_records) > 0) {
+      panel_df <- do.call(rbind, active_records)
+    } else {
+      panel_df <- data.frame(
+        From_Class     = character(0),
+        To_Class       = character(0),
+        Baseline_Rate  = numeric(0),
+        Pct_Adjustment = numeric(0),
+        Scenario_Rate  = numeric(0),
+        Lock_Status    = character(0),
+        Matrix_Row     = integer(0),
+        Matrix_Col     = integer(0),
+        stringsAsFactors = FALSE
+      )
+    }
+    
+    # Add PU sheet
+    wb$add_worksheet(sheet_name)
+    
+    # 1. Title and back-link
+    wb$add_data(sheet = sheet_name, x = paste0("Planning Unit ", pu_id, ": ", pu_name, " - Transition Probability Matrix"), start_col = 2, start_row = 1)
+    wb$add_font(sheet = sheet_name, dims = "B1", size = 13, bold = TRUE, color = openxlsx2::wb_color("navy"))
+    wb$add_formula(sheet = sheet_name, x = '=HYPERLINK("#\'Dashboard\'!A1", "<- Back to Master Dashboard")', dims = "B2")
+    wb$add_font(sheet = sheet_name, dims = "B2", bold = TRUE, color = openxlsx2::wb_color("blue"), underline = "single")
+    
+    # 2. Transition Matrix Headers (Row 4)
+    matrix_header <- c("From \\ To", col_labels, "Grand Total")
+    wb$add_data(sheet = sheet_name, x = as.data.frame(t(matrix_header)), start_col = 2, start_row = 4, col_names = FALSE)
+    
+    # Style Matrix Header row (B4 to end of matrix)
+    mat_end_col <- 2 + n_cols
+    mat_sum_col <- mat_end_col + 1
+    hdr_range <- paste0("B4:", openxlsx2::int2col(mat_sum_col), "4")
+    wb$add_fill(sheet = sheet_name, dims = hdr_range, color = openxlsx2::wb_color(hex = "1E3A8A")) # Dark navy
+    wb$add_font(sheet = sheet_name, dims = hdr_range, color = openxlsx2::wb_color("white"), bold = TRUE)
+    
+    # 3. Transition Matrix Data (Rows 5 to 4 + n_rows)
+    mat_data_df <- as.data.frame(result_matrix)
+    mat_data_df <- cbind(Row_Label = row_labels, mat_data_df)
+    
+    # Add row sums
+    row_sums_vec <- rowSums(result_matrix)
+    mat_data_df$Grand_Total <- row_sums_vec
+    
+    wb$add_data(sheet = sheet_name, x = mat_data_df, start_col = 2, start_row = 5, col_names = FALSE)
+    
+    # Format matrix row headers (Col B)
+    lbl_range <- paste0("B5:B", 4 + n_rows)
+    wb$add_fill(sheet = sheet_name, dims = lbl_range, color = openxlsx2::wb_color(hex = "F1F5F9")) # Light slate
+    wb$add_font(sheet = sheet_name, dims = lbl_range, bold = TRUE)
+    
+    # Format matrix data cells (Cols C to 2+n_cols)
+    data_range <- paste0("C5:", openxlsx2::int2col(mat_end_col), 4 + n_rows)
+    wb$add_numfmt(sheet = sheet_name, dims = data_range, numfmt = "0.000")
+    
+    # Format sum column (Col mat_sum_col)
+    sum_range <- paste0(openxlsx2::int2col(mat_sum_col), "5:", openxlsx2::int2col(mat_sum_col), 4 + n_rows)
+    wb$add_fill(sheet = sheet_name, dims = sum_range, color = openxlsx2::wb_color(hex = "E0F2FE")) # Soft sky blue
+    wb$add_font(sheet = sheet_name, dims = sum_range, bold = TRUE)
+    wb$add_numfmt(sheet = sheet_name, dims = sum_range, numfmt = "0.000")
+    
+    # Apply diagonal and active cell styling
+    for (ri in 1:n_rows) {
+      for (ci in 1:n_cols) {
+        cell_ref <- paste0(openxlsx2::int2col(2 + ci), 4 + ri)
+        if (ri == ci) {
+          # Diagonal persistence: light yellow
+          wb$add_fill(sheet = sheet_name, dims = cell_ref, color = openxlsx2::wb_color(hex = "FEF9C3"))
+        } else if (result_matrix[ri, ci] > 0.000001) {
+          # Active off-diagonal: subtle blue
+          wb$add_fill(sheet = sheet_name, dims = cell_ref, color = openxlsx2::wb_color(hex = "DBEAFE"))
+        } else {
+          # Zero cells: muted font
+          wb$add_font(sheet = sheet_name, dims = cell_ref, color = openxlsx2::wb_color(hex = "9CA3AF"))
+        }
       }
     }
     
-    # Apply land cover labels
-    row_ids <- as.numeric(rownames(result_matrix))
-    row_labels <- lc_lookup_table$LC[match(row_ids, lc_lookup_table$ID)]
-    rownames(result_matrix) <- row_labels
-    col_ids <- as.numeric(colnames(result_matrix))
-    col_labels <- lc_lookup_table$LC[match(col_ids, lc_lookup_table$ID)]
-    colnames(result_matrix) <- col_labels
+    # 4. Active Transitions Intervention Panel
+    panel_col <- mat_sum_col + 2 # Leave 1 empty column gap
+    panel_headers <- c("From Class", "To Class", "Baseline Rate", "% Adjustment", "Scenario Rate", "Lock Status", "_mRow", "_mCol")
+    wb$add_data(sheet = sheet_name, x = as.data.frame(t(panel_headers)), start_col = panel_col, start_row = 4, col_names = FALSE)
     
-    # Convert matrix to data frame for writing
-    output_df <- as.data.frame(result_matrix)
-    output_df <- cbind(rownames(output_df), output_df)
-    colnames(output_df)[1] <- ""
+    # Panel Header style
+    panel_hdr_range <- paste0(openxlsx2::int2col(panel_col), "4:", openxlsx2::int2col(panel_col + 5), "4")
+    wb$add_fill(sheet = sheet_name, dims = panel_hdr_range, color = openxlsx2::wb_color(hex = "0F766E")) # Dark teal
+    wb$add_font(sheet = sheet_name, dims = panel_hdr_range, color = openxlsx2::wb_color("white"), bold = TRUE)
     
-    # Define output file path
-    output_file <- file.path(macro_dir, paste0(base_name, "_macros.xlsm"))
+    if (nrow(panel_df) > 0) {
+      wb$add_data(sheet = sheet_name, x = panel_df, start_col = panel_col, start_row = 5, col_names = FALSE)
+      
+      panel_end_row <- 4 + nrow(panel_df)
+      base_col_let <- openxlsx2::int2col(panel_col + 2)
+      adj_col_let  <- openxlsx2::int2col(panel_col + 3)
+      scen_col_let <- openxlsx2::int2col(panel_col + 4)
+      
+      wb$add_numfmt(sheet = sheet_name, dims = paste0(base_col_let, "5:", base_col_let, panel_end_row), numfmt = "0.0000")
+      wb$add_numfmt(sheet = sheet_name, dims = paste0(adj_col_let, "5:", adj_col_let, panel_end_row), numfmt = "0.0%")
+      wb$add_numfmt(sheet = sheet_name, dims = paste0(scen_col_let, "5:", scen_col_let, panel_end_row), numfmt = "0.0000")
+    }
     
-    # Copy template to output location first
-    file.copy(template_path, output_file, overwrite = TRUE)
-    message("Copied template to: ", output_file)
+    # Hide helper columns _mRow, _mCol
+    wb$set_col_widths(sheet = sheet_name, cols = c(panel_col + 6, panel_col + 7), widths = 0.1, hidden = TRUE)
     
-    # Load the workbook using
-    tryCatch({
-      wb <- wb_load(output_file)
-      message("Successfully loaded workbook")
-      
-      # Get the first sheet name
-      sheet_name <- wb$get_sheet_names()[1]
-      
-      n_rows <- nrow(output_df)
-      n_cols <- ncol(output_df)
-      row_names <- output_df[,1]
-      col_names <- colnames(output_df)[-1] 
-      
-      # Write the main data starting from A1
-      wb <- wb$add_data(
-        sheet = sheet_name,
-        x = output_df,
-        start_col = 1,
-        start_row = 1,
-        col_names = TRUE,
-        row_names = FALSE
-      )
-      
-      # Add "Grand Total" header in the last column of row 1
-      wb <- wb$add_data(
-        sheet = sheet_name,
-        x = "Grand Total",
-        start_col = n_cols + 1,
-        start_row = 1,
-        col_names = FALSE,
-        row_names = FALSE
-      )
-      
-      # Calculate and add row sums
-      for (i in 1:n_rows) {
-        # Calculate actual row sum from the matrix
-        actual_row_sum <- sum(as.numeric(output_df[i, -1]))
-        wb <- wb$add_data(
-          sheet = sheet_name,
-          x = actual_row_sum,
-          start_col = n_cols + 1,
-          start_row = i + 1,
-          col_names = FALSE,
-          row_names = FALSE
-        )
-      }
-      
-      # Add column sums in the last row
-      # col_sums <- c("Grand Total", colSums(output_df[, -1]), sum(colSums(output_df[, -1])))
-      # wb <- wb$add_data(
-      #   sheet = sheet_name,
-      #   x = t(col_sums),
-      #   start_col = 1,
-      #   start_row = n_rows + 2,
-      #   col_names = FALSE,
-      #   row_names = FALSE
-      # )
-      
-      # Apply formatting
-      # Style for sum cells (light blue background)
-      sum_fill <- wb$add_fill(fgColor = "lightblue")
-      
-      # Style for diagonal cells (yellow background)
-      diagonal_fill <- wb$add_fill(fgColor = "yellow")
-      
-      # Apply light blue background to row sum cells (column n_cols+1, rows 2 to n_rows+1)
-      wb <- wb$add_fill(
-        sheet = sheet_name,
-        dims = paste0(openxlsx2::int2col(n_cols + 1), "2:", openxlsx2::int2col(n_cols + 1), n_rows + 1),
-        color = wb_color("lightblue")
-      )
-      
-      # Apply light blue background to column sum cells (row n_rows+2, all columns)
-      wb <- wb$add_fill(
-        sheet = sheet_name,
-        dims = paste0("A", n_rows + 2, ":", openxlsx2::int2col(n_cols + 1), n_rows + 2),
-        color = wb_color("lightblue")
-      )
-      
-      # Apply yellow highlighting to diagonal cells
-      for (i in 1:n_rows) {
-        row_name <- row_names[i]
-        for (j in 2:n_cols) {
-          col_name <- col_names[j-1]
-          if (row_name == col_name) {
-            # Convert to Excel cell reference
-            cell_ref <- paste0(openxlsx2::int2col(j), i + 1)
-            wb <- wb$add_fill(
-              sheet = sheet_name,
-              dims = cell_ref,
-              color = wb_color("yellow")
-            )
-          }
-        }
-      }
-      
-      # Format numeric cells to show 3 decimal places
-      # Format the data range (excluding headers and labels)
-      data_range <- paste0("B2:", openxlsx2::int2col(n_cols), n_rows + 1)
-      wb <- wb$add_numfmt(
-        sheet = sheet_name,
-        dims = data_range,
-        numfmt = "0.000"
-      )
-      
-      # Format sum cells
-      # sum_col_range <- paste0(openxlsx2::int2col(n_cols + 1), "2:", openxlsx2::int2col(n_cols + 1), n_rows + 2)
-      # wb <- wb$add_numfmt(
-      #   sheet = sheet_name,
-      #   dims = sum_col_range,
-      #   numfmt = "0.000"
-      # )
-      
-      sum_row_range <- paste0("B", n_rows + 2, ":", openxlsx2::int2col(n_cols), n_rows + 2)
-      wb <- wb$add_numfmt(
-        sheet = sheet_name,
-        dims = sum_row_range,
-        numfmt = "0.000"
-      )
-      
-      # Save the workbook
-      wb$save(output_file)
-      message("Processed: ", tpm, " -> Saved to: ", output_file)
-      
-    }, error = function(e) {
-      message("Error processing file with openxlsx2: ", e$message)
-      message("Skipping file: ", tpm)
-    })
+    # Set column widths for readability
+    wb$set_col_widths(sheet = sheet_name, cols = 2, widths = 28)
+    wb$set_col_widths(sheet = sheet_name, cols = 3:mat_sum_col, widths = 14)
+    wb$set_col_widths(sheet = sheet_name, cols = panel_col:(panel_col + 1), widths = 24)
+    wb$set_col_widths(sheet = sheet_name, cols = (panel_col + 2):(panel_col + 5), widths = 15)
+    
+    # 5. Hidden Baseline Backup Sheet (_Base_<sheet_name>)
+    base_sheet_name <- substr(paste0("_Base_", sheet_name), 1, 31)
+    wb$add_worksheet(base_sheet_name)
+    wb$set_sheet_visibility(sheet = base_sheet_name, value = "hidden")
+    wb$add_data(sheet = base_sheet_name, x = as.data.frame(t(matrix_header)), start_col = 2, start_row = 4, col_names = FALSE)
+    wb$add_data(sheet = base_sheet_name, x = mat_data_df, start_col = 2, start_row = 5, col_names = FALSE)
+    if (nrow(panel_df) > 0) {
+      wb$add_data(sheet = base_sheet_name, x = as.data.frame(t(panel_headers)), start_col = panel_col, start_row = 4, col_names = FALSE)
+      wb$add_data(sheet = base_sheet_name, x = panel_df, start_col = panel_col, start_row = 5, col_names = FALSE)
+    }
+    
+    dashboard_rows[[length(dashboard_rows) + 1]] <- data.frame(
+      PU_ID        = pu_id,
+      PU_Name      = pu_name,
+      Sheet_Name   = sheet_name,
+      Active_Count = 0,
+      Status       = "VALID",
+      Transitions  = nrow(panel_df),
+      stringsAsFactors = FALSE
+    )
   }
   
-  message("\nAll files processed successfully!")
+  # Populate Dashboard Sheet
+  dash_df <- do.call(rbind, dashboard_rows)
+  
+  # Title Block
+  wb$add_data(sheet = "Dashboard", x = "SCIENDO Land Use Change - Transition Probability Matrix (TPM) Scenario Builder", start_col = 2, start_row = 2)
+  wb$add_font(sheet = "Dashboard", dims = "B2", size = 15, bold = TRUE, color = openxlsx2::wb_color(hex = "1E3A8A"))
+  wb$add_data(sheet = "Dashboard", x = "Consolidated Planning Units (PU) Scenario Workbook. Use buttons above or edit PU sheets directly.", start_col = 2, start_row = 3)
+  wb$add_font(sheet = "Dashboard", dims = "B3", size = 10, italic = TRUE, color = openxlsx2::wb_color(hex = "475569"))
+  
+  # Dashboard Table Headers (Row 5)
+  dash_headers <- c("PU ID", "Planning Unit Name", "Navigation Link", "Active Interventions", "Validation Status", "Historical Transitions")
+  wb$add_data(sheet = "Dashboard", x = as.data.frame(t(dash_headers)), start_col = 2, start_row = 5, col_names = FALSE)
+  wb$add_fill(sheet = "Dashboard", dims = "B5:G5", color = openxlsx2::wb_color(hex = "1E3A8A"))
+  wb$add_font(sheet = "Dashboard", dims = "B5:G5", color = openxlsx2::wb_color("white"), bold = TRUE)
+  
+  # Dashboard Table Data (Rows 6 to 5 + K)
+  for (i in seq_len(nrow(dash_df))) {
+    row_num <- 5 + i
+    wb$add_data(sheet = "Dashboard", x = dash_df$PU_ID[i], start_col = 2, start_row = row_num)
+    wb$add_data(sheet = "Dashboard", x = dash_df$PU_Name[i], start_col = 3, start_row = row_num)
+    
+    link_formula <- paste0('=HYPERLINK("#\'', dash_df$Sheet_Name[i], '\'!A1", "Go to ', dash_df$Sheet_Name[i], '")')
+    wb$add_formula(sheet = "Dashboard", x = link_formula, dims = paste0("D", row_num))
+    wb$add_font(sheet = "Dashboard", dims = paste0("D", row_num), color = openxlsx2::wb_color("blue"), underline = "single", bold = TRUE)
+    
+    wb$add_data(sheet = "Dashboard", x = dash_df$Active_Count[i], start_col = 5, start_row = row_num)
+    wb$add_data(sheet = "Dashboard", x = dash_df$Status[i], start_col = 6, start_row = row_num)
+    wb$add_fill(sheet = "Dashboard", dims = paste0("F", row_num), color = openxlsx2::wb_color(hex = "DCFCE7"))
+    wb$add_font(sheet = "Dashboard", dims = paste0("F", row_num), color = openxlsx2::wb_color(hex = "15803D"), bold = TRUE)
+    
+    wb$add_data(sheet = "Dashboard", x = dash_df$Transitions[i], start_col = 7, start_row = row_num)
+  }
+  
+  # Column widths for Dashboard
+  wb$set_col_widths(sheet = "Dashboard", cols = 2, widths = 10)
+  wb$set_col_widths(sheet = "Dashboard", cols = 3, widths = 30)
+  wb$set_col_widths(sheet = "Dashboard", cols = 4, widths = 32)
+  wb$set_col_widths(sheet = "Dashboard", cols = 5, widths = 20)
+  wb$set_col_widths(sheet = "Dashboard", cols = 6, widths = 20)
+  wb$set_col_widths(sheet = "Dashboard", cols = 7, widths = 22)
+  
+  # Save workbook
+  wb$save(output_file)
+  message("Consolidated TPM scenario workbook successfully generated: ", output_file)
+  invisible(output_file)
 }
 
 #' Render a DataTable with Enhanced Features

@@ -1,3 +1,2 @@
-Private Sub Worksheet_Change(ByVal Target As Range)
-    HandleCellChange Target
-End Sub
+' Individual sheet events are handled at the workbook level via ThisWorkbook.Workbook_SheetChange
+' to support dynamic sheets added at runtime without requiring per-sheet VBA code modules.
