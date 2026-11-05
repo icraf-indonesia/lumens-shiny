@@ -4,7 +4,7 @@ source('../../helper.R')
 options(repos = c(CRAN = "https://cloud.r-project.org"))
 
 install_load(
-  "shinyFiles", "shinyvalidate", "shinyjs", "bslib", "sf", "raster",
+  "shiny", "shiny.i18n", "shinyFiles", "shinyvalidate", "shinyjs", "bslib", "sf", "raster",
   "dplyr", "remotes", "rmarkdown", "XML", "splitstackshape", "shinyalert",
   "usdm", "corrplot", "tidyr", "openxlsx", "openxlsx2", "XML", "xml2"
 )
@@ -15,14 +15,69 @@ if (!("LUMENSR" %in% rownames(installed.packages()))) {
 }
 library(LUMENSR)
 
+i18n <- Translator$new(
+  translation_csvs_path = "translations",
+  translation_csv_config = "translations/config.yaml"
+)
+i18n$set_translation_language("id")
+
+tr <- function(key, lang = i18n$get_translation_language()) {
+  df <- i18n$get_translations()
+  if (key %in% rownames(df) && lang %in% colnames(df)) {
+    val <- df[key, lang]
+    if (!is.null(val) && !is.na(val) && length(val) > 0) return(val)
+  }
+  key
+}
+
 ui <- fluidPage(
   useShinyjs(),
+  usei18n(i18n),
   theme = bs_theme(version = 5),
   extendShinyjs(text = jscode, functions = c("closeWindow")),
   tags$head(
     tags$link(rel = "shortcut icon", href = "favicon.ico")  
   ),
-  titlePanel("SCIENDO Train"),
+  div(
+    class = "d-flex justify-content-between align-items-center mb-3 mt-2 pb-2 border-bottom",
+    h2("SCIENDO Train", style = "margin: 0; font-weight: normal;"),
+    div(
+      class = "dropdown lang-dropdown",
+      tags$button(
+        class = "btn btn-lang-toggle dropdown-toggle d-flex align-items-center",
+        type = "button",
+        id = "langDropdownBtn",
+        `data-bs-toggle` = "dropdown",
+        `aria-expanded` = "false",
+        title = "Bahasa Indonesia",
+        tags$span(id = "current_lang_flag", HTML('<svg class="flag-icon" viewBox="0 0 20 14" width="22" height="15"><rect width="20" height="7" fill="#dc3545"/><rect y="7" width="20" height="7" fill="#ffffff"/></svg>'))
+      ),
+      tags$ul(
+        class = "dropdown-menu dropdown-menu-end shadow-sm",
+        `aria-labelledby` = "langDropdownBtn",
+        tags$li(
+          tags$a(
+            id = "opt_lang_id",
+            class = "dropdown-item active",
+            href = "#",
+            title = "Bahasa Indonesia",
+            onclick = "Shiny.setInputValue('selected_language', 'id', {priority: 'event'}); return false;",
+            HTML('<svg class="flag-icon" viewBox="0 0 20 14" width="22" height="15"><rect width="20" height="7" fill="#dc3545"/><rect y="7" width="20" height="7" fill="#ffffff"/></svg>')
+          )
+        ),
+        tags$li(
+          tags$a(
+            id = "opt_lang_en",
+            class = "dropdown-item",
+            href = "#",
+            title = "English",
+            onclick = "Shiny.setInputValue('selected_language', 'en', {priority: 'event'}); return false;",
+            HTML('<svg class="flag-icon" viewBox="0 0 60 30" width="22" height="15"><clipPath id="trn_dd_uk1"><path d="M0,0 v30 h60 v-30 z"/></clipPath><clipPath id="trn_dd_uk2"><path d="M30,15 h30 v15 z v15 h-30 z h-30 v-15 z v-15 h30 z"/></clipPath><g clip-path="url(#trn_dd_uk1)"><path d="M0,0 v30 h60 v-30 z" fill="#012169"/><path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" stroke-width="6"/><path d="M0,0 L60,30 M60,0 L0,30" clip-path="url(#trn_dd_uk2)" stroke="#C8102E" stroke-width="4"/><path d="M30,0 v30 M0,15 h60" stroke="#fff" stroke-width="10"/><path d="M30,0 v30 M0,15 h60" stroke="#C8102E" stroke-width="6"/></g></svg>')
+          )
+        )
+      )
+    )
+  ),
   sidebarLayout(
     sidebarPanel(
       tags$head(
@@ -42,6 +97,59 @@ ui <- fluidPage(
         flex-shrink: 0;
         margin-top: 2px;
         line-height: 1;
+      }
+      
+      .lang-dropdown .btn-lang-toggle {
+        background-color: #ffffff;
+        border: 1px solid #ced4da;
+        padding: 5px 8px;
+        border-radius: 6px;
+        cursor: pointer;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        transition: all 0.15s ease-in-out;
+      }
+      .lang-dropdown .btn-lang-toggle:hover,
+      .lang-dropdown .btn-lang-toggle:focus {
+        background-color: #f1f3f5;
+        border-color: #adb5bd;
+      }
+      .lang-dropdown .btn-lang-toggle::after {
+        margin-left: 5px;
+        vertical-align: middle;
+        font-size: 11px;
+        color: #6c757d;
+      }
+      .lang-dropdown .dropdown-menu {
+        min-width: unset !important;
+        width: auto !important;
+        padding: 4px !important;
+        border-radius: 6px !important;
+        border: 1px solid rgba(0,0,0,0.12) !important;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      }
+      .lang-dropdown .dropdown-item {
+        padding: 6px 10px !important;
+        border-radius: 4px !important;
+        cursor: pointer !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        transition: background-color 0.15s !important;
+      }
+      .lang-dropdown .dropdown-item:hover {
+        background-color: #f1f3f5 !important;
+      }
+      .lang-dropdown .dropdown-item.active {
+        background-color: #e7f1ff !important;
+      }
+      .flag-icon {
+        width: 22px !important;
+        height: 15px !important;
+        border-radius: 2px !important;
+        box-shadow: 0 0 1px rgba(0,0,0,0.4) !important;
+        display: inline-block !important;
+        vertical-align: middle !important;
+        flex-shrink: 0 !important;
       }
       .alloc-help-icon a,
       .alloc-help-icon .action-button {
@@ -76,37 +184,37 @@ ui <- fluidPage(
       }
         "))
       ),
-      fileInput("map1_file", label = label_with_help("Land cover map at T1", "map1_file"), accept = c("image/tiff")),
-      numericInput("map1_year", label = label_with_help("Year of T1", "map1_year"), value = 2015),
-      fileInput("map2_file", label = label_with_help("Land cover map at T2", "map2_file"), accept = c("image/tiff")),
-      numericInput("map2_year", label = label_with_help("Year of T2", "map2_year"), value = 2020),
-      fileInput("lc_file", label = label_with_help("Land Use/Cover Lookup Table (CSV)", "lc_file"), accept = c(".csv")),
-      radioButtons("zone_type", label = label_with_help("Planning Unit Input Type", "zone_type"),
-                   choices = c("Raster" = "raster", "Shapefiles" = "shapefile"), inline = T),
+      fileInput("map1_file", label = label_with_help(i18n$t("lbl_map1_file"), "map1_file"), accept = c("image/tiff"), placeholder = tr("ph_map1_file", "id")),
+      numericInput("map1_year", label = label_with_help(i18n$t("lbl_map1_year"), "map1_year"), value = 2015),
+      fileInput("map2_file", label = label_with_help(i18n$t("lbl_map2_file"), "map2_file"), accept = c("image/tiff"), placeholder = tr("ph_map1_file", "id")),
+      numericInput("map2_year", label = label_with_help(i18n$t("lbl_map2_year"), "map2_year"), value = 2020),
+      fileInput("lc_file", label = label_with_help(i18n$t("lbl_lc_file"), "lc_file"), accept = c(".csv"), placeholder = tr("ph_lc_file", "id")),
+      radioButtons("zone_type", label = label_with_help(i18n$t("lbl_zone_type"), "zone_type"),
+                   choiceNames = list(i18n$t("choice_raster"), i18n$t("choice_shapefiles")), choiceValues = list("raster", "shapefile"), inline = T),
       conditionalPanel(
         condition = "input.zone_type == 'shapefile'",
         fileInput("mapz_file",
-                  label = label_with_help("Planning Unit", "mapz_file"),
+                  label = label_with_help(i18n$t("lbl_mapz_file_shp"), "mapz_file"),
                   accept = c(".shp", ".dbf", ".sbn", ".sbx", ".shx", ".prj"),
                   multiple = T,
-                  placeholder = "All related shapefiles (.shp, .dbf, .prj, .shx)")
+                  placeholder = tr("ph_mapz_file_shp", "id"))
       ),
       conditionalPanel(
         condition = "input.zone_type == 'raster'",
-        fileInput("mapz_file", label = label_with_help("Planning Unit", "mapz_file"), accept = c("image/tiff")),
-        fileInput("z_file", label = label_with_help("Planning Unit Lookup Table (CSV)", "z_file"), accept = c(".csv"))
+        fileInput("mapz_file", label = label_with_help(i18n$t("lbl_mapz_file_rast"), "mapz_file"), accept = c("image/tiff")),
+        fileInput("z_file", label = label_with_help(i18n$t("lbl_z_file"), "z_file"), accept = c(".csv"))
       ),
       
       div(style = "display: flex; flex-direction: column; gap: 10px;",
-          dir_button_with_help("wd", "Select output directory", "Please select a directory", "wd"),
+          dir_button_with_help("wd", tr("lbl_wd", "id"), tr("tip_wd", "id"), "wd", label_key = "lbl_wd"),
           verbatimTextOutput("print_output_dir", placeholder = TRUE),
           
           tags$div(
             style = "margin-top: 10px; margin-bottom: 2px; border-top: 1px solid #e0e0e0; padding-top: 10px;",
-            tags$h5("Predictors", style = "font-weight: 600; margin: 0; color: #333;")
+            tags$h5(i18n$t("hdr_predictors"), style = "font-weight: 600; margin: 0; color: #333;")
           ),
           
-          dir_button_with_help("factors_path", "Predictor(s) Folder Path", "Choose a folder contains predictor files", "factors_path"),
+          dir_button_with_help("factors_path", tr("lbl_factors_path", "id"), tr("tip_factors_path", "id"), "factors_path", label_key = "lbl_factors_path"),
           verbatimTextOutput("print_factor_dir", placeholder = TRUE),
           
           tags$div(
@@ -115,15 +223,15 @@ ui <- fluidPage(
             tags$div(
               id = "eval_btn_wrapper",
               style = "flex: 1 1 0px; width: 100%; min-width: 0;",
-              actionButton("evaluate_factors", "Evaluate Predictors", class = "btn-info", icon = icon("chart-line"), 
-                           style = "width: 100%; font-size: 13px; padding: 6px 4px; white-space: normal;")
+              actionButton("evaluate_factors", i18n$t("btn_eval_factors"),
+                           style = "width: 100%; font-size: 13px; padding: 6px 4px; white-space: normal; background-color: #4CAF50; color: white;")
             ),
             hidden(
               tags$div(
                 id = "open_eval_wrapper",
                 style = "flex: 1 1 0px; width: 100%; min-width: 0;",
-                actionButton("open_eval_report", "Open Evaluation Report", class = "btn-success", icon = icon("arrow-up-right-from-square"), 
-                             style = "width: 100%; font-size: 13px; padding: 6px 4px; white-space: normal;")
+                actionButton("open_eval_report", i18n$t("btn_open_eval_report"),
+                             style = "width: 100%; font-size: 13px; padding: 6px 4px; white-space: normal; background-color: #008CBA; color: white;")
               )
             )
           ),
@@ -131,13 +239,13 @@ ui <- fluidPage(
           accordion(
             open = FALSE,
             accordion_panel(
-              title = "Advanced Settings",
+              title = i18n$t("accordion_adv_settings"),
               icon = icon("gear"),
               value = "advanced_settings",
               
-              selectizeInput("memory_allocation", label = label_with_help("Choose Memory Allocation", "memory_allocation"),
-                             choices = c("Balanced" = 1, "Prefer Memory" = 0, "Prefer Disk" = 2,
-                                         "Memory Only" = 3, "Aggressive" = 4),
+              selectizeInput("memory_allocation", label = label_with_help(i18n$t("lbl_memory_allocation"), "memory_allocation"),
+                             choices = c("Seimbang (Balanced)" = 1, "Utamakan Memori (Prefer Memory)" = 0, "Utamakan Disk (Prefer Disk)" = 2,
+                                         "Hanya Memori (Memory Only)" = 3, "Agresif (Aggressive)" = 4),
                              options = list(render = I("
                     {
                       option: function(item, escape) {
@@ -154,35 +262,31 @@ ui <- fluidPage(
                     }
                   "))),
               
-              dir_button_with_help("dinamica_path", "DINAMICA EGO Path (Optional)", "(Optional)", "dinamica_path"),
+              dir_button_with_help("dinamica_path", tr("lbl_dinamica_path", "id"), tr("tip_dinamica_path", "id"), "dinamica_path", label_key = "lbl_dinamica_path"),
               verbatimTextOutput("print_dinamica_path", placeholder = TRUE)
             )
           ),
           
-          actionButton("processTrain", "Run Analysis",
+          actionButton("processTrain", i18n$t("btn_run_analysis"),
                        style = "font-size: 18px; padding: 10px 15px; background-color: #4CAF50; color: white;"),
           hidden(
-            actionButton("openReport", "Open Report",
+            actionButton("openReport", i18n$t("btn_open_report"),
                          style = "font-size: 18px; padding: 10px 15px; background-color: #008CBA; color: white;")
           ),
           hidden(
-            actionButton("open_output_folder", "Open Output Folder",
+            actionButton("open_output_folder", i18n$t("btn_open_output_folder"),
                          style = "font-size: 18px; padding: 10px 15px; background-color: #008CBA; color: white;")
           ),
-          actionButton("returnButton", "Return to Main Menu",
+          actionButton("returnButton", i18n$t("btn_return_main"),
                        style = "font-size: 18px; padding: 10px 15px; background-color: #FA8072; color: white;")
       )
     ),
     mainPanel(
       tabsetPanel(
-        tabPanel("User Guide", 
-                 div(
-                   style = "height: 800px; overflow-y: auto; padding: 15px; border: 1px solid #ddd; border-radius: 5px; background-color: #fff;",
-                   includeMarkdown("../helpfile/sciendo_train_quick_user_guide_ID.md"),
-                   uiOutput("dynamic_guide", inline = TRUE)
-                 )
+        tabPanel(i18n$t("tab_user_guide"), 
+                 uiOutput("user_guide_content")
         ),
-        tabPanel("Log",
+        tabPanel(i18n$t("tab_log"),
                  textOutput("selected_directory"),
                  textOutput("dinamica_path"),
                  textOutput("factor_directory"),
@@ -197,6 +301,68 @@ ui <- fluidPage(
 
 server <- function(input, output, session) {
   options(shiny.maxRequestSize = 100 * 1024^2)
+  current_lang <- reactiveVal("id")
+  
+  update_file_input_placeholders <- function(lang) {
+    ph_map1  <- tr("ph_map1_file", lang)
+    ph_mapz  <- if (isTRUE(input$zone_type == "raster")) tr("ph_mapz_file_rast", lang) else tr("ph_mapz_file_shp", lang)
+    ph_lc    <- tr("ph_lc_file", lang)
+    js <- sprintf("
+      $('#map1_file').closest('.form-group').find('input[type=text]').attr('placeholder', '%s');
+      $('#map2_file').closest('.form-group').find('input[type=text]').attr('placeholder', '%s');
+      $('#mapz_file').closest('.form-group').find('input[type=text]').attr('placeholder', '%s');
+      $('#lc_file').closest('.form-group').find('input[type=text]').attr('placeholder', '%s');
+    ", ph_map1, ph_map1, ph_mapz, ph_lc)
+    shinyjs::runjs(js)
+  }
+  
+  update_memory_choices <- function(lang) {
+    curr <- input$memory_allocation
+    choices <- if (lang == "en") {
+      c("Balanced" = 1, "Prefer Memory" = 0, "Prefer Disk" = 2, "Memory Only" = 3, "Aggressive" = 4)
+    } else {
+      c("Seimbang (Balanced)" = 1, "Utamakan Memori (Prefer Memory)" = 0, "Utamakan Disk (Prefer Disk)" = 2, "Hanya Memori (Memory Only)" = 3, "Agresif (Aggressive)" = 4)
+    }
+    updateSelectizeInput(session, "memory_allocation", choices = choices, selected = curr)
+  }
+  
+  svg_flag_id <- '<svg class="flag-icon" viewBox="0 0 20 14" width="22" height="15"><rect width="20" height="7" fill="#dc3545"/><rect y="7" width="20" height="7" fill="#ffffff"/></svg>'
+  svg_flag_en <- '<svg class="flag-icon" viewBox="0 0 60 30" width="22" height="15"><clipPath id="trn_dd_uk1"><path d="M0,0 v30 h60 v-30 z"/></clipPath><clipPath id="trn_dd_uk2"><path d="M30,15 h30 v15 z v15 h-30 z h-30 v-15 z v-15 h30 z"/></clipPath><g clip-path="url(#trn_dd_uk1)"><path d="M0,0 v30 h60 v-30 z" fill="#012169"/><path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" stroke-width="6"/><path d="M0,0 L60,30 M60,0 L0,30" clip-path="url(#trn_dd_uk2)" stroke="#C8102E" stroke-width="4"/><path d="M30,0 v30 M0,15 h60" stroke="#fff" stroke-width="10"/><path d="M30,0 v30 M0,15 h60" stroke="#C8102E" stroke-width="6"/></g></svg>'
+  
+  observeEvent(input$selected_language, {
+    lang <- input$selected_language
+    req(lang)
+    current_lang(lang)
+    shiny.i18n::update_lang(lang)
+    i18n$set_translation_language(lang)
+    
+    if (lang == "id") {
+      shinyjs::html("current_lang_flag", svg_flag_id)
+      shinyjs::runjs("$('#langDropdownBtn').attr('title', 'Bahasa Indonesia');")
+      shinyjs::addClass("opt_lang_id", "active")
+      shinyjs::removeClass("opt_lang_en", "active")
+    } else {
+      shinyjs::html("current_lang_flag", svg_flag_en)
+      shinyjs::runjs("$('#langDropdownBtn').attr('title', 'English');")
+      shinyjs::addClass("opt_lang_en", "active")
+      shinyjs::removeClass("opt_lang_id", "active")
+    }
+    
+    update_file_input_placeholders(lang)
+    update_memory_choices(lang)
+  }, ignoreInit = TRUE)
+  
+  output$user_guide_content <- renderUI({
+    div(
+      style = "height: 800px; overflow-y: auto; padding: 15px; border: 1px solid #ddd; border-radius: 5px; background-color: #fff;",
+      if (current_lang() == "en" && file.exists("../helpfile/sciendo_train_quick_user_guide.md")) {
+        includeMarkdown("../helpfile/sciendo_train_quick_user_guide.md")
+      } else {
+        includeMarkdown("../helpfile/sciendo_train_quick_user_guide_ID.md")
+      },
+      uiOutput("dynamic_guide", inline = TRUE)
+    )
+  })
   #### Initialize all required reactive values ####
   rv <- reactiveValues(
     wd = NULL,
@@ -233,12 +399,23 @@ server <- function(input, output, session) {
   #### Click-to-open help modals ####
   lapply(names(train_help_texts), function(id) {
     observeEvent(input[[paste0("train_help_", id)]], {
-      info <- train_help_texts[[id]]
+      lang <- current_lang()
+      title_key <- paste0("help_", id, "_title")
+      body_key  <- paste0("help_", id, "_body")
+      
+      modal_title <- tr(title_key, lang)
+      modal_body  <- tr(body_key, lang)
+      
+      if (modal_title == title_key && id %in% names(train_help_texts)) {
+        modal_title <- train_help_texts[[id]]$title
+        modal_body  <- train_help_texts[[id]]$body
+      }
+      
       showModal(modalDialog(
-        title = tagList(icon("circle-info"), " ", info$title),
-        HTML(info$body),
+        title = tagList(icon("circle-info"), " ", modal_title),
+        HTML(modal_body),
         easyClose = TRUE,
-        footer = modalButton("Close"),
+        footer = modalButton(tr("btn_close", lang)),
         size = "m"
       ))
     })
@@ -440,7 +617,7 @@ server <- function(input, output, session) {
     if(!is.null(rv$wd)) {
       cat(paste(rv$wd))
     } else {
-      cat("No output directory selected")
+      cat(tr("ph_print_wd", current_lang()))
     }
   })
   
@@ -589,7 +766,7 @@ server <- function(input, output, session) {
     if(!is.null(rv$dinamica_path)) {
       cat(paste(rv$dinamica_path))
     } else {
-      cat("No DINAMICA EGO path selected")
+      cat(tr("ph_print_dinamica", current_lang()))
     }
   })
   
@@ -605,14 +782,14 @@ server <- function(input, output, session) {
   
   # Input validation - create validators but don't enable them initially
   iv <- InputValidator$new()
-  iv$add_rule("map1_file", sv_required(message = "Please upload land cover map at T1"))
-  iv$add_rule("map2_file", sv_required(message = "Please upload land cover map at T2"))
-  iv$add_rule("map1_year", sv_required(message = "Please define the year of T1"))
-  iv$add_rule("map2_year", sv_required(message = "Please define the year of T2"))
-  iv$add_rule("lc_file", sv_required(message = "Please upload land cover lookup table"))
-  iv$add_rule("memory_allocation", sv_required(message = "Please select memory allocation option"))
-  iv$add_rule("factors_path", sv_required(message = "Please select a directory of predictors"))
-  iv$add_rule("wd", sv_required(message = "Please select an output directory"))
+  iv$add_rule("map1_file", function(value) if (is.null(value)) tr("val_map1_req", current_lang()) else NULL)
+  iv$add_rule("map2_file", function(value) if (is.null(value)) tr("val_map2_req", current_lang()) else NULL)
+  iv$add_rule("map1_year", function(value) if (is.null(value)) tr("val_map1_year_req", current_lang()) else NULL)
+  iv$add_rule("map2_year", function(value) if (is.null(value)) tr("val_map2_year_req", current_lang()) else NULL)
+  iv$add_rule("lc_file", function(value) if (is.null(value)) tr("val_lc_req", current_lang()) else NULL)
+  iv$add_rule("memory_allocation", function(value) if (is.null(value)) tr("val_memory_req", current_lang()) else NULL)
+  iv$add_rule("factors_path", function(value) if (is.null(value)) tr("val_factors_req", current_lang()) else NULL)
+  iv$add_rule("wd", function(value) if (is.null(value)) tr("val_wd_req", current_lang()) else NULL)
   
   # Zone-specific validator (initially disabled)
   zone_validator <- reactiveVal(NULL)
@@ -632,13 +809,13 @@ server <- function(input, output, session) {
     # Create new validator based on zone type (but don't enable it yet)
     if (zone_type == "raster") {
       new_validator <- InputValidator$new()
-      new_validator$add_rule("mapz_file", sv_required(message = "Please upload planning unit raster"))
-      new_validator$add_rule("z_file", sv_required(message = "Please upload planning unit lookup table"))
+      new_validator$add_rule("mapz_file", function(value) if (is.null(value)) tr("val_mapz_req", current_lang()) else NULL)
+      new_validator$add_rule("z_file", function(value) if (is.null(value)) tr("val_z_file_req", current_lang()) else NULL)
       zone_validator(new_validator)
     } else {
       new_validator <- InputValidator$new()
       new_validator$add_rule("mapz_file", function(value) {
-        if (is.null(value)) return("Please upload planning unit shapefile")
+        if (is.null(value)) return(tr("val_mapz_req", current_lang()))
         
         has_shp <- any(grepl("\\.shp$", value$name, ignore.case = TRUE))
         has_shx <- any(grepl("\\.shx$", value$name, ignore.case = TRUE))
@@ -646,7 +823,7 @@ server <- function(input, output, session) {
         has_prj <- any(grepl("\\.prj$", value$name, ignore.case = TRUE))
         
         if (!has_shp || !has_shx || !has_dbf || !has_prj) {
-          return("Please upload all shapefile components (.shp, .shx, .dbf, .prj)")
+          return(tr("notif_shp_all_parts", current_lang()))
         }
         
         NULL
@@ -775,10 +952,13 @@ server <- function(input, output, session) {
   })
   
   observeEvent(input$returnButton, {
+    lang <- current_lang()
     shinyalert(
-      title = "Confirmation",
-      text =  "Do you want to return to main menu?",
+      title = tr("confirm_title", lang),
+      text =  tr("confirm_text", lang),
       showCancelButton = TRUE,
+      cancelButtonText = tr("btn_close", lang),
+      confirmButtonText = "OK",
       size = "xs",
       type = "warning",
       inputId = "alert"
