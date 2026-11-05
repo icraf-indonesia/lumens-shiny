@@ -2281,10 +2281,14 @@ label_with_help <- function(text, help_id) {
 #' @param title Button title tooltip.
 #' @param help_id Help topic ID.
 #' @return A `shiny.tag` containing a directory-picker button and help icon.
-dir_button_with_help <- function(id, label, title, help_id) {
+dir_button_with_help <- function(id, label, title, help_id, label_key = NULL) {
+  btn <- shinyDirButton(id, label, title)
+  if (!is.null(label_key)) {
+    btn[[2]]$children <- list(tags$span(class = "i18n", `data-key` = label_key, label))
+  }
   tags$div(
     class = "dir-btn-wrapper",
-    shinyDirButton(id, label, title),
+    btn,
     tags$div(
       class = "dir-help-overlay",
       alloc_help_icon(help_id)
@@ -2332,4 +2336,641 @@ extract_year_from_filename <- function(filename) {
     }
   }
   return(NA_integer_)
+}
+
+
+#' Plot Multi-temporal Categorical Rasters with Interactive Time Stepper / Slider
+#'
+#' Renders a single Leaflet canvas with hardware-accelerated raster overlays
+#' toggled via an interactive time stepper/slider pill (at bottom-left),
+#' supporting instant transitions, responsive zoom/pan, legend scrolling, and hover popup.
+#'
+#' @param raster_list A named list of SpatRaster or RasterLayer objects. Names should be year labels (e.g. list("2019" = r1, "2024" = r2)).
+#' @param cat_table A data.frame with at least 2 columns: ID and Category (and optional color_palette).
+#' @param height Character. Height of the map canvas (default "600px").
+#' @param container_width Character. Width of the map container (default "80%").
+#' @param legend_title Character. Title for the legend (default "Kategori Tutupan Lahan").
+#' @param basemap_url Character. URL template for Leaflet basemap.
+#' @return An htmltools tagList / browsable widget that renders in R Markdown or Shiny.
+#' @export
+plot_multitemporal_raster_leaflet <- function(
+    raster_list,
+    cat_table,
+    height = "600px",
+    container_width = "100%",
+    legend_title = "Kategori Tutupan Lahan",
+    basemap_url = BASEMAP_PROVIDERS$eox$url,
+    basemap_attr = BASEMAP_PROVIDERS$eox$attribution,
+    basemap_name = BASEMAP_PROVIDERS$eox$name
+) {
+  requireNamespace("terra", quietly = TRUE)
+  requireNamespace("raster", quietly = TRUE)
+  requireNamespace("leaflet", quietly = TRUE)
+  requireNamespace("htmlwidgets", quietly = TRUE)
+  requireNamespace("htmltools", quietly = TRUE)
+  requireNamespace("jsonlite", quietly = TRUE)
+  requireNamespace("png", quietly = TRUE)
+  requireNamespace("xfun", quietly = TRUE)
+
+  names(cat_table)[1] <- "ID"
+  names(cat_table)[2] <- "Category"
+  cat_table$ID <- as.numeric(cat_table$ID)
+
+  years <- names(raster_list)
+  if (is.null(years) || length(years) == 0) {
+    years <- as.character(seq_along(raster_list))
+    names(raster_list) <- years
+  }
+
+  # Ensure all inputs are SpatRaster and reprojected to EPSG:4326 if needed
+  r_list_4326 <- list()
+  for (yr in years) {
+    r <- raster_list[[yr]]
+    if (inherits(r, "RasterLayer")) {
+      r <- terra::rast(r)
+    }
+    crs_str <- terra::crs(r, proj = TRUE)
+    if (!grepl("longlat|4326", crs_str, ignore.case = TRUE)) {
+      if (terra::ncol(r) > 1500 || terra::nrow(r) > 1500) {
+        fact <- max(2, ceiling(max(terra::ncol(r), terra::nrow(r)) / 1000))
+        r <- terra::aggregate(r, fact = fact, fun = "modal")
+      }
+      r_list_4326[[yr]] <- terra::project(r, "EPSG:4326", method = "near")
+    } else {
+      r_list_4326[[yr]] <- r
+    }
+  }
+
+  # Unique categories across all years
+  all_unique <- unique(unlist(lapply(r_list_4326, function(r) unique(terra::values(r, na.rm = TRUE)))))
+  cat_tbl_filtered <- cat_table[cat_table$ID %in% all_unique, ]
+  cat_tbl_filtered <- cat_tbl_filtered[order(cat_tbl_filtered$ID), ]
+
+  reclass_from <- cat_tbl_filtered$ID
+  reclass_to <- seq_along(cat_tbl_filtered$ID)
+  reclass_matrix <- cbind(reclass_from, reclass_to)
+
+  levels_df <- data.frame(
+    ID = reclass_to,
+    Category = factor(cat_tbl_filtered$Category, levels = cat_tbl_filtered$Category)
+  )
+
+  predefined_colors <- c(
+    "#006400", "#228B22", "#008000", "#66CDAA", "#2E8B57", "#3CB371", "#8B4513", "#D2691E",
+    "#6B8E23", "#B8860B", "#7CFC00", "#32CD32", "#808000", "#4682B4", "#FF4500", "#FFA500",
+    "#1E90FF", "#A0522D", "#FFFFFF", "#73C8D2", "#0046FF", "#E6194B", "#3CB44B", "#FFE119",
+    "#4363D8", "#F58231", "#911EB4", "#46F0F0", "#F032E6", "#BCF60C", "#FABEBE", "#008080"
+  )
+
+  map_colors <- if ("color_palette" %in% names(cat_tbl_filtered)) {
+    cat_tbl_filtered$color_palette
+  } else {
+    if (nrow(cat_tbl_filtered) <= length(predefined_colors)) {
+      predefined_colors[seq_len(nrow(cat_tbl_filtered))]
+    } else {
+      grDevices::colorRampPalette(predefined_colors)(nrow(cat_tbl_filtered))
+    }
+  }
+
+  pal_raster <- leaflet::colorFactor(palette = map_colors, domain = reclass_to, na.color = "#00000000", alpha = TRUE)
+  pal_legend <- leaflet::colorFactor(palette = map_colors, domain = levels_df$Category)
+
+  # Convert each raster to base64 PNG Data URI
+  raster_uris <- list()
+  for (yr in years) {
+    r_rec <- terra::classify(r_list_4326[[yr]], reclass_matrix, others = NA)
+    r_layer <- raster::raster(r_rec)
+    vals <- raster::values(r_layer)
+    cols <- pal_raster(vals)
+    tileData <- as.raw(grDevices::col2rgb(cols, alpha = TRUE))
+    dim(tileData) <- c(4, ncol(r_layer), nrow(r_layer))
+    pngData <- png::writePNG(tileData)
+    raster_uris[[yr]] <- xfun::base64_uri(pngData, "image/png")
+  }
+  json_uris <- jsonlite::toJSON(raster_uris, auto_unbox = TRUE)
+
+  # Bounding box in EPSG:4326
+  bb <- terra::ext(r_list_4326[[1]])
+  xmin_val <- unname(as.numeric(bb$xmin))
+  ymin_val <- unname(as.numeric(bb$ymin))
+  xmax_val <- unname(as.numeric(bb$xmax))
+  ymax_val <- unname(as.numeric(bb$ymax))
+  r_width  <- ncol(r_list_4326[[1]])
+  r_height <- nrow(r_list_4326[[1]])
+
+  lookup_list <- lapply(seq_len(nrow(cat_tbl_filtered)), function(i) {
+    hex <- map_colors[i]
+    rgb <- grDevices::col2rgb(hex)
+    list(
+      id = cat_tbl_filtered$ID[i],
+      name = cat_tbl_filtered$Category[i],
+      color = hex,
+      r = as.numeric(rgb[1, 1]),
+      g = as.numeric(rgb[2, 1]),
+      b = as.numeric(rgb[3, 1])
+    )
+  })
+  json_lookup <- jsonlite::toJSON(lookup_list, auto_unbox = TRUE)
+  json_years  <- jsonlite::toJSON(years, auto_unbox = TRUE)
+
+  uid <- paste0("sciendo_map_", paste0(sample(c(letters, 0:9), 8), collapse = ""))
+
+  m <- leaflet::leaflet(
+    elementId = uid,
+    width = "100%",
+    height = height,
+    options = leaflet::leafletOptions(zoomSnap = 0.25)
+  ) %>%
+    leaflet::addTiles(
+      urlTemplate = basemap_url,
+      attribution = basemap_attr,
+      group = basemap_name
+    ) %>%
+    leaflet::fitBounds(
+      lng1 = xmin_val, lat1 = ymin_val,
+      lng2 = xmax_val, lat2 = ymax_val
+    ) %>%
+    leaflet::addLegend(
+      position = "topright",
+      pal = pal_legend,
+      values = levels_df$Category,
+      title = legend_title,
+      opacity = 1
+    ) %>%
+    leaflet::addEasyButton(
+      leaflet::easyButton(
+        icon = "fa-globe",
+        title = "Kembalikan ke Batas Awal (Reset Zoom)",
+        onClick = leaflet::JS(sprintf(
+          "function(btn, map){ map.fitBounds([[%f, %f], [%f, %f]]); }",
+          ymin_val, xmin_val, ymax_val, xmax_val
+        ))
+      )
+    )
+
+  js_controller <- paste0("
+  function(el, x) {
+    var map = this;
+    var uid = '", uid, "';
+    var years = ", json_years, ";
+    var lookupData = ", json_lookup, ";
+    var rasterUris = ", json_uris, ";
+    var bounds = { xmin: ", xmin_val, ", ymin: ", ymin_val, ", xmax: ", xmax_val, ", ymax: ", ymax_val, " };
+    var dims = { width: ", r_width, ", height: ", r_height, " };
+
+    window['sciendoMap_' + uid] = map;
+    window['sciendoYears_' + uid] = years;
+    window['currentYearIndex_' + uid] = 0;
+    window['isPlaying_' + uid] = false;
+    window['playTimer_' + uid] = null;
+    window['sciendoOverlays_' + uid] = {};
+    window['lastHoverEvent_' + uid] = null;
+
+    var rgbMap = {};
+    lookupData.forEach(function(item) {
+      var key = (item.r << 16) | (item.g << 8) | item.b;
+      rgbMap[key] = item;
+    });
+
+    var yearPixelData = {};
+    years.forEach(function(yr) {
+      if (rasterUris[yr]) {
+        var img = new Image();
+        img.src = rasterUris[yr];
+        img.onload = function() {
+          var cvs = document.createElement('canvas');
+          cvs.width = img.width;
+          cvs.height = img.height;
+          var ctx = cvs.getContext('2d');
+          ctx.drawImage(img, 0, 0);
+          yearPixelData[yr] = ctx.getImageData(0, 0, img.width, img.height).data;
+        };
+      }
+    });
+
+    var boundsLatLng = [[bounds.ymin, bounds.xmin], [bounds.ymax, bounds.xmax]];
+    years.forEach(function(yr, i) {
+      var uri = rasterUris[yr];
+      if (uri) {
+        var overlay = L.imageOverlay(uri, boundsLatLng, {
+          opacity: (i === 0 ? 0.90 : 0),
+          interactive: false,
+          crossOrigin: true,
+          className: 'sciendo-raster-overlay'
+        }).addTo(map);
+
+        window['sciendoOverlays_' + uid][yr] = overlay;
+
+        var imgEl = overlay.getElement();
+        if (imgEl && i !== 0) {
+          imgEl.style.opacity = '0';
+          imgEl.style.visibility = 'hidden';
+        }
+      }
+    });
+
+    function setYearIndex(idx) {
+      if (idx < 0) idx = 0;
+      if (idx >= years.length) idx = years.length - 1;
+      window['currentYearIndex_' + uid] = idx;
+      var targetYear = years[idx];
+
+      years.forEach(function(yr, i) {
+        var ov = window['sciendoOverlays_' + uid][yr];
+        if (!ov) return;
+        var el = ov.getElement();
+        if (i === idx) {
+          ov.setOpacity(0.90);
+          if (el) {
+            el.style.opacity = '0.90';
+            el.style.visibility = 'visible';
+          }
+        } else {
+          ov.setOpacity(0);
+          if (el) {
+            el.style.opacity = '0';
+            el.style.visibility = 'hidden';
+          }
+        }
+      });
+
+      var vaYear = document.getElementById('va-year-' + uid);
+      var vaSlider = document.getElementById('va-slider-' + uid);
+      if (vaYear) vaYear.innerText = targetYear;
+      if (vaSlider) vaSlider.value = idx;
+
+      var tooltip = document.getElementById('lulc-hover-tooltip-' + uid);
+      if (window['lastHoverEvent_' + uid] && tooltip && tooltip.style.display !== 'none') {
+        updateHoverTooltip(window['lastHoverEvent_' + uid]);
+      }
+    }
+    window['setYearIndex_' + uid] = setYearIndex;
+
+    function togglePlay() {
+      var isPlaying = !window['isPlaying_' + uid];
+      window['isPlaying_' + uid] = isPlaying;
+      var playBtn = document.getElementById('va-play-' + uid);
+      if (playBtn) {
+        playBtn.innerHTML = isPlaying ? '<i class=\"fa fa-pause\"></i>' : '<i class=\"fa fa-play\"></i>';
+        if (isPlaying) {
+          playBtn.classList.remove('btn-play');
+          playBtn.classList.add('btn-pause-active');
+          playBtn.title = 'Jeda Animasi (Spasi)';
+        } else {
+          playBtn.classList.remove('btn-pause-active');
+          playBtn.classList.add('btn-play');
+          playBtn.title = 'Putar Animasi (Spasi)';
+        }
+      }
+      if (isPlaying) {
+        if (window['playTimer_' + uid]) clearInterval(window['playTimer_' + uid]);
+        window['playTimer_' + uid] = setInterval(function() {
+          var curr = window['currentYearIndex_' + uid] || 0;
+          var nextIdx = (curr + 1) % years.length;
+          setYearIndex(nextIdx);
+        }, 1500);
+      } else {
+        if (window['playTimer_' + uid]) {
+          clearInterval(window['playTimer_' + uid]);
+          window['playTimer_' + uid] = null;
+        }
+      }
+    }
+    window['togglePlay_' + uid] = togglePlay;
+
+    var playBtn = document.getElementById('va-play-' + uid);
+    if (playBtn) {
+      playBtn.onclick = function(e) {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        togglePlay();
+      };
+    }
+
+    var prevBtn = document.getElementById('va-prev-' + uid);
+    if (prevBtn) {
+      prevBtn.onclick = function(e) {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        var curr = window['currentYearIndex_' + uid] || 0;
+        setYearIndex(curr - 1);
+      };
+    }
+
+    var nextBtn = document.getElementById('va-next-' + uid);
+    if (nextBtn) {
+      nextBtn.onclick = function(e) {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        var curr = window['currentYearIndex_' + uid] || 0;
+        setYearIndex(curr + 1);
+      };
+    }
+
+    var sliderEl = document.getElementById('va-slider-' + uid);
+    if (sliderEl) {
+      sliderEl.oninput = function(e) {
+        if (e) e.stopPropagation();
+        setYearIndex(parseInt(this.value, 10));
+      };
+    }
+
+    document.addEventListener('keydown', function(e) {
+      if (e.target.tagName === 'INPUT' && e.target.type !== 'range') return;
+      if (e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
+      var curr = window['currentYearIndex_' + uid] || 0;
+      if (e.key === 'ArrowLeft') {
+        setYearIndex(curr - 1);
+      } else if (e.key === 'ArrowRight') {
+        setYearIndex(curr + 1);
+      } else if (e.key === ' ') {
+        e.preventDefault();
+        togglePlay();
+      }
+    });
+
+    var tooltip = document.getElementById('lulc-hover-tooltip-' + uid);
+    var swatch = document.getElementById('tooltip-swatch-' + uid);
+    var idBadge = document.getElementById('tooltip-id-' + uid);
+    var nameBadge = document.getElementById('tooltip-name-' + uid);
+    var hoverRaf = null;
+
+    function updateHoverTooltip(e) {
+      var activeYear = years[window['currentYearIndex_' + uid] || 0];
+      var data = yearPixelData[activeYear];
+      if (!data || !tooltip) return;
+
+      var lng = e.latlng.lng;
+      var lat = e.latlng.lat;
+
+      if (lng < bounds.xmin || lng > bounds.xmax || lat < bounds.ymin || lat > bounds.ymax) {
+        tooltip.style.display = 'none';
+        return;
+      }
+
+      var col = Math.floor((lng - bounds.xmin) / (bounds.xmax - bounds.xmin) * dims.width);
+      var row = Math.floor((bounds.ymax - lat) / (bounds.ymax - bounds.ymin) * dims.height);
+
+      if (col < 0 || col >= dims.width || row < 0 || row >= dims.height) {
+        tooltip.style.display = 'none';
+        return;
+      }
+
+      var idx = (row * dims.width + col) * 4;
+      var alpha = data[idx + 3];
+
+      if (alpha === 0) {
+        tooltip.style.display = 'none';
+        return;
+      }
+
+      var r = data[idx];
+      var g = data[idx + 1];
+      var b = data[idx + 2];
+
+      var key = (r << 16) | (g << 8) | b;
+      var match = rgbMap[key];
+
+      if (!match) {
+        var minDiff = 999999;
+        for (var i = 0; i < lookupData.length; i++) {
+          var item = lookupData[i];
+          var diff = Math.abs(item.r - r) + Math.abs(item.g - g) + Math.abs(item.b - b);
+          if (diff < minDiff) {
+            minDiff = diff;
+            match = item;
+          }
+        }
+        if (minDiff > 40) match = null;
+      }
+
+      if (match) {
+        swatch.style.backgroundColor = match.color;
+        idBadge.innerText = 'ID ' + match.id;
+        nameBadge.innerText = match.name;
+
+        var pt = e.containerPoint;
+        tooltip.style.left = (pt.x + 16) + 'px';
+        tooltip.style.top = (pt.y - 12) + 'px';
+        tooltip.style.display = 'flex';
+      } else {
+        tooltip.style.display = 'none';
+      }
+    }
+
+    map.on('mousemove', function(e) {
+      window['lastHoverEvent_' + uid] = e;
+      if (e.originalEvent && (e.originalEvent.buttons > 0 || (map.dragging && map.dragging.moving()))) {
+        if (tooltip) tooltip.style.display = 'none';
+        return;
+      }
+      if (hoverRaf) cancelAnimationFrame(hoverRaf);
+      hoverRaf = requestAnimationFrame(function() {
+        updateHoverTooltip(e);
+      });
+    });
+
+    map.on('movestart zoomstart dragstart', function() {
+      if (tooltip) tooltip.style.display = 'none';
+    });
+
+    map.on('mouseout', function() {
+      window['lastHoverEvent_' + uid] = null;
+      if (tooltip) tooltip.style.display = 'none';
+    });
+
+    setTimeout(function() {
+      map.invalidateSize();
+      setYearIndex(0);
+    }, 100);
+  }
+  ")
+
+  m <- htmlwidgets::onRender(m, js_controller)
+
+  widget_ui <- htmltools::tagList(
+    htmltools::tags$style(htmltools::HTML("
+      .sciendo-map-wrapper {
+        position: relative;
+        width: 100%;
+        border-radius: 10px;
+        overflow: hidden;
+        border: 1px solid #cbd5e1;
+        margin: 0;
+      }
+      .sciendo-raster-overlay {
+        image-rendering: -webkit-optimize-contrast !important;
+        image-rendering: crisp-edges !important;
+        image-rendering: pixelated !important;
+        transition: none !important;
+        animation: none !important;
+      }
+      .lulc-hover-tooltip {
+        position: absolute;
+        z-index: 2000;
+        pointer-events: none;
+        background: rgba(15, 23, 42, 0.94);
+        backdrop-filter: blur(6px);
+        color: #f8fafc;
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-size: 12px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        display: none;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        white-space: nowrap;
+      }
+      .lulc-hover-tooltip .color-swatch {
+        width: 13px;
+        height: 13px;
+        border-radius: 3px;
+        border: 1px solid rgba(255,255,255,0.5);
+        display: inline-block;
+      }
+      .lulc-hover-tooltip .id-badge {
+        background: rgba(255, 255, 255, 0.22);
+        padding: 1px 6px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 700;
+        color: #e2e8f0;
+      }
+      .lulc-hover-tooltip .class-name {
+        font-weight: 500;
+        color: #ffffff;
+      }
+      .variant-a-ctrl {
+        position: absolute;
+        bottom: 25px;
+        left: 20px;
+        z-index: 1000;
+        background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(8px);
+        color: #0f172a;
+        padding: 7px 14px;
+        border-radius: 35px;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        border: 1px solid rgba(0, 0, 0, 0.12);
+      }
+      .variant-a-ctrl button {
+        background: #f8fafc;
+        border: 1px solid #cbd5e1;
+        color: #334155;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+        cursor: pointer;
+        font-size: 0.8rem;
+      }
+      .variant-a-ctrl button:hover {
+        background: #2563eb;
+        color: white;
+        border-color: #2563eb;
+        transform: scale(1.08);
+      }
+      .variant-a-ctrl button.btn-play {
+        background: #2563eb;
+        color: white;
+        border-color: #2563eb;
+      }
+      .variant-a-ctrl button.btn-play:hover {
+        background: #1d4ed8;
+      }
+      .variant-a-ctrl button.btn-pause-active {
+        background: #ef4444 !important;
+        color: white !important;
+        border-color: #ef4444 !important;
+      }
+      .variant-a-ctrl button.btn-pause-active:hover {
+        background: #dc2626 !important;
+      }
+      .variant-a-ctrl .year-badge {
+        font-weight: 500;
+        font-size: 1.15rem;
+        color: #1e293b;
+        letter-spacing: 0.5px;
+        min-width: 55px;
+        text-align: center;
+      }
+      .variant-a-ctrl input[type='range'] {
+        width: 140px;
+        accent-color: #2563eb;
+        cursor: pointer;
+      }
+      .leaflet-control.legend, .info.legend {
+        max-height: 540px !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        background: rgba(255, 255, 255, 0.95) !important;
+        backdrop-filter: blur(8px);
+        padding: 12px 16px !important;
+        border-radius: 10px !important;
+        box-shadow: 0 6px 20px rgba(0,0,0,0.18) !important;
+        border: 1px solid rgba(0,0,0,0.12) !important;
+        font-size: 11.5px !important;
+        line-height: 19px !important;
+      }
+      .info.legend::-webkit-scrollbar { width: 6px; }
+      .info.legend::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
+      .info.legend::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 4px; }
+      .info.legend::-webkit-scrollbar-thumb:hover { background: #64748b; }
+    ")),
+
+    htmltools::tags$div(
+      style = paste0("width: ", container_width, "; max-width: 100%; margin: 15px 0;"),
+      htmltools::tags$div(
+        class = "sciendo-map-wrapper",
+        style = paste0("width: 100%; height: ", height, ";"),
+        htmltools::tags$div(
+          id = paste0("lulc-hover-tooltip-", uid),
+          class = "lulc-hover-tooltip",
+          htmltools::tags$span(id = paste0("tooltip-swatch-", uid), class = "color-swatch"),
+          htmltools::tags$span(id = paste0("tooltip-id-", uid), class = "id-badge", "ID 1"),
+          htmltools::tags$span(id = paste0("tooltip-name-", uid), class = "class-name", "Nama Kelas")
+        ),
+        htmltools::tags$div(
+          id = paste0("container-variant-a-", uid),
+          class = "variant-a-ctrl",
+          htmltools::tags$button(
+            id = paste0("va-prev-", uid),
+            title = "Tahun Sebelumnya (Left Arrow)",
+            onclick = paste0("if(window['setYearIndex_", uid, "']) window['setYearIndex_", uid, "'](window['currentYearIndex_", uid, "'] - 1);"),
+            htmltools::HTML("<i class='fa fa-chevron-left'></i>")
+          ),
+          htmltools::tags$span(id = paste0("va-year-", uid), class = "year-badge", years[1]),
+          htmltools::tags$input(
+            id = paste0("va-slider-", uid),
+            type = "range",
+            min = "0",
+            max = as.character(length(years) - 1),
+            value = "0",
+            step = "1",
+            oninput = paste0("if(window['setYearIndex_", uid, "']) window['setYearIndex_", uid, "'](parseInt(this.value, 10));")
+          ),
+          htmltools::tags$button(
+            id = paste0("va-next-", uid),
+            title = "Tahun Berikutnya (Right Arrow)",
+            onclick = paste0("if(window['setYearIndex_", uid, "']) window['setYearIndex_", uid, "'](window['currentYearIndex_", uid, "'] + 1);"),
+            htmltools::HTML("<i class='fa fa-chevron-right'></i>")
+          ),
+          htmltools::tags$button(
+            id = paste0("va-play-", uid),
+            class = "btn-play",
+            title = "Putar Animasi (Spasi)",
+            onclick = paste0("if(window['togglePlay_", uid, "']) window['togglePlay_", uid, "']();"),
+            htmltools::HTML("<i class='fa fa-play'></i>")
+          )
+        ),
+        m
+      )
+    )
+  )
+
+  return(widget_ui)
 }

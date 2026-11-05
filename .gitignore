@@ -10,3 +10,5 @@
 
 /docs
 *.txt
+/renv
+renv.lock

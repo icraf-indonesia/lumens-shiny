@@ -128,60 +128,56 @@ render_dt_table(df_lc, caption = "Tabel Referensi Tutupan/Penggunaan Lahan")
 ```
 
 # Hasil
-## Peta Proyeksi Perubahan Tutupan/Penggunaan Lahan {.tabset}
+## Peta Proyeksi Perubahan Tutupan/Penggunaan Lahan
 
-```{r lu projected maps, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
+```{r lu projected maps, echo=FALSE, message=FALSE, warning=FALSE, out.width='100%'}
 list_luc <- params$inputs$output_dir %>%
-  list.files(full.names = TRUE, pattern = "^landscape\\d+\\.tif$")
+  list.files(full.names = TRUE, pattern = '^landscape\\d+\\.tif$')
 
 lc_tbl_path <- params$inputs$lc_lookup_table_path
 lc_tbl_ext  <- tolower(tools::file_ext(lc_tbl_path))
-all_names   <- c("ID", "LC", "ID_Traj", "Trajectory", "color_palette")
+all_names   <- c('ID', 'LC', 'ID_Traj', 'Trajectory', 'color_palette')
 
-lc_table <- if (lc_tbl_ext %in% c("xlsx", "xls")) {
+lc_table <- if (lc_tbl_ext %in% c('xlsx', 'xls')) {
   as.data.frame(openxlsx::read.xlsx(lc_tbl_path, startRow = 2, colNames = FALSE))
 } else {
   as.data.frame(readr::read_csv(lc_tbl_path, skip = 1, col_names = FALSE, show_col_types = FALSE))
 }
 names(lc_table) <- all_names[seq_len(ncol(lc_table))]
 
+# Kumpulkan raster temporal: baseline T1 diikuti hasil proyeksi simulasi
+raster_list <- list()
 
-list_luc <- list_luc[order(as.numeric(stringr::str_extract(basename(list_luc), "\\d+")))]
-rst_list <- list()
+init_yr <- if (!is.null(params$inputs$initial_year) && !is.na(params$inputs$initial_year) && nzchar(as.character(params$inputs$initial_year))) {
+  as.character(params$inputs$initial_year)
+} else {
+  detected_yr <- stringr::str_extract(basename(params$inputs$lc_t1_path), '\\d{4}')
+  if (!is.na(detected_yr) && nzchar(detected_yr)) detected_yr else 'Awal'
+}
 
-for(i in seq_along(list_luc)){
-  file_path <- list_luc[i]
-  
-  r <- rast(file_path)
-  rst_list[[file_path]] <- r
-  
-  year <- stringr::str_extract(basename(file_path), "\\d{4}")
-  if(is.na(year)) {
-    year <- stringr::str_extract(basename(file_path), "\\d+")
+if (!is.null(params$inputs$lc_t1_path) && file.exists(params$inputs$lc_t1_path)) {
+  raster_list[[init_yr]] <- terra::rast(params$inputs$lc_t1_path)
+}
+
+if (length(list_luc) > 0) {
+  list_luc <- list_luc[order(as.numeric(stringr::str_extract(basename(list_luc), '\\d+')))]
+  for (f in list_luc) {
+    year <- stringr::str_extract(basename(f), '\\d{4}')
+    if (is.na(year)) year <- stringr::str_extract(basename(f), '\\d+')
+    raster_list[[year]] <- terra::rast(f)
   }
-  lyr_title <- paste0("Landscape ", year)
-  
-  cat(paste0("### Proyeksi Tutupan/Penggunaan Lahan pada ", year, " \n\n"))
-  
-  child_env <- new.env()
-  child_env$r <- r
-  child_env$lc_table <- lc_table
-  child_env$year <- year
-  child_env$plot_categorical_raster_mapview <- plot_categorical_raster_mapview
+}
 
-  cat(
-  knitr::knit_child(
-    text = c(
-      "```{r, echo=FALSE, message=FALSE, warning=FALSE, out.width='100%', out.height='500px'}",
-      "plot_categorical_raster_mapview(r, lc_table, lyr_title)",
-      "```"
-    ),
-    envir = child_env,
-    quiet = TRUE
-  ), sep = "\n"
+if (length(raster_list) > 0) {
+  plot_multitemporal_raster_leaflet(
+    raster_list     = raster_list,
+    cat_table       = lc_table,
+    height          = '600px',
+    container_width = '100%',
+    legend_title    = 'Kategori Tutupan Lahan'
   )
-  
-  cat('\n\n')
+} else {
+  cat("<p class='text-muted'>Tidak ada peta proyeksi tutupan lahan yang tersedia untuk ditampilkan.</p>")
 }
 ```
 
