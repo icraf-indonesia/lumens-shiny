@@ -1,5 +1,5 @@
 ---
-title: "Laporan Evaluasi Multikolinearitas Variabel Prediktor"
+title: "Laporan Modul SCIENDO-Train - Evaluasi Multikolinearitas Prediktor"
 output: 
   html_document:
     toc: true
@@ -37,9 +37,9 @@ if (file.exists("../rscript/function_sciendo_train.R")) {
 }
 ```
 
-# Ringkasan Evaluasi Variabel Prediktor
+# Ringkasan Evaluasi Prediktor
 
-Laporan ini memuat hasil pemeriksaan awal multikolinearitas dan nilai *Variance Inflation Factor* (VIF) untuk variabel penjelas (prediktor) yang berada dalam direktori prediktor sebelum menjalankan pemodelan pelatihan (*SCIENDO-Train*).
+Laporan ini memuat hasil pemeriksaan awal multikolinearitas dan nilai *Variance Inflation Factor* (VIF) untuk prediktor-prediktor yang akan digunakan sebelum menjalankan pelatihan model perubahan lahan (*SCIENDO-Train*).
 
 ```{r factor_summary, results='asis'}
 factor_dir <- params$factor_path
@@ -77,7 +77,7 @@ summary_df %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE)
 ```
 
-## Daftar Variabel Prediktor Terdeteksi
+## Daftar Prediktor
 
 ```{r factor_list_table}
 if (length(tif_files) > 0) {
@@ -110,7 +110,7 @@ if (length(tif_files) > 0) {
   }) %>% bind_rows()
   
   datatable(factor_info, 
-            caption = "Daftar Berkas Variabel Prediktor yang Terdeteksi",
+            caption = "Daftar Berkas Prediktor yang Terdeteksi",
             options = list(pageLength = 10, scrollX = TRUE),
             rownames = FALSE)
 } else {
@@ -139,16 +139,16 @@ if (is.null(collinearity) && length(tif_files) > 1) {
 
 ## Variance Inflation Factor (VIF)
 
-*Variance Inflation Factor* (VIF) mengukur tingkat multikolinearitas antara variabel penjelas dalam regresi/model spasial. Variabel dengan nilai VIF yang terlalu tinggi menandakan adanya redundansi informasi dengan variabel lain, sehingga estimasi bobot bukti (*Weights of Evidence*) menjadi tidak stabil.
+*Variance Inflation Factor* (VIF) mengukur tingkat multikolinearitas antara prediktor dalam regresi/model spasial. Prediktor dengan nilai VIF yang terlalu tinggi menandakan adanya redundansi informasi dengan prediktor lain, sehingga estimasi bobot bukti (*Weights of Evidence*) menjadi tidak stabil.
 
-**Pedoman Interpretasi Nilai VIF:**
-- **VIF < 5**: Kolinieritas rendah (aman untuk dimasukkan ke dalam model).
-- **5 &le; VIF &le; 10**: Kolinieritas moderat (perlu diwaspadai, amati matriks korelasi).
-- **VIF > 10**: Kolinieritas tinggi/parah (sangat disarankan untuk dikeluarkan atau digabung).
+**Interpretasi Nilai VIF:**
+- **VIF < 5**: Kolinieritas rendah (aman untuk digunakan ke dalam model).
+- **5 &le; VIF &le; 10**: Kolinieritas moderat (perlu diwaspadai).
+- **VIF > 10**: Kolinieritas tinggi (disarankan untuk dikeluarkan).
 
 ```{r render_vif, results='asis'}
 if (!is.null(collinearity$zero_variance_vars) && length(collinearity$zero_variance_vars) > 0) {
-  cat(paste0("<div class='alert alert-info'><strong>Catatan:</strong> Variabel prediktor berikut memiliki varians konstan/nol pada area sampel dan otomatis diabaikan dari perhitungan VIF: <strong>", 
+  cat(paste0("<div class='alert alert-info'><strong>Catatan:</strong> Prediktor berikut memiliki varians konstan/nol pada area sampel dan otomatis diabaikan dari perhitungan VIF: <strong>", 
              paste(collinearity$zero_variance_vars, collapse = ", "), "</strong></div>"))
 }
 
@@ -179,26 +179,26 @@ if (!is.null(collinearity$vif_table) && nrow(collinearity$vif_table) > 0) {
 ```{r vif_exclusion_alert, results='asis'}
 if (!is.null(collinearity$excluded_vars) && length(collinearity$excluded_vars) > 0) {
   cat("<div class='alert alert-danger' style='margin-top: 15px;'>")
-  cat("<h4><strong>Variabel yang Direkomendasikan untuk Dihapus / Dikeluarkan (VIF &gt; ", vif_th, "):</strong></h4>", sep = "")
+  cat("<h4><strong>Prediktor yang Direkomendasikan untuk Dihapus / Dikeluarkan (VIF &gt; ", vif_th, "):</strong></h4>", sep = "")
   cat("<ul>")
   for (ev in collinearity$excluded_vars) {
     cat("<li><strong>", ev, "</strong></li>", sep = "")
   }
   cat("</ul>")
-  cat("<p>Variabel-variabel di atas memiliki redundansi multikolinearitas yang melampaui ambang batas. Mengeluarkannya dari folder prediktor sebelum pelatihan akan meningkatkan akurasi dan stabilitas model.</p>")
+  cat("<p>Prediktor-prediktor di atas memiliki redundansi multikolinearitas yang melampaui ambang batas. Disarankan untuk mengeluarkannya dari folder prediktor sebelum pelatihan model agar dapat meningkatkan akurasi dan stabilitas model.</p>")
   cat("</div>")
 } else if (!is.null(collinearity$vif_table) && nrow(collinearity$vif_table) > 0) {
   cat("<div class='alert alert-success' style='margin-top: 15px;'>")
-  cat("<strong>Semua variabel prediktor memenuhi kriteria (VIF &le; ", vif_th, ").</strong> Tidak ada variabel yang melampaui ambang batas multikolinearitas.", sep = "")
+  cat("<strong>Semua prediktor memenuhi kriteria (VIF &le; ", vif_th, ").</strong> Tidak ada prediktor yang melampaui ambang batas multikolinearitas.", sep = "")
   cat("</div>")
 }
 ```
 
 ## Matriks Kolinearitas (Korelasi)
 
-Matriks korelasi menyajikan koefisien korelasi Pearson berpasangan antarvariabel prediktor:
-- Nilai mendekati **+1** atau **-1** menunjukkan korelasi yang sangat kuat (satu variabel bertindak sebagai duplikat dari yang lain).
-- Nilai mendekati **0** menunjukkan kedua variabel saling independen.
+Matriks korelasi menyajikan koefisien korelasi Pearson berpasangan antar prediktor:
+- Nilai mendekati **+1** atau **-1** menunjukkan korelasi yang sangat kuat.
+- Nilai mendekati **0** menunjukkan kedua prediktor saling independen.
 
 ```{r render_corrplot, fig.width=8, fig.height=8, out.width='85%', fig.align='center'}
 if (!is.null(collinearity$correlation_plot)) {
@@ -221,16 +221,17 @@ if (!is.null(collinearity$correlation_plot)) {
 }
 ```
 
-# Rekomendasi Sebelum Menjalankan Pelatihan (SCIENDO-Train)
+# Rekomendasi Sebelum Menjalankan SCIENDO Train
 
-1. **Variabel Berkolinearitas Tinggi (VIF > `r vif_th`)**:
-   Apabila terdapat variabel yang masuk ke dalam daftar rekomendasi penghapusan di atas, pertimbangkan untuk mengeluarkan atau memindahkan salah satu dari pasangan variabel yang berkorelasi tinggi tersebut dari folder prediktor.
+1. **Prediktor Berkolinearitas Tinggi (VIF > `r vif_th`)**:
+   Apabila terdapat prediktor yang masuk ke dalam daftar rekomendasi penghapusan di atas, pertimbangkan untuk mengeluarkan atau memindahkan salah satu dari pasangan prediktor yang berkorelasi tinggi tersebut dari folder prediktor.
 2. **Kesesuaian Dimensi & Resolusi**:
-   Pastikan seluruh variabel prediktor memiliki sistem proyeksi (CRS), resolusi sel spasial, dan *bounding box* (luasan spasial) yang seragam dengan peta tutupan lahan T1 dan T2.
+   Pastikan seluruh prediktor memiliki sistem proyeksi (CRS), resolusi sel spasial, dan *bounding box* yang seragam dengan peta tutupan lahan T1 dan T2.
 3. **Penyelarasan Data**:
-   Setelah menyesuaikan berkas pada folder prediktor, Anda dapat menjalankan kembali tombol **Evaluate Predictors** untuk memverifikasi ulang sebelum menekan tombol **Run Analysis**.
+   Setelah menyesuaikan berkas pada folder prediktor, Anda dapat menjalankan kembali evalusasi prediktor untuk memverifikasi ulang sebelum menjalankan proses pelatihan model SCIENDO Train.
 
----
-<div style="text-align: center; color: #777; font-size: 0.9em; margin-top: 30px;">
-  <em>LUMENS — Land-Use Planning for Low-Emission Development Strategies</em>
-</div>
+------------------------------------------------------------------------
+
+<!-- Mandatory closing statement for all module -->
+
+<font size="1"> LUMENS adalah perangkat lunak gratis dan disediakan TANPA GARANSI APAPUN. Pengguna bertanggung jawab penuh atas setiap produk yang dihasilkan. Hasil sangat bergantung pada kualitas data yang digunakan ("garbage in, garbage out") dan dapat bervariasi atau sensitif terhadap parameter yang digunakan. Harap laporkan setiap masalah yang ditemui saat menggunakan LUMENS sebagai [a GitHub issue](https://github.com/icraf-indonesia/lumens-shiny/issues). Umpan balik dan pertanyaan dipersilakan [Contact Us URL]. </font size>

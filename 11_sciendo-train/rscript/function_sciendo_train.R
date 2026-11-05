@@ -2051,9 +2051,9 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, temp
   
   # 7. Populate Master Dashboard Sheet
   # Title Block (Rows 2 & 3)
-  wb$add_data(sheet = "Dashboard", x = "SCIENDO Land Use Change - Transition Probability Matrix (TPM) Scenario Builder", start_col = 2, start_row = 2)
+  wb$add_data(sheet = "Dashboard", x = "SCIENDO Scenario Builder", start_col = 2, start_row = 2)
   wb$add_font(sheet = "Dashboard", dims = "B2", size = 15, bold = TRUE, color = openxlsx2::wb_color(hex = "1E3A8A"))
-  wb$add_data(sheet = "Dashboard", x = "Consolidated Planning Units (PU) Scenario Workbook", start_col = 2, start_row = 3)
+  wb$add_data(sheet = "Dashboard", x = "Transition Probability Matrix (TPM) Editor for Scenario", start_col = 2, start_row = 3)
   wb$add_font(sheet = "Dashboard", dims = "B3", size = 10, italic = TRUE, color = openxlsx2::wb_color(hex = "475569"))
   
   # Row 5: Action Toolbar space (height 32, buttons anchored in drawing1.xml)
@@ -2428,10 +2428,14 @@ label_with_help <- function(text, help_id) {
 #' @param help_id Help topic ID.
 #' @return A `shiny.tag` containing directory button and help icon.
 #' @export
-dir_button_with_help <- function(id, label, title, help_id) {
+dir_button_with_help <- function(id, label, title, help_id, label_key = NULL) {
+  btn <- shinyDirButton(id, label, title)
+  if (!is.null(label_key)) {
+    btn[[2]]$children <- list(tags$span(class = "i18n", `data-key` = label_key, label))
+  }
   tags$div(
     class = "dir-btn-wrapper",
-    shinyDirButton(id, label, title),
+    btn,
     tags$div(
       class = "dir-help-overlay",
       train_help_icon(help_id)

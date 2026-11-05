@@ -2356,7 +2356,7 @@ extract_year_from_filename <- function(filename) {
 plot_multitemporal_raster_leaflet <- function(
     raster_list,
     cat_table,
-    height = "600px",
+    height = "700px",
     container_width = "100%",
     legend_title = "Kategori Tutupan Lahan",
     basemap_url = BASEMAP_PROVIDERS$eox$url,
@@ -2435,19 +2435,40 @@ plot_multitemporal_raster_leaflet <- function(
   pal_raster <- leaflet::colorFactor(palette = map_colors, domain = reclass_to, na.color = "#00000000", alpha = TRUE)
   pal_legend <- leaflet::colorFactor(palette = map_colors, domain = levels_df$Category)
 
-  # Convert each raster to base64 PNG Data URI
+  # Convert each raster to:
+  # 1. Visual PNG Data URI (palette colors for Leaflet display)
+  # 2. ID PNG Data URI (exact integer class index in R/G channels for 100% accurate hover lookup)
   raster_uris <- list()
+  id_uris     <- list()
   for (yr in years) {
     r_rec <- terra::classify(r_list_4326[[yr]], reclass_matrix, others = NA)
     r_layer <- raster::raster(r_rec)
     vals <- raster::values(r_layer)
+    nc <- ncol(r_layer)
+    nr <- nrow(r_layer)
+
+    # 1. Visual tile
     cols <- pal_raster(vals)
     tileData <- as.raw(grDevices::col2rgb(cols, alpha = TRUE))
-    dim(tileData) <- c(4, ncol(r_layer), nrow(r_layer))
+    dim(tileData) <- c(4, nc, nr)
     pngData <- png::writePNG(tileData)
     raster_uris[[yr]] <- xfun::base64_uri(pngData, "image/png")
+
+    # 2. ID data tile (R = index % 256, G = index / 256, B = 0, A = 255 or 0)
+    is_valid <- !is.na(vals) & (vals > 0)
+    id_mat <- matrix(as.raw(0), nrow = 4, ncol = length(vals))
+    if (any(is_valid)) {
+      v_sub <- vals[is_valid]
+      id_mat[1, is_valid] <- as.raw(v_sub %% 256)
+      id_mat[2, is_valid] <- as.raw((v_sub %/% 256) %% 256)
+      id_mat[4, is_valid] <- as.raw(255)
+    }
+    dim(id_mat) <- c(4, nc, nr)
+    idPngData <- png::writePNG(id_mat)
+    id_uris[[yr]] <- xfun::base64_uri(idPngData, "image/png")
   }
-  json_uris <- jsonlite::toJSON(raster_uris, auto_unbox = TRUE)
+  json_uris    <- jsonlite::toJSON(raster_uris, auto_unbox = TRUE)
+  json_id_uris <- jsonlite::toJSON(id_uris, auto_unbox = TRUE)
 
   # Bounding box in EPSG:4326
   bb <- terra::ext(r_list_4326[[1]])
@@ -2460,14 +2481,11 @@ plot_multitemporal_raster_leaflet <- function(
 
   lookup_list <- lapply(seq_len(nrow(cat_tbl_filtered)), function(i) {
     hex <- map_colors[i]
-    rgb <- grDevices::col2rgb(hex)
     list(
+      reclass_id = i,
       id = cat_tbl_filtered$ID[i],
       name = cat_tbl_filtered$Category[i],
-      color = hex,
-      r = as.numeric(rgb[1, 1]),
-      g = as.numeric(rgb[2, 1]),
-      b = as.numeric(rgb[3, 1])
+      color = hex
     )
   })
   json_lookup <- jsonlite::toJSON(lookup_list, auto_unbox = TRUE)
@@ -2515,6 +2533,7 @@ plot_multitemporal_raster_leaflet <- function(
     var years = ", json_years, ";
     var lookupData = ", json_lookup, ";
     var rasterUris = ", json_uris, ";
+    var idUris = ", json_id_uris, ";
     var bounds = { xmin: ", xmin_val, ", ymin: ", ymin_val, ", xmax: ", xmax_val, ", ymax: ", ymax_val, " };
     var dims = { width: ", r_width, ", height: ", r_height, " };
 
@@ -2526,24 +2545,26 @@ plot_multitemporal_raster_leaflet <- function(
     window['sciendoOverlays_' + uid] = {};
     window['lastHoverEvent_' + uid] = null;
 
-    var rgbMap = {};
+    // Fast lookup dictionary by reclassified class index (1, 2, ..., N)
+    var lookupById = {};
     lookupData.forEach(function(item) {
-      var key = (item.r << 16) | (item.g << 8) | item.b;
-      rgbMap[key] = item;
+      lookupById[item.reclass_id] = item;
     });
 
-    var yearPixelData = {};
+    // In-memory pixel data of the exact integer ID masks
+    var yearIdPixelData = {};
     years.forEach(function(yr) {
-      if (rasterUris[yr]) {
+      if (idUris[yr]) {
         var img = new Image();
-        img.src = rasterUris[yr];
+        img.src = idUris[yr];
         img.onload = function() {
           var cvs = document.createElement('canvas');
           cvs.width = img.width;
           cvs.height = img.height;
-          var ctx = cvs.getContext('2d');
+          var ctx = cvs.getContext('2d', { willReadFrequently: true });
+          ctx.imageSmoothingEnabled = false;
           ctx.drawImage(img, 0, 0);
-          yearPixelData[yr] = ctx.getImageData(0, 0, img.width, img.height).data;
+          yearIdPixelData[yr] = ctx.getImageData(0, 0, img.width, img.height).data;
         };
       }
     });
@@ -2694,7 +2715,7 @@ plot_multitemporal_raster_leaflet <- function(
 
     function updateHoverTooltip(e) {
       var activeYear = years[window['currentYearIndex_' + uid] || 0];
-      var data = yearPixelData[activeYear];
+      var data = yearIdPixelData[activeYear];
       if (!data || !tooltip) return;
 
       var lng = e.latlng.lng;
@@ -2716,6 +2737,7 @@ plot_multitemporal_raster_leaflet <- function(
       var idx = (row * dims.width + col) * 4;
       var alpha = data[idx + 3];
 
+      // Alpha === 0 indicates NoData or outside the study area
       if (alpha === 0) {
         tooltip.style.display = 'none';
         return;
@@ -2723,23 +2745,9 @@ plot_multitemporal_raster_leaflet <- function(
 
       var r = data[idx];
       var g = data[idx + 1];
-      var b = data[idx + 2];
+      var reclassIdx = r + (g * 256);
 
-      var key = (r << 16) | (g << 8) | b;
-      var match = rgbMap[key];
-
-      if (!match) {
-        var minDiff = 999999;
-        for (var i = 0; i < lookupData.length; i++) {
-          var item = lookupData[i];
-          var diff = Math.abs(item.r - r) + Math.abs(item.g - g) + Math.abs(item.b - b);
-          if (diff < minDiff) {
-            minDiff = diff;
-            match = item;
-          }
-        }
-        if (minDiff > 40) match = null;
-      }
+      var match = lookupById[reclassIdx];
 
       if (match) {
         swatch.style.backgroundColor = match.color;
@@ -2776,10 +2784,28 @@ plot_multitemporal_raster_leaflet <- function(
       if (tooltip) tooltip.style.display = 'none';
     });
 
+    function updateBreakoutRight() {
+      var box = document.getElementById('sciendo-box-' + uid);
+      if (!box) return;
+      if (window.innerWidth >= 992) {
+        var rect = box.parentElement.getBoundingClientRect();
+        var availableWidth = window.innerWidth - rect.left - 40;
+        box.style.width = Math.max(availableWidth, rect.width) + 'px';
+        box.style.maxWidth = 'none';
+      } else {
+        box.style.width = '100%';
+        box.style.maxWidth = '100%';
+      }
+      map.invalidateSize();
+    }
+    updateBreakoutRight();
+    window.addEventListener('resize', updateBreakoutRight);
+
     setTimeout(function() {
+      updateBreakoutRight();
       map.invalidateSize();
       setYearIndex(0);
-    }, 100);
+    }, 120);
   }
   ")
 
@@ -2787,6 +2813,15 @@ plot_multitemporal_raster_leaflet <- function(
 
   widget_ui <- htmltools::tagList(
     htmltools::tags$style(htmltools::HTML("
+      body {
+        overflow-x: hidden;
+      }
+      .sciendo-breakout-right-box {
+        position: relative;
+        width: 100%;
+        max-width: none;
+        margin: 20px 0;
+      }
       .sciendo-map-wrapper {
         position: relative;
         width: 100%;
@@ -2904,7 +2939,7 @@ plot_multitemporal_raster_leaflet <- function(
         cursor: pointer;
       }
       .leaflet-control.legend, .info.legend {
-        max-height: 540px !important;
+        max-height: 630px !important;
         overflow-y: auto !important;
         overflow-x: hidden !important;
         background: rgba(255, 255, 255, 0.95) !important;
@@ -2923,7 +2958,8 @@ plot_multitemporal_raster_leaflet <- function(
     ")),
 
     htmltools::tags$div(
-      style = paste0("width: ", container_width, "; max-width: 100%; margin: 15px 0;"),
+      id = paste0("sciendo-box-", uid),
+      class = "sciendo-breakout-right-box",
       htmltools::tags$div(
         class = "sciendo-map-wrapper",
         style = paste0("width: 100%; height: ", height, ";"),
