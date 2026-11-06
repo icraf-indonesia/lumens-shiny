@@ -1,5 +1,11 @@
 # tests/testthat/test-sciendo_tpm_macro_bridge.R
 # Test suite for Consolidated SCIENDO TPM Macro Workbook and Simulate Bridge
+# Covers:
+# 1. Bahasa Indonesia localization via UI language & English fallback
+# 2. Step-by-step instruction boxes on Dashboard and PU sheets
+# 3. Real percentage numbers on newly added transitions (no "NEW" text) & 2-way sync
+# 4. Macro unblocking utility script (activate_macros.bat) & safe VBA execution
+# 5. Full roundtrip bridge to SCIENDO Simulate matrix_to_tpm()
 
 library(testthat)
 library(openxlsx2)
@@ -18,12 +24,11 @@ lc_tbl_file   <- "../../data/table/landuse_table_bungo.csv"
 zone_tbl_file <- "../../data/table/zone_table_bungo.csv"
 template_file <- "../../11_sciendo-train/macro_template/macro_template.xlsm"
 
-test_that("tpm_to_matrix_conversion generates consolidated workbook with Dashboard and PU sheets", {
+test_that("tpm_to_matrix_conversion generates consolidated Indonesian workbook with Dashboard, PU sheets, and unblock script", {
   skip_if_not(dir.exists(input_tpm_dir), "Sample TPM directory not available")
   skip_if_not(file.exists(lc_tbl_file), "LC lookup table not available")
   skip_if_not(file.exists(template_file), "Macro template not available")
   
-  lc_lookup <- read.csv(lc_tbl_file)
   zone_lookup <- read.csv(zone_tbl_file)
   
   out_xlsm <- tpm_to_matrix_conversion(
@@ -31,17 +36,26 @@ test_that("tpm_to_matrix_conversion generates consolidated workbook with Dashboa
     lc_lookup_path = lc_tbl_file,
     output_dir     = test_dir,
     template_path  = template_file,
-    pu_lookup      = zone_lookup
+    pu_lookup      = zone_lookup,
+    lang           = "id"
   )
   
   expect_true(file.exists(out_xlsm))
   expect_equal(basename(out_xlsm), "sciendo_tpm_scenario.xlsm")
   
+  # Check activate_macros.bat utility script
+  bat_file <- file.path(dirname(out_xlsm), "activate_macros.bat")
+  expect_true(file.exists(bat_file))
+  bat_lines <- readLines(bat_file, warn = FALSE)
+  expect_true(any(grepl("Unblock-File", bat_lines)))
+  expect_true(any(grepl("\\*\\.xlsm", bat_lines)))
+  expect_true(any(grepl("Membuka blokir keamanan Windows", bat_lines)))
+  
   # Inspect workbook sheets
   wb <- openxlsx2::wb_load(out_xlsm)
   sheet_names <- wb$get_sheet_names()
   
-  # 1. Tab 1 is Dashboard
+  # 1. Tab 1 is Dashboard (internal name preserved for SCIENDO Simulate compatibility)
   expect_equal(unname(sheet_names[1]), "Dashboard")
   
   # 2. Contains PU sheets for each planning unit
@@ -63,61 +77,65 @@ test_that("tpm_to_matrix_conversion generates consolidated workbook with Dashboa
   expect_true(any(grepl("vbaProject.bin", zip_files$Name)))
 })
 
-test_that("Dashboard sheet has tidy layout, policy card, and non-overlapping elements", {
+test_that("Indonesian Dashboard sheet has localized layout, policy card, instruction box, and DrawingML buttons", {
   out_xlsm <- file.path(test_dir, "baseline_tpm_macro", "sciendo_tpm_scenario.xlsm")
   skip_if_not(file.exists(out_xlsm), "Consolidated workbook does not exist")
   
-  raw_dash <- readxl::read_excel(out_xlsm, sheet = "Dashboard", range = "A1:G22", col_names = FALSE) %>% as.data.frame()
+  raw_dash <- readxl::read_excel(out_xlsm, sheet = "Dashboard", range = "A1:G28", col_names = FALSE) %>% as.data.frame()
   
-  # Row 2 & 3: Title and Subtitle
-  expect_true(grepl("Scenario Builder", as.character(raw_dash[2, 2]), ignore.case = TRUE))
-  expect_true(grepl("Consolidated Planning Units", as.character(raw_dash[3, 2]), ignore.case = TRUE))
+  # Row 2 & 3: Localized Title and Subtitle
+  expect_true(grepl("SCIENDO Scenario Builder", as.character(raw_dash[2, 2]), ignore.case = TRUE))
+  expect_true(grepl("Pembangunan Skenario Melalui Matriks Probabilitas Transisi", as.character(raw_dash[3, 2]), ignore.case = TRUE))
   
-  # Rows 7-10: Policy Card
-  expect_true(grepl("Batch Policy Across Planning Units", as.character(raw_dash[7, 2]), ignore.case = TRUE))
-  expect_equal(as.character(raw_dash[8, 2]), "From Class:")
-  expect_equal(as.character(raw_dash[8, 4]), "% Adjustment:")
-  expect_equal(as.character(raw_dash[9, 2]), "To Class:")
+  # Rows 7-10: Localized Policy Card
+  expect_true(grepl("Input Intervensi untuk Seluruh Unit Perencanaan", as.character(raw_dash[7, 2]), ignore.case = TRUE))
+  expect_equal(as.character(raw_dash[8, 2]), "Kelas Asal:")
+  expect_equal(as.character(raw_dash[8, 4]), "% Penyesuaian:")
+  expect_equal(as.character(raw_dash[9, 2]), "Kelas Tujuan:")
   expect_equal(as.character(raw_dash[9, 4]), "Target PU:")
   expect_true(!is.na(raw_dash[8, 3])) # From Class default value exists
   expect_true(!is.na(raw_dash[9, 3])) # To Class default value exists
   expect_equal(as.numeric(raw_dash[8, 5]), -0.50) # Default % adjustment
-  expect_equal(as.character(raw_dash[9, 5]), "All Planning Units") # Default target PU
+  expect_equal(as.character(raw_dash[9, 5]), "Semua Unit Perencanaan") # Localized default target PU
   
-  # Row 12: Summary Table Headers
-  expect_equal(as.character(raw_dash[12, 2]), "PU ID")
-  expect_equal(as.character(raw_dash[12, 3]), "Planning Unit Name")
-  expect_equal(as.character(raw_dash[12, 4]), "Navigation Link")
-  expect_equal(as.character(raw_dash[12, 5]), "Active Interventions")
-  expect_equal(as.character(raw_dash[12, 6]), "Validation Status")
-  expect_equal(as.character(raw_dash[12, 7]), "Historical Transitions")
+  # Rows 12-16: Step-by-Step Instruction Box on Dashboard
+  expect_true(grepl("Panduan Singkat Dashboard:", as.character(raw_dash[12, 2])))
+  expect_true(grepl("1\\.", as.character(raw_dash[13, 2])))
+  expect_true(grepl("2\\.", as.character(raw_dash[14, 2])))
+  expect_true(grepl("3\\.", as.character(raw_dash[15, 2])))
+  expect_true(grepl("Catatan:", as.character(raw_dash[16, 2])))
   
-  # Rows 13+: Data rows (8 PUs)
-  expect_equal(nrow(raw_dash[13:20, ]), 8)
-  expect_equal(as.numeric(raw_dash[13, 2]), 1)
+  # Row 17: Localized Summary Table Headers
+  expect_equal(as.character(raw_dash[17, 2]), "ID PU")
+  expect_equal(as.character(raw_dash[17, 3]), "Nama Unit Perencanaan")
+  expect_equal(as.character(raw_dash[17, 4]), "Tautan Navigasi")
+  expect_equal(as.character(raw_dash[17, 5]), "Intervensi Aktif")
+  expect_equal(as.character(raw_dash[17, 6]), "Status Validasi")
+  expect_equal(as.character(raw_dash[17, 7]), "Transisi Historis")
   
-  # Drawing elements & button anchors
-  zip_files <- unzip(out_xlsm, list = TRUE)
-  expect_true(any(grepl("xl/drawings/drawing1.xml", zip_files$Name)))
+  # Rows 18+: Data rows (8 PUs), PU 1 at row 18
+  expect_equal(nrow(raw_dash[18:25, ]), 8)
+  expect_equal(as.numeric(raw_dash[18, 2]), 1)
+  expect_true(grepl("Protected Forest", as.character(raw_dash[18, 3])))
+  
+  # Navigation link label at row 18
+  wb <- openxlsx2::wb_load(out_xlsm)
+  cc_dash <- wb$worksheets[[1]]$sheet_data$cc
+  d18_row <- cc_dash[cc_dash$r == "D18", ]
+  expect_true(grepl("Buka Sheet PU_1", d18_row$f))
+  
+  # Drawing elements & localized button labels in DrawingML
   td_draw <- tempfile("draw_check_")
   unzip(out_xlsm, files = "xl/drawings/drawing1.xml", exdir = td_draw)
   draw_text <- paste(readLines(file.path(td_draw, "xl/drawings/drawing1.xml"), warn = FALSE), collapse = "\n")
   unlink(td_draw, recursive = TRUE)
   
-  # btnValidateAll anchored at col=1, row=4 to col=3, row=5 with color 1E3A8A
-  expect_true(grepl('name="btnValidateAll"', draw_text))
-  expect_true(grepl('val="1E3A8A"', draw_text))
-  
-  # btnResetAll anchored at col=3, row=4 to col=5, row=5 with color 991B1B
-  expect_true(grepl('name="btnResetAll"', draw_text))
-  expect_true(grepl('val="991B1B"', draw_text))
-  
-  # btnApplyPolicy anchored inside card col=5, row=7 to col=7, row=9 with color 0F766E
-  expect_true(grepl('name="btnApplyPolicy"', draw_text))
-  expect_true(grepl('val="0F766E"', draw_text))
+  expect_true(grepl("Validasi Semua Unit Perencanaan", draw_text))
+  expect_true(grepl("Atur Ulang ke Baseline", draw_text))
+  expect_true(grepl("Aplikasikan Intervensi", draw_text))
 })
 
-test_that("PU sheets have correct matrix structure, row sums = 1, area in ha, Intervention Status, and navigation links", {
+test_that("Indonesian PU sheets have localized headers, instruction box, row sums = 1, and navigation links", {
   out_xlsm <- file.path(test_dir, "baseline_tpm_macro", "sciendo_tpm_scenario.xlsm")
   skip_if_not(file.exists(out_xlsm), "Consolidated workbook does not exist")
   
@@ -125,39 +143,44 @@ test_that("PU sheets have correct matrix structure, row sums = 1, area in ha, In
   sheet_names <- wb$get_sheet_names()
   pu_sheets <- sheet_names[grepl("^PU_", sheet_names)]
   
+  # Row 1: Localized title
+  raw_pu1 <- readxl::read_excel(out_xlsm, sheet = pu_sheets[1], col_names = FALSE) %>% as.data.frame()
+  expect_true(grepl("Unit Perencanaan 1:", as.character(raw_pu1[1, 1])))
+  
   # Row 2: Hyperlinks in openxlsx2 formula structure
   idx_pu1 <- which(sheet_names == pu_sheets[1])
   cc_pu1 <- wb$worksheets[[idx_pu1]]$sheet_data$cc
   b2_row <- cc_pu1[cc_pu1$r == "B2", ]
   d2_row <- cc_pu1[cc_pu1$r == "D2", ]
-  expect_true(grepl("Dashboard", b2_row$f))
-  expect_true(grepl("Next Planning Unit", d2_row$f) || grepl(pu_sheets[2], d2_row$f))
+  expect_true(grepl("Kembali ke Dashboard Utama", b2_row$f))
+  expect_true(grepl("Lanjut ke Unit Perencanaan Berikutnya", d2_row$f) || grepl(pu_sheets[2], d2_row$f))
   
   # Read final PU sheet and verify looping navigation link
   idx_pu_last <- which(sheet_names == tail(pu_sheets, 1))
   cc_last <- wb$worksheets[[idx_pu_last]]$sheet_data$cc
   d2_last <- cc_last[cc_last$r == "D2", ]
-  expect_true(grepl("First Planning Unit", d2_last$f) && grepl("PU 1", d2_last$f))
+  expect_true(grepl("Kembali ke Unit Perencanaan Pertama", d2_last$f) && grepl("PU 1", d2_last$f))
   
-  # Read PU 1 sheet data via readxl
-  raw_pu1 <- readxl::read_excel(out_xlsm, sheet = pu_sheets[1], col_names = FALSE) %>% as.data.frame()
+  # Rows 3-4: Step-by-Step Instruction Box on PU sheet
+  expect_true(grepl("Panduan Penggunaan:", as.character(raw_pu1[3, 1])))
+  expect_true(grepl("3\\.", as.character(raw_pu1[4, 1])))
   
-  # Header row is row 4
-  header_row <- as.character(raw_pu1[4, ])
-  expect_true(any(grepl("From \\\\ To", header_row)))
-  expect_true(any(grepl("Grand Total", header_row)))
-  expect_true(any(grepl("From Class", header_row)))
-  expect_true(any(grepl("To Class", header_row)))
-  expect_true(any(grepl("Baseline Rate", header_row)))
-  expect_true(any(grepl("Baseline Area \\(ha\\)", header_row)))
-  expect_true(any(grepl("% Adjustment", header_row)))
-  expect_true(any(grepl("Scenario Rate", header_row)))
-  expect_true(any(grepl("Scenario Area \\(ha\\)", header_row)))
-  expect_true(any(grepl("Intervention Status", header_row)))
+  # Row 6: Localized Matrix and Recapitulation Table Headers
+  header_row <- as.character(raw_pu1[6, ])
+  expect_true(any(grepl("Dari / Ke", header_row)))
+  expect_true(any(grepl("Total Baris", header_row)))
+  expect_true(any(grepl("Kelas Asal", header_row)))
+  expect_true(any(grepl("Kelas Tujuan", header_row)))
+  expect_true(any(grepl("Laju Baseline", header_row)))
+  expect_true(any(grepl("Luas Baseline \\(ha\\)", header_row)))
+  expect_true(any(grepl("% Penyesuaian", header_row)))
+  expect_true(any(grepl("Laju Skenario", header_row)))
+  expect_true(any(grepl("Luas Skenario \\(ha\\)", header_row)))
+  expect_true(any(grepl("Status Intervensi", header_row)))
   
-  # Locate Grand Total column and verify row sums
-  gt_col <- which(grepl("Grand Total", header_row))
-  data_rows <- 5:nrow(raw_pu1)
+  # Locate Total Baris column and verify row sums
+  gt_col <- which(grepl("Total Baris", header_row))
+  data_rows <- 7:nrow(raw_pu1)
   
   # Filter to matrix rows (where column B is non-empty)
   mat_row_indices <- data_rows[!is.na(raw_pu1[data_rows, 2]) & raw_pu1[data_rows, 2] != ""]
@@ -169,14 +192,14 @@ test_that("PU sheets have correct matrix structure, row sums = 1, area in ha, In
   }
   
   # Verify active transitions in panel
-  panel_col <- which(grepl("From Class", header_row))
+  panel_col <- which(grepl("Kelas Asal", header_row))
   panel_rows <- data_rows[!is.na(raw_pu1[data_rows, panel_col]) & raw_pu1[data_rows, panel_col] != ""]
   expect_true(length(panel_rows) > 0)
   
   # Initial % Adjustment should be 0, Intervention Status should be "Baseline", areas should be positive
-  base_area_col <- which(grepl("Baseline Area \\(ha\\)", header_row))
-  adj_col       <- which(grepl("% Adjustment", header_row))
-  status_col    <- which(grepl("Intervention Status", header_row))
+  base_area_col <- which(grepl("Luas Baseline \\(ha\\)", header_row))
+  adj_col       <- which(grepl("% Penyesuaian", header_row))
+  status_col    <- which(grepl("Status Intervensi", header_row))
   
   expect_true(as.numeric(raw_pu1[panel_rows[1], base_area_col]) > 0)
   expect_equal(as.numeric(raw_pu1[panel_rows[1], adj_col]), 0.0)
@@ -186,7 +209,7 @@ test_that("PU sheets have correct matrix structure, row sums = 1, area in ha, In
   expect_true(any(grepl("ROUND", cc_pu1$f)))
 })
 
-test_that("matrix_to_tpm extracts scenario_tpm CSVs seamlessly from consolidated workbook", {
+test_that("matrix_to_tpm extracts scenario_tpm CSVs seamlessly from consolidated Indonesian workbook", {
   out_xlsm <- file.path(test_dir, "baseline_tpm_macro", "sciendo_tpm_scenario.xlsm")
   skip_if_not(file.exists(out_xlsm), "Consolidated workbook does not exist")
   
@@ -245,6 +268,76 @@ test_that("matrix_to_tpm extracts scenario_tpm CSVs seamlessly from consolidated
   expect_equal(merged$Rate_gen, merged$Rate_orig, tolerance = 1e-4)
 })
 
+test_that("English localization (lang = 'en') generates English headers, guide boxes, and DrawingML buttons", {
+  en_dir <- file.path(test_dir, "en_test")
+  dir.create(en_dir, recursive = TRUE)
+  zone_lookup <- read.csv(zone_tbl_file)
+  
+  out_en_xlsm <- tpm_to_matrix_conversion(
+    input_dir      = input_tpm_dir,
+    lc_lookup_path = lc_tbl_file,
+    output_dir     = en_dir,
+    template_path  = template_file,
+    pu_lookup      = zone_lookup,
+    lang           = "en"
+  )
+  
+  expect_true(file.exists(out_en_xlsm))
+  
+  # Check English activate_macros.bat
+  bat_en_file <- file.path(dirname(out_en_xlsm), "activate_macros.bat")
+  expect_true(file.exists(bat_en_file))
+  bat_en_lines <- readLines(bat_en_file, warn = FALSE)
+  expect_true(any(grepl("Unblocking Windows security", bat_en_lines)))
+  expect_true(any(grepl("Done! Macro file is ready", bat_en_lines)))
+  
+  # Check Dashboard sheet in English
+  raw_dash_en <- readxl::read_excel(out_en_xlsm, sheet = "Dashboard", range = "A1:G28", col_names = FALSE) %>% as.data.frame()
+  expect_true(grepl("Scenario Builder", as.character(raw_dash_en[2, 2]), ignore.case = TRUE))
+  expect_true(grepl("Transition Probability Matrix", as.character(raw_dash_en[3, 2]), ignore.case = TRUE))
+  expect_true(grepl("Intervention Input Across Planning Units", as.character(raw_dash_en[7, 2]), ignore.case = TRUE))
+  expect_equal(as.character(raw_dash_en[8, 2]), "From Class:")
+  expect_equal(as.character(raw_dash_en[8, 4]), "% Adjustment:")
+  expect_equal(as.character(raw_dash_en[9, 2]), "To Class:")
+  expect_equal(as.character(raw_dash_en[9, 4]), "Target PU:")
+  expect_equal(as.character(raw_dash_en[9, 5]), "All Planning Units")
+  expect_true(grepl("Quick Dashboard Guide:", as.character(raw_dash_en[12, 2])))
+  expect_equal(as.character(raw_dash_en[17, 2]), "PU ID")
+  expect_equal(as.character(raw_dash_en[17, 3]), "Planning Unit Name")
+  expect_equal(as.character(raw_dash_en[17, 4]), "Navigation Link")
+  
+  # Check DrawingML in English
+  td_en_draw <- tempfile("en_draw_")
+  unzip(out_en_xlsm, files = "xl/drawings/drawing1.xml", exdir = td_en_draw)
+  en_draw_text <- paste(readLines(file.path(td_en_draw, "xl/drawings/drawing1.xml"), warn = FALSE), collapse = "\n")
+  unlink(td_en_draw, recursive = TRUE)
+  
+  expect_true(grepl("Validate All Sheets", en_draw_text))
+  expect_true(grepl("Reset All to Baseline", en_draw_text))
+  expect_true(grepl("Apply Intervention", en_draw_text))
+  
+  # Check PU sheet in English
+  raw_pu1_en <- readxl::read_excel(out_en_xlsm, sheet = "PU_1_Protected_Forest", col_names = FALSE) %>% as.data.frame()
+  expect_true(grepl("Planning Unit 1:", as.character(raw_pu1_en[1, 1])))
+  expect_true(grepl("Quick Guide:", as.character(raw_pu1_en[3, 1])))
+  
+  hdr_en <- as.character(raw_pu1_en[6, ])
+  expect_true(any(grepl("From \\\\ To", hdr_en)))
+  expect_true(any(grepl("Grand Total", hdr_en)))
+  expect_true(any(grepl("From Class", hdr_en)))
+  expect_true(any(grepl("To Class", hdr_en)))
+  expect_true(any(grepl("Intervention Status", hdr_en)))
+  
+  # Verify matrix_to_tpm extracts seamlessly from English workbook too
+  sim_en_out <- file.path(test_dir, "sim_en_output")
+  extracted_en <- matrix_to_tpm(
+    input_folder_path = dirname(out_en_xlsm),
+    lc_lookup         = read.csv(lc_tbl_file),
+    output_dir        = sim_en_out
+  )
+  expect_equal(length(extracted_en), 8)
+})
+
 test_that("matrix_to_tpm handles direct file path and legacy individual .xlsm files", {
   lc_lookup <- read.csv(lc_tbl_file)
   sim_out_dir2 <- file.path(test_dir, "sim_output2")
@@ -278,7 +371,8 @@ test_that("tpm_to_matrix_conversion works without pu_lookup (fallback to Plannin
     lc_lookup_path = lc_tbl_file,
     output_dir     = file.path(test_dir, "no_pu"),
     template_path  = template_file,
-    pu_lookup      = NULL
+    pu_lookup      = NULL,
+    lang           = "id"
   )
   
   expect_true(file.exists(out_xlsm_no_pu))
@@ -286,6 +380,26 @@ test_that("tpm_to_matrix_conversion works without pu_lookup (fallback to Plannin
   sheets <- wb$get_sheet_names()
   expect_true("Dashboard" %in% sheets)
   expect_true("PU_1_Planning_Unit_1" %in% sheets || "PU_1" %in% sheets)
+  
+  # Test PU names with special characters / single quotes
+  special_pu_df <- data.frame(
+    ID = 1:8,
+    Name = c("Taman 'Nasional' Bogani", paste("Planning Unit", 2:8))
+  )
+  out_xlsm_special <- tpm_to_matrix_conversion(
+    input_dir      = input_tpm_dir,
+    lc_lookup_path = lc_tbl_file,
+    output_dir     = file.path(test_dir, "special_pu"),
+    template_path  = template_file,
+    pu_lookup      = special_pu_df,
+    lang           = "id"
+  )
+  expect_true(file.exists(out_xlsm_special))
+  wb_spec <- openxlsx2::wb_load(out_xlsm_special)
+  sheets_spec <- wb_spec$get_sheet_names()
+  expect_true(any(grepl("Taman__Nasional", sheets_spec)))
+  # Ensure no unescaped single quote in sheet names
+  expect_false(any(grepl("'", sheets_spec)))
 })
 
 test_that("Live Excel COM validates sheets, applies policy via dashboard cells, and resets to baseline", {
@@ -309,54 +423,57 @@ try {
     
     # 1. Run ValidateAllSheets
     $excel.Run("ValidateAllSheets")
-    $statusPU1 = $dash.Cells.Item(13, 6).Text
+    $statusPU1 = $dash.Cells.Item(18, 6).Text
     
     # 2. Configure Policy Card: From Class (C8), To Class (C9), Pct (E8), Target PU (E9)
     $pu1 = $wb.Sheets.Item("PU_1_Protected_Forest")
+    $matHeaderRow = 6
     $panelCol = 0
     for ($c = 1; $c -le 40; $c++) {
-        if ($pu1.Cells.Item(4, $c).Text -eq "From Class") {
+        $t = $pu1.Cells.Item($matHeaderRow, $c).Text
+        if ($t -like "*From Class*" -or $t -like "*Kelas Asal*") {
             $panelCol = $c
             break
         }
     }
-    $fromClass = $pu1.Cells.Item(5, $panelCol).Text
-    $toClass   = $pu1.Cells.Item(5, $panelCol + 1).Text
-    $baseRate  = [double]$pu1.Cells.Item(5, $panelCol + 2).Value2
-    $baseArea  = [double]$pu1.Cells.Item(5, $panelCol + 3).Value2
+    $firstDataRow = $matHeaderRow + 1
+    $fromClass = $pu1.Cells.Item($firstDataRow, $panelCol).Text
+    $toClass   = $pu1.Cells.Item($firstDataRow, $panelCol + 1).Text
+    $baseRate  = [double]$pu1.Cells.Item($firstDataRow, $panelCol + 2).Value2
+    $baseArea  = [double]$pu1.Cells.Item($firstDataRow, $panelCol + 3).Value2
     
     $dash.Range("C8").Value = $fromClass
     $dash.Range("C9").Value = $toClass
     $dash.Range("E8").Value = -50 # Test integer -50 gets normalized to -0.50
     $dash.Range("E9").Value = "1"
     
-    # Check baseline status of row 6 before policy
-    $row6BaseRate = [double]$pu1.Cells.Item(6, $panelCol + 2).Value2
-    $row6StatusBefore = $pu1.Cells.Item(6, $panelCol + 7).Text
+    # Check baseline status of row 8 before policy
+    $row8BaseRate = [double]$pu1.Cells.Item($firstDataRow + 1, $panelCol + 2).Value2
+    $row8StatusBefore = $pu1.Cells.Item($firstDataRow + 1, $panelCol + 7).Text
     
     # 3. Run ApplyPolicyAcrossPUs
     $excel.Run("ApplyPolicyAcrossPUs")
     
-    $adjPct   = [double]$pu1.Cells.Item(5, $panelCol + 4).Value2
-    $scenRate = [double]$pu1.Cells.Item(5, $panelCol + 5).Value2
-    $scenArea = [double]$pu1.Cells.Item(5, $panelCol + 6).Value2
-    $status   = $pu1.Cells.Item(5, $panelCol + 7).Text
+    $adjPct   = [double]$pu1.Cells.Item($firstDataRow, $panelCol + 4).Value2
+    $scenRate = [double]$pu1.Cells.Item($firstDataRow, $panelCol + 5).Value2
+    $scenArea = [double]$pu1.Cells.Item($firstDataRow, $panelCol + 6).Value2
+    $status   = $pu1.Cells.Item($firstDataRow, $panelCol + 7).Text
     
-    # Verify row 6 (different transition) was not falsely modified
-    $row6RateAfter = [double]$pu1.Cells.Item(6, $panelCol + 5).Value2
-    $row6StatusAfter = $pu1.Cells.Item(6, $panelCol + 7).Text
+    # Verify row 8 (different transition) was not falsely modified
+    $row8RateAfter = [double]$pu1.Cells.Item($firstDataRow + 1, $panelCol + 5).Value2
+    $row8StatusAfter = $pu1.Cells.Item($firstDataRow + 1, $panelCol + 7).Text
     
     # 4. Test direct Scenario Area edit at column offset 6
     $targetArea = [Math]::Round($baseArea * 0.75, 2)
-    $excel.Run("TriggerCellChange", "PU_1_Protected_Forest", 5, $panelCol + 6, $targetArea)
-    $areaEditAdjPct = [double]$pu1.Cells.Item(5, $panelCol + 4).Value2
-    $areaEditRate   = [double]$pu1.Cells.Item(5, $panelCol + 5).Value2
-    $areaEditStatus = $pu1.Cells.Item(5, $panelCol + 7).Text
+    $excel.Run("TriggerCellChange", "PU_1_Protected_Forest", $firstDataRow, $panelCol + 6, $targetArea)
+    $areaEditAdjPct = [double]$pu1.Cells.Item($firstDataRow, $panelCol + 4).Value2
+    $areaEditRate   = [double]$pu1.Cells.Item($firstDataRow, $panelCol + 5).Value2
+    $areaEditStatus = $pu1.Cells.Item($firstDataRow, $panelCol + 7).Text
     
     # 5. Run ResetAllSheetsToBaseline
     $excel.Run("ResetAllSheetsToBaseline")
-    $resetRate   = [double]$pu1.Cells.Item(5, $panelCol + 5).Value2
-    $resetStatus = $pu1.Cells.Item(5, $panelCol + 7).Text
+    $resetRate   = [double]$pu1.Cells.Item($firstDataRow, $panelCol + 5).Value2
+    $resetStatus = $pu1.Cells.Item($firstDataRow, $panelCol + 7).Text
     
     $wb.Save()
     $wb.Close($false)
@@ -368,7 +485,7 @@ try {
     Write-Output "SCEN_AREA:$scenArea"
     Write-Output "BASE_AREA:$baseArea"
     Write-Output "STATUS:$status"
-    Write-Output "ROW6_STATUS_AFTER:$row6StatusAfter"
+    Write-Output "ROW8_STATUS_AFTER:$row8StatusAfter"
     Write-Output ("AREA_EDIT_ADJ:" + [Math]::Round($areaEditAdjPct, 2))
     Write-Output "AREA_EDIT_RATE:$areaEditRate"
     Write-Output "AREA_EDIT_STATUS:$areaEditStatus"
@@ -390,15 +507,15 @@ try {
   skip_if(any(grepl("^ERROR:", res_lines)), paste(res_lines, collapse = "\n"))
   
   expect_true(any(grepl("STATUS_PU1:VALID", res_lines)))
-  expect_true(any(grepl("STATUS:Intervened", res_lines)))
+  expect_true(any(grepl("STATUS:(Intervened|Diintervensi)", res_lines)))
   expect_true(any(grepl("ADJ_PCT:-0.5", res_lines)))
-  expect_true(any(grepl("ROW6_STATUS_AFTER:Baseline", res_lines)))
+  expect_true(any(grepl("ROW8_STATUS_AFTER:Baseline", res_lines)))
   expect_true(any(grepl("AREA_EDIT_ADJ:-0.25", res_lines)))
-  expect_true(any(grepl("AREA_EDIT_STATUS:Intervened", res_lines)))
+  expect_true(any(grepl("AREA_EDIT_STATUS:(Intervened|Diintervensi)", res_lines)))
   expect_true(any(grepl("RESET_STATUS:Baseline", res_lines)))
 })
 
-test_that("Live Excel COM handles 0-to-exist dynamic row lifecycle, direct panel removal, and identical From/To batch moratorium", {
+test_that("Live Excel COM handles 0-to-exist dynamic row lifecycle with real percentage numbers (no NEW text), two-way sync, and deletion", {
   skip_on_os(c("mac", "linux", "solaris"))
   out_xlsm <- file.path(test_dir, "baseline_tpm_macro", "sciendo_tpm_scenario.xlsm")
   skip_if_not(file.exists(out_xlsm), "Consolidated workbook does not exist")
@@ -418,11 +535,11 @@ test_that("Live Excel COM handles 0-to-exist dynamic row lifecycle, direct panel
     '    $dash = $wb.Sheets.Item("Dashboard")',
     '    $pu1 = $wb.Sheets.Item("PU_1_Protected_Forest")',
     '',
-    '    $matHeaderRow = 4',
+    '    $matHeaderRow = 6',
     '    $matLabelCol = 2',
     '    $matStartCol = 3',
     '    $colScan = $matStartCol',
-    '    while ($pu1.Cells.Item($matHeaderRow, $colScan).Text -ne "" -and $pu1.Cells.Item($matHeaderRow, $colScan).Text -ne "Grand Total") {',
+    '    while ($pu1.Cells.Item($matHeaderRow, $colScan).Text -ne "" -and $pu1.Cells.Item($matHeaderRow, $colScan).Text -ne "Grand Total" -and $pu1.Cells.Item($matHeaderRow, $colScan).Text -ne "Total Baris") {',
     '        $colScan++',
     '    }',
     '    $matEndCol = $colScan - 1',
@@ -432,7 +549,7 @@ test_that("Live Excel COM handles 0-to-exist dynamic row lifecycle, direct panel
     '    $matEndRow = $matHeaderRow + $nClasses',
     '',
     '    # Baseline panel row count',
-    '    $pEnd0 = 4',
+    '    $pEnd0 = $matHeaderRow',
     '    while ($pu1.Cells.Item($pEnd0 + 1, $panelCol).Text -ne "") {',
     '        $pEnd0++',
     '    }',
@@ -440,7 +557,7 @@ test_that("Live Excel COM handles 0-to-exist dynamic row lifecycle, direct panel
     '    # Locate off-diagonal 0 cell in matrix',
     '    $zeroRow = 0',
     '    $zeroCol = 0',
-    '    for ($r = 5; $r -le $matEndRow; $r++) {',
+    '    for ($r = ($matHeaderRow + 1); $r -le $matEndRow; $r++) {',
     '        for ($c = $matStartCol; $c -le $matEndCol; $c++) {',
     '            if (($r - $matHeaderRow) -ne ($c - $matLabelCol)) {',
     '                $val = [double]$pu1.Cells.Item($r, $c).Value2',
@@ -457,7 +574,7 @@ test_that("Live Excel COM handles 0-to-exist dynamic row lifecycle, direct panel
     '    # 1. Dynamically append row by modifying 0-cell to 0.05',
     '    $excel.Run("TriggerCellChange", "PU_1_Protected_Forest", $zeroRow, $zeroCol, 0.05)',
     '    $matVal1 = [double]$pu1.Cells.Item($zeroRow, $zeroCol).Value2',
-    '    $pEnd1 = 4',
+    '    $pEnd1 = $matHeaderRow',
     '    while ($pu1.Cells.Item($pEnd1 + 1, $panelCol).Text -ne "") { $pEnd1++ }',
     '    $appFrom = $pu1.Cells.Item($pEnd1, $panelCol).Text',
     '    $appTo = $pu1.Cells.Item($pEnd1, $panelCol + 1).Text',
@@ -468,20 +585,32 @@ test_that("Live Excel COM handles 0-to-exist dynamic row lifecycle, direct panel
     '    $appStatus = $pu1.Cells.Item($pEnd1, $panelCol + 7).Text',
     '    $rowSum1 = [double]$pu1.Cells.Item($zeroRow, $sumCol).Value2',
     '',
+    '    # 1b. Test Two-Way Synchronization on Appended Row (% Adjustment -> Scenario Rate & Matrix)',
+    '    $excel.Run("TriggerCellChange", "PU_1_Protected_Forest", $pEnd1, $panelCol + 4, 0.10)',
+    '    $twoWayMatVal = [double]$pu1.Cells.Item($zeroRow, $zeroCol).Value2',
+    '    $twoWayScenRate = [double]$pu1.Cells.Item($pEnd1, $panelCol + 5).Value2',
+    '    $twoWayAdj = $pu1.Cells.Item($pEnd1, $panelCol + 4).Text',
+    '    $twoWayRowSum = [double]$pu1.Cells.Item($zeroRow, $sumCol).Value2',
+    '',
+    '    # 1c. Test integer percentage input normalization (15 -> 0.15)',
+    '    $excel.Run("TriggerCellChange", "PU_1_Protected_Forest", $pEnd1, $panelCol + 4, 15)',
+    '    $intMatVal = [double]$pu1.Cells.Item($zeroRow, $zeroCol).Value2',
+    '    $intScenRate = [double]$pu1.Cells.Item($pEnd1, $panelCol + 5).Value2',
+    '',
     '    # 2. Revert 0-cell to 0.0 via matrix edit -> cleanly delete appended row',
     '    $excel.Run("TriggerCellChange", "PU_1_Protected_Forest", $zeroRow, $zeroCol, 0.0)',
     '    $matVal2 = [double]$pu1.Cells.Item($zeroRow, $zeroCol).Value2',
-    '    $pEnd2 = 4',
+    '    $pEnd2 = $matHeaderRow',
     '    while ($pu1.Cells.Item($pEnd2 + 1, $panelCol).Text -ne "") { $pEnd2++ }',
     '    $rowSum2 = [double]$pu1.Cells.Item($zeroRow, $sumCol).Value2',
     '',
     '    # 3. Direct panel edit on appended row: setting Scenario Rate to 0 removes row',
     '    $excel.Run("TriggerCellChange", "PU_1_Protected_Forest", $zeroRow, $zeroCol, 0.06)',
-    '    $pEnd3Before = 4',
+    '    $pEnd3Before = $matHeaderRow',
     '    while ($pu1.Cells.Item($pEnd3Before + 1, $panelCol).Text -ne "") { $pEnd3Before++ }',
     '    $excel.Run("TriggerCellChange", "PU_1_Protected_Forest", $pEnd3Before, $panelCol + 5, 0.0)',
     '    $matVal3 = [double]$pu1.Cells.Item($zeroRow, $zeroCol).Value2',
-    '    $pEnd3After = 4',
+    '    $pEnd3After = $matHeaderRow',
     '    while ($pu1.Cells.Item($pEnd3After + 1, $panelCol).Text -ne "") { $pEnd3After++ }',
     '    $rowSum3 = [double]$pu1.Cells.Item($zeroRow, $sumCol).Value2',
     '',
@@ -489,7 +618,7 @@ test_that("Live Excel COM handles 0-to-exist dynamic row lifecycle, direct panel
     '    $excel.Run("TriggerCellChange", "PU_1_Protected_Forest", $zeroRow, $zeroCol, 0.05)',
     '    $zeroRow2 = 0',
     '    $zeroCol2 = 0',
-    '    for ($r = 5; $r -le $matEndRow; $r++) {',
+    '    for ($r = ($matHeaderRow + 1); $r -le $matEndRow; $r++) {',
     '        for ($c = $matStartCol; $c -le $matEndCol; $c++) {',
     '            if (($r - $matHeaderRow) -ne ($c - $matLabelCol) -and ($r -ne $zeroRow -or $c -ne $zeroCol)) {',
     '                $v = [double]$pu1.Cells.Item($r, $c).Value2',
@@ -503,13 +632,13 @@ test_that("Live Excel COM handles 0-to-exist dynamic row lifecycle, direct panel
     '        if ($zeroRow2 -gt 0) { break }',
     '    }',
     '    $excel.Run("TriggerCellChange", "PU_1_Protected_Forest", $zeroRow2, $zeroCol2, 0.04)',
-    '    $pEnd2App = 4',
+    '    $pEnd2App = $matHeaderRow',
     '    while ($pu1.Cells.Item($pEnd2App + 1, $panelCol).Text -ne "") { $pEnd2App++ }',
     '    $multiDiffBefore = $pEnd2App - $pEnd0',
     '',
     '    # Delete row A (middle row)',
     '    $excel.Run("TriggerCellChange", "PU_1_Protected_Forest", $zeroRow, $zeroCol, 0.0)',
-    '    $pEndAfterDelA = 4',
+    '    $pEndAfterDelA = $matHeaderRow',
     '    while ($pu1.Cells.Item($pEndAfterDelA + 1, $panelCol).Text -ne "") { $pEndAfterDelA++ }',
     '    $multiDiffAfter = $pEndAfterDelA - $pEnd0',
     '    $rowB_Rate = [double]$pu1.Cells.Item($pEndAfterDelA, $panelCol + 5).Value2',
@@ -523,29 +652,29 @@ test_that("Live Excel COM handles 0-to-exist dynamic row lifecycle, direct panel
     '    $excel.Run("TriggerCellChange", "PU_1_Protected_Forest", $zeroRow2, $zeroCol2, 0.0)',
     '',
     '    # 4. Batch Policy with identical From and To (100% moratorium)',
-    '    $diagClass = $pu1.Cells.Item(5, $matLabelCol).Text',
+    '    $diagClass = $pu1.Cells.Item($matHeaderRow + 1, $matLabelCol).Text',
     '    $dash.Range("C8").Value = $diagClass',
     '    $dash.Range("C9").Value = $diagClass',
     '    $dash.Range("E8").Value = 1.0',
     '    $dash.Range("E9").Value = "1"',
     '    $excel.Run("ApplyPolicyAcrossPUs")',
     '',
-    '    $diagVal = [double]$pu1.Cells.Item(5, 3).Value2',
+    '    $diagVal = [double]$pu1.Cells.Item($matHeaderRow + 1, 3).Value2',
     '    $offDiagSum = 0.0',
     '    for ($c = 4; $c -le $matEndCol; $c++) {',
-    '        $offDiagSum += [double]$pu1.Cells.Item(5, $c).Value2',
+    '        $offDiagSum += [double]$pu1.Cells.Item($matHeaderRow + 1, $c).Value2',
     '    }',
-    '    $diagRowSum = [double]$pu1.Cells.Item(5, $sumCol).Value2',
+    '    $diagRowSum = [double]$pu1.Cells.Item($matHeaderRow + 1, $sumCol).Value2',
     '',
     '    $row5PanelCount = 0',
     '    $row5IntervenedCount = 0',
-    '    for ($pr = 5; $pr -le $pEnd0; $pr++) {',
-    '        if ([int]$pu1.Cells.Item($pr, $panelCol + 8).Value2 -eq 5) {',
+    '    for ($pr = ($matHeaderRow + 1); $pr -le $pEnd0; $pr++) {',
+    '        if ([int]$pu1.Cells.Item($pr, $panelCol + 8).Value2 -eq ($matHeaderRow + 1)) {',
     '            $row5PanelCount++',
     '            $rRate = [double]$pu1.Cells.Item($pr, $panelCol + 5).Value2',
     '            $rArea = [double]$pu1.Cells.Item($pr, $panelCol + 6).Value2',
     '            $rStat = $pu1.Cells.Item($pr, $panelCol + 7).Text',
-    '            if ($rRate -lt 0.0001 -and $rArea -lt 0.01 -and $rStat -eq "Intervened") {',
+    '            if ($rRate -lt 0.0001 -and $rArea -lt 0.01 -and ($rStat -eq "Intervened" -or $rStat -eq "Diintervensi")) {',
     '                $row5IntervenedCount++',
     '            }',
     '        }',
@@ -559,11 +688,11 @@ test_that("Live Excel COM handles 0-to-exist dynamic row lifecycle, direct panel
     '    $dash.Range("E8").Value = -0.10',
     '    $dash.Range("E9").Value = "1"',
     '    $excel.Run("ApplyPolicyAcrossPUs")',
-    '    $diagRowSum4b = [double]$pu1.Cells.Item(5, $sumCol).Value2',
-    '    $pEnd4b = 4',
+    '    $diagRowSum4b = [double]$pu1.Cells.Item($matHeaderRow + 1, $sumCol).Value2',
+    '    $pEnd4b = $matHeaderRow',
     '    while ($pu1.Cells.Item($pEnd4b + 1, $panelCol).Text -ne "") { $pEnd4b++ }',
     '    $hasValueErr = "NO"',
-    '    for ($pr = 5; $pr -le $pEnd4b; $pr++) {',
+    '    for ($pr = ($matHeaderRow + 1); $pr -le $pEnd4b; $pr++) {',
     '        $cellText = $pu1.Cells.Item($pr, $panelCol + 6).Text',
     '        if ($cellText -eq "#VALUE!" -or $cellText -like "*#*") {',
     '            $hasValueErr = "YES"',
@@ -582,7 +711,7 @@ test_that("Live Excel COM handles 0-to-exist dynamic row lifecycle, direct panel
     '    $excel.Run("ApplyPolicyAcrossPUs")',
     '',
     '    $bpMatVal = [double]$pu1.Cells.Item($zeroRow, $zeroCol).Value2',
-    '    $pEnd5 = 4',
+    '    $pEnd5 = $matHeaderRow',
     '    while ($pu1.Cells.Item($pEnd5 + 1, $panelCol).Text -ne "") { $pEnd5++ }',
     '    $bpAppAdj = $pu1.Cells.Item($pEnd5, $panelCol + 4).Text',
     '    $bpAppScenRate = [double]$pu1.Cells.Item($pEnd5, $panelCol + 5).Value2',
@@ -592,11 +721,11 @@ test_that("Live Excel COM handles 0-to-exist dynamic row lifecycle, direct panel
     '    # 6. Reset to baseline restores clean initial state',
     '    $excel.Run("ResetAllSheetsToBaseline")',
     '    $excel.Run("ValidateAllSheets")',
-    '    $pEnd6 = 4',
+    '    $pEnd6 = $matHeaderRow',
     '    while ($pu1.Cells.Item($pEnd6 + 1, $panelCol).Text -ne "") { $pEnd6++ }',
-    '    $resetDiagVal = [double]$pu1.Cells.Item(5, 3).Value2',
+    '    $resetDiagVal = [double]$pu1.Cells.Item($matHeaderRow + 1, 3).Value2',
     '    $resetZeroVal = [double]$pu1.Cells.Item($zeroRow, $zeroCol).Value2',
-    '    $dashValid = $dash.Cells.Item(13, 6).Text',
+    '    $dashValid = $dash.Cells.Item(18, 6).Text',
     '',
     '    $wb.Save()',
     '    $wb.Close($false)',
@@ -615,6 +744,14 @@ test_that("Live Excel COM handles 0-to-exist dynamic row lifecycle, direct panel
     '    Write-Output "ZERO_APPEND_AREA_POS:$appAreaPos"',
     '    Write-Output "ZERO_APPEND_STATUS:$appStatus"',
     '    Write-Output "ZERO_APPEND_SUM:$rowSum1"',
+    '',
+    '    Write-Output "TWOWAY_MAT_VAL:$twoWayMatVal"',
+    '    Write-Output "TWOWAY_SCEN_RATE:$twoWayScenRate"',
+    '    Write-Output "TWOWAY_ADJ:$twoWayAdj"',
+    '    Write-Output "TWOWAY_ROW_SUM:$twoWayRowSum"',
+    '',
+    '    Write-Output "INT_MAT_VAL:$intMatVal"',
+    '    Write-Output "INT_SCEN_RATE:$intScenRate"',
     '',
     '    Write-Output "ZERO_REVERT_VAL:$matVal2"',
     '    Write-Output "ZERO_REVERT_DIFF:$($pEnd2 - $pEnd0)"',
@@ -662,14 +799,32 @@ test_that("Live Excel COM handles 0-to-exist dynamic row lifecycle, direct panel
   
   skip_if(any(grepl("^ERROR:", res_lines)), paste(res_lines, collapse = "\n"))
   
-  # 1. 0-to-exist dynamic append
+  # 1. 0-to-exist dynamic append: displays real percentage (no "NEW" text)
   expect_true(any(grepl("ZERO_APPEND_VAL:0.05", res_lines)))
   expect_true(any(grepl("ZERO_APPEND_DIFF:1", res_lines)))
-  expect_true(any(grepl("ZERO_APPEND_ADJ:NEW", res_lines)))
+  
+  # Assert ZERO_APPEND_ADJ is numeric percentage, strictly NOT "NEW"
+  adj_line <- res_lines[grepl("^ZERO_APPEND_ADJ:", res_lines)]
+  expect_true(length(adj_line) > 0)
+  expect_false(grepl("NEW", adj_line, ignore.case = TRUE))
+  expect_true(grepl("5", adj_line) || grepl("0.05", adj_line))
+  
   expect_true(any(grepl("ZERO_APPEND_RATE:0.05", res_lines)))
   expect_true(any(grepl("ZERO_APPEND_AREA_POS:YES", res_lines)))
-  expect_true(any(grepl("ZERO_APPEND_STATUS:Intervened", res_lines)))
+  expect_true(any(grepl("ZERO_APPEND_STATUS:(Intervened|Diintervensi)", res_lines)))
   expect_true(any(grepl("ZERO_APPEND_SUM:1", res_lines)))
+  
+  # 1b. Two-way sync: editing % Adjustment updates Scenario Rate and Matrix cell
+  expect_true(any(grepl("TWOWAY_MAT_VAL:0.1", res_lines)))
+  expect_true(any(grepl("TWOWAY_SCEN_RATE:0.1", res_lines)))
+  expect_true(any(grepl("TWOWAY_ROW_SUM:1", res_lines)))
+  twoway_adj_line <- res_lines[grepl("^TWOWAY_ADJ:", res_lines)]
+  expect_true(grepl("10", twoway_adj_line) || grepl("0.1", twoway_adj_line))
+  expect_false(grepl("NEW", twoway_adj_line, ignore.case = TRUE))
+  
+  # 1c. Integer percentage input normalization
+  expect_true(any(grepl("INT_MAT_VAL:0.15", res_lines)))
+  expect_true(any(grepl("INT_SCEN_RATE:0.15", res_lines)))
   
   # 2. Revert to 0 removes row
   expect_true(any(grepl("ZERO_REVERT_VAL:0", res_lines)))
@@ -685,7 +840,7 @@ test_that("Live Excel COM handles 0-to-exist dynamic row lifecycle, direct panel
   expect_true(any(grepl("MULTI_APPEND_BEFORE:2", res_lines)))
   expect_true(any(grepl("MULTI_APPEND_AFTER:1", res_lines)))
   expect_true(any(grepl("ROW_B_RATE:0.04", res_lines)))
-  expect_true(any(grepl("ROW_B_STATUS:Intervened", res_lines)))
+  expect_true(any(grepl("ROW_B_STATUS:(Intervened|Diintervensi)", res_lines)))
   expect_true(any(grepl("ROW_B_MATCH:YES", res_lines)))
   
   # 4. Moratorium identical From/To sets diagonal to 1 and panel rows to 0 Intervened
@@ -701,9 +856,11 @@ test_that("Live Excel COM handles 0-to-exist dynamic row lifecycle, direct panel
   # 5. Batch policy 0-to-exist creates new row and rebalances
   expect_true(any(grepl("BP_ZERO_VAL:0.07", res_lines)))
   expect_true(any(grepl("BP_ZERO_DIFF:1", res_lines)))
-  expect_true(any(grepl("BP_ZERO_ADJ:NEW", res_lines)))
+  bp_adj_line <- res_lines[grepl("^BP_ZERO_ADJ:", res_lines)]
+  expect_false(grepl("NEW", bp_adj_line, ignore.case = TRUE))
+  expect_true(grepl("7", bp_adj_line) || grepl("0.07", bp_adj_line))
   expect_true(any(grepl("BP_ZERO_RATE:0.07", res_lines)))
-  expect_true(any(grepl("BP_ZERO_STATUS:Intervened", res_lines)))
+  expect_true(any(grepl("BP_ZERO_STATUS:(Intervened|Diintervensi)", res_lines)))
   expect_true(any(grepl("BP_ZERO_SUM:1", res_lines)))
   
   # 6. Reset cleans up
@@ -713,7 +870,37 @@ test_that("Live Excel COM handles 0-to-exist dynamic row lifecycle, direct panel
   expect_true(any(grepl("RESET_VALID:VALID", res_lines)))
 })
 
+test_that("VBA module contains complete bilingual alerts and dialogs", {
+  vba_file <- "../../11_sciendo-train/macro_template/module_vba.txt"
+  skip_if_not(file.exists(vba_file), "module_vba.txt not found")
+  vba_text <- paste(readLines(vba_file, warn = FALSE), collapse = "\n")
+  
+  # Check Indonesian alert and confirmation messages
+  expect_true(grepl("Nilai tidak valid! Silakan masukkan probabilitas", vba_text))
+  expect_true(grepl("Silakan masukkan persentase penyesuaian yang valid", vba_text))
+  expect_true(grepl("Silakan masukkan laju skenario yang valid", vba_text))
+  expect_true(grepl("Silakan masukkan luas skenario positif yang valid", vba_text))
+  expect_true(grepl("Tidak dapat mengubah sel: Total sel terintervensi", vba_text))
+  expect_true(grepl("Lembar baseline untuk .* tidak ditemukan", vba_text))
+  expect_true(grepl("Silakan pilih 'Kelas Asal' dan 'Kelas Tujuan'", vba_text))
+  expect_true(grepl("Validasi Berhasil!", vba_text))
+  expect_true(grepl("Peringatan Validasi:", vba_text))
+  expect_true(grepl("Apakah Anda yakin ingin mengatur ulang", vba_text))
+  expect_true(grepl("Seluruh Unit Perencanaan berhasil diatur ulang", vba_text))
+  expect_true(grepl("Kebijakan berhasil diterapkan pada", vba_text))
+  
+  # Check English alert and confirmation messages
+  expect_true(grepl("Invalid value! Please enter a probability", vba_text))
+  expect_true(grepl("Please enter a valid percentage adjustment", vba_text))
+  expect_true(grepl("Please enter a valid scenario rate", vba_text))
+  expect_true(grepl("Please enter a valid positive area in hectares", vba_text))
+  expect_true(grepl("Cannot modify cell: The sum of intervened cells", vba_text))
+  expect_true(grepl("Validation Passed!", vba_text))
+  expect_true(grepl("Validation Warning:", vba_text))
+  expect_true(grepl("Are you sure you want to reset all Planning Units", vba_text))
+  expect_true(grepl("All Planning Units have been successfully reset", vba_text))
+  expect_true(grepl("Policy applied to", vba_text))
+})
+
 # Cleanup temp files
 unlink(test_dir, recursive = TRUE)
-
-

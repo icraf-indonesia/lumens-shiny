@@ -4,6 +4,47 @@ Option Explicit
 Public IsUpdating As Boolean
 
 ' Display messages only when interacting with a human user (prevents hanging in automation)
+
+' Language helper: checks if the workbook is in Bahasa Indonesia
+Public Function IsIndonesian() As Boolean
+    Dim dashWs As Worksheet
+    On Error Resume Next
+    Set dashWs = ThisWorkbook.Sheets("Dashboard")
+    On Error GoTo 0
+    If Not dashWs Is Nothing Then
+        If InStr(1, CStr(dashWs.Cells(2, 2).Value), "Perubahan", vbTextCompare) > 0 Or _
+           InStr(1, CStr(dashWs.Cells(7, 2).Value), "Kebijakan", vbTextCompare) > 0 Or _
+           InStr(1, CStr(dashWs.Cells(12, 2).Value), "Panduan", vbTextCompare) > 0 Then
+            IsIndonesian = True
+            Exit Function
+        End If
+    End If
+    If Not ActiveSheet Is Nothing Then
+        If InStr(1, CStr(ActiveSheet.Cells(2, 2).Value), "Kembali", vbTextCompare) > 0 Or _
+           InStr(1, CStr(ActiveSheet.Cells(3, 2).Value), "Panduan", vbTextCompare) > 0 Or _
+           InStr(1, CStr(ActiveSheet.Cells(6, 2).Value), "Dari", vbTextCompare) > 0 Then
+            IsIndonesian = True
+            Exit Function
+        End If
+    End If
+End Function
+
+Public Function StatusIntervened() As String
+    If IsIndonesian() Then StatusIntervened = "Diintervensi" Else StatusIntervened = "Intervened"
+End Function
+
+Public Function StatusBaseline() As String
+    StatusBaseline = "Baseline"
+End Function
+
+Public Function StatusValid() As String
+    StatusValid = "VALID"
+End Function
+
+Public Function StatusWarning() As String
+    If IsIndonesian() Then StatusWarning = "PERINGATAN" Else StatusWarning = "WARNING"
+End Function
+
 Public Sub ShowMsg(ByVal msg As String, Optional ByVal style As VbMsgBoxStyle = vbInformation, Optional ByVal title As String = "SCIENDO Scenario Builder")
     If Application.Visible And Application.DisplayAlerts Then
         MsgBox msg, style, title
@@ -115,8 +156,8 @@ Public Function AppendPanelRow(ws As Worksheet, ByVal mRow As Long, ByVal mCol A
     ws.Cells(newRow, panelCol + 2).NumberFormat = "0.0000"
     ws.Cells(newRow, panelCol + 3).Value = 0#
     ws.Cells(newRow, panelCol + 3).NumberFormat = "#,##0.00"
-    ws.Cells(newRow, panelCol + 4).NumberFormat = "@"
-    ws.Cells(newRow, panelCol + 4).Value = "NEW"
+    ws.Cells(newRow, panelCol + 4).NumberFormat = "0.0%"
+    ws.Cells(newRow, panelCol + 4).Value = newVal
     ws.Cells(newRow, panelCol + 5).Value = newVal
     ws.Cells(newRow, panelCol + 5).NumberFormat = "0.0000"
     
@@ -125,7 +166,7 @@ Public Function AppendPanelRow(ws As Worksheet, ByVal mRow As Long, ByVal mCol A
     ws.Cells(newRow, panelCol + 6).FormulaR1C1 = "=ROUND(" & Replace(CStr(initArea), ",", ".") & "*RC[-1], 2)"
     ws.Cells(newRow, panelCol + 6).NumberFormat = "#,##0.00"
     
-    ws.Cells(newRow, panelCol + 7).Value = "Intervened"
+    ws.Cells(newRow, panelCol + 7).Value = StatusIntervened()
     ws.Cells(newRow, panelCol + 7).Font.Bold = True
     ws.Cells(newRow, panelCol + 7).Interior.Color = RGB(255, 235, 130)
     
@@ -154,16 +195,27 @@ Public Sub HandleSheetChange(ByVal ws As Worksheet, ByVal Target As Range)
     If ws.Name = "Dashboard" Or Left(ws.Name, 1) = "_" Then Exit Sub
     If Target.Cells.CountLarge > 1 Then Exit Sub ' Ignore bulk edits
 
-    ' Direct geometry indexing (matrix always starts at B4 in SCIENDO workbooks)
+    ' Direct geometry indexing (matrix starts at Row 4 or 6 in SCIENDO workbooks)
     Dim matHeaderRow As Long, matLabelCol As Long, matStartCol As Long
-    matHeaderRow = 4
     matLabelCol = 2
     matStartCol = 3
+    matHeaderRow = 6
+    Dim rScanH As Long
+    For rScanH = 4 To 8
+        Dim hScanText As String
+        hScanText = Trim(CStr(ws.Cells(rScanH, matLabelCol).Value))
+        If InStr(1, hScanText, "From", vbTextCompare) > 0 Or InStr(1, hScanText, "Dari", vbTextCompare) > 0 Then
+            matHeaderRow = rScanH
+            Exit For
+        End If
+    Next rScanH
     
-    ' Find Grand Total column
+    ' Find Grand Total / Total Baris column
     Dim colScan As Long, matEndCol As Long, nClasses As Long
     colScan = matStartCol
-    Do While ws.Cells(matHeaderRow, colScan).Value <> "" And ws.Cells(matHeaderRow, colScan).Value <> "Grand Total"
+    Do While ws.Cells(matHeaderRow, colScan).Value <> "" And _
+             ws.Cells(matHeaderRow, colScan).Value <> "Grand Total" And _
+             ws.Cells(matHeaderRow, colScan).Value <> "Total Baris"
         colScan = colScan + 1
         If colScan > 200 Then Exit Do
     Loop
@@ -178,11 +230,12 @@ Public Sub HandleSheetChange(ByVal ws As Worksheet, ByVal Target As Range)
     
     ' Locate Panel directly (placed 2 columns after Grand Total)
     ' Layout: [From Class | To Class | Baseline Rate | Baseline Area (ha) | % Adjustment | Scenario Rate | Scenario Area (ha) | Intervention Status | _mRow | _mCol]
-    ' Offsets from panelCol:
-    ' 0: From Class, 1: To Class, 2: Baseline Rate, 3: Baseline Area (ha), 4: % Adjustment, 5: Scenario Rate, 6: Scenario Area (ha), 7: Intervention Status, 8: _mRow, 9: _mCol
     Dim panelCol As Long, panelRowStart As Long, panelRowEnd As Long
     panelCol = sumCol + 2
-    If InStr(1, CStr(ws.Cells(matHeaderRow, panelCol).Value), "From Class", vbTextCompare) > 0 Then
+    Dim pScanTitle As String
+    pScanTitle = CStr(ws.Cells(matHeaderRow, panelCol).Value)
+    If InStr(1, pScanTitle, "From Class", vbTextCompare) > 0 Or _
+       InStr(1, pScanTitle, "Kelas Asal", vbTextCompare) > 0 Then
         panelRowStart = matHeaderRow + 1
         panelRowEnd = ws.Cells(ws.Rows.Count, panelCol).End(xlUp).Row
     Else
@@ -199,7 +252,11 @@ Public Sub HandleSheetChange(ByVal ws As Worksheet, ByVal Target As Range)
     ' CASE 1: Cell in Matrix changed
     If tRow >= matStartRow And tRow <= matEndRow And tCol >= matStartCol And tCol <= matEndCol Then
         If Not IsNumeric(Target.Value) Or SafeCDbl(Target.Value) < 0 Or SafeCDbl(Target.Value) > 1 Then
-            ShowMsg "Invalid value! Please enter a probability between 0 and 1.", vbExclamation, "Input Validation"
+            If IsIndonesian() Then
+                ShowMsg "Nilai tidak valid! Silakan masukkan probabilitas antara 0 dan 1.", vbExclamation, "Validasi Masukan"
+            Else
+                ShowMsg "Invalid value! Please enter a probability between 0 and 1.", vbExclamation, "Input Validation"
+            End If
             IsUpdating = True
             Dim prevEvM1 As Boolean: prevEvM1 = Application.EnableEvents
             Application.EnableEvents = False
@@ -282,7 +339,7 @@ Public Sub HandleSheetChange(ByVal ws As Worksheet, ByVal Target As Range)
                         ws.Cells(pRow, panelCol + 4).Value = -1#
                         ws.Cells(pRow, panelCol + 5).Value = 0#
                         ws.Cells(pRow, panelCol + 6).FormulaR1C1 = "=ROUND(RC[-3]*(1+RC[-2]), 2)"
-                        ws.Cells(pRow, panelCol + 7).Value = "Intervened"
+                        ws.Cells(pRow, panelCol + 7).Value = StatusIntervened()
                         ws.Cells(pRow, panelCol + 7).Font.Bold = True
                         ws.Cells(pRow, panelCol + 7).Interior.Color = RGB(255, 235, 130)
                         Target.Interior.Color = RGB(255, 235, 130)
@@ -314,18 +371,78 @@ Public Sub HandleSheetChange(ByVal ws As Worksheet, ByVal Target As Range)
             ' Subcase 2A: % Adjustment column (offset 4)
             If colOffset = 4 Then
                 If isAppended Then
-                    ShowMsg "Percentage adjustment is not available for new transitions. Please edit Scenario Rate or Scenario Area directly.", vbInformation
-                    IsUpdating = True
-                    Dim prevEvPAp As Boolean: prevEvPAp = Application.EnableEvents
-                    Application.EnableEvents = False
-                    Target.Value = "NEW"
-                    Application.EnableEvents = prevEvPAp
-                    IsUpdating = False
-                    Exit Sub
+                    If Not IsNumeric(Target.Value) Then
+                        If IsIndonesian() Then
+                            ShowMsg "Silakan masukkan persentase penyesuaian yang valid (contoh: 10% atau 0.10).", vbExclamation, "Persentase Tidak Valid"
+                        Else
+                            ShowMsg "Please enter a valid percentage adjustment (e.g. 10% or 0.10).", vbExclamation, "Invalid Percentage"
+                        End If
+                        IsUpdating = True
+                        Dim prevEvPApE As Boolean: prevEvPApE = Application.EnableEvents
+                        Application.EnableEvents = False
+                        Target.Value = SafeCDbl(ws.Cells(mRow, mCol).Value)
+                        Application.EnableEvents = prevEvPApE
+                        IsUpdating = False
+                        Exit Sub
+                    End If
+                    scenRate = SafeCDbl(Target.Value)
+                    If Abs(scenRate) > 1# And Abs(scenRate) <= 100# Then
+                        scenRate = scenRate / 100#
+                    End If
+                    If scenRate <= 0.000001 Then
+                        ' Setting to 0 removes appended row cleanly
+                        IsUpdating = True
+                        Dim prevEvPAppDelA As Boolean: prevEvPAppDelA = Application.EnableEvents
+                        Application.EnableEvents = False
+                        ws.Cells(mRow, mCol).Value = 0#
+                        RestoreCellFormatting ws, mRow, mCol, matHeaderRow, matLabelCol
+                        DeletePanelRow ws, tRow, panelCol
+                        panelRowEnd = ws.Cells(ws.Rows.Count, panelCol).End(xlUp).Row
+                        RebalanceRow ws, mRow, mCol, 0#, matStartCol, matEndCol, panelCol, panelRowStart, panelRowEnd
+                        UpdateRowSumOnSheet ws, mRow, matStartCol, matEndCol, sumCol
+                        Application.EnableEvents = prevEvPAppDelA
+                        IsUpdating = False
+                        Exit Sub
+                    Else
+                        If scenRate > 1# Then scenRate = 1#
+                        If scenRate < 0# Then scenRate = 0#
+                        If Not ValidateLockedSum(ws, mRow, mCol, scenRate, matStartCol, matEndCol, panelCol, panelRowStart, panelRowEnd) Then
+                            IsUpdating = True
+                            Dim prevEvPValAppA As Boolean: prevEvPValAppA = Application.EnableEvents
+                            Application.EnableEvents = False
+                            Target.Value = SafeCDbl(ws.Cells(mRow, mCol).Value)
+                            Application.EnableEvents = prevEvPValAppA
+                            IsUpdating = False
+                            Exit Sub
+                        End If
+                        IsUpdating = True
+                        Dim prevEvPAppOkA As Boolean: prevEvPAppOkA = Application.EnableEvents
+                        Application.EnableEvents = False
+                        Target.NumberFormat = "0.0%"
+                        Target.Value = scenRate
+                        ws.Cells(tRow, panelCol + 5).Value = scenRate
+                        Dim initA1A As Double
+                        initA1A = GetInitialClassArea(ws, CStr(ws.Cells(tRow, panelCol).Value), mRow, panelCol, panelRowStart, panelRowEnd)
+                        ws.Cells(tRow, panelCol + 6).FormulaR1C1 = "=ROUND(" & Replace(CStr(initA1A), ",", ".") & "*RC[-1], 2)"
+                        ws.Cells(tRow, panelCol + 7).Value = StatusIntervened()
+                        ws.Cells(tRow, panelCol + 7).Font.Bold = True
+                        ws.Cells(tRow, panelCol + 7).Interior.Color = RGB(255, 235, 130)
+                        ws.Cells(mRow, mCol).Value = scenRate
+                        ws.Cells(mRow, mCol).Interior.Color = RGB(255, 235, 130)
+                        RebalanceRow ws, mRow, mCol, scenRate, matStartCol, matEndCol, panelCol, panelRowStart, panelRowEnd
+                        UpdateRowSumOnSheet ws, mRow, matStartCol, matEndCol, sumCol
+                        Application.EnableEvents = prevEvPAppOkA
+                        IsUpdating = False
+                        Exit Sub
+                    End If
                 End If
                 
                 If Not IsNumeric(Target.Value) Then
-                    ShowMsg "Please enter a valid percentage adjustment (e.g. -0.2 for -20%).", vbExclamation
+                    If IsIndonesian() Then
+                        ShowMsg "Silakan masukkan persentase penyesuaian yang valid (contoh: -0.2 untuk -20%).", vbExclamation, "Persentase Tidak Valid"
+                    Else
+                        ShowMsg "Please enter a valid percentage adjustment (e.g. -0.2 for -20%).", vbExclamation, "Invalid Percentage"
+                    End If
                     IsUpdating = True
                     Dim prevEvP1 As Boolean: prevEvP1 = Application.EnableEvents
                     Application.EnableEvents = False
@@ -340,6 +457,9 @@ Public Sub HandleSheetChange(ByVal ws As Worksheet, ByVal Target As Range)
                     Exit Sub
                 End If
                 pctAdj = SafeCDbl(Target.Value)
+                If Abs(pctAdj) > 1# And Abs(pctAdj) <= 100# Then
+                    pctAdj = pctAdj / 100#
+                End If
                 scenRate = baseRate * (1# + pctAdj)
                 If scenRate < 0 Then scenRate = 0
                 If scenRate > 1 Then scenRate = 1
@@ -372,7 +492,7 @@ Public Sub HandleSheetChange(ByVal ws As Worksheet, ByVal Target As Range)
                 Target.Value = pctAdj
                 ws.Cells(tRow, panelCol + 5).Value = scenRate
                 ws.Cells(tRow, panelCol + 6).FormulaR1C1 = "=ROUND(RC[-3]*(1+RC[-2]), 2)"
-                ws.Cells(tRow, panelCol + 7).Value = "Intervened"
+                ws.Cells(tRow, panelCol + 7).Value = StatusIntervened()
                 ws.Cells(tRow, panelCol + 7).Font.Bold = True
                 ws.Cells(tRow, panelCol + 7).Interior.Color = RGB(255, 235, 130)
                 ws.Cells(mRow, mCol).Value = scenRate
@@ -389,7 +509,11 @@ Public Sub HandleSheetChange(ByVal ws As Worksheet, ByVal Target As Range)
             ' Subcase 2B: Scenario Rate column (offset 5)
             If colOffset = 5 Then
                 If Not IsNumeric(Target.Value) Or SafeCDbl(Target.Value) < 0 Or SafeCDbl(Target.Value) > 1 Then
-                    ShowMsg "Please enter a valid scenario rate between 0 and 1.", vbExclamation
+                    If IsIndonesian() Then
+                        ShowMsg "Silakan masukkan laju skenario yang valid antara 0 dan 1.", vbExclamation, "Laju Skenario Tidak Valid"
+                    Else
+                        ShowMsg "Please enter a valid scenario rate between 0 and 1.", vbExclamation, "Invalid Scenario Rate"
+                    End If
                     IsUpdating = True
                     Dim prevEvP3 As Boolean: prevEvP3 = Application.EnableEvents
                     Application.EnableEvents = False
@@ -429,11 +553,12 @@ Public Sub HandleSheetChange(ByVal ws As Worksheet, ByVal Target As Range)
                         Dim prevEvPAppOk As Boolean: prevEvPAppOk = Application.EnableEvents
                         Application.EnableEvents = False
                         Target.Value = scenRate
-                        ws.Cells(tRow, panelCol + 4).Value = "NEW"
+                        ws.Cells(tRow, panelCol + 4).NumberFormat = "0.0%"
+                        ws.Cells(tRow, panelCol + 4).Value = scenRate
                         Dim initA1 As Double
                         initA1 = GetInitialClassArea(ws, CStr(ws.Cells(tRow, panelCol).Value), mRow, panelCol, panelRowStart, panelRowEnd)
                         ws.Cells(tRow, panelCol + 6).FormulaR1C1 = "=ROUND(" & Replace(CStr(initA1), ",", ".") & "*RC[-1], 2)"
-                        ws.Cells(tRow, panelCol + 7).Value = "Intervened"
+                        ws.Cells(tRow, panelCol + 7).Value = StatusIntervened()
                         ws.Cells(tRow, panelCol + 7).Font.Bold = True
                         ws.Cells(tRow, panelCol + 7).Interior.Color = RGB(255, 235, 130)
                         ws.Cells(mRow, mCol).Value = scenRate
@@ -470,7 +595,7 @@ Public Sub HandleSheetChange(ByVal ws As Worksheet, ByVal Target As Range)
                     ws.Cells(tRow, panelCol + 4).Value = pctAdj
                     Target.Value = scenRate
                     ws.Cells(tRow, panelCol + 6).FormulaR1C1 = "=ROUND(RC[-3]*(1+RC[-2]), 2)"
-                    ws.Cells(tRow, panelCol + 7).Value = "Intervened"
+                    ws.Cells(tRow, panelCol + 7).Value = StatusIntervened()
                     ws.Cells(tRow, panelCol + 7).Font.Bold = True
                     ws.Cells(tRow, panelCol + 7).Interior.Color = RGB(255, 235, 130)
                     ws.Cells(mRow, mCol).Value = scenRate
@@ -488,7 +613,11 @@ Public Sub HandleSheetChange(ByVal ws As Worksheet, ByVal Target As Range)
             ' Subcase 2C: Scenario Area column (offset 6)
             If colOffset = 6 Then
                 If Not IsNumeric(Target.Value) Or SafeCDbl(Target.Value) < 0 Then
-                    ShowMsg "Please enter a valid positive area in hectares.", vbExclamation
+                    If IsIndonesian() Then
+                        ShowMsg "Silakan masukkan luas skenario positif yang valid dalam hektar.", vbExclamation, "Luas Skenario Tidak Valid"
+                    Else
+                        ShowMsg "Please enter a valid positive area in hectares.", vbExclamation, "Invalid Scenario Area"
+                    End If
                     IsUpdating = True
                     Dim prevEvP5 As Boolean: prevEvP5 = Application.EnableEvents
                     Application.EnableEvents = False
@@ -541,10 +670,11 @@ Public Sub HandleSheetChange(ByVal ws As Worksheet, ByVal Target As Range)
                         IsUpdating = True
                         Dim prevEvPAreaOk As Boolean: prevEvPAreaOk = Application.EnableEvents
                         Application.EnableEvents = False
-                        ws.Cells(tRow, panelCol + 4).Value = "NEW"
+                        ws.Cells(tRow, panelCol + 4).NumberFormat = "0.0%"
+                        ws.Cells(tRow, panelCol + 4).Value = scenRate
                         ws.Cells(tRow, panelCol + 5).Value = scenRate
                         Target.FormulaR1C1 = "=ROUND(" & Replace(CStr(initA2), ",", ".") & "*RC[-1], 2)"
-                        ws.Cells(tRow, panelCol + 7).Value = "Intervened"
+                        ws.Cells(tRow, panelCol + 7).Value = StatusIntervened()
                         ws.Cells(tRow, panelCol + 7).Font.Bold = True
                         ws.Cells(tRow, panelCol + 7).Interior.Color = RGB(255, 235, 130)
                         ws.Cells(mRow, mCol).Value = scenRate
@@ -586,7 +716,7 @@ Public Sub HandleSheetChange(ByVal ws As Worksheet, ByVal Target As Range)
                     ws.Cells(tRow, panelCol + 4).Value = pctAdj
                     ws.Cells(tRow, panelCol + 5).Value = scenRate
                     Target.FormulaR1C1 = "=ROUND(RC[-3]*(1+RC[-2]), 2)"
-                    ws.Cells(tRow, panelCol + 7).Value = "Intervened"
+                    ws.Cells(tRow, panelCol + 7).Value = StatusIntervened()
                     ws.Cells(tRow, panelCol + 7).Font.Bold = True
                     ws.Cells(tRow, panelCol + 7).Interior.Color = RGB(255, 235, 130)
                     ws.Cells(mRow, mCol).Value = scenRate
@@ -624,7 +754,7 @@ Public Sub HandleSheetChange(ByVal ws As Worksheet, ByVal Target As Range)
                         IsUpdating = True
                         Dim prevEvPAppStat2 As Boolean: prevEvPAppStat2 = Application.EnableEvents
                         Application.EnableEvents = False
-                        Target.Value = "Intervened"
+                        Target.Value = StatusIntervened()
                         Target.Font.Bold = True
                         Target.Interior.Color = RGB(255, 235, 130)
                         ws.Cells(mRow, mCol).Interior.Color = RGB(255, 235, 130)
@@ -650,7 +780,7 @@ Public Sub HandleSheetChange(ByVal ws As Worksheet, ByVal Target As Range)
                         RebalanceRow ws, mRow, mCol, baseRate, matStartCol, matEndCol, panelCol, panelRowStart, panelRowEnd
                         UpdateRowSumOnSheet ws, mRow, matStartCol, matEndCol, sumCol
                     Else
-                        Target.Value = "Intervened"
+                        Target.Value = StatusIntervened()
                         Target.Font.Bold = True
                         Target.Interior.Color = RGB(255, 235, 130)
                         ws.Cells(mRow, mCol).Interior.Color = RGB(255, 235, 130)
@@ -680,9 +810,15 @@ Function ValidateLockedSum(ws As Worksheet, rowNum As Long, changedCol As Long, 
     Next c
     
     If lockedSum > 1.00001 Then
-        ShowMsg "Cannot modify cell: The sum of intervened cells in this row would be " & _
-               Format(lockedSum, "0.0000") & " which exceeds 1.000." & vbCrLf & _
-               "Please enter a smaller value or reset other intervened cells first.", vbExclamation, "Row Sum Constraint"
+        If IsIndonesian() Then
+            ShowMsg "Tidak dapat mengubah sel: Total sel terintervensi pada baris ini akan menjadi " & _
+                   Format(lockedSum, "0.0000") & " yang melebihi 1.000." & vbCrLf & _
+                   "Silakan masukkan nilai lebih kecil atau atur ulang sel terintervensi lainnya terlebih dahulu.", vbExclamation, "Batasan Total Baris"
+        Else
+            ShowMsg "Cannot modify cell: The sum of intervened cells in this row would be " & _
+                   Format(lockedSum, "0.0000") & " which exceeds 1.000." & vbCrLf & _
+                   "Please enter a smaller value or reset other intervened cells first.", vbExclamation, "Row Sum Constraint"
+        End If
         ValidateLockedSum = False
     Else
         ValidateLockedSum = True
@@ -697,7 +833,7 @@ Function IsCellLockedOnSheet(ws As Worksheet, rowNum As Long, colNum As Long, _
         For r = pStart To pEnd
             If Val(ws.Cells(r, panelCol + 8).Value) = rowNum And Val(ws.Cells(r, panelCol + 9).Value) = colNum Then
                 Dim st As String: st = UCase(Trim(ws.Cells(r, panelCol + 7).Value))
-                If st = "INTERVENED" Or st = "LOCKED" Then
+                If st = "INTERVENED" Or st = "DIINTERVENSI" Or st = "LOCKED" Then
                     IsCellLockedOnSheet = True
                     Exit Function
                 Else
@@ -822,7 +958,8 @@ Sub SyncMatrixToPanel(ws As Worksheet, rowNum As Long, colNum As Long, newVal As
                 ws.Cells(r, panelCol + 4).Value = (newVal - baseRate) / baseRate
                 ws.Cells(r, panelCol + 6).FormulaR1C1 = "=ROUND(RC[-3]*(1+RC[-2]), 2)"
             Else
-                ws.Cells(r, panelCol + 4).Value = "NEW"
+                ws.Cells(r, panelCol + 4).NumberFormat = "0.0%"
+                ws.Cells(r, panelCol + 4).Value = newVal
                 Dim initA As Double
                 initA = GetInitialClassArea(ws, CStr(ws.Cells(r, panelCol).Value), rowNum, panelCol, pStart, pEnd)
                 ws.Cells(r, panelCol + 6).FormulaR1C1 = "=ROUND(" & Replace(CStr(initA), ",", ".") & "*RC[-1], 2)"
@@ -846,12 +983,13 @@ Sub UpdatePanelFromMatrix(ws As Worksheet, rowNum As Long, colNum As Long, newVa
                 ws.Cells(r, panelCol + 4).Value = (newVal - baseRate) / baseRate
                 ws.Cells(r, panelCol + 6).FormulaR1C1 = "=ROUND(RC[-3]*(1+RC[-2]), 2)"
             Else
-                ws.Cells(r, panelCol + 4).Value = "NEW"
+                ws.Cells(r, panelCol + 4).NumberFormat = "0.0%"
+                ws.Cells(r, panelCol + 4).Value = newVal
                 Dim initA As Double
                 initA = GetInitialClassArea(ws, CStr(ws.Cells(r, panelCol).Value), rowNum, panelCol, pStart, pEnd)
                 ws.Cells(r, panelCol + 6).FormulaR1C1 = "=ROUND(" & Replace(CStr(initA), ",", ".") & "*RC[-1], 2)"
             End If
-            ws.Cells(r, panelCol + 7).Value = "Intervened"
+            ws.Cells(r, panelCol + 7).Value = StatusIntervened()
             ws.Cells(r, panelCol + 7).Font.Bold = True
             ws.Cells(r, panelCol + 7).Interior.Color = RGB(255, 235, 130)
             Exit Sub
@@ -889,10 +1027,20 @@ End Sub
 ' Validate single sheet: checks if all row sums equal 1.000
 Function ValidateSingleSheet(ws As Worksheet) As Boolean
     Dim matHeaderRow As Long, matStartCol As Long, colScan As Long, matEndCol As Long
-    matHeaderRow = 4
     matStartCol = 3
+    matHeaderRow = 6
+    Dim rScanV As Long
+    For rScanV = 4 To 8
+        Dim hScanV As String: hScanV = Trim(CStr(ws.Cells(rScanV, 2).Value))
+        If InStr(1, hScanV, "From", vbTextCompare) > 0 Or InStr(1, hScanV, "Dari", vbTextCompare) > 0 Then
+            matHeaderRow = rScanV
+            Exit For
+        End If
+    Next rScanV
     colScan = matStartCol
-    Do While ws.Cells(matHeaderRow, colScan).Value <> "" And ws.Cells(matHeaderRow, colScan).Value <> "Grand Total"
+    Do While ws.Cells(matHeaderRow, colScan).Value <> "" And _
+             ws.Cells(matHeaderRow, colScan).Value <> "Grand Total" And _
+             ws.Cells(matHeaderRow, colScan).Value <> "Total Baris"
         colScan = colScan + 1
         If colScan > 200 Then Exit Do
     Loop
@@ -922,17 +1070,28 @@ End Function
 ' Count active interventions on a PU sheet (only user-intervened policies)
 Function CountActiveInterventions(ws As Worksheet) As Long
     Dim matHeaderRow As Long, matStartCol As Long, colScan As Long
-    matHeaderRow = 4
     matStartCol = 3
+    matHeaderRow = 6
+    Dim rScanC As Long
+    For rScanC = 4 To 8
+        Dim hScanC As String: hScanC = Trim(CStr(ws.Cells(rScanC, 2).Value))
+        If InStr(1, hScanC, "From", vbTextCompare) > 0 Or InStr(1, hScanC, "Dari", vbTextCompare) > 0 Then
+            matHeaderRow = rScanC
+            Exit For
+        End If
+    Next rScanC
     colScan = matStartCol
-    Do While ws.Cells(matHeaderRow, colScan).Value <> "" And ws.Cells(matHeaderRow, colScan).Value <> "Grand Total"
+    Do While ws.Cells(matHeaderRow, colScan).Value <> "" And _
+             ws.Cells(matHeaderRow, colScan).Value <> "Grand Total" And _
+             ws.Cells(matHeaderRow, colScan).Value <> "Total Baris"
         colScan = colScan + 1
         If colScan > 200 Then Exit Do
     Loop
     Dim sumCol As Long: sumCol = colScan
     Dim pCol As Long: pCol = sumCol + 2
-    
-    If InStr(1, CStr(ws.Cells(matHeaderRow, pCol).Value), "From Class", vbTextCompare) = 0 Then
+    Dim pScanTitleC As String: pScanTitleC = CStr(ws.Cells(matHeaderRow, pCol).Value)
+    If InStr(1, pScanTitleC, "From Class", vbTextCompare) = 0 And _
+       InStr(1, pScanTitleC, "Kelas Asal", vbTextCompare) = 0 Then
         CountActiveInterventions = 0
         Exit Function
     End If
@@ -944,7 +1103,7 @@ Function CountActiveInterventions(ws As Worksheet) As Long
     Dim r As Long, count As Long: count = 0
     For r = pStart To pEnd
         Dim st As String: st = UCase(Trim(ws.Cells(r, pCol + 7).Value))
-        If st = "INTERVENED" Or st = "LOCKED" Then
+        If st = "INTERVENED" Or st = "DIINTERVENSI" Or st = "LOCKED" Then
             count = count + 1
         End If
     Next r
@@ -961,10 +1120,20 @@ Sub UpdateDashboardSummary()
     
     Dim lastRow As Long
     lastRow = dashWs.Cells(dashWs.Rows.Count, 2).End(xlUp).Row
-    If lastRow < 13 Then Exit Sub
+    Dim startSummaryRow As Long, scanR As Long
+    startSummaryRow = 0
+    For scanR = 10 To lastRow
+        Dim hValS As String: hValS = Trim(CStr(dashWs.Cells(scanR, 2).Value))
+        If hValS = "PU ID" Or hValS = "ID PU" Then
+            startSummaryRow = scanR + 1
+            Exit For
+        End If
+    Next scanR
+    If startSummaryRow = 0 Then startSummaryRow = 18
+    If lastRow < startSummaryRow Then Exit Sub
     
     Dim ws As Worksheet, r As Long
-    For r = 13 To lastRow
+    For r = startSummaryRow To lastRow
         Dim puIdCell As Range
         Set puIdCell = dashWs.Cells(r, 2)
         If Trim(CStr(puIdCell.Value)) = "" Then Exit For
@@ -986,12 +1155,12 @@ Sub UpdateDashboardSummary()
             Set ws = ThisWorkbook.Sheets(targetSheetName)
             dashWs.Cells(r, 5).Value = CountActiveInterventions(ws)
             If ValidateSingleSheet(ws) Then
-                dashWs.Cells(r, 6).Value = "VALID"
+                dashWs.Cells(r, 6).Value = StatusValid()
                 dashWs.Cells(r, 6).Interior.Color = RGB(210, 245, 210)
                 dashWs.Cells(r, 6).Font.Color = RGB(0, 100, 0)
                 dashWs.Cells(r, 6).Font.Bold = True
             Else
-                dashWs.Cells(r, 6).Value = "INVALID"
+                dashWs.Cells(r, 6).Value = StatusWarning()
                 dashWs.Cells(r, 6).Interior.Color = RGB(255, 210, 210)
                 dashWs.Cells(r, 6).Font.Color = RGB(150, 0, 0)
                 dashWs.Cells(r, 6).Font.Bold = True
@@ -1010,12 +1179,23 @@ Sub ValidateAllSheets()
     Dim lastRow As Long
     lastRow = dashWs.Cells(dashWs.Rows.Count, 2).End(xlUp).Row
     
+    Dim startSummaryRow As Long, scanR2 As Long
+    startSummaryRow = 0
+    For scanR2 = 10 To lastRow
+        Dim hValS2 As String: hValS2 = Trim(CStr(dashWs.Cells(scanR2, 2).Value))
+        If hValS2 = "PU ID" Or hValS2 = "ID PU" Then
+            startSummaryRow = scanR2 + 1
+            Exit For
+        End If
+    Next scanR2
+    If startSummaryRow = 0 Then startSummaryRow = 18
+
     Dim r As Long, totalPUs As Long, validPUs As Long, invalidCount As Long
     totalPUs = 0
     validPUs = 0
     invalidCount = 0
     
-    For r = 13 To lastRow
+    For r = startSummaryRow To lastRow
         If Trim(CStr(dashWs.Cells(r, 2).Value)) = "" Then Exit For
         totalPUs = totalPUs + 1
         If dashWs.Cells(r, 6).Value = "VALID" Then
@@ -1026,9 +1206,17 @@ Sub ValidateAllSheets()
     Next r
     
     If invalidCount = 0 Then
-        ShowMsg "Validation Passed! All " & totalPUs & " Planning Units have valid transition matrices (all row sums = 1.000).", vbInformation, "SCIENDO Matrix Validation"
+        If IsIndonesian() Then
+            ShowMsg "Validasi Berhasil! Seluruh " & totalPUs & " Unit Perencanaan memiliki matriks transisi yang valid (semua total baris = 1.000). Siap untuk SCIENDO Simulate!", vbInformation, "Validasi Matriks SCIENDO"
+        Else
+            ShowMsg "Validation Passed! All " & totalPUs & " Planning Units have valid transition matrices (all row sums = 1.000). Ready for SCIENDO Simulate!", vbInformation, "SCIENDO Matrix Validation"
+        End If
     Else
-        ShowMsg "Validation Warning: " & invalidCount & " of " & totalPUs & " Planning Units have row sum deviations! Please review the Dashboard.", vbExclamation, "SCIENDO Matrix Validation"
+        If IsIndonesian() Then
+            ShowMsg "Peringatan Validasi: " & invalidCount & " dari " & totalPUs & " Unit Perencanaan memiliki deviasi total baris! Silakan periksa dasbor.", vbExclamation, "Validasi Matriks SCIENDO"
+        Else
+            ShowMsg "Validation Warning: " & invalidCount & " of " & totalPUs & " Planning Units have row sum deviations! Please review the Dashboard.", vbExclamation, "SCIENDO Matrix Validation"
+        End If
     End If
 End Sub
 
@@ -1055,7 +1243,11 @@ Public Sub ResetCurrentSheetToBaseline(Optional ByVal wsTarget As Variant)
     Set baseWs = GetBaseSheet(ws)
     
     If baseWs Is Nothing Then
-        ShowMsg "Baseline sheet for '" & ws.Name & "' not found.", vbExclamation
+        If IsIndonesian() Then
+            ShowMsg "Lembar baseline untuk '" & ws.Name & "' tidak ditemukan.", vbExclamation, "Baseline Tidak Ditemukan"
+        Else
+            ShowMsg "Baseline sheet for '" & ws.Name & "' not found.", vbExclamation, "Baseline Not Found"
+        End If
         Exit Sub
     End If
     
@@ -1069,11 +1261,21 @@ Public Sub ResetCurrentSheetToBaseline(Optional ByVal wsTarget As Variant)
     
     ' Direct matrix coordinates
     Dim matHeaderRow As Long, matLabelCol As Long, matStartCol As Long, colScan As Long, matEndCol As Long
-    matHeaderRow = 4
     matLabelCol = 2
     matStartCol = 3
+    matHeaderRow = 6
+    Dim rScanR As Long
+    For rScanR = 4 To 8
+        Dim hScanR As String: hScanR = Trim(CStr(ws.Cells(rScanR, matLabelCol).Value))
+        If InStr(1, hScanR, "From", vbTextCompare) > 0 Or InStr(1, hScanR, "Dari", vbTextCompare) > 0 Then
+            matHeaderRow = rScanR
+            Exit For
+        End If
+    Next rScanR
     colScan = matStartCol
-    Do While ws.Cells(matHeaderRow, colScan).Value <> "" And ws.Cells(matHeaderRow, colScan).Value <> "Grand Total"
+    Do While ws.Cells(matHeaderRow, colScan).Value <> "" And _
+             ws.Cells(matHeaderRow, colScan).Value <> "Grand Total" And _
+             ws.Cells(matHeaderRow, colScan).Value <> "Total Baris"
         colScan = colScan + 1
         If colScan > 200 Then Exit Do
     Loop
@@ -1098,7 +1300,8 @@ Public Sub ResetCurrentSheetToBaseline(Optional ByVal wsTarget As Variant)
     ' Reset panel
     Dim pCol As Long, pStart As Long, wsPEnd As Long, basePEnd As Long
     pCol = sumCol + 2
-    If InStr(1, CStr(ws.Cells(matHeaderRow, pCol).Value), "From Class", vbTextCompare) > 0 Then
+    Dim pScanTitleR As String: pScanTitleR = CStr(ws.Cells(matHeaderRow, pCol).Value)
+    If InStr(1, pScanTitleR, "From Class", vbTextCompare) > 0 Or InStr(1, pScanTitleR, "Kelas Asal", vbTextCompare) > 0 Then
         pStart = matHeaderRow + 1
         wsPEnd = ws.Cells(ws.Rows.Count, pCol).End(xlUp).Row
         basePEnd = baseWs.Cells(baseWs.Rows.Count, pCol).End(xlUp).Row
@@ -1135,7 +1338,15 @@ End Sub
 ' Reset All Sheets to Baseline button macro
 Sub ResetAllSheetsToBaseline()
     If Application.Visible And Application.DisplayAlerts Then
-        If MsgBox("Are you sure you want to reset all Planning Units back to their baseline historical transition rates? All scenario adjustments will be cleared.", vbQuestion + vbYesNo, "Reset All to Baseline") <> vbYes Then
+        Dim confirmMsg As String, confirmTitle As String
+        If IsIndonesian() Then
+            confirmMsg = "Apakah Anda yakin ingin mengatur ulang semua Unit Perencanaan kembali ke laju transisi baseline historis? Semua penyesuaian skenario akan dihapus."
+            confirmTitle = "Atur Ulang Semua ke Baseline"
+        Else
+            confirmMsg = "Are you sure you want to reset all Planning Units back to their baseline historical transition rates? All scenario adjustments will be cleared."
+            confirmTitle = "Reset All to Baseline"
+        End If
+        If MsgBox(confirmMsg, vbQuestion + vbYesNo, confirmTitle) <> vbYes Then
             Exit Sub
         End If
     End If
@@ -1159,17 +1370,31 @@ Sub ResetAllSheetsToBaseline()
 ResetAllCleanExit:
     Application.ScreenUpdating = True
     Application.EnableEvents = prevEvents
-    ShowMsg "All Planning Units have been successfully reset to baseline.", vbInformation, "Reset Complete"
+    If IsIndonesian() Then
+        ShowMsg "Seluruh Unit Perencanaan berhasil diatur ulang ke baseline.", vbInformation, "Atur Ulang Selesai"
+    Else
+        ShowMsg "All Planning Units have been successfully reset to baseline.", vbInformation, "Reset Complete"
+    End If
 End Sub
 
 ' Helper function to apply policy to a single sheet
 Function ApplyPolicyToSheet(ws As Worksheet, fromClass As String, toClass As String, pctVal As Double) As Boolean
     Dim matHeaderRow As Long, matLabelCol As Long, matStartCol As Long, colScan As Long
-    matHeaderRow = 4
     matLabelCol = 2
     matStartCol = 3
+    matHeaderRow = 6
+    Dim rScanAP As Long
+    For rScanAP = 4 To 8
+        Dim hScanAP As String: hScanAP = Trim(CStr(ws.Cells(rScanAP, matLabelCol).Value))
+        If InStr(1, hScanAP, "From", vbTextCompare) > 0 Or InStr(1, hScanAP, "Dari", vbTextCompare) > 0 Then
+            matHeaderRow = rScanAP
+            Exit For
+        End If
+    Next rScanAP
     colScan = matStartCol
-    Do While ws.Cells(matHeaderRow, colScan).Value <> "" And ws.Cells(matHeaderRow, colScan).Value <> "Grand Total"
+    Do While ws.Cells(matHeaderRow, colScan).Value <> "" And _
+             ws.Cells(matHeaderRow, colScan).Value <> "Grand Total" And _
+             ws.Cells(matHeaderRow, colScan).Value <> "Total Baris"
         colScan = colScan + 1
         If colScan > 200 Then Exit Do
     Loop
@@ -1183,8 +1408,9 @@ Function ApplyPolicyToSheet(ws As Worksheet, fromClass As String, toClass As Str
     Dim matEndRow As Long: matEndRow = matHeaderRow + nClasses
     Dim sumCol As Long: sumCol = colScan
     Dim pCol As Long: pCol = sumCol + 2
-    
-    If InStr(1, CStr(ws.Cells(matHeaderRow, pCol).Value), "From Class", vbTextCompare) = 0 Then
+    Dim pScanTitleAP As String: pScanTitleAP = CStr(ws.Cells(matHeaderRow, pCol).Value)
+    If InStr(1, pScanTitleAP, "From Class", vbTextCompare) = 0 And _
+       InStr(1, pScanTitleAP, "Kelas Asal", vbTextCompare) = 0 Then
         ApplyPolicyToSheet = False
         Exit Function
     End If
@@ -1271,7 +1497,7 @@ Function ApplyPolicyToSheet(ws As Worksheet, fromClass As String, toClass As Str
                         ws.Cells(pr, pCol + 4).Value = -1#
                         ws.Cells(pr, pCol + 5).Value = 0#
                         ws.Cells(pr, pCol + 6).FormulaR1C1 = "=ROUND(RC[-3]*(1+RC[-2]), 2)"
-                        ws.Cells(pr, pCol + 7).Value = "Intervened"
+                        ws.Cells(pr, pCol + 7).Value = StatusIntervened()
                         ws.Cells(pr, pCol + 7).Font.Bold = True
                         ws.Cells(pr, pCol + 7).Interior.Color = RGB(255, 235, 130)
                         pr = pr + 1
@@ -1330,7 +1556,7 @@ Function ApplyPolicyToSheet(ws As Worksheet, fromClass As String, toClass As Str
                             ws.Cells(pr, pCol + 4).Value = -1#
                             ws.Cells(pr, pCol + 5).Value = 0#
                             ws.Cells(pr, pCol + 6).FormulaR1C1 = "=ROUND(RC[-3]*(1+RC[-2]), 2)"
-                            ws.Cells(pr, pCol + 7).Value = "Intervened"
+                            ws.Cells(pr, pCol + 7).Value = StatusIntervened()
                             ws.Cells(pr, pCol + 7).Font.Bold = True
                             ws.Cells(pr, pCol + 7).Interior.Color = RGB(255, 235, 130)
                             pr = pr + 1
@@ -1364,7 +1590,7 @@ Function ApplyPolicyToSheet(ws As Worksheet, fromClass As String, toClass As Str
                             ws.Cells(pr, pCol + 5).Value = rateVal
                             ws.Cells(pr, pCol + 4).Value = (rateVal - bRateVal) / bRateVal
                             ws.Cells(pr, pCol + 6).FormulaR1C1 = "=ROUND(RC[-3]*(1+RC[-2]), 2)"
-                            ws.Cells(pr, pCol + 7).Value = "Intervened"
+                            ws.Cells(pr, pCol + 7).Value = StatusIntervened()
                             ws.Cells(pr, pCol + 7).Font.Bold = True
                             ws.Cells(pr, pCol + 7).Interior.Color = RGB(255, 235, 130)
                             pr = pr + 1
@@ -1375,11 +1601,12 @@ Function ApplyPolicyToSheet(ws As Worksheet, fromClass As String, toClass As Str
                                 pEnd = ws.Cells(ws.Rows.Count, pCol).End(xlUp).Row
                             Else
                                 ws.Cells(pr, pCol + 5).Value = rateVal
-                                ws.Cells(pr, pCol + 4).Value = "NEW"
+                                ws.Cells(pr, pCol + 4).NumberFormat = "0.0%"
+                                ws.Cells(pr, pCol + 4).Value = rateVal
                                 Dim initADiag As Double
                                 initADiag = GetInitialClassArea(ws, CStr(ws.Cells(pr, pCol).Value), mRow, pCol, pStart, pEnd)
                                 ws.Cells(pr, pCol + 6).FormulaR1C1 = "=ROUND(" & Replace(CStr(initADiag), ",", ".") & "*RC[-1], 2)"
-                                ws.Cells(pr, pCol + 7).Value = "Intervened"
+                                ws.Cells(pr, pCol + 7).Value = StatusIntervened()
                                 ws.Cells(pr, pCol + 7).Font.Bold = True
                                 ws.Cells(pr, pCol + 7).Interior.Color = RGB(255, 235, 130)
                                 pr = pr + 1
@@ -1447,7 +1674,7 @@ Function ApplyPolicyToSheet(ws As Worksheet, fromClass As String, toClass As Str
                 ws.Cells(pRow, pCol + 4).Value = effPct
                 ws.Cells(pRow, pCol + 5).Value = scenRate
                 ws.Cells(pRow, pCol + 6).FormulaR1C1 = "=ROUND(RC[-3]*(1+RC[-2]), 2)"
-                ws.Cells(pRow, pCol + 7).Value = "Intervened"
+                ws.Cells(pRow, pCol + 7).Value = StatusIntervened()
                 ws.Cells(pRow, pCol + 7).Font.Bold = True
                 ws.Cells(pRow, pCol + 7).Interior.Color = RGB(255, 235, 130)
                 ws.Cells(mRow, mCol).Value = scenRate
@@ -1489,12 +1716,13 @@ Function ApplyPolicyToSheet(ws As Worksheet, fromClass As String, toClass As Str
                     Dim prevEventsB3 As Boolean: prevEventsB3 = Application.EnableEvents
                     Application.EnableEvents = False
                     
-                    ws.Cells(pRow, pCol + 4).Value = "NEW"
+                    ws.Cells(pRow, pCol + 4).NumberFormat = "0.0%"
+                    ws.Cells(pRow, pCol + 4).Value = scenRate
                     ws.Cells(pRow, pCol + 5).Value = scenRate
                     Dim iArea1 As Double
                     iArea1 = GetInitialClassArea(ws, CStr(ws.Cells(mRow, matLabelCol).Value), mRow, pCol, pStart, pEnd)
                     ws.Cells(pRow, pCol + 6).FormulaR1C1 = "=ROUND(" & Replace(CStr(iArea1), ",", ".") & "*RC[-1], 2)"
-                    ws.Cells(pRow, pCol + 7).Value = "Intervened"
+                    ws.Cells(pRow, pCol + 7).Value = StatusIntervened()
                     ws.Cells(pRow, pCol + 7).Font.Bold = True
                     ws.Cells(pRow, pCol + 7).Interior.Color = RGB(255, 235, 130)
                     ws.Cells(mRow, mCol).Value = scenRate
@@ -1554,14 +1782,22 @@ Sub ApplyPolicyAcrossPUs()
     toClass   = Trim(CStr(dashWs.Range("C9").Value))
     
     If fromClass = "" Or toClass = "" Then
-        ShowMsg "Please select both 'From Class' and 'To Class' on the Dashboard before applying policy.", vbExclamation, "Missing Class Selection"
+        If IsIndonesian() Then
+            ShowMsg "Silakan pilih 'Kelas Asal' dan 'Kelas Tujuan' pada Dasbor sebelum menerapkan kebijakan.", vbExclamation, "Pemilihan Kelas Belum Lengkap"
+        Else
+            ShowMsg "Please select both 'From Class' and 'To Class' on the Dashboard before applying policy.", vbExclamation, "Missing Class Selection"
+        End If
         Exit Sub
     End If
     
     Dim pctRaw As Variant
     pctRaw = dashWs.Range("E8").Value
     If Not IsNumeric(pctRaw) Then
-        ShowMsg "Please enter a valid percentage adjustment in cell E8 (e.g., -50%, 100%, or 0.05).", vbExclamation, "Invalid Percentage"
+        If IsIndonesian() Then
+            ShowMsg "Silakan masukkan persentase penyesuaian yang valid pada sel E8 (contoh: -50%, 100%, atau 0.05).", vbExclamation, "Persentase Tidak Valid"
+        Else
+            ShowMsg "Please enter a valid percentage adjustment in cell E8 (e.g., -50%, 100%, or 0.05).", vbExclamation, "Invalid Percentage"
+        End If
         Exit Sub
     End If
     Dim pctVal As Double
@@ -1574,7 +1810,7 @@ Sub ApplyPolicyAcrossPUs()
     If targetPU = "" Then targetPU = "ALL"
     
     Dim isAll As Boolean
-    isAll = (UCase(targetPU) = "ALL" Or InStr(1, targetPU, "All Planning Units", vbTextCompare) > 0)
+    isAll = (UCase(targetPU) = "ALL" Or InStr(1, targetPU, "All Planning Units", vbTextCompare) > 0 Or InStr(1, targetPU, "Semua Unit Perencanaan", vbTextCompare) > 0)
     
     ' Extract PU ID if specific PU chosen (e.g. "PU 1: ...", "PU 1", or numeric "1")
     Dim targetId As String: targetId = ""
@@ -1617,7 +1853,13 @@ Sub ApplyPolicyAcrossPUs()
     Next ws
     
     UpdateDashboardSummary
-    ShowMsg "Policy applied to " & modifiedCount & " Planning Unit(s)." & vbCrLf & _
-           "Transition: " & fromClass & " -> " & toClass & vbCrLf & _
-           "Adjustment: " & Format(pctVal, "0.0%"), vbInformation, "Policy Application Complete"
+    If IsIndonesian() Then
+        ShowMsg "Kebijakan berhasil diterapkan pada " & modifiedCount & " Unit Perencanaan." & vbCrLf & _
+                "Transisi: " & fromClass & " -> " & toClass & vbCrLf & _
+                "Penyesuaian: " & Format(pctVal, "0.0%"), vbInformation, "Penerapan Kebijakan Selesai"
+    Else
+        ShowMsg "Policy applied to " & modifiedCount & " Planning Unit(s)." & vbCrLf & _
+                "Transition: " & fromClass & " -> " & toClass & vbCrLf & _
+                "Adjustment: " & Format(pctVal, "0.0%"), vbInformation, "Policy Application Complete"
+    End If
 End Sub

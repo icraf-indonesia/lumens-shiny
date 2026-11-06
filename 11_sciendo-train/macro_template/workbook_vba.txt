@@ -1,9 +1,18 @@
 Option Explicit
 
 Private Sub Workbook_Open()
-    ' Enable macros and initialize dashboard upon opening
-    Application.EnableEvents = True
+    ' Enable macros and initialize dashboard safely upon opening
     On Error Resume Next
+    Application.EnableEvents = True
+    
+    ' Safe guard for Protected View and Read-Only environments
+    If Not Application.ActiveProtectedViewWindow Is Nothing Then
+        Exit Sub
+    End If
+    If ThisWorkbook.ReadOnly Then
+        Exit Sub
+    End If
+    
     ThisWorkbook.Sheets("Dashboard").Activate
     UpdateDashboardSummary
     On Error GoTo 0

@@ -1151,7 +1151,8 @@ run_dinamica_woe_model <- function(dinamica_path = NULL, output_dir, egoml, memo
 
 run_sciendo_train_process <- function(lc_t1_path, lc_t2_path, zone_path, lc_lookup_table_path,
                                       lc_lookup_table, z_lookup_table, factor_path, time_points,
-                                      dinamica_path = NULL, output_dir, memory_allocation, progress_callback = NULL) {
+                                      dinamica_path = NULL, output_dir, memory_allocation, progress_callback = NULL,
+                                      lang = "id") {
   start_time <- Sys.time()
   cat("Started at:", format(start_time, "%Y-%m-%d %H:%M:%S"), "\n")
   
@@ -1172,7 +1173,8 @@ run_sciendo_train_process <- function(lc_t1_path, lc_t2_path, zone_path, lc_look
       template_path = "../macro_template/macro_template.xlsm",
       pu_lookup = z_lookup_table,
       lc_t1_path = lc_t1_path,
-      zone_path = zone_path
+      zone_path = zone_path,
+      lang = lang
     )
   }, error = function(e) {
     stop("TPM conversion failed: ", e$message)
@@ -1325,18 +1327,24 @@ analyze_multicollinearity <- function(folder_path, sample_size = 10000, vif_thre
   
   # Correlation matrix and plot
   cor_matrix <- cor(sample_df, use = "complete.obs")
-  corrplot(cor_matrix,
-           method = "color",
-           type = "full",
-           order = "hclust",
-           tl.cex = 0.7,
-           tl.col = "black",
-           mar = c(0, 0, 2, 0),
-           addCoef.col = "black",
-           number.cex = 0.6,
-           diag = TRUE)
-  
-  corr_plot <- recordPlot()
+  corr_plot <- tryCatch({
+    graphics::par(mfrow = c(1, 1))
+    n_vars <- ncol(cor_matrix)
+    tl_size <- if (n_vars <= 6) 0.85 else if (n_vars <= 10) 0.75 else if (n_vars <= 15) 0.65 else 0.5
+    num_size <- if (n_vars <= 6) 0.8 else if (n_vars <= 10) 0.7 else if (n_vars <= 15) 0.55 else 0.4
+    corrplot(cor_matrix,
+             method = "color",
+             type = "full",
+             order = "hclust",
+             tl.cex = tl_size,
+             tl.col = "black",
+             tl.srt = 45,
+             mar = c(0, 0, 1, 0),
+             addCoef.col = "black",
+             number.cex = num_size,
+             diag = TRUE)
+    recordPlot()
+  }, error = function(e) NULL)
   
   return(list(
     vif_result = vif_result,
@@ -1621,7 +1629,7 @@ add_period_pu_classes_to_pam <- function(output_dir, pu_classes, time_points, ov
 #' @importFrom dplyr select mutate left_join arrange
 #' @importFrom tools file_path_sans_ext
 #' @export
-tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, template_path, pu_lookup = NULL, lc_t1_path = NULL, zone_path = NULL) {
+tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, template_path, pu_lookup = NULL, lc_t1_path = NULL, zone_path = NULL, lang = "id") {
   # Load required libraries
   if (!requireNamespace("openxlsx2", quietly = TRUE)) {
     stop("openxlsx2 package is required. Please install it with: install.packages('openxlsx2')")
@@ -1723,6 +1731,27 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, temp
   dir.create(macro_dir, recursive = TRUE, showWarnings = FALSE)
   output_file <- file.path(macro_dir, "sciendo_tpm_scenario.xlsm")
   
+  # Generate 1-click unblock utility script for Windows Mark of the Web
+  unblock_bat_path <- file.path(macro_dir, "activate_macros.bat")
+  bat_content <- if (lang == "id") {
+    c(
+      "@echo off",
+      "echo Membuka blokir keamanan Windows (Unblock Mark of the Web) untuk file makro...",
+      "powershell -NoProfile -ExecutionPolicy Bypass -Command \"Get-ChildItem -Path '%~dp0' -Filter '*.xlsm' | ForEach-Object { Unblock-File -LiteralPath $_.FullName; Write-Host ('Berhasil membuka blokir: ' + $_.Name) }\"",
+      "echo Selesai! File makro siap dibuka di Microsoft Excel.",
+      "pause"
+    )
+  } else {
+    c(
+      "@echo off",
+      "echo Unblocking Windows security (Unblock Mark of the Web) for macro files...",
+      "powershell -NoProfile -ExecutionPolicy Bypass -Command \"Get-ChildItem -Path '%~dp0' -Filter '*.xlsm' | ForEach-Object { Unblock-File -LiteralPath $_.FullName; Write-Host ('Successfully unblocked: ' + $_.Name) }\"",
+      "echo Done! Macro file is ready to open in Microsoft Excel.",
+      "pause"
+    )
+  }
+  writeLines(bat_content, unblock_bat_path)
+  
   message("Consolidated scenario macro will be saved to: ", output_file)
   
   tpm_dinamica <- list.files(path = input_dir, pattern = "\\.csv$", full.names = TRUE)
@@ -1749,7 +1778,7 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, temp
     }
     all_pu_names[idx] <- pu_name
     
-    clean_label <- gsub("[\\\\/?*\\[\\]:]", "_", pu_name)
+    clean_label <- gsub("['\"\\\\/?*\\[\\]:]", "_", pu_name, perl = TRUE)
     clean_label <- gsub("\\s+", "_", trimws(clean_label))
     prefix <- paste0("PU_", pu_id, "_")
     max_label_len <- max(1, 25 - nchar(prefix))
@@ -1852,8 +1881,7 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, temp
     n_rows <- nrow(result_matrix)
     n_cols <- ncol(result_matrix)
     
-    # Build active transitions intervention panel (non-zero off-diagonal historical transitions)
-    # Layout: [From Class | To Class | Baseline Rate | Baseline Area (ha) | % Adjustment | Scenario Rate | Scenario Area (ha) | Intervention Status | _mRow | _mCol]
+    # Build active transitions intervention panel (Row 6 headers, Row 7+ data)
     active_records <- list()
     for (ri in 1:n_rows) {
       for (ci in 1:n_cols) {
@@ -1873,7 +1901,7 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, temp
             Scenario_Rate       = base_rate,
             Scenario_Area_ha    = base_area,
             Intervention_Status = "Baseline",
-            Matrix_Row          = 4 + ri, # Sheet row
+            Matrix_Row          = 6 + ri, # Sheet row (Row 6 is header, Row 7+ is data)
             Matrix_Col          = 2 + ci, # Sheet col (B=2 is row header, C=3.. is matrix data)
             stringsAsFactors    = FALSE
           )
@@ -1902,31 +1930,70 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, temp
     wb$add_worksheet(sheet_name)
     
     # 1. Title and Navigation Hyperlinks (Row 1 & 2)
-    wb$add_data(sheet = sheet_name, x = paste0("Planning Unit ", pu_id, ": ", pu_name, " - Transition Probability Matrix"), start_col = 2, start_row = 1)
+    pu_title_text <- if (lang == "id") {
+      paste0("Unit Perencanaan ", pu_id, ": ", pu_name, " - Matriks Probabilitas Transisi (TPM)")
+    } else {
+      paste0("Planning Unit ", pu_id, ": ", pu_name, " - Transition Probability Matrix (TPM)")
+    }
+    wb$add_data(sheet = sheet_name, x = pu_title_text, start_col = 2, start_row = 1)
     wb$add_font(sheet = sheet_name, dims = "B1", size = 13, bold = TRUE, color = openxlsx2::wb_color("navy"))
     
     # Back to Dashboard link at B2
-    wb$add_formula(sheet = sheet_name, x = '=HYPERLINK("#\'Dashboard\'!A1", "<- Back to Master Dashboard")', dims = "B2")
+    dash_link_text <- if (lang == "id") "<- Kembali ke Dashboard Utama" else "<- Back to Master Dashboard"
+    wb$add_formula(sheet = sheet_name, x = paste0('=HYPERLINK("#\'Dashboard\'!A1", "', dash_link_text, '")'), dims = "B2")
     wb$add_font(sheet = sheet_name, dims = "B2", bold = TRUE, color = openxlsx2::wb_color("blue"), underline = "single")
     
     # Next Planning Unit link at D2 (loops to PU 1 at end)
     next_sheet <- if (idx < length(all_sheet_names)) all_sheet_names[idx + 1] else all_sheet_names[1]
-    next_label <- if (idx < length(all_sheet_names)) "Go to Next Planning Unit >" else paste0("Go to First Planning Unit (PU ", pu_ids[1], ") >")
+    next_label <- if (idx < length(all_sheet_names)) {
+      if (lang == "id") "Lanjut ke Unit Perencanaan Berikutnya ->" else "Go to Next Planning Unit >"
+    } else {
+      if (lang == "id") paste0("Kembali ke Unit Perencanaan Pertama (PU ", pu_ids[1], ") ->") else paste0("Go to First Planning Unit (PU ", pu_ids[1], ") >")
+    }
     wb$add_formula(sheet = sheet_name, x = paste0('=HYPERLINK("#\'', next_sheet, '\'!A1", "', next_label, '")'), dims = "D2")
     wb$add_font(sheet = sheet_name, dims = "D2", bold = TRUE, color = openxlsx2::wb_color("blue"), underline = "single")
     
-    # 2. Transition Matrix Headers (Row 4)
-    matrix_header <- c("From \\ To", col_labels, "Grand Total")
-    wb$add_data(sheet = sheet_name, x = as.data.frame(t(matrix_header)), start_col = 2, start_row = 4, col_names = FALSE)
+    # Rows 3-4: Compact, styled step-by-step instruction box
+    wb$set_row_heights(sheet = sheet_name, rows = c(3, 4), heights = c(20, 20))
+    pu_guide_line1 <- if (lang == "id") {
+      "Panduan Penggunaan: 1. Sunting nilai probabilitas langsung pada sel matriks, atau sesuaikan nilai % penyesuaian / luas skenario (ha) pada tabel hijau di kanan. 2. Nilai pada sel lain dalam baris otomatis disesuaikan secara proporsional agar total probabilitas baris tetap 1.000."
+    } else {
+      "Quick Guide: 1. Edit transition probabilities directly in matrix cells, or adjust % adjustment / scenario area (ha) in the green table on right. 2. Other cells in the row rebalance proportionally so the row sum remains 1.000."
+    }
+    pu_guide_line2 <- if (lang == "id") {
+      "3. Sel yang diubah otomatis ditandai kuning dan berstatus 'Diintervensi'. Transisi baru (nilai baseline 0) dapat langsung diisi nilai > 0. 4. Gunakan 'Lanjut ke Unit Perencanaan Berikutnya' untuk beralih lembar, atau 'Kembali ke Dashboard Utama'."
+    } else {
+      "3. Modified cells turn yellow with status 'Intervened'. New transitions (baseline 0) can be entered > 0. 4. Use 'Go to Next Planning Unit' to switch sheets, or 'Back to Master Dashboard'."
+    }
+    wb$add_data(sheet = sheet_name, x = pu_guide_line1, start_col = 2, start_row = 3)
+    wb$add_font(sheet = sheet_name, dims = "B3", size = 9.5, bold = TRUE, color = openxlsx2::wb_color(hex = "0369A1"))
+    wb$add_data(sheet = sheet_name, x = pu_guide_line2, start_col = 2, start_row = 4)
+    wb$add_font(sheet = sheet_name, dims = "B4", size = 9.5, italic = TRUE, color = openxlsx2::wb_color(hex = "075985"))
     
-    # Style Matrix Header row (B4 to end of matrix)
     mat_end_col <- 2 + n_cols
     mat_sum_col <- mat_end_col + 1
-    hdr_range <- paste0("B4:", openxlsx2::int2col(mat_sum_col), "4")
+    panel_col <- mat_sum_col + 2
+    
+    pu_box_end_col <- panel_col + 7
+    pu_box_range <- paste0("B3:", openxlsx2::int2col(pu_box_end_col), "4")
+    wb$add_fill(sheet = sheet_name, dims = pu_box_range, color = openxlsx2::wb_color(hex = "F0F9FF"))
+    
+    # Row 5: Spacer
+    wb$set_row_heights(sheet = sheet_name, rows = 5, heights = 10)
+    
+    # 2. Transition Matrix Headers (Row 6)
+    wb$set_row_heights(sheet = sheet_name, rows = 6, heights = 24)
+    mat_from_to <- if (lang == "id") "Dari / Ke" else "From \\ To"
+    mat_gt      <- if (lang == "id") "Total Baris" else "Grand Total"
+    matrix_header <- c(mat_from_to, col_labels, mat_gt)
+    wb$add_data(sheet = sheet_name, x = as.data.frame(t(matrix_header)), start_col = 2, start_row = 6, col_names = FALSE)
+    
+    # Style Matrix Header row (B6 to end of matrix)
+    hdr_range <- paste0("B6:", openxlsx2::int2col(mat_sum_col), "6")
     wb$add_fill(sheet = sheet_name, dims = hdr_range, color = openxlsx2::wb_color(hex = "1E3A8A")) # Dark navy
     wb$add_font(sheet = sheet_name, dims = hdr_range, color = openxlsx2::wb_color("white"), bold = TRUE)
     
-    # 3. Transition Matrix Data (Rows 5 to 4 + n_rows)
+    # 3. Transition Matrix Data (Rows 7 to 6 + n_rows)
     mat_data_df <- as.data.frame(result_matrix)
     mat_data_df <- cbind(Row_Label = row_labels, mat_data_df)
     
@@ -1934,19 +2001,19 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, temp
     row_sums_vec <- rowSums(result_matrix)
     mat_data_df$Grand_Total <- row_sums_vec
     
-    wb$add_data(sheet = sheet_name, x = mat_data_df, start_col = 2, start_row = 5, col_names = FALSE)
+    wb$add_data(sheet = sheet_name, x = mat_data_df, start_col = 2, start_row = 7, col_names = FALSE)
     
     # Format matrix row headers (Col B)
-    lbl_range <- paste0("B5:B", 4 + n_rows)
+    lbl_range <- paste0("B7:B", 6 + n_rows)
     wb$add_fill(sheet = sheet_name, dims = lbl_range, color = openxlsx2::wb_color(hex = "F1F5F9")) # Light slate
     wb$add_font(sheet = sheet_name, dims = lbl_range, bold = TRUE)
     
     # Format matrix data cells (Cols C to 2+n_cols)
-    data_range <- paste0("C5:", openxlsx2::int2col(mat_end_col), 4 + n_rows)
+    data_range <- paste0("C7:", openxlsx2::int2col(mat_end_col), 6 + n_rows)
     wb$add_numfmt(sheet = sheet_name, dims = data_range, numfmt = "0.000")
     
     # Format sum column (Col mat_sum_col)
-    sum_range <- paste0(openxlsx2::int2col(mat_sum_col), "5:", openxlsx2::int2col(mat_sum_col), 4 + n_rows)
+    sum_range <- paste0(openxlsx2::int2col(mat_sum_col), "7:", openxlsx2::int2col(mat_sum_col), 6 + n_rows)
     wb$add_fill(sheet = sheet_name, dims = sum_range, color = openxlsx2::wb_color(hex = "E0F2FE")) # Soft sky blue
     wb$add_font(sheet = sheet_name, dims = sum_range, bold = TRUE)
     wb$add_numfmt(sheet = sheet_name, dims = sum_range, numfmt = "0.000")
@@ -1954,7 +2021,7 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, temp
     # Apply diagonal and active cell styling
     for (ri in 1:n_rows) {
       for (ci in 1:n_cols) {
-        cell_ref <- paste0(openxlsx2::int2col(2 + ci), 4 + ri)
+        cell_ref <- paste0(openxlsx2::int2col(2 + ci), 6 + ri)
         if (ri == ci) {
           # Diagonal persistence: light yellow
           wb$add_fill(sheet = sheet_name, dims = cell_ref, color = openxlsx2::wb_color(hex = "FEF9C3"))
@@ -1968,20 +2035,23 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, temp
       }
     }
     
-    # 4. Active Transitions Recapitulation Panel (8 visible columns)
-    panel_col <- mat_sum_col + 2 # Leave 1 empty column gap
-    panel_headers <- c("From Class", "To Class", "Baseline Rate", "Baseline Area (ha)", "% Adjustment", "Scenario Rate", "Scenario Area (ha)", "Intervention Status", "_mRow", "_mCol")
-    wb$add_data(sheet = sheet_name, x = as.data.frame(t(panel_headers)), start_col = panel_col, start_row = 4, col_names = FALSE)
+    # 4. Active Transitions Recapitulation Panel (Row 6 headers, Row 7+ data)
+    panel_headers <- if (lang == "id") {
+      c("Kelas Asal", "Kelas Tujuan", "Laju Baseline", "Luas Baseline (ha)", "% Penyesuaian", "Laju Skenario", "Luas Skenario (ha)", "Status Intervensi", "_mRow", "_mCol")
+    } else {
+      c("From Class", "To Class", "Baseline Rate", "Baseline Area (ha)", "% Adjustment", "Scenario Rate", "Scenario Area (ha)", "Intervention Status", "_mRow", "_mCol")
+    }
+    wb$add_data(sheet = sheet_name, x = as.data.frame(t(panel_headers)), start_col = panel_col, start_row = 6, col_names = FALSE)
     
     # Panel Header style (Col panel_col to panel_col + 7)
-    panel_hdr_range <- paste0(openxlsx2::int2col(panel_col), "4:", openxlsx2::int2col(panel_col + 7), "4")
+    panel_hdr_range <- paste0(openxlsx2::int2col(panel_col), "6:", openxlsx2::int2col(panel_col + 7), "6")
     wb$add_fill(sheet = sheet_name, dims = panel_hdr_range, color = openxlsx2::wb_color(hex = "0F766E")) # Dark teal
     wb$add_font(sheet = sheet_name, dims = panel_hdr_range, color = openxlsx2::wb_color("white"), bold = TRUE)
     
     if (nrow(panel_df) > 0) {
-      wb$add_data(sheet = sheet_name, x = panel_df, start_col = panel_col, start_row = 5, col_names = FALSE)
+      wb$add_data(sheet = sheet_name, x = panel_df, start_col = panel_col, start_row = 7, col_names = FALSE)
       
-      panel_end_row     <- 4 + nrow(panel_df)
+      panel_end_row     <- 6 + nrow(panel_df)
       base_rate_col_let <- openxlsx2::int2col(panel_col + 2)
       base_area_col_let <- openxlsx2::int2col(panel_col + 3)
       adj_col_let       <- openxlsx2::int2col(panel_col + 4)
@@ -1989,16 +2059,16 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, temp
       scen_area_col_let <- openxlsx2::int2col(panel_col + 6)
       
       # Add dynamic formula for Scenario Area (ha): =ROUND(Baseline_Area_ha * (1 + Pct_Adjustment), 2)
-      for (pr in 5:panel_end_row) {
+      for (pr in 7:panel_end_row) {
         form_str <- paste0("=ROUND(", base_area_col_let, pr, "*(1+", adj_col_let, pr, "), 2)")
         wb$add_formula(sheet = sheet_name, x = form_str, dims = paste0(scen_area_col_let, pr))
       }
       
-      wb$add_numfmt(sheet = sheet_name, dims = paste0(base_rate_col_let, "5:", base_rate_col_let, panel_end_row), numfmt = "0.0000")
-      wb$add_numfmt(sheet = sheet_name, dims = paste0(base_area_col_let, "5:", base_area_col_let, panel_end_row), numfmt = "#,##0.00")
-      wb$add_numfmt(sheet = sheet_name, dims = paste0(adj_col_let, "5:", adj_col_let, panel_end_row), numfmt = "0.0%")
-      wb$add_numfmt(sheet = sheet_name, dims = paste0(scen_rate_col_let, "5:", scen_rate_col_let, panel_end_row), numfmt = "0.0000")
-      wb$add_numfmt(sheet = sheet_name, dims = paste0(scen_area_col_let, "5:", scen_area_col_let, panel_end_row), numfmt = "#,##0.00")
+      wb$add_numfmt(sheet = sheet_name, dims = paste0(base_rate_col_let, "7:", base_rate_col_let, panel_end_row), numfmt = "0.0000")
+      wb$add_numfmt(sheet = sheet_name, dims = paste0(base_area_col_let, "7:", base_area_col_let, panel_end_row), numfmt = "#,##0.00")
+      wb$add_numfmt(sheet = sheet_name, dims = paste0(adj_col_let, "7:", adj_col_let, panel_end_row), numfmt = "0.0%")
+      wb$add_numfmt(sheet = sheet_name, dims = paste0(scen_rate_col_let, "7:", scen_rate_col_let, panel_end_row), numfmt = "0.0000")
+      wb$add_numfmt(sheet = sheet_name, dims = paste0(scen_area_col_let, "7:", scen_area_col_let, panel_end_row), numfmt = "#,##0.00")
     }
     
     # Hide helper columns _mRow, _mCol
@@ -2014,12 +2084,12 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, temp
     base_sheet_name <- substr(paste0("_Base_", sheet_name), 1, 31)
     wb$add_worksheet(base_sheet_name)
     wb$set_sheet_visibility(sheet = base_sheet_name, value = "hidden")
-    wb$add_data(sheet = base_sheet_name, x = as.data.frame(t(matrix_header)), start_col = 2, start_row = 4, col_names = FALSE)
-    wb$add_data(sheet = base_sheet_name, x = mat_data_df, start_col = 2, start_row = 5, col_names = FALSE)
+    wb$add_data(sheet = base_sheet_name, x = as.data.frame(t(matrix_header)), start_col = 2, start_row = 6, col_names = FALSE)
+    wb$add_data(sheet = base_sheet_name, x = mat_data_df, start_col = 2, start_row = 7, col_names = FALSE)
     if (nrow(panel_df) > 0) {
-      wb$add_data(sheet = base_sheet_name, x = as.data.frame(t(panel_headers)), start_col = panel_col, start_row = 4, col_names = FALSE)
-      wb$add_data(sheet = base_sheet_name, x = panel_df, start_col = panel_col, start_row = 5, col_names = FALSE)
-      for (pr in 5:(4 + nrow(panel_df))) {
+      wb$add_data(sheet = base_sheet_name, x = as.data.frame(t(panel_headers)), start_col = panel_col, start_row = 6, col_names = FALSE)
+      wb$add_data(sheet = base_sheet_name, x = panel_df, start_col = panel_col, start_row = 7, col_names = FALSE)
+      for (pr in 7:(6 + nrow(panel_df))) {
         form_str <- paste0("=ROUND(", base_area_col_let, pr, "*(1+", adj_col_let, pr, "), 2)")
         wb$add_formula(sheet = base_sheet_name, x = form_str, dims = paste0(scen_area_col_let, pr))
       }
@@ -2046,14 +2116,26 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, temp
   if (length(unique_classes) == 0) unique_classes <- c("Class 1", "Class 2")
   wb$add_data(sheet = "_LULC_List", x = unique_classes, start_col = 1, start_row = 1, col_names = FALSE)
   
-  pu_options <- c("All Planning Units", sprintf("PU %s: %s", dash_df$PU_ID, dash_df$PU_Name))
+  default_target_pu_option <- if (lang == "id") "Semua Unit Perencanaan" else "All Planning Units"
+  pu_options <- c(default_target_pu_option, sprintf("PU %s: %s", dash_df$PU_ID, dash_df$PU_Name))
   wb$add_data(sheet = "_LULC_List", x = pu_options, start_col = 2, start_row = 1, col_names = FALSE)
   
   # 7. Populate Master Dashboard Sheet
   # Title Block (Rows 2 & 3)
-  wb$add_data(sheet = "Dashboard", x = "SCIENDO Scenario Builder", start_col = 2, start_row = 2)
-  wb$add_font(sheet = "Dashboard", dims = "B2", size = 15, bold = TRUE, color = openxlsx2::wb_color(hex = "1E3A8A"))
-  wb$add_data(sheet = "Dashboard", x = "Transition Probability Matrix (TPM) Editor for Scenario", start_col = 2, start_row = 3)
+  dash_title <- if (lang == "id") {
+    "SCIENDO Scenario Builder"
+  } else {
+    "SCIENDO Scenario Builder"
+  }
+  wb$add_data(sheet = "Dashboard", x = dash_title, start_col = 2, start_row = 2)
+  wb$add_font(sheet = "Dashboard", dims = "B2", size = 14, bold = TRUE, color = openxlsx2::wb_color(hex = "1E3A8A"))
+  
+  dash_subtitle <- if (lang == "id") {
+    "Pembangunan Skenario Melalui Matriks Probabilitas Transisi (TPM)"
+  } else {
+    "Transition Probability Matrix (TPM) Scenario Builder"
+  }
+  wb$add_data(sheet = "Dashboard", x = dash_subtitle, start_col = 2, start_row = 3)
   wb$add_font(sheet = "Dashboard", dims = "B3", size = 10, italic = TRUE, color = openxlsx2::wb_color(hex = "475569"))
   
   # Row 5: Action Toolbar space (height 32, buttons anchored in drawing1.xml)
@@ -2063,7 +2145,8 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, temp
   wb$set_row_heights(sheet = "Dashboard", rows = c(7, 8, 9, 10), heights = c(22, 25, 25, 20))
   
   # Card Header (Row 7)
-  wb$add_data(sheet = "Dashboard", x = "Batch Policy Across Planning Units", start_col = 2, start_row = 7)
+  policy_hdr <- if (lang == "id") "Input Intervensi untuk Seluruh Unit Perencanaan" else "Intervention Input Across Planning Units"
+  wb$add_data(sheet = "Dashboard", x = policy_hdr, start_col = 2, start_row = 7)
   wb$add_fill(sheet = "Dashboard", dims = "B7:G7", color = openxlsx2::wb_color(hex = "0F766E"))
   wb$add_font(sheet = "Dashboard", dims = "B7:G7", size = 11, bold = TRUE, color = openxlsx2::wb_color("white"))
   
@@ -2071,27 +2154,36 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, temp
   wb$add_fill(sheet = "Dashboard", dims = "B8:G10", color = openxlsx2::wb_color(hex = "F8FAFC"))
   
   # Row 8: From Class & % Adjustment (and Apply Policy button in F8:G9)
-  wb$add_data(sheet = "Dashboard", x = "From Class:", start_col = 2, start_row = 8)
+  lbl_from <- if (lang == "id") "Kelas Asal:" else "From Class:"
+  wb$add_data(sheet = "Dashboard", x = lbl_from, start_col = 2, start_row = 8)
   wb$add_font(sheet = "Dashboard", dims = "B8", bold = TRUE, color = openxlsx2::wb_color(hex = "334155"))
   wb$add_data(sheet = "Dashboard", x = unique_classes[1], start_col = 3, start_row = 8)
   
-  wb$add_data(sheet = "Dashboard", x = "% Adjustment:", start_col = 4, start_row = 8)
+  lbl_adj <- if (lang == "id") "% Penyesuaian:" else "% Adjustment:"
+  wb$add_data(sheet = "Dashboard", x = lbl_adj, start_col = 4, start_row = 8)
   wb$add_font(sheet = "Dashboard", dims = "D8", bold = TRUE, color = openxlsx2::wb_color(hex = "334155"))
   wb$add_data(sheet = "Dashboard", x = -0.50, start_col = 5, start_row = 8)
   wb$add_numfmt(sheet = "Dashboard", dims = "E8", numfmt = "0.0%")
   
   # Row 9: To Class & Target PU
   to_init <- if (length(unique_classes) > 1) unique_classes[2] else unique_classes[1]
-  wb$add_data(sheet = "Dashboard", x = "To Class:", start_col = 2, start_row = 9)
+  lbl_to <- if (lang == "id") "Kelas Tujuan:" else "To Class:"
+  wb$add_data(sheet = "Dashboard", x = lbl_to, start_col = 2, start_row = 9)
   wb$add_font(sheet = "Dashboard", dims = "B9", bold = TRUE, color = openxlsx2::wb_color(hex = "334155"))
   wb$add_data(sheet = "Dashboard", x = to_init, start_col = 3, start_row = 9)
   
-  wb$add_data(sheet = "Dashboard", x = "Target PU:", start_col = 4, start_row = 9)
+  lbl_pu <- if (lang == "id") "Target PU:" else "Target PU:"
+  wb$add_data(sheet = "Dashboard", x = lbl_pu, start_col = 4, start_row = 9)
   wb$add_font(sheet = "Dashboard", dims = "D9", bold = TRUE, color = openxlsx2::wb_color(hex = "334155"))
-  wb$add_data(sheet = "Dashboard", x = "All Planning Units", start_col = 5, start_row = 9)
+  wb$add_data(sheet = "Dashboard", x = default_target_pu_option, start_col = 5, start_row = 9)
   
   # Row 10: Instructions hint
-  wb$add_data(sheet = "Dashboard", x = "Instructions: Select From/To classes, specify % Adjustment, choose Target PU, and click Apply Policy.", start_col = 2, start_row = 10)
+  policy_hint <- if (lang == "id") {
+    "Petunjuk: Pilih Kelas Asal/Tujuan, tentukan % Penyesuaian, pilih Target PU, lalu klik Input Intervensi."
+  } else {
+    "Instructions: Select From/To classes, specify % Adjustment, choose Target PU, and click Input Intervention."
+  }
+  wb$add_data(sheet = "Dashboard", x = policy_hint, start_col = 2, start_row = 10)
   wb$add_font(sheet = "Dashboard", dims = "B10", size = 9, italic = TRUE, color = openxlsx2::wb_color(hex = "64748B"))
   
   # Attach native Excel Data Validation dropdowns to From Class, To Class, Target PU
@@ -2114,20 +2206,64 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, temp
     value = paste0("'_LULC_List'!$B$1:$B$", length(pu_options))
   )
   
-  # Row 12: Planning Unit Summary Table Headers
-  wb$set_row_heights(sheet = "Dashboard", rows = 12, heights = 24)
-  dash_headers <- c("PU ID", "Planning Unit Name", "Navigation Link", "Active Interventions", "Validation Status", "Historical Transitions")
-  wb$add_data(sheet = "Dashboard", x = as.data.frame(t(dash_headers)), start_col = 2, start_row = 12, col_names = FALSE)
-  wb$add_fill(sheet = "Dashboard", dims = "B12:G12", color = openxlsx2::wb_color(hex = "1E3A8A"))
-  wb$add_font(sheet = "Dashboard", dims = "B12:G12", color = openxlsx2::wb_color("white"), bold = TRUE)
+  # Row 11: Spacer row
+  wb$set_row_heights(sheet = "Dashboard", rows = 11, heights = 10)
   
-  # Rows 13+: Planning Unit Summary Table Data
+  # Rows 12–16: 4-Step Compact Instruction Box on Dashboard
+  wb$set_row_heights(sheet = "Dashboard", rows = c(12, 13, 14, 15, 16), heights = c(20, 18, 18, 18, 18))
+  dash_box_hdr <- if (lang == "id") "Panduan Singkat Dashboard:" else "Quick Dashboard Guide:"
+  step1 <- if (lang == "id") {
+    "1. Periksa daftar Unit Perencanaan dan status validasinya pada tabel ringkasan di bawah."
+  } else {
+    "1. Review the Planning Units list and validation statuses in the summary table below."
+  }
+  step2 <- if (lang == "id") {
+    "2. Gunakan 'Input Intervensi untuk Seluruh Unit Perencanaan' untuk menerapkan intervensi secara serentak ke semua atau unit perencanaan tertentu."
+  } else {
+    "2. Use 'Intervention Input Across Planning Units' to input intervention across all or specific planning units."
+  }
+  step3_4 <- if (lang == "id") {
+    "3. Klik tautan navigasi untuk membuka sheet Unit Perencanaan masing-masing. 4. Klik 'Validasi Semua Unit Perencanaan' untuk memastikan seluruh matriks valid (total baris = 1.000) sebelum menjalankan modul SCIENDO Simulate."
+  } else {
+    "3. Click navigation links to open individual Planning Unit sheets. 4. Click 'Validate All Sheets' to verify all matrices sum to 1.000 before running SCIENDO Simulate."
+  }
+  motw_note <- if (lang == "id") {
+    "Catatan: Jika membuka di komputer lain, klik kanan file -> Properties -> centang 'Unblock' / Buka Blokir, atau jalankan berkas activate_macros.bat."
+  } else {
+    "Note: If opening on another computer, right-click file -> Properties -> check 'Unblock', or run the activate_macros.bat file."
+  }
+  
+  wb$add_data(sheet = "Dashboard", x = dash_box_hdr, start_col = 2, start_row = 12)
+  wb$add_fill(sheet = "Dashboard", dims = "B12:G12", color = openxlsx2::wb_color(hex = "E0F2FE"))
+  wb$add_font(sheet = "Dashboard", dims = "B12:G12", size = 10, bold = TRUE, color = openxlsx2::wb_color(hex = "0369A1"))
+  
+  wb$add_data(sheet = "Dashboard", x = step1, start_col = 2, start_row = 13)
+  wb$add_data(sheet = "Dashboard", x = step2, start_col = 2, start_row = 14)
+  wb$add_data(sheet = "Dashboard", x = step3_4, start_col = 2, start_row = 15)
+  wb$add_data(sheet = "Dashboard", x = motw_note, start_col = 2, start_row = 16)
+  wb$add_fill(sheet = "Dashboard", dims = "B13:G16", color = openxlsx2::wb_color(hex = "F0F9FF"))
+  wb$add_font(sheet = "Dashboard", dims = "B13:B15", size = 9.5, color = openxlsx2::wb_color(hex = "0F172A"))
+  wb$add_font(sheet = "Dashboard", dims = "B16", size = 9, italic = TRUE, color = openxlsx2::wb_color(hex = "64748B"))
+  
+  # Row 17: Planning Unit Summary Table Headers
+  wb$set_row_heights(sheet = "Dashboard", rows = 17, heights = 24)
+  dash_headers <- if (lang == "id") {
+    c("ID PU", "Nama Unit Perencanaan", "Tautan Navigasi", "Intervensi Aktif", "Status Validasi", "Transisi Historis")
+  } else {
+    c("PU ID", "Planning Unit Name", "Navigation Link", "Active Interventions", "Validation Status", "Historical Transitions")
+  }
+  wb$add_data(sheet = "Dashboard", x = as.data.frame(t(dash_headers)), start_col = 2, start_row = 17, col_names = FALSE)
+  wb$add_fill(sheet = "Dashboard", dims = "B17:G17", color = openxlsx2::wb_color(hex = "1E3A8A"))
+  wb$add_font(sheet = "Dashboard", dims = "B17:G17", color = openxlsx2::wb_color("white"), bold = TRUE)
+  
+  # Rows 18+: Planning Unit Summary Table Data
   for (i in seq_len(nrow(dash_df))) {
-    row_num <- 12 + i
+    row_num <- 17 + i
     wb$add_data(sheet = "Dashboard", x = dash_df$PU_ID[i], start_col = 2, start_row = row_num)
     wb$add_data(sheet = "Dashboard", x = dash_df$PU_Name[i], start_col = 3, start_row = row_num)
     
-    link_formula <- paste0('=HYPERLINK("#\'', dash_df$Sheet_Name[i], '\'!A1", "Go to ', dash_df$Sheet_Name[i], '")')
+    link_label <- if (lang == "id") paste0("Buka Sheet ", dash_df$Sheet_Name[i]) else paste0("Go to ", dash_df$Sheet_Name[i])
+    link_formula <- paste0('=HYPERLINK("#\'', dash_df$Sheet_Name[i], '\'!A1", "', link_label, '")')
     wb$add_formula(sheet = "Dashboard", x = link_formula, dims = paste0("D", row_num))
     wb$add_font(sheet = "Dashboard", dims = paste0("D", row_num), color = openxlsx2::wb_color("blue"), underline = "single", bold = TRUE)
     
@@ -2149,6 +2285,54 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, temp
   
   # Save workbook
   wb$save(output_file)
+  
+  # Localize DrawingML buttons in xl/drawings/drawing1.xml inside output_file
+  tryCatch({
+    unzip_dir <- tempfile("unzip_draw_")
+    dir.create(unzip_dir, recursive = TRUE)
+    utils::unzip(output_file, exdir = unzip_dir)
+    dpath <- file.path(unzip_dir, "xl", "drawings", "drawing1.xml")
+    if (file.exists(dpath)) {
+      dlines <- readLines(dpath, warn = FALSE, encoding = "UTF-8")
+      if (lang == "id") {
+        dlines <- gsub("Validate All Sheets", "Validasi Semua Unit Perencanaan", dlines, fixed = TRUE)
+        dlines <- gsub("Validasi Semua Lembar", "Validasi Semua Unit Perencanaan", dlines, fixed = TRUE)
+        dlines <- gsub("Reset All to Baseline", "Atur Ulang ke Baseline", dlines, fixed = TRUE)
+        dlines <- gsub("Apply Policy", "Aplikasikan Intervensi", dlines, fixed = TRUE)
+        dlines <- gsub("Apply Intervention", "Aplikasikan Intervensi", dlines, fixed = TRUE)
+        dlines <- gsub("Terapkan Kebijakan", "Aplikasikan Intervensi", dlines, fixed = TRUE)
+        dlines <- gsub("Input Intervention", "Aplikasikan Intervensi", dlines, fixed = TRUE)
+        dlines <- gsub("Input Intervensi", "Aplikasikan Intervensi", dlines, fixed = TRUE)
+      } else {
+        dlines <- gsub("Validasi Semua Unit Perencanaan", "Validate All Sheets", dlines, fixed = TRUE)
+        dlines <- gsub("Validasi Semua Lembar", "Validate All Sheets", dlines, fixed = TRUE)
+        dlines <- gsub("Atur Ulang ke Baseline", "Reset All to Baseline", dlines, fixed = TRUE)
+        dlines <- gsub("Apply Policy", "Apply Intervention", dlines, fixed = TRUE)
+        dlines <- gsub("Aplikasikan Intervensi", "Apply Intervention", dlines, fixed = TRUE)
+        dlines <- gsub("Terapkan Kebijakan", "Apply Intervention", dlines, fixed = TRUE)
+        dlines <- gsub("Input Intervensi", "Apply Intervention", dlines, fixed = TRUE)
+        dlines <- gsub("Input Intervention", "Apply Intervention", dlines, fixed = TRUE)
+      }
+      writeLines(dlines, dpath, useBytes = TRUE)
+      all_f <- list.files(unzip_dir, recursive = TRUE, all.files = TRUE, no.. = TRUE)
+      old_wd <- getwd()
+      tmp_zip <- tempfile(fileext = ".xlsm")
+      tryCatch({
+        setwd(unzip_dir)
+        zip::zip(tmp_zip, files = all_f)
+      }, finally = {
+        setwd(old_wd)
+      })
+      if (file.exists(tmp_zip) && file.info(tmp_zip)$size > 0) {
+        file.copy(tmp_zip, output_file, overwrite = TRUE)
+        unlink(tmp_zip)
+      }
+    }
+    unlink(unzip_dir, recursive = TRUE)
+  }, error = function(e) {
+    message("Notice: DrawingML localization skipped or failed: ", e$message)
+  })
+  
   message("Consolidated TPM scenario workbook successfully generated: ", output_file)
   invisible(output_file)
 }
