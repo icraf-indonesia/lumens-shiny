@@ -1472,14 +1472,14 @@ matrix_to_tpm <- function(input_folder_path, lc_lookup, output_dir) {
           raw_data <- readxl::read_excel(xlsm_path, sheet = sh_name, col_names = FALSE) %>% as.data.frame()
           if (nrow(raw_data) == 0) next
           
-          header_row_idx <- which(apply(raw_data, 1, function(r) any(grepl("From", r, ignore.case = TRUE))))
+          header_row_idx <- which(apply(raw_data, 1, function(r) any(grepl("From|Dari", r, ignore.case = TRUE))))
           if (length(header_row_idx) == 0) header_row_idx <- 1 else header_row_idx <- header_row_idx[1]
           
           header_row_vals <- as.character(raw_data[header_row_idx, ])
-          start_col_idx <- which(grepl("From", header_row_vals, ignore.case = TRUE))
+          start_col_idx <- which(grepl("From|Dari", header_row_vals, ignore.case = TRUE))
           if (length(start_col_idx) == 0) start_col_idx <- 1 else start_col_idx <- start_col_idx[1]
           
-          gt_col_idx <- which(grepl("grand total", header_row_vals, ignore.case = TRUE))
+          gt_col_idx <- which(grepl("grand total|total baris", header_row_vals, ignore.case = TRUE))
           if (length(gt_col_idx) == 0) {
             non_empty <- which(!is.na(header_row_vals) & header_row_vals != "")
             end_col_idx <- max(non_empty)
@@ -1493,7 +1493,7 @@ matrix_to_tpm <- function(input_folder_path, lc_lookup, output_dir) {
           valid_rows <- integer(0)
           for (ri in row_scan) {
             val <- raw_data[ri, start_col_idx]
-            if (!is.na(val) && as.character(val) != "" && !grepl("grand total", as.character(val), ignore.case = TRUE)) {
+            if (!is.na(val) && as.character(val) != "" && !grepl("grand total|total baris", as.character(val), ignore.case = TRUE)) {
               valid_rows <- c(valid_rows, ri)
             } else {
               break

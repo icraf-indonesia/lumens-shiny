@@ -1,138 +1,138 @@
-"key","en"
-"title_sciendo_simulate","SCIENDO Simulate"
-"toggle_language","Language"
-"btn_return_main","Return to Main Menu"
-"confirm_title","Confirmation"
-"confirm_text","Do you want to return to main menu?"
-"btn_close","Close"
-"lbl_map1_file","Initial Land Cover/Use Map"
-"ph_map1_file","Upload raster file (.tif)"
-"lbl_init_year","Initial Year"
-"lbl_zone_type","Planning Unit Input Type"
-"choice_raster","Raster"
-"choice_shapefiles","Shapefiles"
-"lbl_mapz_file_shp","Planning Unit"
-"ph_mapz_file_shp","All related shapefiles (.shp, .dbf, .prj, .shx)"
-"lbl_mapz_file_rast","Planning Unit Map"
-"ph_mapz_file_rast","Upload raster file (.tif)"
-"lbl_lc_file","Land Use/Cover Lookup Table"
-"ph_lc_file","Upload table file (.csv/.xlsx)"
-"lbl_rc_file","Raster Cube Map"
-"ph_rc_file","Upload raster file (.tif & .xml)"
-"lbl_repetition","Simulation Periods"
-"lbl_tm_path","Transition Probability Matrix Folder Path"
-"tip_tm_path","Choose a folder contains CSV files"
-"ph_print_tm_dir","No transition matrix directory selected"
-"lbl_dcf_path","Weights of Evidence Folder Path"
-"tip_dcf_path","Choose a folder contains DCF files"
-"ph_print_dcf_dir","No woe dcf directory selected"
-"lbl_wd","Select output directory"
-"tip_wd","Please select a directory"
-"ph_print_wd","No output directory selected"
-"accordion_adv_settings","Advanced Settings"
-"lbl_memory_allocation","Choose Memory Allocation"
-"opt_balanced","Balanced"
-"opt_prefer_memory","Prefer Memory"
-"opt_prefer_disk","Prefer Disk"
-"opt_memory_only","Memory Only"
-"opt_aggressive","Aggressive"
-"lbl_dinamica_path","DINAMICA EGO Path (Optional)"
-"tip_dinamica_path","(Optional)"
-"ph_print_dinamica","No DINAMICA EGO path selected"
-"chk_alloc_custom","Parameterize Allocate Transitions"
-"lbl_alloc_percent","Percent of Transitions by Expansion (0–1)"
-"lbl_exp_mean","Expansion Mean Patch Size (ha)"
-"lbl_exp_var","Expansion Patch Size Variance (ha)"
-"lbl_exp_iso","Expansion Patch Isometry (0–2)"
-"lbl_gen_mean","Generation Mean Patch Size (ha)"
-"lbl_gen_var","Generation Patch Size Variance (ha)"
-"lbl_gen_iso","Generation Patch Isometry (0–2)"
-"lbl_override","Per-Transition Allocation (optional)"
-"btn_gen_template","Generate Template"
-"btn_download_template","Download Template"
-"lbl_upload_override","Upload Filled Template (.csv or .xlsx)"
-"ph_upload_override","Upload table file (.csv/.xlsx)"
-"btn_run_analysis","Run Analysis"
-"btn_open_report","Open Report"
-"btn_open_output_folder","Open Output Folder"
-"tab_user_guide","User Guide"
-"tab_log","Log"
-"modal_map1_missing_title","Initial Land Cover Map Not Uploaded"
-"modal_map1_missing_p1","Please upload the initial land cover map (T1) first before uploading the planning unit Shapefile."
-"modal_map1_missing_p2","The initial map is needed as reference for spatial extent and cell resolution to rasterize the shapefile."
-"notif_map1_missing_pu","Please upload the initial land cover map (T1) first to determine the extent and cell resolution for shapefile rasterization."
-"val_map1_req","Please upload land cover map at T1"
-"val_mapz_req","Please upload planning unit"
-"val_rc_req","Please upload raster cube"
-"val_lc_req","Please upload land cover lookup table"
-"val_tm_req","Please select a directory of transition matrix"
-"val_dcf_req","Please select a directory of woe dcf"
-"val_wd_req","Please select an output directory"
-"val_memory_req","Please select memory allocation option"
-"val_rc_both","Please upload both a .tif and a .xml file for the raster cube"
-"val_provide_val","Please provide a value"
-"val_between_0_1","Must be between 0 and 1 (inclusive)"
-"val_gt_0","Must be greater than 0"
-"val_gte_0","Must be 0 or greater"
-"val_between_0_2","Must be between 0 and 2 (inclusive)"
-"notif_form_errors","Please correct the errors in the form and try again"
-"notif_running","Analysis is running. Please wait..."
-"notif_shp_all_parts","Please upload all shapefile components (.shp, .shx, .dbf, .prj)"
-"notif_shp_numeric_col","Shapefile must contain at least one numeric, factor, or character column for rasterization."
-"notif_shp_rasterized","Shapefile planning unit successfully rasterized!"
-"notif_upload_lc_first","Please upload the Land Use/Cover Lookup Table (CSV) first."
-"notif_template_generated","Template generated. Click 'Download Template' to save it."
-"notif_template_loaded","Override template loaded. Non-empty cells will override inputs and defaults."
-"notif_template_missing_cols","Template is missing required columns:"
-"notif_success","Analysis completed successfully!"
-"status_success","STATUS: Analysis completed successfully!"
-"success_detail","Analysis completed successfully! You can now open the output folder."
-"notif_error_analysis","Error in analysis. Please check the error messages."
-"status_error","Error in analysis:"
-"notif_opening_report","Opening report..."
-"notif_report_not_found","Report file not found."
-"notif_no_dinamica","No DINAMICA EGO installation found."
-"info_pixel_res_detected","Raster resolution: %s m (1 pixel ≈ %.3f ha). Patch size parameters are in ha and converted to pixels for Dinamica EGO."
-"info_pixel_res_default","Default resolution: 30 m (1 pixel ≈ 0.090 ha). Upload Initial Land Cover Map to auto-detect."
-"help_map1_file_title","Initial Land Cover/Use Map"
-"help_map1_file_body","<p>GeoTIFF (.tif) file containing the land cover/land use classification for the initial year (T1).</p> <p>Pixel values must correspond to the IDs defined in the Land Use/Cover Lookup Table.</p>"
-"help_init_year_title","Initial Year"
-"help_init_year_body","<p>Base year (T1) corresponding to the Initial Land Cover/Use Map.</p>"
-"help_zone_type_title","Planning Unit Input Type"
-"help_zone_type_body","<p>Choose whether to provide planning unit zones as a pre-rasterized GeoTIFF raster map or as a vector Shapefile (.shp, .dbf, .prj, .shx) to be rasterized automatically.</p>"
-"help_mapz_file_title","Planning Unit Map"
-"help_mapz_file_body","<p>GeoTIFF (.tif) file delineating the planning units (e.g., provinces, watersheds, or spatial planning units) used to partition the simulation into independent regions.</p> <p>Each pixel value corresponds to a planning unit ID. The simulation runs the allocation step region by region, so planning units should cover the entire study extent.</p>"
-"help_lc_file_title","Land Use/Cover Lookup Table"
-"help_lc_file_body","<p>CSV/XLSX table file with two columns:</p> <ol> <li>Numeric land cover ID (integer)</li> <li>Class name (text)</li> </ol>"
-"help_rc_file_title","Raster Cube Map"
-"help_rc_file_body","<p>A pair of files produced by the SCIENDO Train module:</p> <ul> <li><code>sciendo_factors.tif</code> - raster stack of static variables (e.g., slope, elevation, distance to roads, and population density) used as predictors in the Weights of Evidence calculation.</li> <li><code>sciendo_factors.tif.aux.xml</code> - companion header describing the variable stack, the planning unit classes, and the simulation period value.</li> </ul> <p>Both files must be uploaded together. The app reads the XML file to extract the planning unit classes and the period value.</p>"
-"help_repetition_title","Simulation Periods"
-"help_repetition_body","<p>Number of simulation iterations to run.</p> <p>Each iteration produces its own projected landscape (<code>landscape2010.tif</code>, <code>landscape2015.tif</code>, ...).</p>"
-"help_tm_path_title","Transition Probability Matrix Folder"
-"help_tm_path_body","<p>Folder from SCIENDO Train (Business As Usual) or SCIENDO Scenario Builder (Scenario) output containing the transition probability matrices:</p> <ul> <li>CSV table files containing the single-step transition matrix (<code>single_step000000.csv</code>), or</li> <li>XLSM table files containing macro-enabled Excel scenario matrices.</li> </ul>"
-"help_dcf_path_title","Weights of Evidence Folder"
-"help_dcf_path_body","<p>Folder containing the DCF files from the SCIENDO Train output (<code>woe000000.dcf</code> and its companion files) that store the Weights of Evidence coefficients.</p>"
-"help_wd_title","Output Directory"
-"help_wd_body","<p>Folder where all simulation outputs will be written</p>"
-"help_dinamica_path_title","DINAMICA EGO Path (Optional)"
-"help_dinamica_path_body","<p>Installation folder of DINAMICA EGO (e.g., <code>C:/Program Files/Dinamica EGO 6</code>).</p> <p>If left empty, the app will automatically detect the installation under <code>Program Files</code> and use the latest version found. Provide it manually only if automatic detection fails or if you need to use a specific version.</p>"
-"help_memory_allocation_title","Memory Allocation Policy"
-"help_memory_allocation_body","<p>Controls how DINAMICA EGO manages RAM and disk space when running the simulation.</p> <ul> <li>Balanced (default): input maps are kept in memory, while results are written to disk if RAM is limited.</li> <li>Prefer Memory: keep both inputs and results in RAM when possible.</li> <li>Prefer Disk: stream everything through disk.</li> <li>Memory Only: abort if there is insufficient RAM.</li> <li>Aggressive: inputs are kept on disk, while results are kept in RAM when possible.</li> </ul>"
-"help_custom_title","Parameterize Allocate Transitions"
-"help_custom_body","<p>Enable this option to customize how DINAMICA EGO allocates transitions.</p> <p>Controls the balance between patch expansion (growing existing patches) and patch generation (seeding brand-new patches), including their size and shape.</p>"
-"help_percent_title","Percent of Transitions by Expansion"
-"help_percent_body","<p>Share of each transition handled by the Expander (growing existing patches) and the Patcher (creating new patches).</p> <ul> <li><code>0</code> = all transitions create new patches</li> <li><code>1</code> = all transitions expand existing patches</li> </ul> <p>Value range: <code>0</code> - <code>1</code>.</p>"
-"help_exp_mean_title","Expansion Mean Patch Size"
-"help_exp_mean_body","<p>Average size (hectares) of an expanded patch.</p> <p>Must be > 0.</p>"
-"help_exp_var_title","Expansion Patch Size Variance"
-"help_exp_var_body","<p>Variance (hectares) of expanded patch sizes.</p> <p>Must be ≥ 0.</p>"
-"help_exp_iso_title","Expansion Patch Isometry"
-"help_exp_iso_body","<p>Shape of expanded patches.</p> <ul> <li><code>0</code> = linear / elongated</li> <li><code>1</code> = neutral</li> <li><code>2</code> = circular / compact</li> </ul> <p>Value range: <code>0</code> - <code>2</code>.</p>"
-"help_gen_mean_title","Generation Mean Patch Size"
-"help_gen_mean_body","<p>Average size (hectares) of a newly generated patch.</p> <p>Must be > 0.</p>"
-"help_gen_var_title","Generation Patch Size Variance"
-"help_gen_var_body","<p>Variance (hectares) of newly generated patch sizes.</p> <p>Must be ≥ 0.</p>"
-"help_gen_iso_title","Generation Patch Isometry"
-"help_gen_iso_body","<p>Shape of newly generated patches.</p> <ul> <li><code>0</code> = linear</li> <li><code>1</code> = neutral</li> <li><code>2</code> = circular / compact</li> </ul> <p>Value range: <code>0</code> - <code>2</code>.</p>"
-"help_override_title","Per-Transition Allocation (Optional)"
-"help_override_body","<p>Upload an Excel/CSV template to customize allocation transition parameters for individual transitions.</p>"
+key,en
+title_sciendo_simulate,SCIENDO Simulate
+toggle_language,Language
+btn_return_main,Return to Main Menu
+confirm_title,Confirmation
+confirm_text,Do you want to return to main menu?
+btn_close,Close
+lbl_map1_file,Initial Land Cover/Use Map
+ph_map1_file,Upload raster file (.tif)
+lbl_init_year,Initial Year
+lbl_zone_type,Planning Unit Input Type
+choice_raster,Raster
+choice_shapefiles,Shapefiles
+lbl_mapz_file_shp,Planning Unit
+ph_mapz_file_shp,"All related shapefiles (.shp, .dbf, .prj, .shx)"
+lbl_mapz_file_rast,Planning Unit Map
+ph_mapz_file_rast,Upload raster file (.tif)
+lbl_lc_file,Land Use/Cover Lookup Table
+ph_lc_file,Upload table file (.csv/.xlsx)
+lbl_rc_file,Raster Cube Map
+ph_rc_file,Upload raster file (.tif & .xml)
+lbl_repetition,Simulation Periods
+lbl_tm_path,Transition Probability Matrix Folder Path
+tip_tm_path,Choose a folder contains CSV files
+ph_print_tm_dir,No transition matrix directory selected
+lbl_dcf_path,Weights of Evidence Folder Path
+tip_dcf_path,Choose a folder contains DCF files
+ph_print_dcf_dir,No woe dcf directory selected
+lbl_wd,Select output directory
+tip_wd,Please select a directory
+ph_print_wd,No output directory selected
+accordion_adv_settings,Advanced Settings
+lbl_memory_allocation,Choose Memory Allocation
+opt_balanced,Balanced
+opt_prefer_memory,Prefer Memory
+opt_prefer_disk,Prefer Disk
+opt_memory_only,Memory Only
+opt_aggressive,Aggressive
+lbl_dinamica_path,DINAMICA EGO Path (Optional)
+tip_dinamica_path,(Optional)
+ph_print_dinamica,No DINAMICA EGO path selected
+chk_alloc_custom,Parameterize Allocate Transitions
+lbl_alloc_percent,Percent of Transitions by Expansion (0–1)
+lbl_exp_mean,Expansion Mean Patch Size (ha)
+lbl_exp_var,Expansion Patch Size Variance (ha)
+lbl_exp_iso,Expansion Patch Isometry (0–2)
+lbl_gen_mean,Generation Mean Patch Size (ha)
+lbl_gen_var,Generation Patch Size Variance (ha)
+lbl_gen_iso,Generation Patch Isometry (0–2)
+lbl_override,Per-Transition Allocation (optional)
+btn_gen_template,Generate Template
+btn_download_template,Download Template
+lbl_upload_override,Upload Filled Template (.csv or .xlsx)
+ph_upload_override,Upload table file (.csv/.xlsx)
+btn_run_analysis,Run Analysis
+btn_open_report,Open Report
+btn_open_output_folder,Open Output Folder
+tab_user_guide,User Guide
+tab_log,Log
+modal_map1_missing_title,Initial Land Cover Map Not Uploaded
+modal_map1_missing_p1,Please upload the initial land cover map (T1) first before uploading the planning unit Shapefile.
+modal_map1_missing_p2,The initial map is needed as reference for spatial extent and cell resolution to rasterize the shapefile.
+notif_map1_missing_pu,Please upload the initial land cover map (T1) first to determine the extent and cell resolution for shapefile rasterization.
+val_map1_req,Please upload land cover map at T1
+val_mapz_req,Please upload planning unit
+val_rc_req,Please upload raster cube
+val_lc_req,Please upload land cover lookup table
+val_tm_req,Please select a directory of transition matrix
+val_dcf_req,Please select a directory of woe dcf
+val_wd_req,Please select an output directory
+val_memory_req,Please select memory allocation option
+val_rc_both,Please upload both a .tif and a .xml file for the raster cube
+val_provide_val,Please provide a value
+val_between_0_1,Must be between 0 and 1 (inclusive)
+val_gt_0,Must be greater than 0
+val_gte_0,Must be 0 or greater
+val_between_0_2,Must be between 0 and 2 (inclusive)
+notif_form_errors,Please correct the errors in the form and try again
+notif_running,Analysis is running. Please wait...
+notif_shp_all_parts,"Please upload all shapefile components (.shp, .shx, .dbf, .prj)"
+notif_shp_numeric_col,"Shapefile must contain at least one numeric, factor, or character column for rasterization."
+notif_shp_rasterized,Shapefile planning unit successfully rasterized!
+notif_upload_lc_first,Please upload the Land Use/Cover Lookup Table (CSV) first.
+notif_template_generated,Template generated. Click 'Download Template' to save it.
+notif_template_loaded,Override template loaded. Non-empty cells will override inputs and defaults.
+notif_template_missing_cols,Template is missing required columns:
+notif_success,Analysis completed successfully!
+status_success,STATUS: Analysis completed successfully!
+success_detail,Analysis completed successfully! You can now open the output folder.
+notif_error_analysis,Error in analysis. Please check the error messages.
+status_error,Error in analysis:
+notif_opening_report,Opening report...
+notif_report_not_found,Report file not found.
+notif_no_dinamica,No DINAMICA EGO installation found.
+info_pixel_res_detected,Raster resolution: %s m (1 pixel ≈ %.3f ha). Patch size parameters are in ha and converted to pixels for Dinamica EGO.
+info_pixel_res_default,Default resolution: 30 m (1 pixel ≈ 0.090 ha). Upload Initial Land Cover Map to auto-detect.
+help_map1_file_title,Initial Land Cover/Use Map
+help_map1_file_body,<p>GeoTIFF (.tif) file containing the land cover/land use classification for the initial year (T1).</p> <p>Pixel values must correspond to the IDs defined in the Land Use/Cover Lookup Table.</p>
+help_init_year_title,Initial Year
+help_init_year_body,<p>Base year (T1) corresponding to the Initial Land Cover/Use Map.</p>
+help_zone_type_title,Planning Unit Input Type
+help_zone_type_body,"<p>Choose whether to provide planning unit zones as a pre-rasterized GeoTIFF raster map or as a vector Shapefile (.shp, .dbf, .prj, .shx) to be rasterized automatically.</p>"
+help_mapz_file_title,Planning Unit Map
+help_mapz_file_body,"<p>GeoTIFF (.tif) file delineating the planning units (e.g., provinces, watersheds, or spatial planning units) used to partition the simulation into independent regions.</p> <p>Each pixel value corresponds to a planning unit ID. The simulation runs the allocation step region by region, so planning units should cover the entire study extent.</p>"
+help_lc_file_title,Land Use/Cover Lookup Table
+help_lc_file_body,<p>CSV/XLSX table file with two columns:</p> <ol> <li>Numeric land cover ID (integer)</li> <li>Class name (text)</li> </ol>
+help_rc_file_title,Raster Cube Map
+help_rc_file_body,"<p>A pair of files produced by the SCIENDO Train module:</p> <ul> <li><code>sciendo_factors.tif</code> - raster stack of static variables (e.g., slope, elevation, distance to roads, and population density) used as predictors in the Weights of Evidence calculation.</li> <li><code>sciendo_factors.tif.aux.xml</code> - companion header describing the variable stack, the planning unit classes, and the simulation period value.</li> </ul> <p>Both files must be uploaded together. The app reads the XML file to extract the planning unit classes and the period value.</p>"
+help_repetition_title,Simulation Periods
+help_repetition_body,"<p>Number of simulation iterations to run.</p> <p>Each iteration produces its own projected landscape (<code>landscape2010.tif</code>, <code>landscape2015.tif</code>, ...).</p>"
+help_tm_path_title,Transition Probability Matrix Folder
+help_tm_path_body,"<p>Folder from SCIENDO Train (Business As Usual) or SCIENDO Scenario Builder (Scenario) output containing the transition probability matrices:</p> <ul> <li>CSV table files containing the single-step transition matrix (<code>single_step000000.csv</code>), or</li> <li>XLSM table files containing macro-enabled Excel scenario matrices.</li> </ul>"
+help_dcf_path_title,Weights of Evidence Folder
+help_dcf_path_body,<p>Folder containing the DCF files from the SCIENDO Train output (<code>woe000000.dcf</code> and its companion files) that store the Weights of Evidence coefficients.</p>
+help_wd_title,Output Directory
+help_wd_body,<p>Folder where all simulation outputs will be written</p>
+help_dinamica_path_title,DINAMICA EGO Path (Optional)
+help_dinamica_path_body,"<p>Installation folder of DINAMICA EGO (e.g., <code>C:/Program Files/Dinamica EGO 6</code>).</p> <p>If left empty, the app will automatically detect the installation under <code>Program Files</code> and use the latest version found. Provide it manually only if automatic detection fails or if you need to use a specific version.</p>"
+help_memory_allocation_title,Memory Allocation Policy
+help_memory_allocation_body,"<p>Controls how DINAMICA EGO manages RAM and disk space when running the simulation.</p> <ul> <li>Balanced (default): input maps are kept in memory, while results are written to disk if RAM is limited.</li> <li>Prefer Memory: keep both inputs and results in RAM when possible.</li> <li>Prefer Disk: stream everything through disk.</li> <li>Memory Only: abort if there is insufficient RAM.</li> <li>Aggressive: inputs are kept on disk, while results are kept in RAM when possible.</li> </ul>"
+help_custom_title,Parameterize Allocate Transitions
+help_custom_body,"<p>Enable this option to customize how DINAMICA EGO allocates transitions.</p> <p>Controls the balance between patch expansion (growing existing patches) and patch generation (seeding brand-new patches), including their size and shape.</p>"
+help_percent_title,Percent of Transitions by Expansion
+help_percent_body,<p>Share of each transition handled by the Expander (growing existing patches) and the Patcher (creating new patches).</p> <ul> <li><code>0</code> = all transitions create new patches</li> <li><code>1</code> = all transitions expand existing patches</li> </ul> <p>Value range: <code>0</code> - <code>1</code>.</p>
+help_exp_mean_title,Expansion Mean Patch Size
+help_exp_mean_body,<p>Average size (hectares) of an expanded patch.</p> <p>Must be > 0.</p>
+help_exp_var_title,Expansion Patch Size Variance
+help_exp_var_body,<p>Variance (hectares) of expanded patch sizes.</p> <p>Must be ≥ 0.</p>
+help_exp_iso_title,Expansion Patch Isometry
+help_exp_iso_body,<p>Shape of expanded patches.</p> <ul> <li><code>0</code> = linear / elongated</li> <li><code>1</code> = neutral</li> <li><code>2</code> = circular / compact</li> </ul> <p>Value range: <code>0</code> - <code>2</code>.</p>
+help_gen_mean_title,Generation Mean Patch Size
+help_gen_mean_body,<p>Average size (hectares) of a newly generated patch.</p> <p>Must be > 0.</p>
+help_gen_var_title,Generation Patch Size Variance
+help_gen_var_body,<p>Variance (hectares) of newly generated patch sizes.</p> <p>Must be ≥ 0.</p>
+help_gen_iso_title,Generation Patch Isometry
+help_gen_iso_body,<p>Shape of newly generated patches.</p> <ul> <li><code>0</code> = linear</li> <li><code>1</code> = neutral</li> <li><code>2</code> = circular / compact</li> </ul> <p>Value range: <code>0</code> - <code>2</code>.</p>
+help_override_title,Per-Transition Allocation (Optional)
+help_override_body,<p>Upload an Excel/CSV template to customize allocation transition parameters for individual transitions.</p>

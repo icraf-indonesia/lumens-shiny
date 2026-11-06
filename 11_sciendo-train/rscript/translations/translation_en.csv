@@ -1,95 +1,100 @@
-"key","en"
-"title_sciendo_train","SCIENDO Train"
-"toggle_language","Language"
-"btn_return_main","Return to Main Menu"
-"confirm_title","Confirmation"
-"confirm_text","Do you want to return to main menu?"
-"btn_close","Close"
-"lbl_map1_file","Land cover map at T1"
-"lbl_map1_year","Year of T1"
-"lbl_map2_file","Land cover map at T2"
-"lbl_map2_year","Year of T2"
-"lbl_lc_file","Land Use/Cover Lookup Table (CSV)"
-"lbl_zone_type","Planning Unit Input Type"
-"choice_raster","Raster"
-"choice_shapefiles","Shapefiles"
-"lbl_mapz_file_shp","Planning Unit"
-"ph_mapz_file_shp","All related shapefiles (.shp, .dbf, .prj, .shx)"
-"lbl_mapz_file_rast","Planning Unit"
-"lbl_z_file","Planning Unit Lookup Table (CSV)"
-"hdr_predictors","Predictors"
-"lbl_factors_path","Predictor(s) Folder Path"
-"tip_factors_path","Choose a folder contains predictor files"
-"ph_print_factor_dir","No predictor directory selected"
-"btn_eval_factors","Evaluate Predictors"
-"btn_open_eval_report","Open Evaluation Report"
-"lbl_wd","Select output directory"
-"tip_wd","Please select a directory"
-"ph_print_wd","No output directory selected"
-"accordion_adv_settings","Advanced Settings"
-"lbl_memory_allocation","Choose Memory Allocation"
-"opt_balanced","Balanced"
-"opt_prefer_memory","Prefer Memory"
-"opt_prefer_disk","Prefer Disk"
-"opt_memory_only","Memory Only"
-"opt_aggressive","Aggressive"
-"lbl_dinamica_path","DINAMICA EGO Path (Optional)"
-"tip_dinamica_path","(Optional)"
-"ph_print_dinamica","No DINAMICA EGO path selected"
-"btn_run_analysis","Run Analysis"
-"btn_open_report","Open Report"
-"btn_open_output_folder","Open Output Folder"
-"tab_user_guide","User Guide"
-"tab_log","Log"
-"modal_map1_missing_title","Initial Land Cover Map Not Uploaded"
-"modal_map1_missing_p1","Please upload the initial land cover map (T1) first before uploading the planning unit Shapefile."
-"modal_map1_missing_p2","The initial map is needed as reference for spatial extent and cell resolution to rasterize the shapefile."
-"notif_map1_missing_pu","Please upload the initial land cover map (T1) first to determine the extent and cell resolution for shapefile rasterization."
-"val_map1_req","Please upload land cover map at T1"
-"val_map1_year_req","Please enter Year of T1"
-"val_map2_req","Please upload land cover map at T2"
-"val_map2_year_req","Please enter Year of T2"
-"val_year_compare","Year of T2 must be greater than Year of T1"
-"val_lc_req","Please upload land cover lookup table"
-"val_mapz_req","Please upload planning unit"
-"val_z_file_req","Please upload planning unit lookup table"
-"val_factors_req","Please select predictor maps directory"
-"val_wd_req","Please select an output directory"
-"val_memory_req","Please select memory allocation option"
-"notif_form_errors","Please correct the errors in the form and try again"
-"notif_running","Analysis is running. Please wait..."
-"notif_shp_all_parts","Please upload all shapefile components (.shp, .shx, .dbf, .prj)"
-"notif_shp_numeric_col","Shapefile must contain at least one numeric, factor, or character column for rasterization."
-"notif_shp_rasterized","Shapefile planning unit successfully rasterized!"
-"notif_success","Analysis completed successfully!"
-"status_success","STATUS: Analysis completed successfully!"
-"success_detail","Analysis completed successfully! You can now open the output folder."
-"notif_error_analysis","Error in analysis. Please check the error messages."
-"status_error","Error in analysis:"
-"notif_opening_report","Opening report..."
-"notif_report_not_found","Report file not found."
-"notif_no_dinamica","No DINAMICA EGO installation found."
-"help_map1_file_title","Land Cover Map at T1 (Initial)"
-"help_map1_file_body","<p>Raster GeoTIFF (.tif) map representing land cover / use at the initial time period (T1).</p><p>Pixel values must correspond to the numeric IDs defined in the Land Use/Cover Lookup Table.</p>"
-"help_map1_year_title","Year of T1"
-"help_map1_year_body","<p>Calendar year corresponding to the initial land cover map (T1), e.g. <code>2015</code>.</p><p>Used alongside the Year of T2 to determine the time interval for transition probability rates. This field is automatically prefilled if a year is detected in the uploaded file name.</p>"
-"help_map2_file_title","Land Cover Map at T2 (Final)"
-"help_map2_file_body","<p>Raster GeoTIFF (.tif) map representing land cover / use at the final time period (T2).</p><p>Must share the spatial extent, resolution, and coordinate reference system of the T1 land cover map.</p>"
-"help_map2_year_title","Year of T2"
-"help_map2_year_body","<p>Calendar year corresponding to the final land cover map (T2), e.g. <code>2020</code>.</p><p>Must be greater than the Year of T1. This field is automatically prefilled if a year is detected in the uploaded file name.</p>"
-"help_lc_file_title","Land Use/Cover Lookup Table"
-"help_lc_file_body","<p>CSV file mapping numeric land cover IDs to descriptive class names.</p><p>It must contain at least two columns:</p><ol><li>Numeric ID (integer)</li><li>Land cover class name (text)</li></ol>"
-"help_zone_type_title","Planning Unit Input Type"
-"help_zone_type_body","<p>Select whether the Planning Unit dataset is supplied as a categorical <b>Raster (.tif)</b> or a polygon <b>Shapefile (.shp)</b>.</p>"
-"help_mapz_file_title","Planning Unit Map"
-"help_mapz_file_body","<p>Spatial delineation of planning units or administrative zones (e.g. districts, watersheds, or spatial planning units).</p><p>Can be supplied as:</p><ul><li><b>Raster (.tif):</b> Categorical GeoTIFF where each integer pixel value corresponds to a planning unit ID.</li><li><b>Shapefile (.shp, .shx, .dbf, .prj):</b> Polygon vector features delineating planning units.</li></ul>"
-"help_z_file_title","Planning Unit Lookup Table"
-"help_z_file_body","<p>CSV table mapping numeric planning unit IDs to descriptive zone names.</p><p>Required when using raster planning units. Must contain at least two columns:</p><ol><li>Planning Unit ID (integer)</li><li>Planning Unit Name (text)</li></ol>"
-"help_factors_path_title","Predictor Maps Directory"
-"help_factors_path_body","<p>Directory containing spatial predictor raster files in GeoTIFF (.tif) format.</p><p>These predictors represent spatial drivers of land use change (e.g., elevation, slope, distance to roads, distance to rivers, distance to settlements). All predictor maps will be assembled into a raster cube used to calculate Weights of Evidence.</p>"
-"help_wd_title","Output Directory"
-"help_wd_body","<p>Folder where all SCIENDO Train analysis outputs, including transition matrices, raster cube, weights of evidence reports, and HTML summary reports, will be saved.</p>"
-"help_memory_allocation_title","Memory Allocation Policy"
-"help_memory_allocation_body","<p>Controls how DINAMICA EGO manages RAM and disk space when executing the model.</p><ul><li><b>Balanced (default):</b> Keeps inputs in memory; keeps results in memory when RAM allows, otherwise writes to disk.</li><li><b>Prefer Memory:</b> Keeps both inputs and results in RAM whenever possible.</li><li><b>Prefer Disk:</b> Streams maps to/from disk to minimize RAM usage.</li><li><b>Memory Only:</b> Aborts execution if RAM is insufficient.</li><li><b>Aggressive:</b> Keeps inputs on disk while results are kept in RAM.</li></ul>"
-"help_dinamica_path_title","DINAMICA EGO Path (Optional)"
-"help_dinamica_path_body","<p>Path to the DINAMICA EGO installation directory (e.g., <code>C:/Program Files/Dinamica EGO 7</code>).</p><p>If left blank, LUMENS automatically detects the installation under <code>Program Files</code>.</p>"
+key,en
+title_sciendo_train,SCIENDO Train
+toggle_language,Language
+btn_return_main,Return to Main Menu
+confirm_title,Confirmation
+confirm_text,Do you want to return to main menu?
+btn_close,Close
+lbl_map1_file,Initial Land Cover Map
+lbl_map1_year,Year of T1
+lbl_map2_file,Final Land Cover Map
+lbl_map2_year,Year of T2
+ph_map1_file,Upload raster (.tif)
+lbl_lc_file,Land Use/Cover Lookup Table
+ph_lc_file,Upload table (.csv/.xlsx)
+lbl_zone_type,Planning Unit Input Type
+choice_raster,Raster
+choice_shapefiles,Shapefiles
+lbl_mapz_file_shp,Planning Unit
+ph_mapz_file_shp,"Upload all related files (.shp, .dbf, .prj, .shx)"
+lbl_mapz_file_rast,Planning Unit
+ph_mapz_file_rast,Upload raster (.tif)
+lbl_z_file,Planning Unit Lookup Table 
+ph_z_file,Upload table (.csv)
+hdr_predictors,Predictors
+lbl_factors_path,Predictor(s) Folder Path
+tip_factors_path,Choose a folder contains predictor files
+ph_print_factor_dir,No predictor directory selected
+btn_eval_factors,Evaluate Predictors
+btn_open_eval_report,Open Evaluation Report
+lbl_wd,Select output directory
+tip_wd,Please select a directory
+ph_print_wd,No output directory selected
+accordion_adv_settings,Advanced Settings
+lbl_memory_allocation,Choose Memory Allocation
+opt_balanced,Balanced
+opt_prefer_memory,Prefer Memory
+opt_prefer_disk,Prefer Disk
+opt_memory_only,Memory Only
+opt_aggressive,Aggressive
+lbl_dinamica_path,DINAMICA EGO Path (Optional)
+tip_dinamica_path,(Optional)
+ph_print_dinamica,No DINAMICA EGO path selected
+btn_run_analysis,Run Analysis
+btn_open_report,Open Report
+btn_open_output_folder,Open Output Folder
+tab_user_guide,User Guide
+tab_log,Log
+modal_map1_missing_title,Initial Land Cover Map Not Uploaded
+modal_map1_missing_p1,Please upload the initial land cover map (T1) first before uploading the planning unit Shapefile.
+modal_map1_missing_p2,The initial map is needed as reference for spatial extent and cell resolution to rasterize the shapefile.
+notif_map1_missing_pu,Please upload the initial land cover map (T1) first to determine the extent and cell resolution for shapefile rasterization.
+val_map1_req,Please upload land cover map at T1
+val_map1_year_req,Please enter Year of T1
+val_map2_req,Please upload land cover map at T2
+val_map2_year_req,Please enter Year of T2
+val_year_compare,Year of T2 must be greater than Year of T1
+val_lc_req,Please upload land cover lookup table
+val_mapz_req,Please upload planning unit
+val_z_file_req,Please upload planning unit lookup table
+val_factors_req,Please select predictor maps directory
+val_wd_req,Please select an output directory
+val_memory_req,Please select memory allocation option
+notif_form_errors,Please correct the errors in the form and try again
+notif_running,Analysis is running. Please wait...
+notif_shp_all_parts,"Please upload all shapefile components (.shp, .shx, .dbf, .prj)"
+notif_shp_numeric_col,"Shapefile must contain at least one numeric, factor, or character column for rasterization."
+notif_shp_rasterized,Shapefile planning unit successfully rasterized!
+notif_success,Analysis completed successfully!
+status_success,STATUS: Analysis completed successfully!
+success_detail,Analysis completed successfully! You can now open the output folder.
+notif_error_analysis,Error in analysis. Please check the error messages.
+status_error,Error in analysis:
+notif_opening_report,Opening report...
+notif_report_not_found,Report file not found.
+notif_no_dinamica,No DINAMICA EGO installation found.
+help_map1_file_title,Land Cover Map at T1 (Initial)
+help_map1_file_body,<p>Raster GeoTIFF (.tif) map representing land cover / use at the initial time period (T1).</p><p>Pixel values must correspond to the numeric IDs defined in the Land Use/Cover Lookup Table.</p>
+help_map1_year_title,Year of T1
+help_map1_year_body,"<p>Calendar year corresponding to the initial land cover map (T1), e.g. <code>2015</code>.</p><p>Used alongside the Year of T2 to determine the time interval for transition probability rates. This field is automatically prefilled if a year is detected in the uploaded file name.</p>"
+help_map2_file_title,Land Cover Map at T2 (Final)
+help_map2_file_body,"<p>Raster GeoTIFF (.tif) map representing land cover / use at the final time period (T2).</p><p>Must share the spatial extent, resolution, and coordinate reference system of the T1 land cover map.</p>"
+help_map2_year_title,Year of T2
+help_map2_year_body,"<p>Calendar year corresponding to the final land cover map (T2), e.g. <code>2020</code>.</p><p>Must be greater than the Year of T1. This field is automatically prefilled if a year is detected in the uploaded file name.</p>"
+help_lc_file_title,Land Use/Cover Lookup Table
+help_lc_file_body,<p>CSV file mapping numeric land cover IDs to descriptive class names.</p><p>It must contain at least two columns:</p><ol><li>Numeric ID (integer)</li><li>Land cover class name (text)</li></ol>
+help_zone_type_title,Planning Unit Input Type
+help_zone_type_body,<p>Select whether the Planning Unit dataset is supplied as a categorical <b>Raster (.tif)</b> or a polygon <b>Shapefile (.shp)</b>.</p>
+help_mapz_file_title,Planning Unit Map
+help_mapz_file_body,"<p>Spatial delineation of planning units or administrative zones (e.g. districts, watersheds, or spatial planning units).</p><p>Can be supplied as:</p><ul><li><b>Raster (.tif):</b> Categorical GeoTIFF where each integer pixel value corresponds to a planning unit ID.</li><li><b>Shapefile (.shp, .shx, .dbf, .prj):</b> Polygon vector features delineating planning units.</li></ul>"
+help_z_file_title,Planning Unit Lookup Table
+help_z_file_body,<p>CSV table mapping numeric planning unit IDs to descriptive zone names.</p><p>Required when using raster planning units. Must contain at least two columns:</p><ol><li>Planning Unit ID (integer)</li><li>Planning Unit Name (text)</li></ol>
+help_factors_path_title,Predictor Maps Directory
+help_factors_path_body,"<p>Directory containing spatial predictor raster files in GeoTIFF (.tif) format.</p><p>These predictors represent spatial drivers of land use change (e.g., elevation, slope, distance to roads, distance to rivers, distance to settlements). All predictor maps will be assembled into a raster cube used to calculate Weights of Evidence.</p>"
+help_wd_title,Output Directory
+help_wd_body,"<p>Folder where all SCIENDO Train analysis outputs, including transition matrices, raster cube, weights of evidence reports, and HTML summary reports, will be saved.</p>"
+help_memory_allocation_title,Memory Allocation Policy
+help_memory_allocation_body,"<p>Controls how DINAMICA EGO manages RAM and disk space when executing the model.</p><ul><li><b>Balanced (default):</b> Keeps inputs in memory; keeps results in memory when RAM allows, otherwise writes to disk.</li><li><b>Prefer Memory:</b> Keeps both inputs and results in RAM whenever possible.</li><li><b>Prefer Disk:</b> Streams maps to/from disk to minimize RAM usage.</li><li><b>Memory Only:</b> Aborts execution if RAM is insufficient.</li><li><b>Aggressive:</b> Keeps inputs on disk while results are kept in RAM.</li></ul>"
+help_dinamica_path_title,DINAMICA EGO Path (Optional)
+help_dinamica_path_body,"<p>Path to the DINAMICA EGO installation directory (e.g., <code>C:/Program Files/Dinamica EGO 7</code>).</p><p>If left blank, LUMENS automatically detects the installation under <code>Program Files</code>.</p>"
+notif_macro_unblock_hint,"Note: If macros are blocked when opened on another computer, right-click file -> Properties -> check 'Unblock', or run 'activate_macros.bat' in the output folder."

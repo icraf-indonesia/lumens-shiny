@@ -296,8 +296,8 @@ ui <- fluidPage(
               
               selectizeInput("memory_allocation",
                              label = label_with_help(i18n$t("lbl_memory_allocation"), "memory_allocation"),
-                             choices = c("Seimbang (Balanced)" = 1, "Utamakan Memori (Prefer Memory)" = 0, "Utamakan Disk (Prefer Disk)" = 2, 
-                                         "Hanya Memori (Memory Only)" = 3, "Agresif (Aggressive)" = 4),
+                             choices = c("Seimbang" = 1, "Utamakan Memori" = 0, "Utamakan Disk" = 2, 
+                                         "Hanya Memori" = 3, "Agresif" = 4),
                              options = list(render = I("
                    {
                      option: function(item, escape) {
@@ -495,7 +495,7 @@ server <- function(input, output, session) {
     choices <- if (lang == "en") {
       c("Balanced" = 1, "Prefer Memory" = 0, "Prefer Disk" = 2, "Memory Only" = 3, "Aggressive" = 4)
     } else {
-      c("Seimbang (Balanced)" = 1, "Utamakan Memori (Prefer Memory)" = 0, "Utamakan Disk (Prefer Disk)" = 2, "Hanya Memori (Memory Only)" = 3, "Agresif (Aggressive)" = 4)
+      c("Seimbang" = 1, "Utamakan Memori" = 0, "Utamakan Disk" = 2, "Hanya Memori" = 3, "Agresif" = 4)
     }
     updateSelectizeInput(session, "memory_allocation", choices = choices, selected = curr)
   }

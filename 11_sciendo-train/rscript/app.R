@@ -201,8 +201,8 @@ ui <- fluidPage(
       ),
       conditionalPanel(
         condition = "input.zone_type == 'raster'",
-        fileInput("mapz_file", label = label_with_help(i18n$t("lbl_mapz_file_rast"), "mapz_file"), accept = c("image/tiff")),
-        fileInput("z_file", label = label_with_help(i18n$t("lbl_z_file"), "z_file"), accept = c(".csv"))
+        fileInput("mapz_file", label = label_with_help(i18n$t("lbl_mapz_file_rast"), "mapz_file"), accept = c("image/tiff"), placeholder = tr("ph_mapz_file_rast", "id")),
+        fileInput("z_file", label = label_with_help(i18n$t("lbl_z_file"), "z_file"), accept = c(".csv"), placeholder = tr("ph_z_file", "id"))
       ),
       
       div(style = "display: flex; flex-direction: column; gap: 10px;",
@@ -244,8 +244,8 @@ ui <- fluidPage(
               value = "advanced_settings",
               
               selectizeInput("memory_allocation", label = label_with_help(i18n$t("lbl_memory_allocation"), "memory_allocation"),
-                             choices = c("Seimbang (Balanced)" = 1, "Utamakan Memori (Prefer Memory)" = 0, "Utamakan Disk (Prefer Disk)" = 2,
-                                         "Hanya Memori (Memory Only)" = 3, "Agresif (Aggressive)" = 4),
+                             choices = c("Seimbang" = 1, "Utamakan Memori" = 0, "Utamakan Disk" = 2,
+                                         "Hanya Memori" = 3, "Agresif" = 4),
                              options = list(render = I("
                     {
                       option: function(item, escape) {
@@ -304,15 +304,19 @@ server <- function(input, output, session) {
   current_lang <- reactiveVal("id")
   
   update_file_input_placeholders <- function(lang) {
-    ph_map1  <- tr("ph_map1_file", lang)
-    ph_mapz  <- if (isTRUE(input$zone_type == "raster")) tr("ph_mapz_file_rast", lang) else tr("ph_mapz_file_shp", lang)
-    ph_lc    <- tr("ph_lc_file", lang)
+    ph_map1      <- tr("ph_map1_file", lang)
+    ph_lc        <- tr("ph_lc_file", lang)
+    ph_mapz_shp  <- tr("ph_mapz_file_shp", lang)
+    ph_mapz_rast <- tr("ph_mapz_file_rast", lang)
+    ph_z         <- tr("ph_z_file", lang)
     js <- sprintf("
       $('#map1_file').closest('.form-group').find('input[type=text]').attr('placeholder', '%s');
       $('#map2_file').closest('.form-group').find('input[type=text]').attr('placeholder', '%s');
-      $('#mapz_file').closest('.form-group').find('input[type=text]').attr('placeholder', '%s');
       $('#lc_file').closest('.form-group').find('input[type=text]').attr('placeholder', '%s');
-    ", ph_map1, ph_map1, ph_mapz, ph_lc)
+      $('.shiny-panel-conditional[data-display-if*=\"shapefile\"] input[type=text]').attr('placeholder', '%s');
+      $('.shiny-panel-conditional[data-display-if*=\"raster\"] #mapz_file').closest('.form-group').find('input[type=text]').attr('placeholder', '%s');
+      $('#z_file').closest('.form-group').find('input[type=text]').attr('placeholder', '%s');
+    ", ph_map1, ph_map1, ph_lc, ph_mapz_shp, ph_mapz_rast, ph_z)
     shinyjs::runjs(js)
   }
   
@@ -321,7 +325,7 @@ server <- function(input, output, session) {
     choices <- if (lang == "en") {
       c("Balanced" = 1, "Prefer Memory" = 0, "Prefer Disk" = 2, "Memory Only" = 3, "Aggressive" = 4)
     } else {
-      c("Seimbang (Balanced)" = 1, "Utamakan Memori (Prefer Memory)" = 0, "Utamakan Disk (Prefer Disk)" = 2, "Hanya Memori (Memory Only)" = 3, "Agresif (Aggressive)" = 4)
+      c("Seimbang" = 1, "Utamakan Memori" = 0, "Utamakan Disk" = 2, "Hanya Memori" = 3, "Agresif" = 4)
     }
     updateSelectizeInput(session, "memory_allocation", choices = choices, selected = curr)
   }
@@ -891,14 +895,18 @@ server <- function(input, output, session) {
           memory_allocation = input$memory_allocation,
           progress_callback = function(value, detail) {
             setProgress(value = value, message = detail)
-          }
+          },
+          lang = current_lang()
         )
         
-        output$status_messages <- renderText("STATUS: Analysis completed successfully!")
-        output$success_message <- renderText("Analysis completed successfully! You can now open the output folder.")
+        output$status_messages <- renderText(tr("status_success", current_lang()))
+        output$success_message <- renderText(paste(
+          tr("success_detail", current_lang()),
+          tr("notif_macro_unblock_hint", current_lang())
+        ))
         output$error_messages <- renderText(NULL)
         removeNotification("running_notification")
-        showNotification("Analysis completed successfully!", type = "message")
+        showNotification(tr("notif_success", current_lang()), type = "message")
         shinyjs::show("openReport")
         shinyjs::show("open_output_folder")
       }, error = function(e) {
