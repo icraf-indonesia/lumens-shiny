@@ -219,8 +219,27 @@ if (!is.null(collinearity$vif_table) && nrow(collinearity$vif_table) > 0) {
 
 Multikolinearitas terjadi ketika variabel independen saling berkorelasi tinggi sehingga sulit membedakan pengaruhnya masing-masing terhadap variabel dependen, membuat model menjadi tidak stabil dan hasilnya kurang akurat. Matriks Kolinearitas digunakan untuk mengidentifikasi isu tersebut dengan menunjukkan hubungan antarvariabel; nilai mendekati 1 atau -1 menandakan korelasi kuat, sedangkan nilai dekat 0 menandakan korelasi lemah.
 
-```{r corrplot, echo=FALSE, message=FALSE, warning=FALSE}
-if (!is.null(collinearity$correlation_plot)) {
+```{r corrplot, echo=FALSE, message=FALSE, warning=FALSE, fig.width=7, fig.height=7, out.width='75%', fig.align='center'}
+if (!is.null(collinearity$correlation_matrix)) {
+  graphics::par(mfrow = c(1, 1))
+  n_vars <- ncol(collinearity$correlation_matrix)
+  tl_size <- if (n_vars <= 6) 0.85 else if (n_vars <= 10) 0.75 else if (n_vars <= 15) 0.65 else 0.5
+  num_size <- if (n_vars <= 6) 0.8 else if (n_vars <= 10) 0.7 else if (n_vars <= 15) 0.55 else 0.4
+  corrplot::corrplot(
+    collinearity$correlation_matrix,
+    method = "color",
+    type = "full",
+    order = "hclust",
+    tl.cex = tl_size,
+    tl.col = "black",
+    tl.srt = 45,
+    mar = c(0, 0, 1, 0),
+    addCoef.col = "black",
+    number.cex = num_size,
+    diag = TRUE
+  )
+} else if (!is.null(collinearity$correlation_plot)) {
+  graphics::par(mfrow = c(1, 1))
   collinearity$correlation_plot
 } else {
   cat("_Matriks kolinearitas tidak dapat ditampilkan._\n")

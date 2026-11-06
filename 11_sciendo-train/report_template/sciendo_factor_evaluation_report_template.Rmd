@@ -200,22 +200,29 @@ Matriks korelasi menyajikan koefisien korelasi Pearson berpasangan antar predikt
 - Nilai mendekati **+1** atau **-1** menunjukkan korelasi yang sangat kuat.
 - Nilai mendekati **0** menunjukkan kedua prediktor saling independen.
 
-```{r render_corrplot, fig.width=8, fig.height=8, out.width='85%', fig.align='center'}
-if (!is.null(collinearity$correlation_plot)) {
-  collinearity$correlation_plot
-} else if (!is.null(collinearity$correlation_matrix)) {
+```{r render_corrplot, fig.width=7, fig.height=7, out.width='75%', fig.align='center'}
+if (!is.null(collinearity$correlation_matrix)) {
+  graphics::par(mfrow = c(1, 1))
+  n_vars <- ncol(collinearity$correlation_matrix)
+  tl_size <- if (n_vars <= 6) 0.85 else if (n_vars <= 10) 0.75 else if (n_vars <= 15) 0.65 else 0.5
+  num_size <- if (n_vars <= 6) 0.8 else if (n_vars <= 10) 0.7 else if (n_vars <= 15) 0.55 else 0.4
+  
   corrplot::corrplot(
     collinearity$correlation_matrix,
     method = "color",
     type = "full",
     order = "hclust",
-    tl.cex = 0.8,
+    tl.cex = tl_size,
     tl.col = "black",
-    mar = c(0, 0, 2, 0),
+    tl.srt = 45,
+    mar = c(0, 0, 1, 0),
     addCoef.col = "black",
-    number.cex = 0.7,
+    number.cex = num_size,
     diag = TRUE
   )
+} else if (!is.null(collinearity$correlation_plot)) {
+  graphics::par(mfrow = c(1, 1))
+  collinearity$correlation_plot
 } else {
   cat("<p><em>Grafik matriks korelasi tidak tersedia.</em></p>")
 }
