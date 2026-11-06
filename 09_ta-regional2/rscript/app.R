@@ -35,7 +35,7 @@ missing_fns <- required_fns[!vapply(required_fns, exists, logical(1))]
 if (length(missing_fns) > 0) {
   stop("Fungsi belum ter-load: ", paste(missing_fns, collapse = ", "))
 }
-cat("✓ Semua fungsi kritis ter-load\n\n")
+cat("âœ“ Semua fungsi kritis ter-load\n\n")
 
 # =========================================================
 # HELPER FUNCTIONS
@@ -43,6 +43,60 @@ cat("✓ Semua fungsi kritis ter-load\n\n")
 jscode <- "shinyjs.closeWindow = function() { window.close(); }"
 
 app_css <- "
+  .alloc-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 4px;
+    width: 100%;
+  }
+  .alloc-info-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+  .alloc-info-row .form-group {
+    margin-bottom: 0;
+    flex: 1;
+  }
+  .alloc-help-icon {
+    display: inline-flex;
+    align-items: center;
+    color: #0d6efd;
+    cursor: pointer;
+    flex-shrink: 0;
+    margin-top: 2px;
+    line-height: 1;
+  }
+  .alloc-help-icon a,
+  .alloc-help-icon .action-button {
+    color: inherit !important;
+    text-decoration: none !important;
+    background: none !important;
+    border: none !important;
+    padding: 0 !important;
+    cursor: pointer !important;
+  }
+  .alloc-help-icon:hover,
+  .alloc-help-icon:hover a {
+    color: #0a58ca !important;
+  }
+  .dir-btn-wrapper {
+    position: relative;
+    width: 100%;
+  }
+  .dir-btn-wrapper .btn {
+    width: 100%;
+    text-align: center;
+  }
+  .dir-help-overlay {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 10;
+  }
   .scenario-box {
     border: 1px solid #dee2e6;
     border-radius: 6px;
@@ -242,7 +296,29 @@ ui <- fluidPage(
       
       checkboxInput(
         "load_rds",
-        "Load from Descriptive Analysis .rds (skip Excel reading)",
+        tagList(
+          "Muat dari RDS Analisis Deskriptif (lewati pembacaan Excel)",
+          tooltip(
+            tags$span(
+              class = "alloc-help-icon",
+              icon("circle-question")
+            ),
+            HTML(
+              "<b>Apa itu RDS?</b><br>",
+              "RDS adalah format file dari R (R Data Serialized) yang menyimpan ",
+              "objek hasil olahan data dalam bentuk terkompresi. File ini mempercepat ",
+              "proses karena semua input (tabel IO, tenaga kerja, lahan, dll.) ",
+              "sudah dibaca dan divalidasi sebelumnya.<br><br>",
+              "<b>Darimana mendapatkannya?</b><br>",
+              "File <code style='background:#2c3e50; color:#ffffff; padding:2px 6px; border-radius:4px;'>",
+              "descriptive_analysis_module_output.rds</code> dihasilkan ",
+              "otomatis setiap kali Anda menjalankan analisis deskriptif. ",
+              "Cek folder output yang Anda pilih pada langkah sebelumnya.<br><br>",
+              "Gunakan RDS untuk melanjutkan ke modul proyeksi tanpa harus mengunggah ulang file Excel."
+            ),
+            placement = "right"
+          )
+        ),
         value = FALSE
       ),
       
@@ -258,7 +334,7 @@ ui <- fluidPage(
             style = "margin-top: 6px; padding-left: 18px;",
             tags$li(
               tags$br(),
-              tags$b("Apa itu RDS?"),
+              tags$b("ℹ️ Apa itu RDS?"),
               tags$br(),
               "RDS (", tags$code(".rds"), ") adalah format file dari R (R Data Serialized) yang menyimpan ",
               "objek hasil olahan data dalam bentuk terkompresi. File ini mempercepat ",
@@ -286,9 +362,9 @@ ui <- fluidPage(
         condition = "input.load_rds == false",
         fileInput(
           "io_output_file",
-          "IO Analysis Output (.xlsx) (wajib)",
+          label = label_with_help("Hasil Analisis Input-Output Deskriptif", "io_output_file"),
           accept = xlsx_types,
-          placeholder = "Pilih IO_Analysis_Output.xlsx"
+          placeholder = "Unggah IO Analysis Output (.xlsx)"
         )
       ),
       
@@ -296,24 +372,24 @@ ui <- fluidPage(
         condition = "input.load_rds == true",
         fileInput(
           "descriptive_rds_file",
-          "Descriptive Analysis .rds (wajib)",
+          label = label_with_help("RDS Analisis Deskriptif", "descriptive_rds_file"),
           accept = rds_types,
-          placeholder = "Pilih Descriptive_Analysis_Module.rds"
+          placeholder = "Unggah berkas preprocessing (.rds)"
         )
       ),
       
       fileInput(
         "projection_area_file",
-        "Proyeksi Luas Lahan BAU (.xlsx) (wajib)",
+        label = label_with_help("Proyeksi Luas Lahan BAU", "projection_area_file"),
         accept = xlsx_types,
-        placeholder = "Pilih luc_projection.xlsx"
+        placeholder = "Unggah berkas tabel (.xlsx)"
       ),
       
       fileInput(
         "population_file",
-        "Proyeksi Jumlah Penduduk (.xlsx/.csv) (wajib)",
+        label = label_with_help("Proyeksi Jumlah Penduduk", "population_file"),
         accept = c(".xlsx", ".xls", ".csv"),
-        placeholder = "Pilih file dengan kolom: Tahun, Populasi"
+        placeholder = "Unggah berkas tabel (.xlsx, .csv)"
       ),
       div(class = "note", textOutput("pop_file_check")),
       tags$hr(),
@@ -336,7 +412,7 @@ ui <- fluidPage(
       
       radioButtons(
         "has_scenario",
-        "Apakah ada Skenario Intervensi?",
+        label = label_with_help("Apakah ada Skenario Intervensi?", "has_scenario"),
         choices = c("Ya", "Tidak"),
         selected = "Tidak",
         inline = TRUE
@@ -345,7 +421,7 @@ ui <- fluidPage(
       conditionalPanel(
         condition = "input.has_scenario == 'Ya'",
         
-        textInput("scenario_name", "Nama Skenario Intervensi",
+        textInput("scenario_name", label = label_with_help("Nama Skenario Intervensi", "scenario_name"),
                   placeholder = "mis. Skenario Ekonomi Hijau"),
         p(
           "Satu skenario dapat menggabungkan Asumsi 1, 2, dan 3. Kosongkan file pada asumsi yang tidak dipakai.",
@@ -366,8 +442,8 @@ ui <- fluidPage(
               downloadButton("download_template_a1", "Unduh Template Asumsi 1 (Lahan)",
                              style = "margin-bottom: 12px; font-size: 13px;"),
               
-              fileInput("a1_land_file", "Perubahan Lahan (.xlsx)",
-                        accept = xlsx_types, placeholder = "luc_projection.xlsx"),
+              fileInput("a1_land_file", label = label_with_help("Perubahan Lahan (Asumsi 1)", "a1_land_file"),
+                        accept = xlsx_types, placeholder = "Unggah berkas tabel (.xlsx)"),
               div(class = "note", textOutput("a1_sheet_check")),
               
               div(
@@ -389,8 +465,8 @@ ui <- fluidPage(
               downloadButton("download_template_a2", "Unduh Template Asumsi 2 (Produktivitas)",
                              style = "margin-bottom: 12px; font-size: 13px;"),
               
-              fileInput("a2_lpc_file", "Target Produktivitas LPC (.xlsx)",
-                        accept = xlsx_types, placeholder = "produktivitas_lpc.xlsx"),
+              fileInput("a2_lpc_file", label = label_with_help("Target Produktivitas LPC (Asumsi 2)", "a2_lpc_file"),
+                        accept = xlsx_types, placeholder = "Unggah berkas tabel (.xlsx)"),
               
               div(
                 style = "margin-top: 8px;",
@@ -411,8 +487,8 @@ ui <- fluidPage(
               downloadButton("download_template_a3", "Unduh Template Asumsi 3 (Hilirisasi)",
                              style = "margin-bottom: 12px; font-size: 13px;"),
               
-              fileInput("a3_io_changes_file", "Perubahan Struktur I-O (.xlsx)",
-                        accept = xlsx_types, placeholder = "perubahan_io.xlsx"),
+              fileInput("a3_io_changes_file", label = label_with_help("Perubahan Struktur Input-Output (Asumsi 3)", "a3_io_changes_file"),
+                        accept = xlsx_types, placeholder = "Unggah berkas tabel (.xlsx)"),
               
               div(
                 style = "margin-top: 8px;",
@@ -436,7 +512,7 @@ ui <- fluidPage(
       
       div(
         style = "display: flex; flex-direction: column; gap: 10px;",
-        shinyDirButton("wd", "Select Output Directory", "Please select a directory"),
+        dir_button_with_help("wd", "Pilih Folder Output", "Silakan pilih direktori output", "wd"),
         textOutput("selected_directory"),
         actionButton("processTAReg2", "Run Analysis", style = btn_style("#4CAF50")),
         hidden(downloadButton("download_results", "Download Results (.xlsx)",
@@ -589,7 +665,21 @@ server <- function(input, output, session) {
   })
   
   output$selected_directory <- renderText(dir_text())
-  output$selected_dir       <- renderText(paste("Output directory:", dir_text()))
+  output$selected_dir       <- renderText(paste("Folder output terpilih:", dir_text()))
+  
+  #### Click-to-open help modals ####
+  lapply(names(proj_help_texts), function(id) {
+    observeEvent(input[[paste0("proj_help_", id)]], {
+      info <- proj_help_texts[[id]]
+      showModal(modalDialog(
+        title = tagList(icon("circle-info"), " ", info$title),
+        HTML(info$body),
+        easyClose = TRUE,
+        footer = modalButton("Tutup"),
+        size = "m"
+      ))
+    })
+  })
   
   # ---- Reactive: baca tahun awal & akhir dari file BAU ----
   tahun_dari_bau <- reactive({
@@ -643,10 +733,10 @@ server <- function(input, output, session) {
     t <- tahun_dari_bau()
     if (!t$ok) return("(belum terbaca)")
     if (is.na(t$time_step)) {
-      sprintf("Tahun: %d – %d (1 titik)", t$initial_year, t$end_year)
+      sprintf("Tahun: %d â€“ %d (1 titik)", t$initial_year, t$end_year)
     } else {
       sprintf(
-        "Tahun: %d – %d (interval %d tahun, %d titik)",
+        "Tahun: %d â€“ %d (interval %d tahun, %d titik)",
         t$initial_year, t$end_year, t$time_step, length(t$tahun)
       )
     }
@@ -744,11 +834,11 @@ server <- function(input, output, session) {
     
     df <- pop_projection()
     if (is.null(df)) {
-      return("⚠ File populasi tidak valid: pastikan punya kolom 'Tahun' dan 'Populasi'.")
+      return("âš  File populasi tidak valid: pastikan punya kolom 'Tahun' dan 'Populasi'.")
     }
     
     sprintf(
-      "✓ Populasi: %d baris (%d–%d), %.0f → %.0f jiwa",
+      "âœ“ Populasi: %d baris (%dâ€“%d), %.0f â†’ %.0f jiwa",
       nrow(df),
       min(df$Tahun), max(df$Tahun),
       df$Populasi[1], df$Populasi[nrow(df)]
@@ -1161,9 +1251,9 @@ server <- function(input, output, session) {
       # Penjelasan Kolom / Variabel R (Baris 11)
       desc_b <- "Dibaca untuk menentukan indeks baris (i) dan kolom (j) pada matriks transaksi antara (Z)"
       desc_c <- "Dibaca untuk menentukan indeks baris (i) dan kolom (j) pada matriks transaksi antara (Z)"
-      desc_d <- "Dibaca sebagai `delta_z` untuk menambahkan nilai transaksi antara antar-sektor lokal\n\nΔZ bernilai positif (+)"
-      desc_e <- "Dibaca sebagai delta_x_from dan delta_x_to untuk memperbarui target output total wilayah (Xnew)\n\nΔX Asal bernilai negatif (- karena retensi/pengurangan ekspor mentah)"
-      desc_f <- "Dibaca sebagai delta_x_from dan delta_x_to untuk memperbarui target output total wilayah (Xnew)\n\nΔX Tujuan bernilai positif (+ karena penambahan produksi industri olahan)"
+      desc_d <- "Dibaca sebagai `delta_z` untuk menambahkan nilai transaksi antara antar-sektor lokal\n\nÎ”Z bernilai positif (+)"
+      desc_e <- "Dibaca sebagai delta_x_from dan delta_x_to untuk memperbarui target output total wilayah (Xnew)\n\nÎ”X Asal bernilai negatif (- karena retensi/pengurangan ekspor mentah)"
+      desc_f <- "Dibaca sebagai delta_x_from dan delta_x_to untuk memperbarui target output total wilayah (Xnew)\n\nÎ”X Tujuan bernilai positif (+ karena penambahan produksi industri olahan)"
       
       openxlsx::writeData(wb, "Restrukturisasi", desc_b, startCol = 2, startRow = 11)
       openxlsx::writeData(wb, "Restrukturisasi", desc_c, startCol = 3, startRow = 11)
@@ -1175,8 +1265,8 @@ server <- function(input, output, session) {
       
       # Header Tabel Utama (Baris 12)
       headers <- c("NO", "SEKTOR ASAL (FROM SECTOR)", "SEKTOR TUJUAN (TO SECTOR)", 
-                   "PENAMBAHAN TRANSAKSI ANTARA / ΔZ (Rp Juta)", "PERUBAHAN OUTPUT ASAL ΔX (Rp Juta)", 
-                   "PERUBAHAN OUTPUT TUJUAN ΔX (Rp Juta)", "METODE BALANCING", "TAHUN TARGET", "DOKUMEN KEBIJAKAN / KETERANGAN")
+                   "PENAMBAHAN TRANSAKSI ANTARA / Î”Z (Rp Juta)", "PERUBAHAN OUTPUT ASAL Î”X (Rp Juta)", 
+                   "PERUBAHAN OUTPUT TUJUAN Î”X (Rp Juta)", "METODE BALANCING", "TAHUN TARGET", "DOKUMEN KEBIJAKAN / KETERANGAN")
       openxlsx::writeData(wb, "Restrukturisasi", as.data.frame(t(headers)), startCol = 1, startRow = 12, colNames = FALSE)
       openxlsx::addStyle(wb, "Restrukturisasi", tbl_hdr_style, rows = 12, cols = 1:9, gridExpand = TRUE)
       openxlsx::setRowHeights(wb, "Restrukturisasi", rows = 12, heights = 32)
@@ -1190,9 +1280,9 @@ server <- function(input, output, session) {
         NO = 1:n_rows,
         `SEKTOR ASAL` = rep(NA_character_, n_rows),
         `SEKTOR TUJUAN` = rep(NA_character_, n_rows),
-        `ΔZ` = rep(NA_real_, n_rows),
-        `ΔX ASAL` = rep(NA_real_, n_rows),
-        `ΔX TUJUAN` = rep(NA_real_, n_rows),
+        `Î”Z` = rep(NA_real_, n_rows),
+        `Î”X ASAL` = rep(NA_real_, n_rows),
+        `Î”X TUJUAN` = rep(NA_real_, n_rows),
         `METODE` = rep("RAS Balancing", n_rows),
         `TAHUN` = rep(2030, n_rows),
         `KETERANGAN` = rep(NA_character_, n_rows),
@@ -1262,7 +1352,7 @@ server <- function(input, output, session) {
         c(3, "1. TUJUAN TEMPLATE", TRUE),
         c(4, "Template ini digunakan untuk merancang simulasi Restrukturisasi Ekonomi & Hilirisasi Industri pada skenario ini. Nilai komoditas mentah yang dialihkan akan meningkatkan transaksi antara (intermediate consumption) sektor pengolahan lokal.", FALSE),
         c(7, "2. CARA PENGISIAN", TRUE),
-        c(8, "Akses sheet 'Restrukturisasi', lalu isi kolom berwarna KUNING:\n - SEKTOR ASAL: Pilih komoditas mentah dari sheet 'Daftar_Sektor'.\n - SEKTOR TUJUAN: Pilih industri pengolahan/layanan lokal penerima masukan.\n - PENAMBAHAN TRANSAKSI ANTARA (ΔZ): Isikan nominal tambahan transaksi dalam Juta Rupiah.\n - PERUBAHAN OUTPUT ΔX: Isikan penyesuaian target total output sektor asal (-) dan tujuan (+).", FALSE),
+        c(8, "Akses sheet 'Restrukturisasi', lalu isi kolom berwarna KUNING:\n - SEKTOR ASAL: Pilih komoditas mentah dari sheet 'Daftar_Sektor'.\n - SEKTOR TUJUAN: Pilih industri pengolahan/layanan lokal penerima masukan.\n - PENAMBAHAN TRANSAKSI ANTARA (Î”Z): Isikan nominal tambahan transaksi dalam Juta Rupiah.\n - PERUBAHAN OUTPUT Î”X: Isikan penyesuaian target total output sektor asal (-) dan tujuan (+).", FALSE),
         c(11, "3. METODE RAS BALANCING", TRUE),
         c(12, "Skrip R akan membaca file ini dan mengeksekusi Biproportional Matrix Balancing (RAS Algorithm):\n - Mengalihkan nilai Z_ij secara presisi.\n - Menyesuaikan vektor margin u (row sum) dan v (col sum).\n - Melakukan iterasi hingga konvergen (Max Error < 1e-6).\n - Menghitung ulang Matriks Koefisien Teknis (A_new), Invers Leontief (L_new), Multipliers, dan Linkages.", FALSE),
         c(15, "4. CARA BACA DI SKRIP R", TRUE),
@@ -1331,7 +1421,7 @@ server <- function(input, output, session) {
     }
     
     message(sprintf(
-      "✓ Baseline loaded: %d sektor × %d tutupan lahan, %d periode",
+      "âœ“ Baseline loaded: %d sektor Ã— %d tutupan lahan, %d periode",
       nrow(baseline$P_default),
       ncol(baseline$P_default),
       ncol(baseline$area_matrix_bau)
@@ -1654,10 +1744,10 @@ server <- function(input, output, session) {
       Sektor         = lk$SECTOR,
       `ITBL Sebelum` = lk$ITBL_BEFORE,
       `ITBL Sesudah` = lk$ITBL_AFTER,
-      `ΔITBL`        = sprintf("%+.4f", lk$DELTA_ITBL),
+      `Î”ITBL`        = sprintf("%+.4f", lk$DELTA_ITBL),
       `ITFL Sebelum` = lk$ITFL_BEFORE,
       `ITFL Sesudah` = lk$ITFL_AFTER,
-      `ΔITFL`        = sprintf("%+.4f", lk$DELTA_ITFL),
+      `Î”ITFL`        = sprintf("%+.4f", lk$DELTA_ITFL),
       check.names = FALSE
     )
   }, digits = 4)
@@ -1708,14 +1798,14 @@ server <- function(input, output, session) {
     
     if (isTRUE(input$load_rds)) {
       if (is.null(input$descriptive_rds_file)) {
-        problems <- c(problems, "File .rds Analisis Deskriptif belum dipilih.")
+        problems <- c(problems, "Berkas RDS Analisis Deskriptif belum dipilih.")
       }
     } else if (is.null(input$io_output_file)) {
-      problems <- c(problems, "File IO Analysis Output belum dipilih.")
+      problems <- c(problems, "Berkas Hasil Analisis Input-Output Deskriptif belum dipilih.")
     }
     
     if (is.null(input$projection_area_file)) {
-      problems <- c(problems, "File proyeksi luas lahan BAU belum dipilih.")
+      problems <- c(problems, "Berkas Proyeksi Luas Lahan BAU belum dipilih.")
     }
     
     per <- tryCatch(periods(), error = function(e) NULL)

@@ -1930,3 +1930,121 @@ process_sc_ras_system <- function(df_input, Z_base, X_base, Labour_base, Wage_ba
     ras_diff          = ras_res$max_diff
   )
 }
+
+
+# ==============================================================================
+# UI HELP DICTIONARY & HELPER FUNCTIONS
+# ==============================================================================
+
+#' Regional Economic Projection UI Help Text Dictionary
+#'
+#' Named list of help dialog content (title + HTML body) for each input in the
+#' Regional Economic Projection Shiny module.
+#'
+#' @format A named list of lists with \code{title} and \code{body}.
+#' @export
+proj_help_texts <- list(
+  io_output_file = list(
+    title = "Hasil Analisis Input-Output Deskriptif",
+    body = "<p>Berkas spreadsheet Excel (.xlsx) hasil ekspor modul Analisis Deskriptif (misal <code>Hasil_Analisis_Modul_Deskriptif.xlsx</code> atau <code>IO_Analysis_Output.xlsx</code>).</p>
+            <p>Memuat seluruh sheet data dasar yang diperlukan: <code>GDP</code>, <code>Leontief_Matrix</code>, <code>Full_IO_Table</code>, <code>Land_Proportion</code>, <code>Multiplier_*</code>, <code>Linkage</code>, dan <code>Code_Registry</code>.</p>"
+  ),
+  descriptive_rds_file = list(
+    title = "RDS Analisis Deskriptif",
+    body = "<p>Berkas RDS hasil olahan modul Analisis Deskriptif (misal <code>descriptive_analysis_module_output.rds</code>).</p>
+            <p>Menyimpan seluruh objek matriks, koefisien, dan parameter baseline secara terkompresi. Penggunaan berkas RDS ini sangat disarankan untuk mempercepat pemrosesan data dasar tanpa perlu membaca ulang file Excel.</p>"
+  ),
+  projection_area_file = list(
+    title = "Proyeksi Luas Lahan BAU",
+    body = "<p>Berkas spreadsheet Excel (.xlsx) yang memuat proyeksi luas tutupan lahan untuk skenario dasar (<i>Business-As-Usual</i> / BAU).</p>
+            <p>Memiliki kolom <code>ID</code>, <code>LC</code> (nama tutupan lahan), serta kolom tahun proyeksi (misal <code>2025</code>, <code>2030</code>, <code>2035</code>, dst.). Tahun awal, tahun akhir, dan interval proyeksi akan dideteksi secara otomatis dari kolom-kolom tahun di berkas ini.</p>"
+  ),
+  population_file = list(
+    title = "Proyeksi Jumlah Penduduk",
+    body = "<p>Berkas tabel (.xlsx atau .csv) yang memuat proyeksi jumlah penduduk di wilayah studi sepanjang horizon proyeksi.</p>
+            <p>Wajib memiliki minimal dua kolom: <code>Tahun</code> dan <code>Populasi</code> (atau <code>Jumlah_Penduduk</code>). Digunakan untuk menghitung indikator per kapita (PDRB per kapita dan pendapatan tenaga kerja per kapita).</p>"
+  ),
+  has_scenario = list(
+    title = "Skenario Intervensi",
+    body = "<p>Tentukan apakah analisis proyeksi akan menerapkan skenario intervensi kebijakan atau hanya menghitung skenario dasar (BAU).</p>
+            <p>Jika memilih <b>Ya</b>, Anda dapat menentukan nama skenario dan menggabungkan satu atau lebih asumsi (Asumsi 1: Lahan, Asumsi 2: Produktivitas, Asumsi 3: Hilirisasi).</p>"
+  ),
+  scenario_name = list(
+    title = "Nama Skenario Intervensi",
+    body = "<p>Nama atau label deskriptif untuk skenario intervensi (misal <i>Skenario Pembangunan Rendah Karbon</i> atau <i>Skenario Hilirisasi Pertanian</i>).</p>
+            <p>Label ini akan ditampilkan pada judul grafik dinamika indikator, tabel perbandingan, dan laporan proyeksi.</p>"
+  ),
+  a1_land_file = list(
+    title = "Asumsi 1: Perubahan Lahan",
+    body = "<p>Berkas spreadsheet Excel (.xlsx) yang menyimulasikan dampak perubahan luas atau alokasi penggunaan lahan.</p>
+            <p>Sheet wajib: <code>luc_projection</code> (proyeksi luas tutupan lahan intervensi). Sheet opsional: <code>land_proportion</code> (proporsi alokasi tutupan lahan ke sektor ekonomi). Disarankan menggunakan tombol <b>Unduh Template Asumsi 1</b> untuk struktur kolom yang valid.</p>"
+  ),
+  a2_lpc_file = list(
+    title = "Asumsi 2: Peningkatan Produktivitas",
+    body = "<p>Berkas spreadsheet Excel (.xlsx) yang menyimulasikan peningkatan Koefisien Produktivitas Lahan (<i>Land Productivity Coefficient</i> / LPC) dari waktu ke waktu menuju target yang ditentukan.</p>
+            <p>Meningkatkan produktivitas output sektor berbasis lahan per hektare tanpa perlu memperluas area tutupan lahan. Disarankan menggunakan tombol <b>Unduh Template Asumsi 2</b>.</p>"
+  ),
+  a3_io_changes_file = list(
+    title = "Asumsi 3: Hilirisasi Industri",
+    body = "<p>Berkas spreadsheet Excel (.xlsx) yang menyimulasikan perubahan struktural tabel I-O akibat industri pengolahan hilir.</p>
+            <p>Memuat perubahan transaksi antar-sektor (&Delta;Z) dan perubahan output (&Delta;X). Keseimbangan tabel I-O baru akan dihitung secara otomatis menggunakan algoritma <b>RAS balancing</b>. Disarankan menggunakan tombol <b>Unduh Template Asumsi 3</b>.</p>"
+  ),
+  wd = list(
+    title = "Folder Output",
+    body = "<p>Direktori tempat seluruh hasil analisis proyeksi akan disimpan, meliputi:</p>
+            <ul>
+              <li>Laporan proyeksi interaktif dalam format HTML (<code>ta_regional2_report_*.html</code>)</li>
+              <li>Ekspor hasil proyeksi lengkap dalam buku kerja Excel multi-sheet (<code>Hasil_Proyeksi_Ekonomi_Regional.xlsx</code>)</li>
+              <li>Berkas data proyeksi untuk keperluan analisis lanjutan</li>
+            </ul>"
+  )
+)
+
+#' Clickable Help Icon for Regional Economic Projection UI
+#'
+#' @param id Help topic ID (matches a key in [proj_help_texts]).
+#' @return A `shiny.tag` containing an `actionLink` with a circle-question icon.
+#' @export
+proj_help_icon <- function(id) {
+  tags$span(
+    class = "alloc-help-icon",
+    actionLink(
+      inputId = paste0("proj_help_", id),
+      label   = NULL,
+      icon    = icon("circle-question")
+    )
+  )
+}
+
+#' Label With a Right-Aligned Help Icon
+#'
+#' @param text Label text.
+#' @param help_id Help topic ID.
+#' @return A `shiny.tag` combining the label and a help icon.
+#' @export
+label_with_help <- function(text, help_id) {
+  tags$div(
+    class = "alloc-label",
+    tags$span(text),
+    proj_help_icon(help_id)
+  )
+}
+
+#' Directory-Picker Button With an Inline Help Icon
+#'
+#' @param id Shiny input ID.
+#' @param label Button label.
+#' @param title Button title tooltip.
+#' @param help_id Help topic ID.
+#' @return A `shiny.tag` containing a directory-picker button and help icon.
+#' @export
+dir_button_with_help <- function(id, label, title, help_id) {
+  tags$div(
+    class = "dir-btn-wrapper",
+    shinyDirButton(id, label, title),
+    tags$div(
+      class = "dir-help-overlay",
+      proj_help_icon(help_id)
+    )
+  )
+}
