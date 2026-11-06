@@ -324,26 +324,39 @@ gdp_constrained   <- sum(gdp_baseline$GDP[is_constrained], na.rm = TRUE)
 gdp_unconstrained <- sum(gdp_baseline$GDP[!is_constrained], na.rm = TRUE)
 
 # 3. Tampilkan dalam 3 Value Box menggunakan format_dinamis()
-layout_columns(
-  col_widths = c(4, 4, 4),
-  value_box(
-    title = tags$div(style = "font-size:14px; font-weight:600;", "Total PDRB Seluruh Sektor"),
-    value = tags$div(style = "font-size:20px; font-weight:700;", paste0("Rp ", format_dinamis(total_gdp))),
-    theme = "bg-primary text-dark"
+tags$div(
+  style = "display: flex; flex-direction: row; gap: 15px; width: 100%; margin-bottom: 30px;",
+  
+  # Card 1
+  tags$div(style = "flex: 1;", 
+    value_box(
+      title = tags$div(style = "font-size:14px; font-weight:600;", "Total PDRB Seluruh Sektor"),
+      value = tags$div(style = "font-size:20px; font-weight:700;", paste0("Rp ", format_dinamis(total_gdp))),
+      theme = "bg-primary text-dark"
+    )
   ),
-  value_box(
-    title = tags$div(style = "font-size:14px; font-weight:600;", "Total PDRB Sektor Lahan"),
-    value = tags$div(style = "font-size:20px; font-weight:700;", paste0("Rp ", format_dinamis(gdp_constrained))),
-    theme = "bg-success text-dark" 
+  
+  # Card 2
+  tags$div(style = "flex: 1;",
+    value_box(
+      title = tags$div(style = "font-size:14px; font-weight:600;", "Total PDRB Sektor Lahan"),
+      value = tags$div(style = "font-size:20px; font-weight:700;", paste0("Rp ", format_dinamis(gdp_constrained))),
+      theme = "bg-success text-dark" 
+    )
   ),
-  value_box(
-    title = tags$div(style = "font-size:14px; font-weight:600;", "Total PDRB Sektor Non-Lahan"),
-    value = tags$div(style = "font-size:20px; font-weight:700;", paste0("Rp ", format_dinamis(gdp_unconstrained))),
-    theme = "bg-warning text-dark" 
+  
+  # Card 3
+  tags$div(style = "flex: 1;",
+    value_box(
+      title = tags$div(style = "font-size:14px; font-weight:600;", "Total PDRB Sektor Non-Lahan"),
+      value = tags$div(style = "font-size:20px; font-weight:700;", paste0("Rp ", format_dinamis(gdp_unconstrained))),
+      theme = "bg-warning text-dark" 
+    )
   )
 )
 
-tags$div(style = "height:30px;")
+# Jarak bawah (bisa diganti dengan margin-bottom di div atas)
+# tags$div(style = "height:30px;")
 ```
 
 ```{r, contribution-table, echo=FALSE, warning=FALSE, message=FALSE}
@@ -616,6 +629,16 @@ DT::datatable(
 ```
 
 # Referensi
+
+- Dewi, S., Mulia, R., Johana, F., Ekadinata, A. and van Noordwijk, M., 2023. Integrating relational and instrumental values of nature in planning land use for multiple ecosystem services (LUMENS): tools and process. Current Opinion in Environmental Sustainability, 64, p.101333.
+
+- Dewi, S., Ekadinata, A., Indiarto, D., Nugraha, A. and van Noordwijk, M., 2015. Negotiation support tools to enhance multifunctioning landscapes. Climate-smart landscapes: multifunctionality in practice. World Agroforestry Centre (ICRAF), Nairobi, Kenya, pp.243-255.
+
+- Mulia, R., Hoan, D.T., Pham, V.T., Nguyen, T.Q., Dewi, S., Ekadinata, A., Dwiputra, A., Nugraha, A., Johana, F., Nguyen, K.Q. and Nguyen, D.K.T., 2019. Green Growth Action Plan for Lam Dong Province for the Period of 2021–2030, Vision to 2050. World Agroforestry (ICRAF): Hanoi, Vietnam.
+
+- Dewi, S., Ekadinata, A., Indiarto, D., Nugraha, A. and van Noordwijk, M., 2015. Negotiation support tools to enhance multifunctioning landscapes. Climate-smart landscapes: multifunctionality in practice. World Agroforestry Centre (ICRAF), Nairobi, Kenya, pp.243-255.
+
+- Minang, P.A., van Noordwijk, M., Freeman, O.E., Mbow, C., de Leeuw, J. and Catacutan, D. eds., 2014. Climate-smart landscapes: multifunctionality in practice. ASB Partnership for The Tropical Forest margins.
 
 ------------------------------------------------------------------------
 
