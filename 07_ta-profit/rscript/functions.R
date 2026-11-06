@@ -1708,3 +1708,154 @@ generate_scenario_report_params <- function(data, paths, times, output_dir, curr
     pu_area = data$pu_area
   )
 }
+
+
+# ==============================================================================
+# UI HELP DICTIONARY & HELPER FUNCTIONS
+# ==============================================================================
+
+#' Profitability Analysis UI Help Text Dictionary
+#'
+#' Named list of help dialog content (title + HTML body) for each input in the
+#' Profitability Analysis Shiny module.
+#'
+#' @format A named list of lists with \code{title} and \code{body}.
+#' @export
+profit_help_texts <- list(
+  analysis_mode = list(
+    title = "Pilih Jenis Analisis",
+    body = "<p>Pilih mode analisis profitabilitas yang akan dijalankan:</p>
+            <ul>
+              <li><b>Analisis Historis:</b> Menganalisis perubahan tutupan lahan berbasis spasial antara dua titik waktu (T1 dan T2), menghitung perubahan profitabilitas (&Delta;EAE), emisi/sekuestrasi karbon, serta kurva biaya peluang (<i>abatement cost curve</i>).</li>
+              <li><b>Komparasi Skenario:</b> Membandingkan proyeksi keuntungan ekonomi antara skenario <i>Business As Usual</i> (BAU) dan skenario intervensi berdasarkan tabel data proyeksi Excel multi-sheet.</li>
+            </ul>"
+  ),
+  lulc_t1 = list(
+    title = "Peta Tutupan Lahan Awal",
+    body = "<p>Berkas raster kategorikal GeoTIFF (.tif) yang merepresentasikan kelas tutupan/penggunaan lahan pada tahun awal (T1).</p>
+            <p>Sistem koordinat harus berupa proyeksi (misalnya UTM), dan nilai integer piksel harus bersesuaian dengan ID kelas pada tabel referensi EAE dan tabel cadangan karbon.</p>"
+  ),
+  year1 = list(
+    title = "Tahun Awal",
+    body = "<p>Tahun kalender pengamatan peta tutupan lahan awal (T1), misalnya <code>1990</code>.</p>
+            <p>Digunakan untuk menentukan selang waktu periode analisis perubahan lahan.</p>"
+  ),
+  lulc_t2 = list(
+    title = "Peta Tutupan Lahan Akhir",
+    body = "<p>Berkas raster kategorikal GeoTIFF (.tif) yang merepresentasikan kelas tutupan/penggunaan lahan pada tahun akhir (T2).</p>
+            <p>Wajib memiliki batas spasial (<i>extent</i>), resolusi ukuran piksel, dan sistem koordinat yang sama persis dengan peta T1.</p>"
+  ),
+  year2 = list(
+    title = "Tahun Akhir",
+    body = "<p>Tahun kalender pengamatan peta tutupan lahan akhir (T2), misalnya <code>2000</code>.</p>
+            <p>Nilai tahun akhir (T2) harus lebih besar daripada tahun awal (T1).</p>"
+  ),
+  scenario_excel = list(
+    title = "Data Proyeksi Skenario",
+    body = "<p>Berkas spreadsheet Excel (.xlsx) multi-sheet yang memuat proyeksi luasan dan nilai EAE untuk skenario BAU dan Intervensi.</p>
+            <p>Format berkas harus memiliki 6 sheet: <code>Luas BAU</code>, <code>Luas Intervensi</code>, <code>EAE BAU</code>, <code>EAE Intervensi</code>, <code>Persentase BAU</code>, dan <code>Persentase Intervensi</code>.</p>"
+  ),
+  pu_type = list(
+    title = "Tipe Peta Unit Perencanaan",
+    body = "<p>Pilih format data batas unit perencanaan/wilayah analisis:</p>
+            <ul>
+              <li><b>Raster (.tif):</b> Menggunakan peta raster kategorikal integer yang didampingi dengan tabel lookup nama unit.</li>
+              <li><b>Vektor (.shp):</b> Menggunakan berkas poligon ESRI Shapefile yang mendelineasi batas-batas zona/wilayah.</li>
+            </ul>"
+  ),
+  pu_raster = list(
+    title = "Peta Unit Perencanaan",
+    body = "<p>Berkas raster kategorikal GeoTIFF (.tif) di mana setiap nilai piksel mewakili ID integer unik unit perencanaan (misalnya batas administrasi kabupaten/kecamatan atau daerah aliran sungai).</p>"
+  ),
+  pu_table = list(
+    title = "Tabel Referensi Unit Perencanaan",
+    body = "<p>Berkas tabel (.csv, .xlsx, atau .xls) yang memetakan ID unit perencanaan ke nama deskriptif unit perencanaan.</p>
+            <p>Kolom pertama berisi ID numerik unit dan kolom kedua berisi nama unit perencanaan.</p>"
+  ),
+  pu_vector = list(
+    title = "Peta Unit Perencanaan",
+    body = "<p>Berkas ESRI Shapefile poligon pembagi unit perencanaan wilayah.</p>
+            <p>Unggah seluruh komponen berkas secara bersamaan: <code>.shp</code>, <code>.shx</code>, <code>.dbf</code>, dan <code>.prj</code>.</p>"
+  ),
+  npv_table = list(
+    title = "Tabel Equal Annual Equivalent (EAE)",
+    body = "<p>Berkas tabel (.csv, .xlsx, atau .xls) yang memuat nilai keuntungan bersih tahunan yang setara (<i>Equal Annual Equivalent</i>) per hektare (mata uang/ha/tahun) untuk setiap kelas tutupan lahan.</p>
+            <p>Wajib memiliki kolom: <code>ID</code> (kode kelas tutupan lahan), <code>LC</code> (nama kelas tutupan lahan), dan <code>EAE</code> (nilai EAE terdiskonto).</p>"
+  ),
+  cstock_table = list(
+    title = "Tabel Referensi Cadangan Karbon (Opsional)",
+    body = "<p>Berkas tabel (.csv, .xlsx, atau .xls) yang berisi nilai rata-rata cadangan/stok karbon per kelas tutupan lahan dalam satuan ton C/ha.</p>
+            <p>Tiga kolom pertama harus berupa ID kelas, nama kelas, dan nilai stok karbon. Bersifat opsional, namun wajib disediakan jika Anda ingin menghasilkan kurva biaya peluang pengurangan emisi (<i>abatement cost curve</i>).</p>"
+  ),
+  npv_table_year = list(
+    title = "Tahun Acuan Tabel EAE",
+    body = "<p>Menentukan tahun acuan nilai moneter yang digunakan dalam tabel EAE:</p>
+            <ul>
+              <li><b>T1:</b> Nilai EAE dihitung atau mengacu pada tahun awal analisis.</li>
+              <li><b>T2:</b> Nilai EAE mengacu pada tahun akhir analisis.</li>
+              <li><b>Lainnya:</b> Masukkan tahun survei/penyusunan tabel EAE secara manual jika berbeda dari T1 maupun T2.</li>
+            </ul>"
+  ),
+  currency = list(
+    title = "Pilih Mata Uang",
+    body = "<p>Satuan mata uang yang digunakan dalam tabel masukan EAE serta penyajian laporan ringkasan analisis (pilihan: <b>IDR</b> untuk Rupiah atau <b>USD</b> untuk Dolar Amerika Serikat).</p>"
+  ),
+  wd = list(
+    title = "Folder Output",
+    body = "<p>Direktori tempat seluruh hasil analisis akan disimpan, meliputi:</p>
+            <ul>
+              <li>Peta spasial sebaran nilai EAE (T1 dan T2) serta perubahannya (&Delta;EAE)</li>
+              <li>Tabel ringkasan data perubahan dan biaya pengurangan emisi</li>
+              <li>Laporan analisis komprehensif dalam format HTML interaktif</li>
+            </ul>"
+  )
+)
+
+#' Clickable Help Icon for Profitability UI
+#'
+#' @param id Help topic ID (matches a key in [profit_help_texts]).
+#' @return A `shiny.tag` containing an `actionLink` with a circle-question icon.
+#' @export
+profit_help_icon <- function(id) {
+  tags$span(
+    class = "alloc-help-icon",
+    actionLink(
+      inputId = paste0("profit_help_", id),
+      label   = NULL,
+      icon    = icon("circle-question")
+    )
+  )
+}
+
+#' Label With a Right-Aligned Help Icon
+#'
+#' @param text Label text.
+#' @param help_id Help topic ID.
+#' @return A `shiny.tag` combining the label and a help icon.
+#' @export
+label_with_help <- function(text, help_id) {
+  tags$div(
+    class = "alloc-label",
+    tags$span(text),
+    profit_help_icon(help_id)
+  )
+}
+
+#' Directory-Picker Button With an Inline Help Icon
+#'
+#' @param id Shiny input ID.
+#' @param label Button label.
+#' @param title Button title tooltip.
+#' @param help_id Help topic ID.
+#' @return A `shiny.tag` containing a directory-picker button and help icon.
+#' @export
+dir_button_with_help <- function(id, label, title, help_id) {
+  tags$div(
+    class = "dir-btn-wrapper",
+    shinyDirButton(id, label, title),
+    tags$div(
+      class = "dir-help-overlay",
+      profit_help_icon(help_id)
+    )
+  )
+}

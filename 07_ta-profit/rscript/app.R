@@ -86,10 +86,68 @@ ui <- fluidPage(
   titlePanel("Profitability Analysis"),
   sidebarLayout(
     sidebarPanel(
+      tags$head(
+        tags$style(HTML("
+      .alloc-label {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 4px;
+        width: 100%;
+      }
+      .alloc-info-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 6px;
+      }
+      .alloc-info-row .form-group {
+        margin-bottom: 0;
+        flex: 1;
+      }
+      .alloc-help-icon {
+        display: inline-flex;
+        align-items: center;
+        color: #0d6efd;
+        cursor: pointer;
+        flex-shrink: 0;
+        margin-top: 2px;
+        line-height: 1;
+      }
+      .alloc-help-icon a,
+      .alloc-help-icon .action-button {
+        color: inherit !important;
+        text-decoration: none !important;
+        background: none !important;
+        border: none !important;
+        padding: 0 !important;
+        cursor: pointer !important;
+      }
+      .alloc-help-icon:hover,
+      .alloc-help-icon:hover a {
+        color: #0a58ca !important;
+      }
+      .dir-btn-wrapper {
+        position: relative;
+        width: 100%;
+      }
+      .dir-btn-wrapper .btn {
+        width: 100%;
+        text-align: center;
+      }
+      .dir-help-overlay {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        z-index: 10;
+      }
+        "))
+      ),
       # --- TAMBAHAN BARU: Pilihan Mode Analisis ---
       radioButtons(
         "analysis_mode",
-        "Pilih Jenis Analisis:",
+        label = label_with_help("Pilih Jenis Analisis", "analysis_mode"),
         choices = c("Analisis Historis" = "historis", 
                     "Komparasi Skenario" = "komparasi"),
         selected = "historis"
@@ -101,18 +159,18 @@ ui <- fluidPage(
         condition = "input.analysis_mode == 'historis'",
         fileInput(
           "lulc_t1",
-          "Land cover map at T1",
+          label = label_with_help("Peta Tutupan Lahan Awal", "lulc_t1"),
           accept = c("image/tiff", ".tif"),
-          placeholder = "Upload the .tif LULC file for T1"
+          placeholder = "Unggah berkas raster (.tif)"
         ),
-        textInput("year1", "Year of T1", value = "1990"),
+        textInput("year1", label = label_with_help("Tahun Awal", "year1"), value = "1990"),
         fileInput(
           "lulc_t2",
-          "Land cover map at T2",
+          label = label_with_help("Peta Tutupan Lahan Akhir", "lulc_t2"),
           accept = c("image/tiff", ".tif"),
-          placeholder = "Upload the .tif LULC file for T2"
+          placeholder = "Unggah berkas raster (.tif)"
         ),
-        textInput("year2", "Year of T2", value = "2000")
+        textInput("year2", label = label_with_help("Tahun Akhir", "year2"), value = "2000")
       ),
       
       # --- BLOK KOMPARASI SKENARIO ---
@@ -120,17 +178,17 @@ ui <- fluidPage(
         condition = "input.analysis_mode == 'komparasi'",
         fileInput(
           "scenario_excel",
-          "Upload Data Proyeksi Skenario (.xlsx)",
+          label = label_with_help("Data Proyeksi Skenario", "scenario_excel"),
           accept = c(".xlsx", ".xls"),
-          placeholder = "Upload Excel with 6 sheets (Luas BAU/Int, EAE BAU/Int, Pct BAU/Int)"
+          placeholder = "Unggah berkas spreadsheet (.xlsx)"
         )
       ),
       
       tags$hr(),
       radioButtons(
         "pu_type",
-        "Planning Unit input type:",
-        choices = c("Raster (.tif)" = "raster", "Vector (.shp)" = "vector"),
+        label = label_with_help("Tipe Peta Unit Perencanaan", "pu_type"),
+        choices = c("Raster (.tif)" = "raster", "Vektor (.shp)" = "vector"),
         selected = "raster",
         inline = TRUE
       ),
@@ -139,16 +197,16 @@ ui <- fluidPage(
         condition = "input.pu_type == 'raster'",
         fileInput(
           "pu_raster",
-          "Planning Unit Raster",
+          label = label_with_help("Peta Unit Perencanaan", "pu_raster"),
           accept = c("image/tiff", ".tif", ".tiff"),
-          placeholder = "Upload the .tif Planning Unit raster"
+          placeholder = "Unggah berkas raster (.tif)"
         ),
         # Lookup PU hanya untuk raster
         fileInput(
           "pu_table",
-          "Planning Unit lookup table",
+          label = label_with_help("Tabel Referensi Unit Perencanaan", "pu_table"),
           accept = c(".csv", ".xlsx", ".xls"),
-          placeholder = "Upload the PU lookup table (.csv, .xlsx, or .xls)"
+          placeholder = "Unggah berkas tabel (.csv, .xlsx)"
         )
       ),
       
@@ -156,10 +214,10 @@ ui <- fluidPage(
         condition = "input.pu_type == 'vector'",
         fileInput(
           "pu_vector",
-          "Planning Unit Shapefile",
+          label = label_with_help("Peta Unit Perencanaan", "pu_vector"),
           accept = c(".shp", ".dbf", ".prj", ".shx"),
           multiple = TRUE,
-          placeholder = "Upload the .shp, .dbf, .prj, and .shx files together"
+          placeholder = "Unggah berkas shapefile (.shp, .dbf, .prj, .shx)"
         )
       ),
       
@@ -168,23 +226,23 @@ ui <- fluidPage(
         condition = "input.analysis_mode == 'historis'",
         fileInput(
           "npv_table",
-          "EAE lookup table",
+          label = label_with_help("Tabel Equal Annual Equivalent (EAE)", "npv_table"),
           accept = c(".csv", ".xlsx", ".xls"),
-          placeholder = "Upload the EAE table"
+          placeholder = "Unggah berkas tabel (.csv, .xlsx)"
         ),
         
         fileInput(
           "cstock_table",
-          "Carbon lookup table (Opsional)",
+          label = label_with_help("Tabel Referensi Cadangan Karbon (Opsional)", "cstock_table"),
           accept = c(".csv", ".xlsx", ".xls"),
-          placeholder = "Upload the carbon stock table (Optional)"
+          placeholder = "Unggah berkas tabel (.csv, .xlsx)"
         )
       ),
       
       selectInput(
         inputId = "npv_table_year",
-        label = "Which year does your EAE table use?",
-        choices = c("T1", "T2", "Others"),
+        label = label_with_help("Tahun Acuan Tabel EAE", "npv_table_year"),
+        choices = c("T1" = "T1", "T2" = "T2", "Lainnya" = "Others"),
         selected = "T1"
       ),
       
@@ -200,13 +258,13 @@ ui <- fluidPage(
       
       selectInput(
         inputId = "currency",
-        label = "Select a Currency:",
+        label = label_with_help("Pilih Mata Uang", "currency"),
         choices = c("IDR", "USD"),
         selected = "IDR"
       ),
       # Directory selector and control buttons
       div(style = "display: flex; flex-direction: column; gap: 10px;",
-          shinyDirButton("wd", "Select Output Directory", "Please select a directory"),
+          dir_button_with_help("wd", "Pilih Folder Output", "Silakan pilih direktori output", "wd"),
           textOutput("selected_directory"),
           actionButton("process", "Run Analysis",
                        style = "font-size: 18px; padding: 10px 15px; background-color: #4CAF50; color: white;"),
@@ -311,8 +369,22 @@ server <- function(input, output, session) {
     if(length(rv$wd) == 0) {
       return()
     } else {
-      paste0("Selected output directory: ",  rv$wd)
+      paste0("Folder output terpilih: ",  rv$wd)
     }
+  })
+  
+  #### Click-to-open help modals ####
+  lapply(names(profit_help_texts), function(id) {
+    observeEvent(input[[paste0("profit_help_", id)]], {
+      info <- profit_help_texts[[id]]
+      showModal(modalDialog(
+        title = tagList(icon("circle-info"), " ", info$title),
+        HTML(info$body),
+        easyClose = TRUE,
+        footer = modalButton("Tutup"),
+        size = "m"
+      ))
+    })
   })
   
   #' @section Render User Guide:
@@ -390,33 +462,33 @@ server <- function(input, output, session) {
       years <- suppressWarnings(as.numeric(c(input$year1, input$year2)))
       validate(
         need(length(years) == 2 && all(is.finite(years)) && years[2] > years[1],
-             "Enter valid years with T2 later than T1."),
-        need(rv$lulc_t1, "Please upload Land Use/Cover T1 file"),
-        need(rv$lulc_t2, "Please upload Land Use/Cover T2 file"),
-        need(rv$npv_table, "Please upload EAE Lookup Table")
+             "Masukkan tahun yang valid dengan Tahun Akhir (T2) lebih besar dari Tahun Awal (T1)."),
+        need(rv$lulc_t1, "Silakan unggah berkas Peta Tutupan Lahan Awal"),
+        need(rv$lulc_t2, "Silakan unggah berkas Peta Tutupan Lahan Akhir"),
+        need(rv$npv_table, "Silakan unggah berkas Tabel Equal Annual Equivalent (EAE)")
       )
     } else {
       validate(
-        need(input$scenario_excel, "Please upload Scenario Excel file")
+        need(input$scenario_excel, "Silakan unggah berkas Data Proyeksi Skenario")
       )
     }
     
     # Validasi PU & Output Directory
     if (input$pu_type == "raster") {
       validate(
-        need(rv$pu_raster, "Please upload Planning Unit Raster"),
-        need(rv$pu_table, "Please upload PU Lookup Table")
+        need(rv$pu_raster, "Silakan unggah berkas Peta Unit Perencanaan (Raster)"),
+        need(rv$pu_table, "Silakan unggah berkas Tabel Referensi Unit Perencanaan")
       )
     } else {
       validate(
-        need(rv$pu_vector, "Please upload Planning Unit Shapefile"),
-        need(length(rv$pu_vector$datapath) >= 4, "Shapefile requires 4 files")
+        need(rv$pu_vector, "Silakan unggah berkas Peta Unit Perencanaan (Shapefile)"),
+        need(length(rv$pu_vector$datapath) >= 4, "Shapefile memerlukan 4 berkas komponen (.shp, .dbf, .prj, .shx)")
       )
     }
     
     validate(
-      need(rv$currency, "Please select your currency"),
-      need(rv$wd != "", "Please select an output directory")
+      need(rv$currency, "Silakan pilih satuan mata uang"),
+      need(rv$wd != "", "Silakan pilih direktori folder output")
     )
     TRUE
   })
