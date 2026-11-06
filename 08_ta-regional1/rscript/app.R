@@ -48,15 +48,74 @@ ui <- fluidPage(
   
   sidebarLayout(
     sidebarPanel(
+      tags$head(
+        tags$style(HTML("
+      .alloc-label {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 4px;
+        width: 100%;
+      }
+      .alloc-info-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 6px;
+      }
+      .alloc-info-row .form-group {
+        margin-bottom: 0;
+        flex: 1;
+      }
+      .alloc-help-icon {
+        display: inline-flex;
+        align-items: center;
+        color: #0d6efd;
+        cursor: pointer;
+        flex-shrink: 0;
+        margin-top: 2px;
+        line-height: 1;
+      }
+      .alloc-help-icon a,
+      .alloc-help-icon .action-button {
+        color: inherit !important;
+        text-decoration: none !important;
+        background: none !important;
+        border: none !important;
+        padding: 0 !important;
+        cursor: pointer !important;
+      }
+      .alloc-help-icon:hover,
+      .alloc-help-icon:hover a {
+        color: #0a58ca !important;
+      }
+      .dir-btn-wrapper {
+        position: relative;
+        width: 100%;
+      }
+      .dir-btn-wrapper .btn {
+        width: 100%;
+        text-align: center;
+      }
+      .dir-help-overlay {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        z-index: 10;
+      }
+        "))
+      ),
       # --- Opsi: Load dari RDS preprocessing (opsional) ---
       checkboxInput(
         "load_rds",
         tagList(
           "Muat dari RDS praproses (lewati pembacaan Excel)",
           tooltip(
-            # Ikon question-circle: merah + bold
-            bsicons::bs_icon(
-              "question-circle-fill"),
+            tags$span(
+              class = "alloc-help-icon",
+              icon("circle-question")
+            ),
             HTML(
               "<b>Apa itu RDS?</b><br>",
               "RDS adalah format file dari R (R Data Serialized) yang menyimpan ",
@@ -118,22 +177,27 @@ ui <- fluidPage(
         condition = "input.load_rds == true",
         fileInput(
           "preprocessing_rds_file",
-          "Preprocessing RDS (.rds)",
-          accept = c(".rds")
+          label = label_with_help("Preprocessing RDS", "preprocessing_rds_file"),
+          accept = c(".rds"),
+          placeholder = "Unggah berkas preprocessing (.rds)"
         ),
-        checkboxInput(
-          "new_lc_area",
-          "Perbarui luas tutupan lahan dari berkas baru",
-          value = FALSE
+        tags$div(
+          class = "alloc-info-row",
+          checkboxInput(
+            "new_lc_area",
+            "Pembaharuan Luas Tutupan Lahan",
+            value = FALSE
+          ),
+          regeco_help_icon("new_lc_area")
         ),
         # Land Use Lookup Table hanya muncul jika new_lc_area dicentang
         conditionalPanel(
           condition = "input.new_lc_area == true",
           fileInput(
             "landuse_table_file",
-            "Land Use Lookup Table (.xlsx)",
+            label = label_with_help("Tabel Referensi Penutup Lahan", "landuse_table_file_rds"),
             accept = c(".xlsx", ".xls"),
-            placeholder = "Pilih file Excel lookup table"
+            placeholder = "Unggah berkas tabel (.xlsx)"
           )
         )
       ),
@@ -146,16 +210,16 @@ ui <- fluidPage(
         # Input IO Excel
         fileInput(
           "io_file",
-          "Input-Output File (.xlsx)",
+          label = label_with_help("Tabel Input/Output", "io_file"),
           accept = c(".xlsx", ".xls"),
-          placeholder = "Pilih file Excel IO (multi-sheet)"
+          placeholder = "Unggah berkas tabel (.xlsx)"
         ),
         # Input Land Use Lookup Table
         fileInput(
           "landuse_table_file",
-          "Land Use Lookup Table (.xlsx)",
+          label = label_with_help("Tabel Referensi Penutup Lahan", "landuse_table_file"),
           accept = c(".xlsx", ".xls"),
-          placeholder = "Pilih file Excel lookup table"
+          placeholder = "Unggah berkas tabel (.xlsx)"
         )
       ),
       
@@ -168,7 +232,7 @@ ui <- fluidPage(
       
       # --- Output directory ---
       div(style = "display: flex; flex-direction: column; gap: 10px;",
-          shinyDirButton("wd", "Select Output Directory", "Please select a directory"),
+          dir_button_with_help("wd", "Pilih Folder Output", "Silakan pilih direktori output", "wd"),
           textOutput("selected_directory"),
           actionButton("processTAReg1", "Run Analysis",
                        style = "font-size: 18px; padding: 10px 15px; background-color: #4CAF50; color: white;"),
@@ -219,7 +283,21 @@ server <- function(input, output, session) {
   output$selected_directory <- renderText({
     rv$wd <- parseDirPath(volumes, input$wd)
     if (length(rv$wd) == 0) return()
-    paste0("Selected output directory: ", rv$wd)
+    paste0("Folder output terpilih: ", rv$wd)
+  })
+  
+  #### Click-to-open help modals ####
+  lapply(names(regeco_help_texts), function(id) {
+    observeEvent(input[[paste0("regeco_help_", id)]], {
+      info <- regeco_help_texts[[id]]
+      showModal(modalDialog(
+        title = tagList(icon("circle-info"), " ", info$title),
+        HTML(info$body),
+        easyClose = TRUE,
+        footer = modalButton("Tutup"),
+        size = "m"
+      ))
+    })
   })
   
   # --- User guide ---
@@ -302,24 +380,24 @@ server <- function(input, output, session) {
     missing_inputs <- c()
     
     if (!rv$load_rds) {
-      if (is.null(input$io_file))            missing_inputs <- c(missing_inputs, "IO File (.xlsx)")
-      if (is.null(input$landuse_table_file)) missing_inputs <- c(missing_inputs, "Land Use Lookup Table (.xlsx)")
+      if (is.null(input$io_file))            missing_inputs <- c(missing_inputs, "Tabel Input/Output")
+      if (is.null(input$landuse_table_file)) missing_inputs <- c(missing_inputs, "Tabel Referensi Penutup Lahan")
     } else {
       if (is.null(input$preprocessing_rds_file)) {
-        missing_inputs <- c(missing_inputs, "Preprocessing RDS (.rds)")
+        missing_inputs <- c(missing_inputs, "Preprocessing RDS")
       }
       if (rv$new_lc_area && is.null(input$landuse_table_file)) {
-        missing_inputs <- c(missing_inputs, "Land Use Lookup Table (.xlsx)")
+        missing_inputs <- c(missing_inputs, "Tabel Referensi Penutup Lahan")
       }
     }
     
     if (is.null(rv$wd) || rv$wd == "") {
-      missing_inputs <- c(missing_inputs, "Output Directory")
+      missing_inputs <- c(missing_inputs, "Folder Output")
     }
     
     if (length(missing_inputs) > 0) {
       showNotification(
-        paste("Please upload the following inputs:",
+        paste("Silakan lengkapi input berikut:",
               paste(missing_inputs, collapse = ", ")),
         type = "error"
       )

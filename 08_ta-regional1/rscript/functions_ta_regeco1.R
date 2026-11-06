@@ -2647,3 +2647,112 @@ export_metadata_txt <- function(io_metadata, output_path) {
   
   invisible(output_path)
 }
+
+
+# ==============================================================================
+# UI HELP DICTIONARY & HELPER FUNCTIONS
+# ==============================================================================
+
+#' Regional Economic Descriptive UI Help Text Dictionary
+#'
+#' Named list of help dialog content (title + HTML body) for each input in the
+#' Regional Economic Descriptive Analysis Shiny module.
+#'
+#' @format A named list of lists with \code{title} and \code{body}.
+#' @export
+regeco_help_texts <- list(
+  io_file = list(
+    title = "Tabel Input/Output",
+    body = "<p>Berkas spreadsheet Excel (.xlsx) multi-sheet yang memuat tabel Input-Output regional serta data pendukung analisis.</p>
+            <p>Struktur sheet yang diperlukan:</p>
+            <ul>
+              <li><code>0. Profil Data</code>: Wilayah, tahun acuan, satuan mata uang, dan sumber data IO.</li>
+              <li><code>1. Sektor Ekonomi</code>: Daftar nama sektor, kategori agregasi, dan status sektor berbasis lahan.</li>
+              <li><code>2. Permintaan Antara</code>: Matriks transaksi ekonomi antar sektor produksi.</li>
+              <li><code>3. Permintaan Akhir</code>: Transaksi konsumsi rumah tangga, pemerintah, ekspor, investasi, dll.</li>
+              <li><code>4. Input Primer</code>: Komponen nilai tambah bruto (upah/gaji, surplus usaha, pajak, subsidi).</li>
+              <li><code>5. Tenaga Kerja</code>: Jumlah tenaga kerja (jiwa) per sektor ekonomi.</li>
+              <li><code>6. Proposi Lahan</code>: Matriks alokasi proporsi tutupan lahan terhadap sektor ekonomi.</li>
+              <li><code>7. Laju Pertumbuhan PDRB</code>: Laju pertumbuhan ekonomi riil per sektor.</li>
+            </ul>"
+  ),
+  landuse_table_file = list(
+    title = "Tabel Referensi Penutup Lahan",
+    body = "<p>Berkas spreadsheet Excel (.xlsx) yang memuat data luas tutupan/penggunaan lahan (hektar) di wilayah studi.</p>
+            <p>Tabel ini menghubungkan kelas-kelas tutupan lahan dengan sektor ekonomi berbasis lahan untuk menganalisis produktivitas lahan dan koefisien kebutuhan lahan.</p>"
+  ),
+  landuse_table_file_rds = list(
+    title = "Tabel Referensi Penutup Lahan",
+    body = "<p>Berkas spreadsheet Excel (.xlsx) yang memuat data luas tutupan/penggunaan lahan (hektar) di wilayah studi.</p>
+            <p>Tabel ini menghubungkan kelas-kelas tutupan lahan dengan sektor ekonomi berbasis lahan untuk menganalisis produktivitas lahan dan koefisien kebutuhan lahan.</p>"
+  ),
+  preprocessing_rds_file = list(
+    title = "Preprocessing RDS",
+    body = "<p>Berkas <code>descriptive_input_preprocessing.rds</code> yang dihasilkan secara otomatis dari analisis deskriptif sebelumnya.</p>
+            <p>Menyimpan seluruh struktur tabel Input-Output, parameter profil, dan data pendukung yang sudah divalidasi ke dalam format R Data Serialized (RDS). Menggunakan berkas ini mempercepat proses karena data tidak perlu dibaca ulang dari Excel.</p>"
+  ),
+  new_lc_area = list(
+    title = "Pembaharuan Luas Tutupan Lahan",
+    body = "<p>Opsi untuk memperbarui data luas tutupan lahan dari berkas Excel baru saat menjalankan analisis menggunakan data praproses (RDS).</p>
+            <p>Aktifkan opsi ini apabila Anda memiliki data luas tutupan lahan tahun yang berbeda/terbaru, namun ingin tetap mempertahankan struktur tabel Input-Output dari berkas RDS.</p>"
+  ),
+  wd = list(
+    title = "Folder Output",
+    body = "<p>Direktori tempat seluruh hasil analisis akan disimpan, meliputi:</p>
+            <ul>
+              <li>Laporan analisis interaktif (<code>ta-regeco1_report_*.html</code>)</li>
+              <li>Buku kerja Excel hasil analisis (<code>Input-Output_Descriptive_Analysis.xlsx</code>)</li>
+              <li>Berkas data praproses (<code>descriptive_input_preprocessing.rds</code>) dan berkas siap modul proyeksi (<code>descriptive_analysis_module_output.rds</code>)</li>
+              <li>Ringkasan metadata masukan (<code>metadata_data_input.txt</code>)</li>
+            </ul>"
+  )
+)
+
+#' Clickable Help Icon for Regional Economic Descriptive UI
+#'
+#' @param id Help topic ID (matches a key in [regeco_help_texts]).
+#' @return A `shiny.tag` containing an `actionLink` with a circle-question icon.
+#' @export
+regeco_help_icon <- function(id) {
+  tags$span(
+    class = "alloc-help-icon",
+    actionLink(
+      inputId = paste0("regeco_help_", id),
+      label   = NULL,
+      icon    = icon("circle-question")
+    )
+  )
+}
+
+#' Label With a Right-Aligned Help Icon
+#'
+#' @param text Label text.
+#' @param help_id Help topic ID.
+#' @return A `shiny.tag` combining the label and a help icon.
+#' @export
+label_with_help <- function(text, help_id) {
+  tags$div(
+    class = "alloc-label",
+    tags$span(text),
+    regeco_help_icon(help_id)
+  )
+}
+
+#' Directory-Picker Button With an Inline Help Icon
+#'
+#' @param id Shiny input ID.
+#' @param label Button label.
+#' @param title Button title tooltip.
+#' @param help_id Help topic ID.
+#' @return A `shiny.tag` containing a directory-picker button and help icon.
+#' @export
+dir_button_with_help <- function(id, label, title, help_id) {
+  tags$div(
+    class = "dir-btn-wrapper",
+    shinyDirButton(id, label, title),
+    tags$div(
+      class = "dir-help-overlay",
+      regeco_help_icon(help_id)
+    )
+  )
+}
