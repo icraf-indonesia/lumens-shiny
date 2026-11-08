@@ -1174,6 +1174,7 @@ run_sciendo_train_process <- function(lc_t1_path, lc_t2_path, zone_path, lc_look
       pu_lookup = z_lookup_table,
       lc_t1_path = lc_t1_path,
       zone_path = zone_path,
+      time_points = time_points,
       lang = lang
     )
   }, error = function(e) {
@@ -1621,15 +1622,16 @@ add_period_pu_classes_to_pam <- function(output_dir, pu_classes, time_points, ov
 #'   output_dir = "path/to/output/directory",
 #'   template_path = "path/to/template.xlsm"
 #' )
-#' }
+#' @param time_points Optional list or data frame containing time points with element `t1` for initial year display.
+#' @param lang Language code: "id" for Bahasa Indonesia (default), "en" for English.
 #'
 #' @importFrom openxlsx2 wb_load wb_save wb_add_data wb_add_fill wb_add_font
-#' @importFrom openxlsx2 wb_add_border wb_add_numfmt
+#' @importFrom openxlsx2 wb_add_border wb_add_numfmt wb_add_formula
 #' @importFrom tidyr pivot_wider expand_grid
 #' @importFrom dplyr select mutate left_join arrange
 #' @importFrom tools file_path_sans_ext
 #' @export
-tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, template_path, pu_lookup = NULL, lc_t1_path = NULL, zone_path = NULL, lang = "id") {
+tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, template_path, pu_lookup = NULL, lc_t1_path = NULL, zone_path = NULL, time_points = NULL, lang = "id") {
   # Load required libraries
   if (!requireNamespace("openxlsx2", quietly = TRUE)) {
     stop("openxlsx2 package is required. Please install it with: install.packages('openxlsx2')")
@@ -1751,6 +1753,30 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, temp
     )
   }
   writeLines(bat_content, unblock_bat_path)
+  
+  # Determine Column A header for initial T1 area
+  t1_year <- NULL
+  if (!is.null(time_points)) {
+    t1_key <- grep("^t1$", names(time_points), ignore.case = TRUE, value = TRUE)
+    if (length(t1_key) > 0) {
+      val <- time_points[[t1_key[1]]]
+      if (!is.null(val) && !is.na(val) && nzchar(trimws(as.character(val)))) {
+        t1_year <- trimws(as.character(val))
+      }
+    } else if (is.numeric(time_points) && length(time_points) >= 1) {
+      t1_year <- as.character(time_points[1])
+    }
+  }
+  
+  col_a_header <- if (!is.null(t1_year)) {
+    if (lang == "id") paste0("Luas ", t1_year, " (ha)") else paste0(t1_year, " Area (ha)")
+  } else {
+    if (lang == "id") "Luas T1 (ha)" else "T1 Area (ha)"
+  }
+  
+  base_label  <- if (lang == "id") "Luas Baseline Tahun Proyeksi (ha)" else "Baseline Projected Years Area (ha)"
+  scen_label  <- if (lang == "id") "Luas Skenario Tahun Proyeksi (ha)" else "Scenario Projected Years Area (ha)"
+  delta_label <- if (lang == "id") "Perubahan Bersih (ha)" else "Net Change (ha)"
   
   message("Consolidated scenario macro will be saved to: ", output_file)
   
@@ -1881,14 +1907,27 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, temp
     n_rows <- nrow(result_matrix)
     n_cols <- ncol(result_matrix)
     
+    # Determine initial empirical class area in hectares for each class row
+    col_a_vals <- numeric(n_rows)
+    for (ri in 1:n_rows) {
+      from_id <- row_ids[ri]
+      area_key <- paste0(pu_id, "_", from_id)
+      col_a_vals[ri] <- if (area_key %in% names(pu_class_areas)) {
+        pu_class_areas[[area_key]]
+      } else if (length(pu_class_areas) > 0) {
+        0.00
+      } else {
+        1000.00
+      }
+    }
+    
     # Build active transitions intervention panel (Row 6 headers, Row 7+ data)
     active_records <- list()
     for (ri in 1:n_rows) {
       for (ci in 1:n_cols) {
         if (ri != ci && result_matrix[ri, ci] > 0.000001) {
           from_id <- row_ids[ri]
-          area_key <- paste0(pu_id, "_", from_id)
-          init_class_area <- if (area_key %in% names(pu_class_areas)) pu_class_areas[[area_key]] else 1000.00
+          init_class_area <- col_a_vals[ri]
           base_rate <- round(result_matrix[ri, ci], 6)
           base_area <- round(init_class_area * base_rate, 2)
           
@@ -1973,6 +2012,7 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, temp
     mat_end_col <- 2 + n_cols
     mat_sum_col <- mat_end_col + 1
     panel_col <- mat_sum_col + 2
+    base_sheet_name <- substr(paste0("_Base_", sheet_name), 1, 31)
     
     pu_box_end_col <- panel_col + 7
     pu_box_range <- paste0("B3:", openxlsx2::int2col(pu_box_end_col), "4")
@@ -1986,14 +2026,24 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, temp
     mat_from_to <- if (lang == "id") "Dari / Ke" else "From \\ To"
     mat_gt      <- if (lang == "id") "Total Baris" else "Grand Total"
     matrix_header <- c(mat_from_to, col_labels, mat_gt)
+    
+    # Column A Header (cell A6)
+    wb$add_data(sheet = sheet_name, x = col_a_header, start_col = 1, start_row = 6)
     wb$add_data(sheet = sheet_name, x = as.data.frame(t(matrix_header)), start_col = 2, start_row = 6, col_names = FALSE)
     
-    # Style Matrix Header row (B6 to end of matrix)
-    hdr_range <- paste0("B6:", openxlsx2::int2col(mat_sum_col), "6")
+    # Style Matrix Header row (A6 to end of matrix)
+    hdr_range <- paste0("A6:", openxlsx2::int2col(mat_sum_col), "6")
     wb$add_fill(sheet = sheet_name, dims = hdr_range, color = openxlsx2::wb_color(hex = "1E3A8A")) # Dark navy
     wb$add_font(sheet = sheet_name, dims = hdr_range, color = openxlsx2::wb_color("white"), bold = TRUE)
     
     # 3. Transition Matrix Data (Rows 7 to 6 + n_rows)
+    # Column A Data (cells A7:A<6 + n_rows>) - Initial class area in ha
+    wb$add_data(sheet = sheet_name, x = as.data.frame(col_a_vals), start_col = 1, start_row = 7, col_names = FALSE)
+    col_a_range <- paste0("A7:A", 6 + n_rows)
+    wb$add_fill(sheet = sheet_name, dims = col_a_range, color = openxlsx2::wb_color(hex = "F1F5F9")) # Light slate
+    wb$add_font(sheet = sheet_name, dims = col_a_range, bold = TRUE)
+    wb$add_numfmt(sheet = sheet_name, dims = col_a_range, numfmt = "#,##0.00")
+    
     mat_data_df <- as.data.frame(result_matrix)
     mat_data_df <- cbind(Row_Label = row_labels, mat_data_df)
     
@@ -2035,6 +2085,72 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, temp
       }
     }
     
+    # 3b. Blank separator row and 3 Bottom Summary Rows
+    last_mat_row  <- 6 + n_rows
+    blank_row     <- last_mat_row + 1
+    base_sum_row  <- blank_row + 1
+    scen_sum_row  <- base_sum_row + 1
+    delta_sum_row <- scen_sum_row + 1
+    
+    wb$set_row_heights(sheet = sheet_name, rows = blank_row, heights = 12)
+    wb$set_row_heights(sheet = sheet_name, rows = c(base_sum_row, scen_sum_row, delta_sum_row), heights = c(22, 22, 22))
+    
+    first_c_let <- openxlsx2::int2col(3)
+    last_c_let  <- openxlsx2::int2col(mat_end_col)
+    gt_let      <- openxlsx2::int2col(mat_sum_col)
+    
+    # Row 1 - Baseline Projected Year Area
+    wb$add_data(sheet = sheet_name, x = base_label, start_col = 2, start_row = base_sum_row)
+    wb$add_formula(sheet = sheet_name, x = paste0("=SUM(A7:A", last_mat_row, ")"), dims = paste0("A", base_sum_row))
+    for (ci in 1:n_cols) {
+      c_let <- openxlsx2::int2col(2 + ci)
+      wb$add_formula(
+        sheet = sheet_name,
+        x = paste0("=ROUND(SUMPRODUCT($A$7:$A$", last_mat_row, ", '", base_sheet_name, "'!", c_let, "7:", c_let, last_mat_row, "), 2)"),
+        dims = paste0(c_let, base_sum_row)
+      )
+    }
+    wb$add_formula(sheet = sheet_name, x = paste0("=SUM(", first_c_let, base_sum_row, ":", last_c_let, base_sum_row, ")"), dims = paste0(gt_let, base_sum_row))
+    
+    # Row 2 - Scenario Projected Year Area
+    wb$add_data(sheet = sheet_name, x = scen_label, start_col = 2, start_row = scen_sum_row)
+    wb$add_formula(sheet = sheet_name, x = paste0("=SUM(A7:A", last_mat_row, ")"), dims = paste0("A", scen_sum_row))
+    for (ci in 1:n_cols) {
+      c_let <- openxlsx2::int2col(2 + ci)
+      wb$add_formula(
+        sheet = sheet_name,
+        x = paste0("=ROUND(SUMPRODUCT($A$7:$A$", last_mat_row, ", ", c_let, "7:", c_let, last_mat_row, "), 2)"),
+        dims = paste0(c_let, scen_sum_row)
+      )
+    }
+    wb$add_formula(sheet = sheet_name, x = paste0("=SUM(", first_c_let, scen_sum_row, ":", last_c_let, scen_sum_row, ")"), dims = paste0(gt_let, scen_sum_row))
+    
+    # Row 3 - Net Change / Delta
+    wb$add_data(sheet = sheet_name, x = delta_label, start_col = 2, start_row = delta_sum_row)
+    wb$add_formula(sheet = sheet_name, x = paste0("=ROUND(A", scen_sum_row, "-A", base_sum_row, ", 2)"), dims = paste0("A", delta_sum_row))
+    for (ci in 1:n_cols) {
+      c_let <- openxlsx2::int2col(2 + ci)
+      wb$add_formula(
+        sheet = sheet_name,
+        x = paste0("=ROUND(", c_let, scen_sum_row, "-", c_let, base_sum_row, ", 2)"),
+        dims = paste0(c_let, delta_sum_row)
+      )
+    }
+    wb$add_formula(sheet = sheet_name, x = paste0("=SUM(", first_c_let, delta_sum_row, ":", last_c_let, delta_sum_row, ")"), dims = paste0(gt_let, delta_sum_row))
+    
+    # Number formats
+    wb$add_numfmt(sheet = sheet_name, dims = paste0("A", base_sum_row, ":", gt_let, scen_sum_row), numfmt = "#,##0.00")
+    wb$add_numfmt(sheet = sheet_name, dims = paste0("A", delta_sum_row, ":", gt_let, delta_sum_row), numfmt = "+#,##0.00;-#,##0.00;0.00")
+    
+    # Fills: Baseline (#F1F5F9), Scenario (#E0F2FE), Net Change (#FEF3C7)
+    wb$add_fill(sheet = sheet_name, dims = paste0("A", base_sum_row, ":", gt_let, base_sum_row), color = openxlsx2::wb_color(hex = "F1F5F9"))
+    wb$add_fill(sheet = sheet_name, dims = paste0("A", scen_sum_row, ":", gt_let, scen_sum_row), color = openxlsx2::wb_color(hex = "E0F2FE"))
+    wb$add_fill(sheet = sheet_name, dims = paste0("A", delta_sum_row, ":", gt_let, delta_sum_row), color = openxlsx2::wb_color(hex = "FEF3C7"))
+    
+    # Bold fonts for labels (Col B), Col A, and Grand Total
+    wb$add_font(sheet = sheet_name, dims = paste0("A", base_sum_row, ":B", delta_sum_row), bold = TRUE)
+    wb$add_font(sheet = sheet_name, dims = paste0(gt_let, base_sum_row, ":", gt_let, delta_sum_row), bold = TRUE)
+    
     # 4. Active Transitions Recapitulation Panel (Row 6 headers, Row 7+ data)
     panel_headers <- if (lang == "id") {
       c("Kelas Asal", "Kelas Tujuan", "Laju Baseline", "Luas Baseline (ha)", "% Penyesuaian", "Laju Skenario", "Luas Skenario (ha)", "Status Intervensi", "_mRow", "_mCol")
@@ -2075,17 +2191,65 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, temp
     wb$set_col_widths(sheet = sheet_name, cols = c(panel_col + 8, panel_col + 9), widths = 0.1, hidden = TRUE)
     
     # Set column widths for readability
-    wb$set_col_widths(sheet = sheet_name, cols = 2, widths = 28)
+    wb$set_col_widths(sheet = sheet_name, cols = 1, widths = 18)
+    wb$set_col_widths(sheet = sheet_name, cols = 2, widths = 34)
     wb$set_col_widths(sheet = sheet_name, cols = 3:mat_sum_col, widths = 14)
     wb$set_col_widths(sheet = sheet_name, cols = panel_col:(panel_col + 1), widths = 24)
     wb$set_col_widths(sheet = sheet_name, cols = (panel_col + 2):(panel_col + 7), widths = 18)
     
     # 5. Hidden Baseline Backup Sheet (_Base_<sheet_name>)
-    base_sheet_name <- substr(paste0("_Base_", sheet_name), 1, 31)
     wb$add_worksheet(base_sheet_name)
     wb$set_sheet_visibility(sheet = base_sheet_name, value = "hidden")
+    wb$add_data(sheet = base_sheet_name, x = pu_title_text, start_col = 2, start_row = 1)
+    
+    # Column A and Matrix Headers on _Base_
+    wb$add_data(sheet = base_sheet_name, x = col_a_header, start_col = 1, start_row = 6)
+    wb$add_data(sheet = base_sheet_name, x = as.data.frame(col_a_vals), start_col = 1, start_row = 7, col_names = FALSE)
+    wb$add_numfmt(sheet = base_sheet_name, dims = col_a_range, numfmt = "#,##0.00")
+    
     wb$add_data(sheet = base_sheet_name, x = as.data.frame(t(matrix_header)), start_col = 2, start_row = 6, col_names = FALSE)
     wb$add_data(sheet = base_sheet_name, x = mat_data_df, start_col = 2, start_row = 7, col_names = FALSE)
+    
+    # Mirror summary rows on _Base_ sheet
+    wb$add_data(sheet = base_sheet_name, x = base_label, start_col = 2, start_row = base_sum_row)
+    wb$add_formula(sheet = base_sheet_name, x = paste0("=SUM(A7:A", last_mat_row, ")"), dims = paste0("A", base_sum_row))
+    for (ci in 1:n_cols) {
+      c_let <- openxlsx2::int2col(2 + ci)
+      wb$add_formula(
+        sheet = base_sheet_name,
+        x = paste0("=ROUND(SUMPRODUCT($A$7:$A$", last_mat_row, ", ", c_let, "7:", c_let, last_mat_row, "), 2)"),
+        dims = paste0(c_let, base_sum_row)
+      )
+    }
+    wb$add_formula(sheet = base_sheet_name, x = paste0("=SUM(", first_c_let, base_sum_row, ":", last_c_let, base_sum_row, ")"), dims = paste0(gt_let, base_sum_row))
+
+    wb$add_data(sheet = base_sheet_name, x = scen_label, start_col = 2, start_row = scen_sum_row)
+    wb$add_formula(sheet = base_sheet_name, x = paste0("=SUM(A7:A", last_mat_row, ")"), dims = paste0("A", scen_sum_row))
+    for (ci in 1:n_cols) {
+      c_let <- openxlsx2::int2col(2 + ci)
+      wb$add_formula(
+        sheet = base_sheet_name,
+        x = paste0("=ROUND(SUMPRODUCT($A$7:$A$", last_mat_row, ", ", c_let, "7:", c_let, last_mat_row, "), 2)"),
+        dims = paste0(c_let, scen_sum_row)
+      )
+    }
+    wb$add_formula(sheet = base_sheet_name, x = paste0("=SUM(", first_c_let, scen_sum_row, ":", last_c_let, scen_sum_row, ")"), dims = paste0(gt_let, scen_sum_row))
+
+    wb$add_data(sheet = base_sheet_name, x = delta_label, start_col = 2, start_row = delta_sum_row)
+    wb$add_formula(sheet = base_sheet_name, x = paste0("=ROUND(A", scen_sum_row, "-A", base_sum_row, ", 2)"), dims = paste0("A", delta_sum_row))
+    for (ci in 1:n_cols) {
+      c_let <- openxlsx2::int2col(2 + ci)
+      wb$add_formula(
+        sheet = base_sheet_name,
+        x = paste0("=ROUND(", c_let, scen_sum_row, "-", c_let, base_sum_row, ", 2)"),
+        dims = paste0(c_let, delta_sum_row)
+      )
+    }
+    wb$add_formula(sheet = base_sheet_name, x = paste0("=SUM(", first_c_let, delta_sum_row, ":", last_c_let, delta_sum_row, ")"), dims = paste0(gt_let, delta_sum_row))
+
+    wb$add_numfmt(sheet = base_sheet_name, dims = paste0("A", base_sum_row, ":", gt_let, scen_sum_row), numfmt = "#,##0.00")
+    wb$add_numfmt(sheet = base_sheet_name, dims = paste0("A", delta_sum_row, ":", gt_let, delta_sum_row), numfmt = "+#,##0.00;-#,##0.00;0.00")
+    
     if (nrow(panel_df) > 0) {
       wb$add_data(sheet = base_sheet_name, x = as.data.frame(t(panel_headers)), start_col = panel_col, start_row = 6, col_names = FALSE)
       wb$add_data(sheet = base_sheet_name, x = panel_df, start_col = panel_col, start_row = 7, col_names = FALSE)

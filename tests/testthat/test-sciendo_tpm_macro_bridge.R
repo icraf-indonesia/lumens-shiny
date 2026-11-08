@@ -143,9 +143,9 @@ test_that("Indonesian PU sheets have localized headers, instruction box, row sum
   sheet_names <- wb$get_sheet_names()
   pu_sheets <- sheet_names[grepl("^PU_", sheet_names)]
   
-  # Row 1: Localized title
+  # Row 1: Localized title (Column B)
   raw_pu1 <- readxl::read_excel(out_xlsm, sheet = pu_sheets[1], col_names = FALSE) %>% as.data.frame()
-  expect_true(grepl("Unit Perencanaan 1:", as.character(raw_pu1[1, 1])))
+  expect_true(grepl("Unit Perencanaan 1:", as.character(raw_pu1[1, 2])))
   
   # Row 2: Hyperlinks in openxlsx2 formula structure
   idx_pu1 <- which(sheet_names == pu_sheets[1])
@@ -161,9 +161,9 @@ test_that("Indonesian PU sheets have localized headers, instruction box, row sum
   d2_last <- cc_last[cc_last$r == "D2", ]
   expect_true(grepl("Kembali ke Unit Perencanaan Pertama", d2_last$f) && grepl("PU 1", d2_last$f))
   
-  # Rows 3-4: Step-by-Step Instruction Box on PU sheet
-  expect_true(grepl("Panduan Penggunaan:", as.character(raw_pu1[3, 1])))
-  expect_true(grepl("3\\.", as.character(raw_pu1[4, 1])))
+  # Rows 3-4: Step-by-Step Instruction Box on PU sheet (Column B)
+  expect_true(grepl("Panduan Penggunaan:", as.character(raw_pu1[3, 2])))
+  expect_true(grepl("3\\.", as.character(raw_pu1[4, 2])))
   
   # Row 6: Localized Matrix and Recapitulation Table Headers
   header_row <- as.character(raw_pu1[6, ])
@@ -178,18 +178,60 @@ test_that("Indonesian PU sheets have localized headers, instruction box, row sum
   expect_true(any(grepl("Luas Skenario \\(ha\\)", header_row)))
   expect_true(any(grepl("Status Intervensi", header_row)))
   
+  # Row 6: Localized Column A header (cell A6)
+  expect_equal(as.character(raw_pu1[6, 1]), "Luas T1 (ha)")
+  
   # Locate Total Baris column and verify row sums
   gt_col <- which(grepl("Total Baris", header_row))
   data_rows <- 7:nrow(raw_pu1)
   
-  # Filter to matrix rows (where column B is non-empty)
-  mat_row_indices <- data_rows[!is.na(raw_pu1[data_rows, 2]) & raw_pu1[data_rows, 2] != ""]
+  # Filter to matrix rows (until the blank separator row)
+  mat_row_indices <- integer(0)
+  for (r in data_rows) {
+    if (!is.na(raw_pu1[r, 2]) && raw_pu1[r, 2] != "") {
+      mat_row_indices <- c(mat_row_indices, r)
+    } else {
+      break
+    }
+  }
   expect_true(length(mat_row_indices) > 0)
   
   for (r in mat_row_indices) {
     row_sum_val <- as.numeric(raw_pu1[r, gt_col])
     expect_equal(row_sum_val, 1.0, tolerance = 1e-4)
+    # Column A contains initial class area in ha
+    expect_true(!is.na(raw_pu1[r, 1]))
+    expect_true(as.numeric(raw_pu1[r, 1]) > 0)
   }
+  
+  # Check 1 blank separator row below last matrix row
+  blank_row_idx <- tail(mat_row_indices, 1) + 1
+  expect_true(is.na(raw_pu1[blank_row_idx, 1]) || raw_pu1[blank_row_idx, 1] == "")
+  expect_true(is.na(raw_pu1[blank_row_idx, 2]) || raw_pu1[blank_row_idx, 2] == "")
+  
+  # Check 3 Bottom Summary Rows
+  base_sum_idx  <- blank_row_idx + 1
+  scen_sum_idx  <- blank_row_idx + 2
+  delta_sum_idx <- blank_row_idx + 3
+  
+  expect_equal(as.character(raw_pu1[base_sum_idx, 2]), "Luas Baseline Tahun Proyeksi (ha)")
+  expect_equal(as.character(raw_pu1[scen_sum_idx, 2]), "Luas Skenario Tahun Proyeksi (ha)")
+  expect_equal(as.character(raw_pu1[delta_sum_idx, 2]), "Perubahan Bersih (ha)")
+  
+  # Verify summary row formulas in worksheet data
+  last_mat_r <- tail(mat_row_indices, 1)
+  expect_true(any(grepl(paste0("SUM\\(A7:A", last_mat_r, "\\)"), cc_pu1$f)))
+  expect_true(any(grepl(paste0("SUMPRODUCT\\(\\$A\\$7:\\$A\\$", last_mat_r), cc_pu1$f)))
+  expect_true(any(grepl("_Base_", cc_pu1$f)))
+  expect_true(any(grepl(paste0("C", scen_sum_idx, "-C", base_sum_idx), cc_pu1$f) |
+                    grepl(paste0("C", scen_sum_idx, " - C", base_sum_idx), cc_pu1$f)))
+  
+  # Hidden _Base_ sheet also contains Column A and initial class areas
+  base_sh_name <- paste0("_Base_", pu_sheets[1])
+  raw_base1 <- readxl::read_excel(out_xlsm, sheet = base_sh_name, col_names = FALSE) %>% as.data.frame()
+  expect_equal(as.character(raw_base1[6, 1]), "Luas T1 (ha)")
+  expect_equal(as.numeric(raw_base1[7, 1]), as.numeric(raw_pu1[7, 1]))
+  expect_equal(as.character(raw_base1[base_sum_idx, 2]), "Luas Baseline Tahun Proyeksi (ha)")
   
   # Verify active transitions in panel
   panel_col <- which(grepl("Kelas Asal", header_row))
@@ -318,15 +360,31 @@ test_that("English localization (lang = 'en') generates English headers, guide b
   
   # Check PU sheet in English
   raw_pu1_en <- readxl::read_excel(out_en_xlsm, sheet = "PU_1_Protected_Forest", col_names = FALSE) %>% as.data.frame()
-  expect_true(grepl("Planning Unit 1:", as.character(raw_pu1_en[1, 1])))
-  expect_true(grepl("Quick Guide:", as.character(raw_pu1_en[3, 1])))
+  expect_true(grepl("Planning Unit 1:", as.character(raw_pu1_en[1, 2])))
+  expect_true(grepl("Quick Guide:", as.character(raw_pu1_en[3, 2])))
   
   hdr_en <- as.character(raw_pu1_en[6, ])
+  expect_equal(as.character(raw_pu1_en[6, 1]), "T1 Area (ha)")
   expect_true(any(grepl("From \\\\ To", hdr_en)))
   expect_true(any(grepl("Grand Total", hdr_en)))
   expect_true(any(grepl("From Class", hdr_en)))
   expect_true(any(grepl("To Class", hdr_en)))
   expect_true(any(grepl("Intervention Status", hdr_en)))
+  
+  # English summary row labels below matrix
+  data_rows_en <- 7:nrow(raw_pu1_en)
+  mat_row_indices_en <- integer(0)
+  for (r in data_rows_en) {
+    if (!is.na(raw_pu1_en[r, 2]) && raw_pu1_en[r, 2] != "") {
+      mat_row_indices_en <- c(mat_row_indices_en, r)
+    } else {
+      break
+    }
+  }
+  blank_r_en <- tail(mat_row_indices_en, 1) + 1
+  expect_equal(as.character(raw_pu1_en[blank_r_en + 1, 2]), "Baseline Projected Years Area (ha)")
+  expect_equal(as.character(raw_pu1_en[blank_r_en + 2, 2]), "Scenario Projected Years Area (ha)")
+  expect_equal(as.character(raw_pu1_en[blank_r_en + 3, 2]), "Net Change (ha)")
   
   # Verify matrix_to_tpm extracts seamlessly from English workbook too
   sim_en_out <- file.path(test_dir, "sim_en_output")
@@ -470,10 +528,33 @@ try {
     $areaEditRate   = [double]$pu1.Cells.Item($firstDataRow, $panelCol + 5).Value2
     $areaEditStatus = $pu1.Cells.Item($firstDataRow, $panelCol + 7).Text
     
+    # Check bottom summary rows after policy & area edit
+    $matEndRow = $matHeaderRow + ($matEndCol - $matStartCol + 1)
+    $blankRow = $matEndRow + 1
+    $baseR = $blankRow + 1
+    $scenR = $blankRow + 2
+    $deltaR = $blankRow + 3
+    $excel.Calculate()
+    $policyBaseAreaC = [double]$pu1.Cells.Item($baseR, 3).Value2
+    $policyScenAreaC = [double]$pu1.Cells.Item($scenR, 3).Value2
+    $policyDeltaC = [double]$pu1.Cells.Item($deltaR, 3).Value2
+    
+    # Test editing Column A (Cell A7) is safely ignored by VBA
+    $excel.Run("TriggerCellChange", "PU_1_Protected_Forest", $firstDataRow, 1, 9999.0)
+    $colAEditMatVal = [double]$pu1.Cells.Item($firstDataRow, 3).Value2
+    
+    # Test editing summary row (Cell C18) is safely ignored by VBA
+    $excel.Run("TriggerCellChange", "PU_1_Protected_Forest", $baseR, 3, 1234.5)
+    $sumEditMatVal = [double]$pu1.Cells.Item($firstDataRow, 3).Value2
+    
     # 5. Run ResetAllSheetsToBaseline
     $excel.Run("ResetAllSheetsToBaseline")
+    $excel.Calculate()
     $resetRate   = [double]$pu1.Cells.Item($firstDataRow, $panelCol + 5).Value2
     $resetStatus = $pu1.Cells.Item($firstDataRow, $panelCol + 7).Text
+    $resetScenAreaC = [double]$pu1.Cells.Item($scenR, 3).Value2
+    $resetBaseAreaC = [double]$pu1.Cells.Item($baseR, 3).Value2
+    $resetDeltaC = [double]$pu1.Cells.Item($deltaR, 3).Value2
     
     $wb.Save()
     $wb.Close($false)
@@ -489,8 +570,16 @@ try {
     Write-Output ("AREA_EDIT_ADJ:" + [Math]::Round($areaEditAdjPct, 2))
     Write-Output "AREA_EDIT_RATE:$areaEditRate"
     Write-Output "AREA_EDIT_STATUS:$areaEditStatus"
+    Write-Output "POLICY_BASE_C:$policyBaseAreaC"
+    Write-Output "POLICY_SCEN_C:$policyScenAreaC"
+    Write-Output "POLICY_DELTA_C:$policyDeltaC"
+    Write-Output "COLA_EDIT_MAT_VAL:$colAEditMatVal"
+    Write-Output "SUM_EDIT_MAT_VAL:$sumEditMatVal"
     Write-Output "RESET_RATE:$resetRate"
     Write-Output "RESET_STATUS:$resetStatus"
+    Write-Output "RESET_SCEN_C:$resetScenAreaC"
+    Write-Output "RESET_BASE_C:$resetBaseAreaC"
+    Write-Output "RESET_DELTA_C:$resetDeltaC"
 } catch {
     Write-Output ("ERROR:" + $_.Exception.Message)
 } finally {
@@ -512,7 +601,10 @@ try {
   expect_true(any(grepl("ROW8_STATUS_AFTER:Baseline", res_lines)))
   expect_true(any(grepl("AREA_EDIT_ADJ:-0.25", res_lines)))
   expect_true(any(grepl("AREA_EDIT_STATUS:(Intervened|Diintervensi)", res_lines)))
+  expect_true(any(grepl("COLA_EDIT_MAT_VAL:", res_lines)))
+  expect_true(any(grepl("SUM_EDIT_MAT_VAL:", res_lines)))
   expect_true(any(grepl("RESET_STATUS:Baseline", res_lines)))
+  expect_true(any(grepl("RESET_DELTA_C:0", res_lines)))
 })
 
 test_that("Live Excel COM handles 0-to-exist dynamic row lifecycle with real percentage numbers (no NEW text), two-way sync, and deletion", {
@@ -900,6 +992,88 @@ test_that("VBA module contains complete bilingual alerts and dialogs", {
   expect_true(grepl("Are you sure you want to reset all Planning Units", vba_text))
   expect_true(grepl("All Planning Units have been successfully reset", vba_text))
   expect_true(grepl("Policy applied to", vba_text))
+})
+
+test_that("tpm_to_matrix_conversion supports calendar year from time_points and empirical raster class areas", {
+  skip_if_not(dir.exists(input_tpm_dir), "Sample TPM directory not available")
+  skip_if_not(file.exists(lc_tbl_file), "LC lookup table not available")
+  skip_if_not(file.exists(template_file), "Macro template not available")
+  
+  lc_rast   <- "../../data/raster/bungo_landcover_2010r.tif"
+  zone_rast <- "../../data/raster/bungo_zone.tif"
+  
+  td_year <- tempfile("test_year_")
+  dir.create(td_year, recursive = TRUE)
+  
+  # Run conversion with explicit time_points (t1 = 2010, t2 = 2020) and rasters
+  out_year_xlsm <- tpm_to_matrix_conversion(
+    input_dir      = input_tpm_dir,
+    lc_lookup_path = lc_tbl_file,
+    output_dir     = td_year,
+    template_path  = template_file,
+    pu_lookup      = read.csv(zone_tbl_file),
+    lc_t1_path     = if (file.exists(lc_rast)) lc_rast else NULL,
+    zone_path      = if (file.exists(zone_rast)) zone_rast else NULL,
+    time_points    = list(t1 = 2010, t2 = 2020),
+    lang           = "id"
+  )
+  
+  expect_true(file.exists(out_year_xlsm))
+  
+  # Check cell A6 on PU sheet: "Luas 2010 (ha)"
+  raw_year_pu1 <- readxl::read_excel(out_year_xlsm, sheet = "PU_1_Protected_Forest", col_names = FALSE) %>% as.data.frame()
+  expect_equal(as.character(raw_year_pu1[6, 1]), "Luas 2010 (ha)")
+  
+  # Check English year formatting
+  td_year_en <- tempfile("test_year_en_")
+  dir.create(td_year_en, recursive = TRUE)
+  out_year_en_xlsm <- tpm_to_matrix_conversion(
+    input_dir      = input_tpm_dir,
+    lc_lookup_path = lc_tbl_file,
+    output_dir     = td_year_en,
+    template_path  = template_file,
+    pu_lookup      = read.csv(zone_tbl_file),
+    time_points    = list(t1 = 2010, t2 = 2020),
+    lang           = "en"
+  )
+  raw_year_en_pu1 <- readxl::read_excel(out_year_en_xlsm, sheet = "PU_1_Protected_Forest", col_names = FALSE) %>% as.data.frame()
+  expect_equal(as.character(raw_year_en_pu1[6, 1]), "2010 Area (ha)")
+  
+  # Also verify named vector time_points = c(t1 = 2010, t2 = 2020)
+  td_vec <- tempfile("test_year_vec_")
+  dir.create(td_vec, recursive = TRUE)
+  out_vec_xlsm <- tpm_to_matrix_conversion(
+    input_dir      = input_tpm_dir,
+    lc_lookup_path = lc_tbl_file,
+    output_dir     = td_vec,
+    template_path  = template_file,
+    pu_lookup      = read.csv(zone_tbl_file),
+    time_points    = c(t1 = 2010, t2 = 2020),
+    lang           = "id"
+  )
+  raw_vec_pu1 <- readxl::read_excel(out_vec_xlsm, sheet = "PU_1_Protected_Forest", col_names = FALSE) %>% as.data.frame()
+  expect_equal(as.character(raw_vec_pu1[6, 1]), "Luas 2010 (ha)")
+  unlink(td_vec, recursive = TRUE)
+  
+  # Check summary rows existence and mathematical conservation in formulas
+  wb_yr <- openxlsx2::wb_load(out_year_xlsm)
+  cc_yr <- wb_yr$worksheets[[2]]$sheet_data$cc
+  
+  # Verify SUMPRODUCT formulas present for summary rows
+  expect_true(any(grepl("SUMPRODUCT", cc_yr$f)))
+  expect_true(any(grepl("_Base_", cc_yr$f)))
+  
+  # Verify matrix_to_tpm extracts cleanly from year-annotated workbook
+  sim_yr_out <- file.path(td_year, "sim_output")
+  extracted_yr <- matrix_to_tpm(
+    input_folder_path = dirname(out_year_xlsm),
+    lc_lookup         = read.csv(lc_tbl_file),
+    output_dir        = sim_yr_out
+  )
+  expect_equal(length(extracted_yr), 8)
+  
+  unlink(td_year, recursive = TRUE)
+  unlink(td_year_en, recursive = TRUE)
 })
 
 # Cleanup temp files

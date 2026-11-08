@@ -75,6 +75,28 @@ End Function
 
 ' Get initial class area in hectares for a given From class
 Public Function GetInitialClassArea(ws As Worksheet, ByVal fromClassName As String, ByVal fromRow As Long, ByVal panelCol As Long, ByVal pStart As Long, ByVal pEnd As Long) As Double
+    ' Priority 1: Direct empirical area from Column A (T1 Area in ha)
+    If fromRow > 0 Then
+        Dim colAArea As Double
+        colAArea = SafeCDbl(ws.Cells(fromRow, 1).Value)
+        If colAArea > 0.0001 Then
+            GetInitialClassArea = colAArea
+            Exit Function
+        End If
+    ElseIf Len(Trim(fromClassName)) > 0 Then
+        Dim rScanA As Long
+        For rScanA = 7 To 50
+            If StrComp(Trim(CStr(ws.Cells(rScanA, 2).Value)), Trim(fromClassName), vbTextCompare) = 0 Then
+                colAArea = SafeCDbl(ws.Cells(rScanA, 1).Value)
+                If colAArea > 0.0001 Then
+                    GetInitialClassArea = colAArea
+                    Exit Function
+                End If
+                Exit For
+            End If
+        Next rScanA
+    End If
+
     Dim r As Long
     If panelCol > 0 And pEnd >= pStart Then
         For r = pStart To pEnd
@@ -245,6 +267,10 @@ Public Sub HandleSheetChange(ByVal ws As Worksheet, ByVal Target As Range)
     Dim tRow As Long, tCol As Long
     tRow = Target.Row
     tCol = Target.Column
+    
+    ' Ignore Column A (informational T1 area) and bottom summary rows
+    If tCol = 1 Then Exit Sub
+    If tRow > matEndRow And (panelCol = 0 Or tCol < panelCol) Then Exit Sub
     
     Dim baseWs As Worksheet
     Set baseWs = GetBaseSheet(ws)
