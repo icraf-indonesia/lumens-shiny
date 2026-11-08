@@ -1,0 +1,6 @@
+﻿ID,name,variable,value
+1,Emission Factor,EF,1.61
+2,Scaling Factor Rejim Air,SFw,1
+3,Scaling Factor Jenis Tanah,SFs,1
+4,Scaling Factor Varietas Padi,SFr,1
+5,Cultivation Period of Rice,t,240

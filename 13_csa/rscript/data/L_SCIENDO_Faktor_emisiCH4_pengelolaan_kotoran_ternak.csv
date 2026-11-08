@@ -1,0 +1,12 @@
+ID,Ternak,Faktor_emisi
+1,Sapi pedaging,1
+2,Sapi perah,31
+3,Kerbau,2
+4,Domba,0.2
+5,Kambing,0.22
+6,Babi,7
+7,Kuda,2.19
+8,Ayam buras,0.02
+9,Ayam ras,0.02
+10,Ayam petelur,0.02
+11,Bebek,0.02

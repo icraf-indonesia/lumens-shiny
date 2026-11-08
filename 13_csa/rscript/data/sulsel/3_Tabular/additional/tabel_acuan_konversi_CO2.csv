@@ -1,0 +1,6 @@
+Variable,Value
+GWP_CO2,1
+GWP_CH4,27.2
+GWP_N2O,273
+EF_N2O,0.003
+EF_CO2,0.2

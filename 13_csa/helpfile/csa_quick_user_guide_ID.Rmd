@@ -1,0 +1,168 @@
+---
+title: "Quick Guide: Modul Emisi Karbon Lahan Pertanian"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+    df_print: kable
+    mathjax: default
+---
+
+```{r, include=FALSE}
+options(rmarkdown.html_vignette.check_title = FALSE)
+```
+Kemudian buatkan juga untuk Quick User Guide:
+1. Gambaran Umum
+2. Konsep utama
+
+# Gambaran Umum
+
+**Modul Emisi Karbon Lahan Pertanian** digunakan untuk menghitung emisi gas rumah kaca (GRK) dari sistem budidaya lahan pertanian, khususnya sawah, berbasis data spasial.
+
+Emisi yang dihitung meliputi:
+
+1. **CH₄ (Metana)** dari kondisi anaerob lahan tergenang  
+2. **N₂O (Dinitrogen Oksida)** dari penggunaan pupuk nitrogen  
+
+Selain total emisi, modul ini juga menghasilkan:
+
+- Distribusi spasial emisi  
+- Emisi per unit perencanaan (PU)  
+- Intensitas emisi (ton CO₂-eq/ha/tahun)
+
+Hasil analisis dapat digunakan untuk mendukung:
+
+- Perencanaan pembangunan rendah karbon (LCDI)  
+- Strategi mitigasi sektor pertanian  
+- Pencapaian target NDC Indonesia 2030  
+
+---
+
+# Konsep Utama
+
+Perhitungan emisi dalam modul ini mengacu pada pedoman internasional serta referensi nasional, khususnya:
+
+- IPCC 2006 Guidelines for National Greenhouse Gas Inventories (Volume 4: Agriculture, Forestry and Other Land Use)
+- 2019 Refinement to the 2006 IPCC Guidelines
+- Pedoman nasional (KLHK, Bappenas – LCDI, Kementerian Pertanian)
+
+Pendekatan yang digunakan telah disederhanakan agar dapat diterapkan pada data spasial (raster) dan unit perencanaan wilayah.
+
+Emisi CH₄ dari lahan sawah dihitung berdasarkan pendekatan IPCC untuk lahan tergenang (flooded rice fields), di mana emisi dipengaruhi oleh luas lahan, lama periode tanam, serta faktor emisi yang telah disesuaikan dengan kondisi lokal.
+
+Dalam pedoman IPCC 2006 (Volume 4, Chapter 5 – Cropland), konsep ini dijelaskan pada:
+
+- Equation 5.1 → perhitungan total emisi CH₄ dari sawah
+- Equation 5.2 → penyesuaian faktor emisi (scaling factors)
+
+Faktor penyesuaian ini mencerminkan kondisi:
+
+- Rejim pengairan (misalnya tergenang terus-menerus atau intermiten)
+- Jenis tanah
+- Pengelolaan residu tanaman (jerami)
+- Praktik budidaya lainnya
+
+Dengan demikian, pendekatan yang digunakan dalam modul ini dapat dikategorikan sebagai Tier 1 yang disesuaikan (semi Tier 2) apabila menggunakan parameter lokal.
+
+Emisi N₂O dari lahan pertanian dihitung berdasarkan jumlah nitrogen yang diaplikasikan ke tanah melalui pupuk, baik pupuk tunggal maupun majemuk.
+
+Mengacu pada IPCC 2006 (Volume 4, Chapter 11 – N₂O from Managed Soils), perhitungan ini merujuk pada:
+
+- Equation 11.1 → emisi langsung N₂O dari nitrogen yang diaplikasikan
+
+Pendekatan ini mengasumsikan bahwa sebagian nitrogen yang diberikan akan mengalami proses nitrifikasi dan denitrifikasi, menghasilkan emisi N₂O. Besaran emisi sangat dipengaruhi oleh:
+
+- Dosis pupuk
+- Jenis pupuk (kandungan nitrogen)
+- Kondisi tanah dan kelembapan
+- Intensitas penanaman
+
+Konversi ke CO₂-ekuivalen (CO₂-eq) dilakukan menggunakan nilai Global Warming Potential (GWP) sebagaimana direkomendasikan oleh IPCC (AR5/AR6 atau referensi nasional).
+
+Konversi ini diperlukan agar berbagai jenis gas rumah kaca (CH₄ dan N₂O) dapat dibandingkan dalam satu satuan yang sama. Nilai GWP yang digunakan dalam modul mengikuti parameter pada tabel input (conversion table), sehingga dapat disesuaikan dengan referensi terbaru atau kebijakan nasional.
+
+Intensitas emisi dihitung sebagai rasio antara total emisi dan luas lahan pertanian pada setiap unit perencanaan.
+
+Indikator ini penting dalam konteks perencanaan pembangunan rendah karbon karena:
+
+- Tidak hanya menunjukkan besarnya emisi, tetapi juga efisiensi penggunaan lahan
+- Memungkinkan perbandingan antar wilayah dengan skala berbeda
+- Membantu mengidentifikasi wilayah dengan emisi tinggi namun luas lahan relatif kecil (hotspot intensitas)
+
+Pendekatan ini sejalan dengan praktik dalam analisis Low Carbon Development Indonesia (LCDI) dan dokumen perencanaan daerah seperti Green Growth Plan.
+
+---
+
+# Data dan Variabel Input
+
+1. Peta Tutupan Lahan
+
+- Format: GeoTIFF  
+- Memiliki klasifikasi lahan  
+- Kolom **sawah (0/1)** untuk identifikasi sawah  
+
+2. Peta Unit Perencanaan (PU)
+
+- Raster atau shapefile  
+- Contoh: desa, kecamatan, grid  
+
+3. Tabel Lookup Tutupan Lahan
+
+- **ID**  
+- **LC**  
+- **sawah**  
+
+4. Tabel Parameter Emisi (Conversion Table)
+
+- EF CH₄  
+- SFw, SFs, SFr  
+- GWP CH₄ & N₂O  
+- Faktor nitrogen (misal: N_UREA, N_NPK)  
+
+5. Tabel Dosis Pupuk
+
+- ID unit perencanaan  
+- Jenis pupuk  
+- Dosis (kg/ha)  
+
+---
+
+# Cara Menggunakan Modul
+
+1. Unggah seluruh data input  
+2. Pilih tipe unit perencanaan (raster/shapefile)  
+3. Jalankan analisis  
+
+Proses yang dilakukan sistem:
+
+- Membaca dan harmonisasi data spasial  
+- Menghitung luas lahan  
+- Menghitung emisi CH₄  
+- Menghitung emisi N₂O  
+- Konversi ke CO₂-eq  
+- Menghitung intensitas emisi  
+- Menyusun hasil per PU  
+- Membuat visualisasi  
+
+---
+
+# Hasil Analisis
+
+Output utama dari modul ini mencakup beberapa bentuk hasil yang saling melengkapi.
+
+Pengguna akan mendapatkan **peta distribusi lahan padi**, yang menunjukkan lokasi spasial area yang menjadi dasar perhitungan emisi. Selain itu, tersedia grafik yang menggambarkan distribusi luas lahan pertanian per unit perencanaan.
+
+Dalam bentuk tabel, modul menghasilkan ringkasan emisi per PU yang mencakup emisi CH₄, emisi N₂O, serta total emisi dalam CO₂-ekuivalen. Dari hasil ini, pengguna dapat melihat kontribusi masing-masing wilayah terhadap total emisi.
+
+Salah satu output penting adalah **intensitas emisi**, yang memberikan gambaran efisiensi emisi per hektar. Nilai ini sangat berguna untuk membandingkan kinerja antar wilayah dan mengidentifikasi area yang memerlukan intervensi.
+
+Selain itu, tersedia grafik interaktif yang memvisualisasikan perbandingan emisi CH₄ dan N₂O antar unit perencanaan, sehingga pola distribusi emisi dapat dipahami dengan lebih mudah.
+
+Seluruh hasil tersebut dirangkum dalam laporan HTML yang berisi metodologi, data input, hasil analisis, serta interpretasi yang dapat langsung digunakan untuk pengambilan keputusan.
+
+---
+  
+  Untuk informasi lebih detail atau pemecahan masalah, lihat dokumentasi lengkap Analisis Profitabilitas di sini https://help.lumens.or.id/13-paddy.html atau hubungi pengembang alat ini.
+
+<font size="1">LUMENS adalah perangkat lunak gratis dan hadir TANPA JAMINAN APA PUN. Pengguna bertanggung jawab atas hasil yang dihasilkan. Hasil sangat bergantung pada kualitas data input ("garbage in, garbage out") dan dapat bervariasi atau sensitif terhadap parameter yang digunakan. Silakan laporkan setiap masalah yang ditemui saat menggunakan LUMENS sebagai [GitHub issue](https://github.com/icraf-indonesia/lumens-shiny/issues). Umpan balik dan pertanyaan dipersilakan [Contact Us](mailto:lumens@cifor-icraf.org).</font>

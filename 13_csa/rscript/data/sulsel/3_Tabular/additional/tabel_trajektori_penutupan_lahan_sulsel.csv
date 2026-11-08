@@ -1,0 +1,37 @@
+ID_1,ID_2,CLASS_1,CLASS_2,ID_traj,trajectory
+1,1,Hutan,Hutan,1_1,Hutan yang stabil
+2,1,Perkebunan,Hutan,2_1,Pemulihan menjadi hutan
+3,1,Agroforestri,Hutan,3_1,Pemulihan menjadi hutan
+4,1,"Belukar, padang rumput, dan lahan terbuka",Hutan,4_1,Pemulihan menjadi hutan
+5,1,Pertanian,Hutan,5_1,Pemulihan menjadi hutan
+6,1,Lainnya,Hutan,6_1,Pemulihan menjadi hutan
+1,2,Hutan,Perkebunan,1_2,Kehilangan hutan menjadi perkebunan
+2,2,Perkebunan,Perkebunan,2_2,Stabil
+3,2,Agroforestri,Perkebunan,3_2,Konversi menjadi perkebunan
+4,2,"Belukar, padang rumput, dan lahan terbuka",Perkebunan,4_2,Konversi menjadi perkebunan
+5,2,Pertanian,Perkebunan,5_2,Konversi menjadi perkebunan
+6,2,Lainnya,Perkebunan,6_2,Konversi menjadi perkebunan
+1,3,Hutan,Agroforestri,1_3,Kehilangan hutan menjadi agroforestri
+2,3,Perkebunan,Agroforestri,2_3,Konversi menjadi agroforestri
+3,3,Agroforestri,Agroforestri,3_3,Stabil
+4,3,"Belukar, padang rumput, dan lahan terbuka",Agroforestri,4_3,Konversi menjadi agroforestri
+5,3,Pertanian,Agroforestri,5_3,Konversi menjadi agroforestri
+6,3,Lainnya,Agroforestri,6_3,Konversi menjadi agroforestri
+1,4,Hutan,"Belukar, padang rumput, dan lahan terbuka",1_4,Kehilangan hutan menjadi belukar
+2,4,Perkebunan,"Belukar, padang rumput, dan lahan terbuka",2_4,Konversi menjadi belukar
+3,4,Agroforestri,"Belukar, padang rumput, dan lahan terbuka",3_4,Konversi menjadi belukar
+4,4,"Belukar, padang rumput, dan lahan terbuka","Belukar, padang rumput, dan lahan terbuka",4_4,Stabil
+5,4,Pertanian,"Belukar, padang rumput, dan lahan terbuka",5_4,Konversi menjadi belukar
+6,4,Lainnya,"Belukar, padang rumput, dan lahan terbuka",6_4,Konversi menjadi belukar
+1,5,Hutan,Pertanian,1_5,Kehilangan hutan menjadi pertanian
+2,5,Perkebunan,Pertanian,2_5,Konversi menjadi pertanian
+3,5,Agroforestri,Pertanian,3_5,Konversi menjadi pertanian
+4,5,"Belukar, padang rumput, dan lahan terbuka",Pertanian,4_5,Konversi menjadi pertanian
+5,5,Pertanian,Pertanian,5_5,Stabil
+6,5,Lainnya,Pertanian,6_5,Konversi menjadi pertanian
+1,6,Hutan,Lainnya,1_6,Kehilangan hutan menjadi lainnya
+2,6,Perkebunan,Lainnya,2_6,Konversi menjadi lainnya
+3,6,Agroforestri,Lainnya,3_6,Konversi menjadi lainnya
+4,6,"Belukar, padang rumput, dan lahan terbuka",Lainnya,4_6,Konversi menjadi lainnya
+5,6,Pertanian,Lainnya,5_6,Konversi menjadi lainnya
+6,6,Lainnya,Lainnya,6_6,Stabil
