@@ -25,7 +25,7 @@ body {
     color: #505458;
     background-color: #f9f9f9;
     overflow-x: hidden !important;
-    font-family: 'Metropolis';
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 /*--------------------------------------------------------------
 	1).Pre-loader
@@ -92,10 +92,10 @@ body {
 	2).Common
 ----------------------------------------------------------------*/
 h1, h2, h3, h4, h5, h6 {
-    font-family: 'Metropolis';
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 p {
-    font-family: 'Metropolis';
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
 /* Styling untuk gambar bulat di setiap box */
@@ -172,7 +172,7 @@ p {
     letter-spacing: 2px;
     text-align: center;
     text-transform: capitalize;
-    font-family: 'Josefin Sans', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
 .text-center {
@@ -196,7 +196,7 @@ img.text-center {
     font-size: 15px;
     font-weight: 400;
     margin: 30px 0px 40px;
-    font-family: 'Arimo', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     line-height: 26px;
 }
 .background {
@@ -259,7 +259,7 @@ img.text-center {
     color: #ee6e73 !important;
 }
 #fp-nav ul li .fp-tooltip.right {
-    font-family: 'Josefin Sans', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     font-size: 15px;
     font-weight: 700;
     letter-spacing: 1px !important;
@@ -304,7 +304,7 @@ img.text-center {
     font-size: 17px;
     border: 2px solid #fff;
     text-align: center;
-    font-family: 'Metropolis';
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     box-shadow: 0 2px 5px 0 rgba(0, 0, 0, 0.16), 0 2px 10px 0 rgba(0, 0, 0, 0.12);
 }
 .scribe .dark-btn {
@@ -324,7 +324,7 @@ img.text-center {
     border: 2px solid #fff;
     background: #ee6e73;
     text-align: center !important;
-    font-family: 'Metropolis';
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     box-shadow: 0 2px 5px 0 rgba(0, 0, 0, 0.16), 0 2px 10px 0 rgba(0, 0, 0, 0.12);
 }
 .send-button:hover, .send-button:focus {
@@ -378,7 +378,7 @@ img.text-center {
     padding: 15px 15px;
     letter-spacing: 4px;
     text-transform: uppercase;
-    font-family: 'Metropolis';
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 .logo span {
     width: 32px;
@@ -393,7 +393,7 @@ img.text-center {
     text-align: center;
     display: inline-block;
     background-color: #fff;
-    font-family: 'Metropolis';
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 .logo:hover, .logo:focus {
     color: #fff;
@@ -405,7 +405,7 @@ img.text-center {
     font-weight: 700;
     letter-spacing: 1px;
     text-transform: capitalize;
-    font-family: 'Metropolis';
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 .navbar-custom .nav > li > a:hover, .navbar-custom .nav > li > a:focus {
     color: #ee6e73;
@@ -466,7 +466,7 @@ img.text-center {
     letter-spacing: 2px;
     text-transform: capitalize;
     margin-bottom: 30px;
-    font-family: 'Metropolis';
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 .home-title p.demo {
     color: #505458;
@@ -567,7 +567,7 @@ img.text-center {
     font-size: 15px !important;
     text-transform: capitalize;
     line-height: 17px !important;
-    font-family: 'Metropolis';
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 .time_circles > div > span {
     color: #fff;
@@ -577,7 +577,7 @@ img.text-center {
     font-weight: 600;
     margin-top: 0.4em;
     text-align: center;
-    font-family: 'Metropolis';
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 .dark-circle .time_circles > div > h4 {
     color: #787787;
@@ -599,7 +599,7 @@ img.text-center {
     font-size: 15px;
     text-align: center;
     margin-bottom: 20px;
-    font-family: 'Metropolis';
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 .confirm-message form {
     max-width: 600px;
@@ -637,14 +637,14 @@ label.valid {
     color: #ee6e73;
     font-weight: normal;
     margin: 10px 0;
-    font-family: 'Arimo', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 .error {
     margin: 8px 0px;
     color: #ee6e73;
     z-index: 1100;
     font-weight: 400;
-    font-family: 'Arimo', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 .group-dark input {
     border: 2px solid #ee6e73;
@@ -691,7 +691,7 @@ label.valid {
     letter-spacing: 1px;
     border: 2px solid #fff;
     outline: none !important;
-    font-family: 'Arimo', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 .subscribe-submit:hover {
     color: #fff;
@@ -737,7 +737,7 @@ label.valid {
     color: #fff;
     font-size: 14px;
     text-align: center;
-    font-family: 'Arimo', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 .count-panal {
     text-align: center;
@@ -764,7 +764,7 @@ label.valid {
     font-weight: 300;
     display: inline-block;
     line-height: 140px;
-    font-family: 'Josefin Sans', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 .percent-dark span {
     color: #787778;
@@ -811,7 +811,7 @@ canvas {
     font-size: 14px;
     font-weight: 400;
     text-align: center;
-    font-family: 'Arimo', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 .service-dark h1 {
     color: #505458;
@@ -854,7 +854,7 @@ canvas {
     background: transparent;
     -webkit-appearance: none;
     border-bottom: 2px solid #fff;
-    font-family: 'Metropolis';
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 .form-control:focus {
     box-shadow: none;
@@ -878,14 +878,14 @@ canvas {
     display: none;
     clear: both;
     margin: 8px 0px;
-    font-family: 'Arimo', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 .parsley-errors-list {
     list-style: none;
     padding-left: 0px;
 }
 .parsley-errors-list li {
-    font-family: 'Arimo', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     color: #ee6e73;
 }
 /*--------------------------------------------------------------
@@ -905,7 +905,7 @@ canvas {
     letter-spacing: 1px;
     margin-bottom: 10px;
     background: transparent;
-    font-family: 'Josefin Sans', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 .footer p {
     font-size: 14px;
@@ -1243,6 +1243,7 @@ canvas {
         font-size: 24px;
         margin-bottom: 15px;
         font-weight: bold;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
       }
 
       .button-container {
@@ -1258,6 +1259,8 @@ canvas {
         border: none;
         border-radius: 5px;
         cursor: pointer;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        font-weight: 500;
       }
 
       .btn:hover {
@@ -1357,6 +1360,155 @@ canvas {
         height: 100vh; /* Full viewport height */
         text-align: center;
       }
+      .about-section h4,
+      .about-section .text-center {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+        font-size: 15px;
+        font-weight: 300;
+        line-height: 1.6;
+        color: #ffffff;
+        max-width: 900px;
+        margin: 20px auto 0 auto;
+        letter-spacing: 0.2px;
+      }
+      .about-section h4 a,
+      .about-section .text-center a {
+        color: #64b5f6;
+        text-decoration: underline;
+        transition: color 0.2s ease;
+      }
+      .about-section h4 a:hover,
+      .about-section .text-center a:hover {
+        color: #90caf9;
+      }
+
+      /*--------------------------------------------------------------
+        Notification & Screen-Center Loader
+      --------------------------------------------------------------*/
+      #shiny-notification-running_message {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: none !important;
+        opacity: 1 !important;
+        background: rgba(0, 0, 0, 0.45) !important;
+        backdrop-filter: blur(6px) !important;
+        -webkit-backdrop-filter: blur(6px) !important;
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+        z-index: 1000000 !important;
+        pointer-events: all !important;
+        animation: lumens-fadeIn 0.2s ease-out;
+      }
+
+      #shiny-notification-running_message .shiny-notification-close {
+        display: none !important;
+      }
+
+      #shiny-notification-running_message .shiny-notification-content {
+        background: #ffffff !important;
+        background-color: #ffffff !important;
+        opacity: 1 !important;
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 12px !important;
+        padding: 32px 40px !important;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2), 0 4px 6px rgba(0, 0, 0, 0.05) !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        text-align: center !important;
+        color: #1e293b !important;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+        font-size: 18px !important;
+        font-weight: 600 !important;
+        letter-spacing: 0.2px !important;
+        min-width: 280px !important;
+        max-width: 90vw !important;
+        animation: lumens-popIn 0.2s ease-out;
+      }
+
+      #shiny-notification-running_message .shiny-notification-content::before {
+        content: "";
+        display: block;
+        width: 44px;
+        height: 44px;
+        margin-bottom: 16px;
+        border: 4px solid #e2e8f0;
+        border-top-color: #096456;
+        border-radius: 50%;
+        animation: lumens-spin 0.85s linear infinite;
+      }
+
+      #shiny-notification-running_message .shiny-notification-content::after {
+        content: "Please wait while initializing...";
+        display: block;
+        margin-top: 6px;
+        font-size: 13px;
+        font-weight: 400;
+        color: #64748b;
+        letter-spacing: 0.1px;
+      }
+
+      /* General Notifications (Corner Toasts) */
+      .shiny-notification:not(#shiny-notification-running_message) {
+        opacity: 1 !important;
+        background: #ffffff !important;
+        background-color: #ffffff !important;
+        color: #1e293b !important;
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 8px !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+        font-size: 14px !important;
+        padding: 12px 18px !important;
+      }
+
+      .shiny-notification:not(#shiny-notification-running_message) .shiny-notification-close {
+        color: #94a3b8 !important;
+        font-size: 18px !important;
+      }
+
+      .shiny-notification:not(#shiny-notification-running_message) .shiny-notification-close:hover {
+        color: #0f172a !important;
+      }
+
+      @keyframes lumens-spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      @keyframes lumens-fadeIn {
+        from {
+          opacity: 0;
+        }
+        to {
+          opacity: 1;
+        }
+      }
+
+      @keyframes lumens-popIn {
+        from {
+          opacity: 0;
+          transform: scale(0.96);
+        }
+        to {
+          opacity: 1;
+          transform: scale(1);
+        }
+      }
+
 
 
     
