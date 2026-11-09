@@ -41,7 +41,92 @@ Laporan ini menyajikan hasil Komparasi Skenario antara Skenario Business As Usua
 
 # Data Input
 
-File Proyeksi Skenario: `r params$scenario_file_path`
+## Pratinjau Data Excel {.tabset}
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, results='asis'}
+if (!is.null(params$scenario_file_path) && file.exists(params$scenario_file_path)) {
+  
+  sheet_names <- readxl::excel_sheets(params$scenario_file_path)
+  
+  env <- new.env()
+  env$file_path <- params$scenario_file_path
+  
+  for (sheet_name in sheet_names) {
+    
+    sheet_name_clean <- trimws(sheet_name)
+    if (tolower(sheet_name_clean) == "readme") next
+    
+    child_content <- c(
+      paste0("### ", sheet_name_clean),
+      "",
+      "```{r}",
+      "#| echo: false",
+      paste0("df_sheet <- readxl::read_excel(file_path, sheet = '", sheet_name_clean, "')"),
+      "if (nrow(df_sheet) > 0 && ncol(df_sheet) > 0) {",
+      
+      # Cek apakah ini sheet Persentase/Penerapan
+      "  is_pct <- grepl('Persentase|Penerapan', '", sheet_name_clean, "', ignore.case = TRUE)",
+      
+      # Jika persentase, kalikan kolom ke-3 dst dengan 100
+      "  if (is_pct) {",
+      "    df_sheet <- df_sheet %>%",
+      "      mutate(across(3:ncol(df_sheet), ~ .x * 100))",
+      "  }",
+      
+      # Buat Datatable Dasar
+      "  dt <- DT::datatable(",
+      "    df_sheet,",
+      "    rownames = FALSE,",
+      "    extensions = c('Buttons', 'Scroller'),",
+      "    options = list(",
+      "      paging = FALSE,",
+      "      scrollY = '300px',",
+      "      scrollX = TRUE,",
+      "      searching = TRUE,",
+      "      responsive = FALSE,",
+      "      dom = 'Blfrtip',",
+      "      buttons = list(",
+      "        list(extend = 'copy', className = 'btn btn-light btn-sm'),",
+      "        list(extend = 'csv',  className = 'btn btn-light btn-sm'),",
+      "        list(extend = 'excel',className = 'btn btn-light btn-sm')",
+      "      )",
+      "    )",
+      "  )",
+      
+      # Format semua kolom numerik (kolom ke-3 dst) dengan scales::comma
+      "  # Format ribuan + 2 desimal",
+      "  for (col_idx in 3:ncol(df_sheet)) {",
+      "    if (is.numeric(df_sheet[[col_idx]])) {",
+      "      if (is_pct) {",
+      "        dt <- dt %>% DT::formatString(",
+      "          columns = col_idx,",
+      "          prefix = '',",
+      "          suffix = ' %'",
+      "        ) %>% DT::formatRound(columns = col_idx, digits = 2)",
+      "      } else {",
+      "        dt <- dt %>% DT::formatString(",
+      "          columns = col_idx,",
+      "          prefix = '',",
+      "          suffix = ''",
+      "        ) %>% DT::formatRound(columns = col_idx, digits = 2) %>%",
+      "          DT::formatCurrency(columns = col_idx, currency = '', interval = 3, mark = ',', digits = 2)",
+      "      }",
+      "    }",
+      "  }",
+      
+      "  dt",
+      "} else {",
+      "  cat('*Sheet ini kosong.*')",
+      "}",
+      "```"
+    )
+    
+    res <- knitr::knit_child(text = child_content, envir = env, quiet = TRUE)
+    cat(res, sep = "\n")
+    cat("\n\n")
+  }
+}
+```
 
 # Perbandingan Skenario BAU dan Intervensi {.tabset}
 
@@ -199,7 +284,7 @@ if (!is.null(params$pu_summary) && nrow(params$pu_summary) > 0) {
       `Persentase Selisih (%)` = paste0(round(`Persentase Selisih (%)`, 2), "%")
     ) %>%
     # 3. Pilih & Rename kolom dengan satuan mata uang
-    select(
+    dplyr::select(
       `PU ID` = PU_ID,
       `Unit Perencanaan` = PU_Name,
       `Luas (Ha)` = Area_Ha,
