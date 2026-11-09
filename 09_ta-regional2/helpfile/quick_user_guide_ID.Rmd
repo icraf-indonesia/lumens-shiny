@@ -1,0 +1,230 @@
+---
+title: "Analisis Proyeksi Ekonomi Regional"
+output: 
+  html_document: 
+    toc: true
+    toc_float: true
+    number_sections: true
+    df_print: kable
+    math_method:
+      engine: mathjax
+---
+
+# Gambaran Umum
+
+Modul **Proyeksi Ekonomi Regional** dalam LUMENS memproyeksikan lintasan ekonomi suatu wilayah berdasarkan berbagai skenario masa depan. Sebagai kelanjutan dari Analisis Deskriptif Ekonomi Regional, modul ini memadukan model **Input-Output (I-O) campuran terkendala sisi penawaran** dengan proyeksi tutupan lahan, untuk menjawab pertanyaan-pertanyaan seperti:
+
+- Bagaimana perkembangan PDRB, kesempatan kerja, dan pendapatan rumah tangga wilayah hingga tahun 2049?
+- Apa yang terjadi jika terjadi perubahan penggunaan lahan (**Asumsi 1**), peningkatan produktivitas (**Asumsi 2**), atau perluasan industri hilir (**Asumsi 3**)?
+- Sektor mana yang memperoleh atau kehilangan bobot ekonomi pada tiap intervensi?
+
+Modul menghasilkan **proyeksi yang dapat dibandingkan** antara skenario dasar **Business-As-Usual (BAU)** dengan satu atau lebih asumsi intervensi, sehingga pemangku kepentingan memperoleh dasar kuantitatif untuk merancang kebijakan yang menyeimbangkan pertumbuhan ekonomi dengan penggunaan lahan berkelanjutan.
+
+# Konsep Kunci
+
+1.  **Business-As-Usual (BAU)**: Skenario acuan. Menggunakan proyeksi tutupan lahan dasar dan laju pertumbuhan historis tanpa intervensi kebijakan. Setiap hasil proyeksi dibandingkan terhadap BAU.
+
+2.  **Asumsi 1 — Perubahan Penggunaan Lahan**: Menyimulasikan dampak perubahan **luas** lahan (melalui `luc_projection`) atau **proporsi/distribusi** lahan (melalui `land_proportion`). Output sektor berbasis lahan dihitung ulang sebagai *luas × Koefisien Produktivitas Lahan (LPC)*.
+
+3.  **Asumsi 2 — Peningkatan Produktivitas**: Menyimulasikan kenaikan Koefisien Produktivitas Lahan (LPC) dari waktu ke waktu. LPC meningkat bertahap dari nilai dasar menuju target yang ditetapkan pengguna, sehingga output per hektar meningkat tanpa menambah jejak lahan.
+
+4.  **Asumsi 3 — Hilirisasi**: Menyimulasikan perubahan struktural pada tabel I-O. Sebagian output komoditas mentah dialihkan ke sektor pengolahan hilir; matriks transaksi antara yang telah dimodifikasi (ΔZ) dan target output (ΔX) diseimbangkan kembali menggunakan **algoritma RAS** sehingga dihasilkan sistem I-O yang konsisten dan seimbang.
+
+5.  **Model I-O Campuran Terkendala Sisi Penawaran**: Model Leontief hibrida. Sektor terkendala lahan (*constrained*, co) dibatasi oleh ketersediaan lahan × LPC; sektor non-lahan (*unconstrained*, nc) diselesaikan melalui invers Leontief. Dengan demikian, model menghormati batas penggunaan lahan sekaligus tetap memperhitungkan permintaan antar sektor.
+
+6.  **Indeks Keterkaitan (ITBL & ITFL)**:
+
+    - **ITBL** (Indeks Total Keterkaitan ke Belakang) — seberapa kuat suatu sektor menarik permintaan dari sektor hulu.
+    - **ITFL** (Indeks Total Keterkaitan ke Depan) — seberapa kuat suatu sektor memasok input ke sektor hilir.
+
+    Perbandingan ITBL/ITFL sebelum dan sesudah skenario mengungkap sektor mana yang memperoleh atau kehilangan kepentingan strategis.
+
+7.  **Penyeimbangan RAS (Biproportional Matrix Balancing)**: Algoritma iteratif untuk menyesuaikan matriks koefisien teknis I-O (A) hingga jumlah baris (*row sum*) dan jumlah kolom (*column sum*) sesuai target baru (Miller & Blair, 2009). Digunakan untuk menjaga konsistensi tabel I-O setelah intervensi Asumsi 3.
+
+# Data dan Variabel Input
+
+Sebelum menjalankan proyeksi, siapkan data berikut:
+
+1.  **Data Dasar (hasil Analisis Deskriptif)** — dapat berupa salah satu:
+
+    - `Descriptive_Analysis_Module.rds` — berkas RDS yang dihasilkan modul Analisis Deskriptif *(disarankan)*, atau
+    - `IO_Analysis_Output.xlsx` — buku kerja Excel yang memuat seluruh sheet data dasar (`GDP`, `Leontief_Matrix`, `Full_IO_Table`, `Land_Proportion`, `Multiplier_*`, `Linkage`, `Code_Registry`, dan lain-lain).
+
+2.  **Proyeksi Luas Lahan BAU (`luc_projection.xlsx`)** — proyeksi luas lahan tiap kelas tutupan lahan, dengan kolom `ID`, `LC`, serta satu kolom untuk setiap tahun proyeksi.
+
+3.  **Input Asumsi 1 (opsional)** — berkas Excel yang memuat:
+
+    - Sheet `luc_projection` (wajib): skema sama dengan proyeksi lahan BAU.
+    - Sheet `land_proportion` (opsional): proporsi sektor × tutupan lahan.
+
+4.  **Input Asumsi 2 (opsional)** — `produktivitas_lpc.xlsx` yang dihasilkan dari templat. Memuat daftar sektor, LPC dasar, serta faktor pertumbuhan target atau nilai LPC target.
+
+5.  **Input Asumsi 3 (opsional)** — `perubahan_io.xlsx` yang dihasilkan dari templat. Memuat ΔZ (perubahan transaksi antar sektor) dan ΔX (perubahan output sektor asal dan tujuan).
+
+> **Saran:** Gunakan tombol **Unduh Templat** pada masing-masing tab asumsi (A1, A2, A3) untuk memperoleh berkas Excel yang telah terisi daftar sektor, nama LC, dan struktur kolom yang sesuai. Jangan mengganti nama kolom pada templat — pemuat (*loader*) mengharapkan nama kolom yang persis sama.
+
+## Menggunakan Modul Proyeksi Ekonomi Regional
+
+Ikuti langkah-langkah berikut:
+
+<video controls style="max-width:80%;height:auto;">
+
+<source src="ta-reg2.mp4" type="video/mp4">
+
+Peramban Anda tidak mendukung tag video. </video>
+
+### Langkah 1 — Memuat Data Dasar
+
+1.  Pilih sumber data dasar:
+    - Centang **"Muat dari Analisis Deskriptif .rds"** untuk menggunakan berkas `.rds` *(disarankan)*.
+    - Atau biarkan tidak dicentang dan unggah berkas `IO_Analysis_Output.xlsx`.
+2.  Unggah **Proyeksi Luas Lahan BAU** (`luc_projection.xlsx`).
+
+### Langkah 2 — Mengatur Periode Proyeksi
+
+- **Tahun awal** — awal horizon proyeksi (misal 2025).
+- **Tahun akhir** — akhir horizon proyeksi (misal 2049).
+- **Interval** — langkah dalam satuan tahun (misal 5 untuk periode 5 tahunan).
+
+Label di bawah kolom input menampilkan pratinjau daftar periode (misal `2025-2030, 2030-2035, ...`).
+
+### Langkah 3 — Konfigurasi Skenario
+
+1.  Pilih **"Ya"** jika akan menerapkan skenario intervensi, atau **"Tidak"** untuk BAU saja.
+
+2.  Jika memilih "Ya":
+
+    - Masukkan **nama skenario**.
+    - Isi tab asumsi yang akan diaktifkan:
+      - **A1: Lahan** — unggah `luc_projection.xlsx` (dan opsional `land_proportion`).
+      - **A2: Produktivitas** — unggah `produktivitas_lpc.xlsx`.
+      - **A3: Hilirisasi** — unggah `perubahan_io.xlsx`.
+
+    Anda dapat mengaktifkan **kombinasi apa pun** — BAU saja, A1 saja, A1+A2, A1+A2+A3, dan lain-lain. Seluruh 8 kombinasi didukung.
+
+3.  Klik **Hapus Asumsi** untuk mengatur ulang tab asumsi apabila Anda berubah pikiran.
+
+### Langkah 4 — Memilih Direktori Output
+
+Klik **"Pilih Direktori Output"** dan tentukan folder untuk laporan HTML serta ekspor Excel yang akan dihasilkan. Pemilih folder mendukung seluruh drive dan lokasi jaringan yang tersedia.
+
+### Langkah 5 — Menjalankan Analisis
+
+Klik **"Jalankan Analisis"**. Bilah kemajuan (*progress bar*) akan menampilkan tahapan:
+
+1.  Memuat data dasar
+2.  Menyiapkan tabel rekapitulasi
+3.  Menghasilkan laporan HTML
+
+Setelah selesai, peringatan (*alert*) dan notifikasi berwarna hijau akan mengonfirmasi keberhasilan. Tiga tombol aksi akan muncul:
+
+- **Unduh Hasil (.xlsx)** — mengekspor seluruh hasil proyeksi sebagai buku kerja Excel.
+- **Buka Laporan** — membuka laporan HTML di peramban bawaan.
+- **Buka Folder Output** — membuka direktori output.
+
+# Kombinasi Skenario yang Didukung
+
+```{r scenario-combo-table, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
+scenario_combos <- data.frame(
+  No               = 1:8,
+  BAU              = rep("✅", 8),
+  A1               = c("—", "✅", "✅", "✅", "—", "—", "—", "✅"),
+  A2               = c("—", "—", "✅", "—", "✅", "✅", "—", "✅"),
+  A3               = c("—", "—", "—", "✅", "—", "✅", "✅", "✅"),
+  `Contoh Kasus`   = c(
+    "Hanya data dasar",
+    "Perubahan penggunaan lahan",
+    "Perubahan lahan + produktivitas",
+    "Perubahan lahan + hilirisasi",
+    "Peningkatan produktivitas",
+    "Peningkatan produktivitas + hilirisasi",
+    "Hilirisasi",
+    "Skenario gabungan lengkap"
+  ),
+  check.names = FALSE,
+  stringsAsFactors = FALSE
+)
+
+# Konversi ke tabel HTML dengan styling inline
+rows_html <- apply(scenario_combos, 1, function(row) {
+  cells <- sapply(seq_along(row), function(j) {
+    val <- row[j]
+    if (j %in% 2:5) {
+      style <- "text-align:center; font-size:16px;"
+      if (val == "✅") style <- paste0(style, "color:#28a745; font-weight:bold;")
+      else style <- paste0(style, "color:#adb5bd;")
+    } else if (j == 1) {
+      style <- "text-align:center; font-weight:bold;"
+    } else {
+      style <- ""
+    }
+    sprintf("<td style='%s padding:8px 12px;'>%s</td>", style, val)
+  })
+  sprintf("<tr>%s</tr>", paste(cells, collapse = ""))
+})
+
+table_html <- sprintf(
+  "<table class='table table-bordered table-hover' style='width:100%%; font-size:14px;'>
+     <thead style='background-color:#1F497D; color:white;'>
+       <tr>
+         <th style='text-align:center; padding:10px;'>No</th>
+         <th style='text-align:center; padding:10px;'>BAU</th>
+         <th style='text-align:center; padding:10px;'>A1</th>
+         <th style='text-align:center; padding:10px;'>A2</th>
+         <th style='text-align:center; padding:10px;'>A3</th>
+         <th style='padding:10px;'>Contoh Kasus</th>
+       </tr>
+     </thead>
+     <tbody>%s</tbody>
+   </table>",
+  paste(rows_html, collapse = "")
+)
+
+cat(table_html)
+```
+
+# Mengakses Hasil Keluaran
+
+Setelah analisis selesai, berkas-berkas berikut akan tertulis di direktori output yang Anda pilih:
+
+1.  **Laporan Proyeksi HTML (`Projection_Report_<skenario>_<timestamp>.html`)** — laporan interaktif yang memuat:
+
+    - Log input (berkas data dasar, berkas BAU, dan berkas tiap asumsi).
+
+    - Ringkasan eksekutif (nilai tahun awal vs tahun akhir, laju pertumbuhan) per indikator.
+
+    - Bagian per indikator: **PDRB**, **Serapan Tenaga Kerja**, **Pendapatan Tenaga Kerja**, **Surplus Usaha Bruto**, **Output** — masing-masing dilengkapi tabel rekapitulasi (BAU vs Skenario + selisih %) dan grafik Plotly.
+
+    - Analisis sektoral: 20 sektor teratas berdasarkan PDRB, tenaga kerja, dan output.
+
+    - **Perubahan keterkaitan** (hanya jika Asumsi 3 aktif): ITBL dan ITFL sebelum vs sesudah, 10 sektor dengan perubahan terbesar.
+
+2.  **Excel Hasil Proyeksi (`Hasil_Proyeksi_<skenario>_<timestamp>.xlsx`)** — buku kerja multi-sheet yang memuat:
+
+    - `Recap_Skenario` — rekapitulasi tahunan skenario.
+
+    - `Recap_BAU` — rekapitulasi tahunan BAU.
+
+    - `Detail_Skenario` — hasil tingkat sektor untuk skenario.
+
+    - `Detail_BAU` — hasil tingkat sektor untuk BAU.
+
+    - `Linkage` — ITBL/ITFL sebelum dan sesudah (jika Asumsi 3 aktif).
+
+    - `Metadata` — nama skenario, asumsi aktif, periode, jumlah sektor.
+
+# Menafsirkan Hasil
+
+- **Nilai absolut** — hasil proyeksi menggunakan satuan yang sama dengan data dasar (misal Rp Juta untuk PDRB, Orang untuk tenaga kerja). Satuan ditampilkan pada tajuk setiap tabel.
+
+- **Selisih %** — kesenjangan relatif antara skenario dan BAU. Nilai positif berarti skenario menghasilkan indikator yang lebih besar daripada BAU; nilai negatif berarti lebih kecil.
+
+- **Delta keterkaitan (ΔITBL, ΔITFL)** — Δ positif berarti sektor menjadi lebih penting secara strategis setelah intervensi. Δ negatif berarti melemah.
+
+- **Arah tren** — periksa apakah keuntungan/kerugian konsisten sepanjang horizon atau hanya muncul di akhir periode (efek berganda/*compounding*). Divergensi awal menunjukkan efek skenario yang kuat dan langsung; divergensi akhir menunjukkan efek akumulatif.
+
+------------------------------------------------------------------------
+
+Untuk informasi lebih rinci atau penyelesaian masalah, silakan merujuk ke dokumentasi lengkap Proyeksi Ekonomi Regional di <https://help.lumens.or.id/08-regional2.html> atau menghubungi pengembang perangkat lunak.
+
+LUMENS adalah perangkat lunak bebas dan disediakan TANPA JAMINAN APAPUN. Pengguna bertanggung jawab atas hasil yang dihasilkan. Hasil bergantung pada kualitas data input ("garbage in, garbage out") dan dapat bervariasi atau sensitif terhadap parameter yang digunakan. Silakan laporkan setiap masalah yang Anda temui saat menggunakan LUMENS sebagai [GitHub issue](https://github.com/icraf-indonesia/lumens-shiny/issues). Umpan balik dan pertanyaan sangat kami harapkan [Contact Us URL].
