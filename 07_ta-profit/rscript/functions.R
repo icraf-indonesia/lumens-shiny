@@ -306,7 +306,7 @@ preprocess_data <- function(pathLULCT1, pathLULCT2, pathPU,
     left_join(LookupNPV %>% rename_all(~paste0(., "_LC2")), by = c("LC2" = "LC_LC2")) %>% 
     left_join(LookupCstock %>% rename(C_T1 = Carbon), by = c("LC1" = "LC")) %>%
     left_join(LookupCstock %>% rename(C_T2 = Carbon), by = c("LC2" = "LC")) %>%
-    select(-ID.x, -ID.y) %>%
+    dplyr::select(-ID.x, -ID.y) %>%
     mutate(
       NPV1 = EAE_LC1 * Ha,
       NPV2 = EAE_LC2 * Ha,
@@ -519,7 +519,7 @@ calculate_pu_dominance <- function(df_curve) {
     ) %>%
     slice_max(total_area, n = 1, with_ties = FALSE) %>%
     ungroup() %>%
-    select(land_use_change, carbon_direction, planning_unit, pct_of_largest_pu)
+    dplyr::select(land_use_change, carbon_direction, planning_unit, pct_of_largest_pu)
   
   return(df_pu_dominance)
 }
@@ -1325,8 +1325,8 @@ generate_report_params <- function(data, maps, paths, times, output_dir, pu_outp
     
     # 3. Ambil tabel untuk export Excel
     npv_output_table <- opcost_results$data_em_sel %>% 
-      select(-Freq, -ID_LC1, -ID_LC2, -C_T1, -C_T2, -EAE_LC1, -EAE_LC2) %>%
-      filter(!is.nan(opcost), !is.na(opcost))
+      dplyr::select(-Freq, -ID_LC1, -ID_LC2, -C_T1, -C_T2, -EAE_LC1, -EAE_LC2) %>%
+      dplyr::filter(!is.nan(opcost), !is.na(opcost))
     
   } else {
     # Jika tidak ada file karbon, gunakan data mentah (tanpa em_rate, em_tot, opcost)
@@ -1337,11 +1337,11 @@ generate_report_params <- function(data, maps, paths, times, output_dir, pu_outp
   if (!is.null(paths$pathLookupCstock)) {
     # SKENARIO A: Ada file karbon (Ambil dari hasil opcost)
     npv_output_table <- opcost_results$data_em_sel %>% 
-      select(
+      dplyr::select(
         PU, LC1, LC2, Ha, NPV1, NPV2, deltaNPV, LULCC, 
         em_rate, em_tot, opcost
       ) %>%
-      filter(!is.nan(opcost), !is.na(opcost)) %>%
+      dplyr::filter(!is.nan(opcost), !is.na(opcost)) %>%
       # Rename seluruh kolom termasuk kolom abatement
       dplyr::rename(
         `Unit Perencanaan (PU)` = PU,
@@ -1359,7 +1359,7 @@ generate_report_params <- function(data, maps, paths, times, output_dir, pu_outp
   } else {
     # SKENARIO B: Tidak ada file karbon (Pilih kolom esensial saja)
     npv_output_table <- data$combinedRasterTable %>%
-      select(
+      dplyr::select(
         PU, LC1, LC2, Ha, NPV1, NPV2, deltaNPV, LULCC
       ) %>%
       # Rename kolom dasar
@@ -1503,8 +1503,10 @@ process_scenario_comparison <- function(pathScenarioExcel, pathPU, pathLookupPU,
       # Keuntungan BAU = EAE BAU * Luas BAU
       Keuntungan_BAU = EAE_BAU * Luas_BAU,
       
-      # Keuntungan Intervensi = (Keuntungan BAU * Pct BAU) + (EAE Intervensi * Pct Intervensi * Luas Intervensi)
-      Keuntungan_Intervensi = (Keuntungan_BAU * Pct_BAU) + (EAE_Intervensi * Pct_Intervensi * Luas_Intervensi),
+      # Keuntungan Intervensi (RUMUS BARU):
+      # = (Luas Intervensi * Pct BAU * EAE BAU) + (Luas Intervensi * Pct Intervensi * EAE Intervensi)
+      Keuntungan_Intervensi = (Luas_Intervensi * Pct_BAU * EAE_BAU) + 
+        (Luas_Intervensi * Pct_Intervensi * EAE_Intervensi),
       
       # Selisih dan Persentase
       Selisih = Keuntungan_Intervensi - Keuntungan_BAU,
