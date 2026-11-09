@@ -96,7 +96,6 @@ analysis_log %>% kbl(caption = "Analysis Log", escape = FALSE) %>%
 
 # Pendahuluan
 
-## Deskripsi Modul
 Laporan ini menyajikan hasil Analisis Profitabilitas dan Trade-off berdasarkan skenario perubahan penggunaan lahan. Analisis menilai keuntungan finansial setiap tutupan lahan, lalu membandingkannya dengan perubahan stok karbon yang menyertai transisi lahan. Dengan cara ini, laporan menunjukkan apakah suatu perubahan lahan menguntungkan secara ekonomi, merugikan secara ekonomi, atau saling bertukar (trade-off) dengan penurunan emisi.
 Analisis dilakukan dalam tiga tahap:
 
@@ -106,90 +105,9 @@ Analisis dilakukan dalam tiga tahap:
 
 3.	**Trade-off melalui abatement cost**. Abatement cost (biaya pengurangan emisi, `r params$currency`/tahun per ton CO₂-eq) menyatakan keuntungan yang dikorbankan untuk menurunkan satu ton CO₂-eq. Interpretasi dan perbandingan dengan harga karbon perlu memperhatikan periode dan satuan yang digunakan.
 
-4.  **Total Keuntungan Usaha Tani**
+# Data yang Digunakan {.tabset}
 
-### Indikator Keuntungan
-
-Indikator ekonomi yang digunakan adalah Nilai Tahunan Ekuivalen atau Equal Annual Equivalent (EAE). EAE adalah nilai tahunan yang setara dari Net Present Value (NPV) suatu tutupan lahan per satuan luas lahan. EAE mengubah seluruh nilai keuntungan bersih suatu tutupan lahan yang dihitung dalam bentuk NPV menjadi nilai rata-rata keuntungan tahunan yang ekuivalen yang telah terdiskonto. Suatu kegiatan dikatakan memiliki manfaat dan layak dijalankan bila EAE> 0. Indikator EAE digunakan untuk mengakomodir kemungkinan perbedaan siklus hidup tanaman di suatu tutupan lahan,  dengan rumus sebagai berikut:
-
-$$
-EAE = NPV \times \frac{i(1+i)^t}{(1+i)^t - 1}
-$$
-Keterangan:
-
-- $EAE$ = Equal Annual Equivalent (nilai tahunan ekuivalen)
-- $NPV$ = Net Present Value (nilai kini bersih)
-- $i$ = Tingkat suku bunga riil (faktor diskonto)
-- $t$ = Tahun ke-1, 2, 3, ..., $n$ selama periode analisis
-
-Sedangkan Net Present Value (NPV) merupakan keuntungan atau pendapatan bersih saat ini yang didapat dari selisih antara penerimaan dengan biaya selama periode tertentu. NPV adalah penerimaan yang terdiskonto, dalam perhitungannya menggunakan faktor diskonto karena menormalkan nilai keuntungan di masa depan ke masa kini. Suatu kegiatan dikatakan memiliki manfaat dan layak dijalankan bila NPV > 0. Rumus NPV adalah:
-
-$$
-NPV = \sum_{t=0}^{n}
-\frac{B_t - C_t}{(1+i)^t}
-$$
-Keterangan:
-
-- $B_t$ = Manfaat atau penerimaan pada tahun ke-$t$
-- $C_t$ = Biaya pada tahun ke-$t$
-- $t$ = Tahun ke-1, 2, 3, ..., $n$ selama periode analisis
-- $i$ = Tingkat suku bunga riil (faktor diskonto)
-
-Tingkat diskonto (discount factor) menggunakan tingkat suku bunga riil, dengan rumusan sebagai berikut:
-
-$$
-i = \frac{1 + \text{Nominal Interest Rate}}
-{1 + \text{Inflation Rate}} - 1
-$$
-
-Nilai EAE yang digunakan berasal dari tabel profitabilitas yang disediakan untuk tahun `r params$eae_year`. Sumber, periode, harga, tingkat diskonto, dan asumsi lain mengikuti data yang digunakan untuk menyusun tabel tersebut.
-
-### Abatement Cost
-
-Pada hasil ini, pembilang biaya peluang adalah perubahan EAE tahunan dan penyebutnya adalah perubahan stok karbon total. Karena itu, satuan hasil adalah `r params$currency`/tahun per ton CO₂-eq. Dalam ABACUS SP, biaya peluang dapat dibandingkan dengan ambang harga karbon untuk menilai potensi pengurangan emisi. Pada hasil LUMENS ini, periode dan satuan perlu diperhatikan sebelum melakukan perbandingan tersebut karena pembilang menggunakan EAE tahunan.
-
-Abatement Cost adalah besarnya keuntungan ekonomi yang dikorbankan untuk menurunkan satu ton CO₂-eq emisi akibat perubahan penggunaan lahan, dibandingkan kondisi dasar (baseline). Satuannya `r params$currency`/tahun per ton CO₂-eq. Nilai ini juga disebut biaya peluang (opportunity cost) pengurangan emisi.
-
-Dalam konteks ekonomi lingkungan dan perubahan penggunaan lahan, abatement cost sering digunakan untuk menghitung:
-
-•	biaya pengurangan emisi,
-
-•	trade-off antara keuntungan ekonomi dan penurunan emisi,
-
-Kurva biaya pengurangan emisi (abatement cost) menunjukkan perbandingan biaya peluang dari berbagai jenis perubahan penggunaan lahan dalam `r params$currency` per tahun per ton CO₂-eq dan menunjukkan kuantitas potensi pengurangan emisi per jenis perubahan penggunaan lahan, satuan yang digunakan adalah `r params$currency`/tahun per ton CO₂-eq. Kurva biaya pengurangan emisi (abatement cost) tidak menentukan siapa yang harus dibayar, tetapi memberikan perkiraan biaya peluang rata-rata dan marginal dari pengurangan emisi. Rumus untuk menghitung biaya peluang dalam `r params$currency`/tahun per ton CO₂-eq adalah:
-
-$$
-\frac{EAE_{T2} - EAE_{T1}}
-{3.67 \left( C_{stok,T1} - C_{stok,T2} \right)}
-$$
-Keterangan:
-
-- $EAE_{T2}$ = Equal Annual Equivalent pada tutupan lahan T2
-- $EAE_{T1}$ = Equal Annual Equivalent pada tutupan lahan T1
-- $C_{stok,T1}$ = Stok karbon pada tutupan lahan T1
-- $C_{stok,T2}$ = Stok karbon pada tutupan lahan T2
-
-Pada kurva gabungan per unit perencanaan, sumbu horizontal menunjukkan laju perubahan stok karbon yang dinormalisasi terhadap luas lanskap. Nilai positif menunjukkan kehilangan stok karbon, sedangkan nilai negatif menunjukkan kenaikan stok karbon. Sumbu vertikal menunjukkan abatement cost. Lebar balok menunjukkan besarnya laju perubahan stok karbon, bukan luas lahan yang tersedia untuk tindakan di masa depan. Empat kombinasi dapat dibaca sebagai berikut:
-
-1. **Kuadran 1, kehilangan karbon dan biaya positif.** Transisi meningkatkan EAE dan mengurangi stok karbon. Menghindari transisi ini mengorbankan keuntungan yang diperkirakan.
-2. **Kuadran 2, kenaikan karbon dan biaya positif.** Transisi meningkatkan stok karbon dan menurunkan EAE. Biaya positif mencerminkan keuntungan yang dikorbankan.
-3. **Kuadran 3, kenaikan karbon dan biaya negatif.** Transisi meningkatkan stok karbon dan EAE.
-4. **Kuadran 4, kehilangan karbon dan biaya negatif.** Transisi menurunkan stok karbon dan EAE. Menghindarinya dapat mempertahankan karbon sekaligus menghindari penurunan keuntungan yang diperkirakan.
-
-Kurva emisi dan sekuestrasi terpisah menampilkan besaran laju masing-masing sebagai nilai positif pada sumbu horizontal. Sumbu abatement cost menggunakan skala pseudo-logaritmik yang mempertahankan nilai positif, negatif, dan nol. Nilai biaya didasarkan pada EAE tahunan.
-
-## Cara Kerja Analisis
-Alur kerja analisis melibatkan beberapa langkah kunci:
-
-1. **Pemrosesan Data EAE**: Data EAE diproses untuk membuat tabel referensi yang komprehensif.
-
-2. **Analisis Perubahan Penggunaan Lahan**: Peta perubahan penggunaan lahan diproses untuk menilai perubahan dalam EAE.
-
-3. **Visualisasi**: Peta dihasilkan untuk merepresentasikan secara visual sebaran spasial dari perubahan EAE.
-
-## Data yang Digunakan {.tabset}
-
-### Peta Tutupan/Penggunaan Lahan pada `r params$year1`
+## Peta Tutupan/Penggunaan Lahan pada `r params$year1`
 
 ```{r Land-Use/Cover Map T1, echo=FALSE, message=FALSE, warning=FALSE}
 fill_scale <- ggplot2::scale_fill_manual(
@@ -232,7 +150,7 @@ lc1_map <- ggplot() +
 lc1_map
 ```
 
-### Peta Tutupan/Penggunaan Lahan pada `r params$year2`
+## Peta Tutupan/Penggunaan Lahan pada `r params$year2`
 
 ```{r Land-Use/Cover Map T2, echo=FALSE, message=FALSE, warning=FALSE}
 fill_scale <- ggplot2::scale_fill_manual(
@@ -275,7 +193,7 @@ lc2_map <- ggplot() +
 lc2_map
 ```
 
-### Peta Unit Perencanaan
+## Peta Unit Perencanaan
 
 ```{r Planning Unit, echo=FALSE, message=FALSE, warning=FALSE}
 fill_scale <- ggplot2::scale_fill_manual(
@@ -322,7 +240,7 @@ pu_map
 if (!is.null(params$pu_table_path) && file.exists(params$pu_table_path)) {
 
   # Cetak judul tab secara manual jika menggunakan raster
-  cat("### Tabel Acuan Unit Perencanaan\n\n")
+  cat("## Tabel Acuan Unit Perencanaan\n\n")
 
   # Tampilkan datatable
   print(
@@ -349,7 +267,7 @@ if (!is.null(params$pu_table_path) && file.exists(params$pu_table_path)) {
 }
 ```
 
-### Tabel Acuan `r if(params$has_cstock) "EAE dan Karbon" else "EAE"`
+## Tabel Acuan `r if(params$has_cstock) "EAE dan Karbon" else "EAE"`
 
 ```{r, echo=FALSE, results='asis'}
 if (params$has_cstock) {
@@ -464,10 +382,10 @@ eae_area_summary %>%
   ) %>%
   rename(
     `Tutupan Lahan` = LC,
-    !!glue::glue("Total Keuntungan Usaha Tani T1 ({params$currency}/tahun)") := Total_NPV1,
-    !!glue::glue("Total Luas Lahan T1 ({params$year1}) (Ha)") := Total_Ha1,
-    !!glue::glue("Total Keuntungan Usaha Tani T2 ({params$currency}/tahun)") := Total_NPV2,
-    !!glue::glue("Total Luas Lahan T2 ({params$year2}) (Ha)") := Total_Ha2
+    !!glue::glue("Keuntungan Usaha Tani T1 ({params$currency}/tahun)") := Total_NPV1,
+    !!glue::glue("Luas Lahan T1 ({params$year1}) (Ha)") := Total_Ha1,
+    !!glue::glue("Keuntungan Usaha Tani T2 ({params$currency}/tahun)") := Total_NPV2,
+    !!glue::glue("Luas Lahan T2 ({params$year2}) (Ha)") := Total_Ha2
   ) %>%
   DT::datatable(
     rownames = FALSE,
@@ -533,8 +451,8 @@ params$npv1_table %>%
   dplyr::mutate(dplyr::across(where(is.numeric), easy_to_read_numbers)) %>%
   rename(
     `Tutupan Lahan 1` = LC1,
-    !!glue::glue("Total Keuntungan Usaha Tani ({params$currency}/tahun)") := Total_NPV1,
-    `Total Luas (Ha)` = Total_Ha1
+    !!glue::glue("Keuntungan Usaha Tani ({params$currency}/tahun)") := Total_NPV1,
+    `Luas (Ha)` = Total_Ha1
   ) %>%
   DT::datatable(
     rownames = FALSE,
@@ -601,8 +519,8 @@ params$npv2_table %>%
   dplyr::mutate(dplyr::across(where(is.numeric), easy_to_read_numbers)) %>%
   rename(
     `Tutupan Lahan 2` = LC2,
-    !!glue::glue("Total Keuntungan Usaha Tani ({params$currency}/tahun)") := Total_NPV2,
-    `Total Luas (Ha)` = Total_Ha2
+    !!glue::glue("Keuntungan Usaha Tani ({params$currency}/tahun)") := Total_NPV2,
+    `Luas (Ha)` = Total_Ha2
   ) %>%
   DT::datatable(
     rownames = FALSE,
@@ -667,7 +585,7 @@ params$deltaNPV_table %>%
     `Perubahan Penggunaan Lahan` = LULCC,
     !!rlang::sym(glue::glue("ΔKeuntungan Usaha Tani ({params$currency}/tahun)")) := Total_deltaNPV,
     !!rlang::sym(glue::glue("|ΔKeuntungan Usaha Tani| ({params$currency}/tahun)")) := Total_abs_deltaNPV,
-    `Total Luas (Ha)` = Total_Ha2
+    `Luas (Ha)` = Total_Ha2
   ) %>%
   DT::datatable(
     rownames = FALSE,
@@ -805,7 +723,7 @@ render_child_pu <- function(results_list, pu_name, currency) {
     "    `Perubahan Penggunaan Lahan` = LULCC,",
     sprintf("    `ΔKeuntungan Usaha Tani (%s)` = Total_deltaNPV,", currency),
     sprintf("    `|ΔKeuntungan Usaha Tani| (%s)` = Total_abs_deltaNPV,", currency),
-    "    `Total Luas (Ha)` = Total_Ha2",
+    "    `Luas (Ha)` = Total_Ha2",
     "  ) %>%",
     "  DT::datatable(",
     "    rownames = FALSE,",

@@ -145,6 +145,10 @@ read_input_file <- function(path, sheet = NULL, skip = 0, header = FALSE, as_mat
 #' single complete matrix, along with a Code Registry that maps each code to
 #' label, type, and row/column position.
 #'
+#' The returned `full_io_table` uses **labels** (sector names, FD names, VA names)
+#' as row/column names, so it is human-readable. The `code_registry` retains the
+#' original numeric codes for internal mapping.
+#'
 #' @param sector A data frame or tibble with at least one column of sector names.
 #' @param intermediate_consumption_m Numeric matrix of intermediate consumption.
 #' @param final_demand_m Numeric matrix of final demand.
@@ -155,8 +159,8 @@ read_input_file <- function(path, sheet = NULL, skip = 0, header = FALSE, as_mat
 #'   code and label for added value components.
 #'
 #' @return A list with elements:
-#'   \item{full_io_table}{Complete IO matrix}
-#'   \item{code_registry}{Tibble with code mapping}
+#'   \item{full_io_table}{Complete IO matrix (rownames/colnames = labels)}
+#'   \item{code_registry}{Tibble with code mapping (Code column kept as-is)}
 #'   \item{n_sector}{Number of sectors}
 #'
 #' @examples
@@ -167,11 +171,16 @@ read_input_file <- function(path, sheet = NULL, skip = 0, header = FALSE, as_mat
 #' @export
 build_full_io_table <- function(sector, intermediate_consumption_m, final_demand_m,
                                 final_demand_component, added_value_m, added_value_lookup) {
-  n_sector   <- nrow(sector)
+  n_sector     <- nrow(sector)
   sector_codes <- as.character(seq_len(n_sector))
-  fd_codes   <- as.character(final_demand_component[[1]])
-  va_codes   <- as.character(added_value_lookup[[1]])
+  sector_labels <- as.character(sector[[1]])
   
+  fd_codes  <- as.character(final_demand_component[[1]])
+  fd_labels <- as.character(final_demand_component[[2]])
+  va_codes  <- as.character(added_value_lookup[[1]])
+  va_labels <- as.character(added_value_lookup[[2]])
+  
+  # ---- Validasi ----
   if (anyNA(fd_codes) || any(trimws(fd_codes) == ""))
     stop("There are empty/NA codes in the first column of 'final_demand'.", call. = FALSE)
   if (anyNA(va_codes) || any(trimws(va_codes) == ""))
@@ -183,30 +192,149 @@ build_full_io_table <- function(sector, intermediate_consumption_m, final_demand
   if (any(fd_codes %in% va_codes))
     stop("Final Demand codes conflict with Added Value codes.")
   
-  row_codes <- c(sector_codes, va_codes)
+  if (anyNA(sector_labels) || any(trimws(sector_labels) == ""))
+    stop("There are empty/NA sector labels.", call. = FALSE)
+  if (anyNA(fd_labels) || any(trimws(fd_labels) == ""))
+    stop("There are empty/NA labels in 'final_demand'.", call. = FALSE)
+  if (anyNA(va_labels) || any(trimws(va_labels) == ""))
+    stop("There are empty/NA labels in 'added_value'.", call. = FALSE)
+  
+  # ---- Cek duplikat label (rownames/colnames harus unik) ----
+  all_row_labels <- c(sector_labels, va_labels)
+  all_col_labels <- c(sector_labels, fd_labels)
+  if (anyDuplicated(all_row_labels))
+    stop("Duplicate labels detected in rownames (sector + added value). ",
+         "Pastikan nama sektor dan komponen added value unik.", call. = FALSE)
+  if (anyDuplicated(all_col_labels))
+    stop("Duplicate labels detected in colnames (sector + final demand). ",
+         "Pastikan nama sektor dan komponen final demand unik.", call. = FALSE)
+  
+  # ---- Bangun matriks dengan LABEL sebagai dimnames ----
+  row_codes <- c(sector_codes, va_codes)   # untuk internal mapping (registry)
   col_codes <- c(sector_codes, fd_codes)
+  row_labels <- c(sector_labels, va_labels)
+  col_labels <- c(sector_labels, fd_labels)
+  
   n_row <- length(row_codes)
   n_col <- length(col_codes)
   
-  full_io <- matrix(NA_real_, nrow = n_row, ncol = n_col,
-                    dimnames = list(row_codes, col_codes))
-  full_io[seq_len(n_sector), seq_len(n_sector)] <- intermediate_consumption_m
-  full_io[seq_len(n_sector), (n_sector + 1):n_col] <- final_demand_m
-  full_io[(n_sector + 1):n_row, seq_len(n_sector)] <- added_value_m
+  full_io <- matrix(
+    NA_real_,
+    nrow = n_row, ncol = n_col,
+    dimnames = list(row_labels, col_labels)   # <-- LABEL, bukan kode
+  )
+  full_io[seq_len(n_sector), seq_len(n_sector)]                   <- intermediate_consumption_m
+  full_io[seq_len(n_sector), (n_sector + 1):n_col]                <- final_demand_m
+  full_io[(n_sector + 1):n_row, seq_len(n_sector)]                <- added_value_m
   
+  # ---- Code Registry (Code tetap kode asli, Label untuk referensi) ----
   code_registry <- dplyr::bind_rows(
-    tibble::tibble(Code = sector_codes, Label = as.character(sector[[1]]),
-                   Type = "Sector", Axis = "Both",
-                   Row_Index = seq_len(n_sector), Col_Index = seq_len(n_sector)),
-    tibble::tibble(Code = fd_codes, Label = as.character(final_demand_component[[2]]),
-                   Type = "Final_Demand", Axis = "Column",
-                   Row_Index = NA_integer_, Col_Index = (n_sector + 1):n_col),
-    tibble::tibble(Code = va_codes, Label = as.character(added_value_lookup[[2]]),
-                   Type = "Added_Value", Axis = "Row",
-                   Row_Index = (n_sector + 1):n_row, Col_Index = NA_integer_)
+    tibble::tibble(
+      Code      = sector_codes,
+      Label     = sector_labels,
+      Type      = "Sector",
+      Axis      = "Both",
+      Row_Index = seq_len(n_sector),
+      Col_Index = seq_len(n_sector)
+    ),
+    tibble::tibble(
+      Code      = fd_codes,
+      Label     = fd_labels,
+      Type      = "Final_Demand",
+      Axis      = "Column",
+      Row_Index = NA_integer_,
+      Col_Index = (n_sector + 1):n_col
+    ),
+    tibble::tibble(
+      Code      = va_codes,
+      Label     = va_labels,
+      Type      = "Added_Value",
+      Axis      = "Row",
+      Row_Index = (n_sector + 1):n_row,
+      Col_Index = NA_integer_
+    )
   )
   
-  list(full_io_table = full_io, code_registry = code_registry, n_sector = n_sector)
+  list(
+    full_io_table = full_io,
+    code_registry = code_registry,
+    n_sector      = n_sector
+  )
+}
+
+#' Extract Final Demand Sectors by KBLI Code Range
+#'
+#' Retrieves a subset of Final Demand sectors from the `code_registry` table 
+#' within the baseline object based on a 3-digit KBLI code range and (optionally) 
+#' the sector category.
+#'
+#' @param baseline List. A baseline object containing `code_registry` as a data frame.
+#' @param kbli_range Integer vector. The targeted 3-digit KBLI code range. Defaults to `301:305`.
+#'
+#' @return A data frame with `Kode` (Code) and `Nama` (Name) columns containing the 
+#'   filtered Final Demand sectors, ordered numerically by code. Returns `NULL` if 
+#'   the registry is missing, columns cannot be mapped, or no matching rows are found.
+#'
+#' @keywords internal
+#' @noRd
+get_final_demand_kbli <- function(baseline, kbli_range = 301:305) {
+  cr <- baseline$code_registry
+  if (is.null(cr) || !is.data.frame(cr) || nrow(cr) == 0) {
+    warning("[get_final_demand_kbli] code_registry kosong.")
+    return(NULL)
+  }
+  
+  names_cr <- trimws(names(cr))
+  
+  # --- Deteksi kolom dengan fallback eksplisit ---
+  # Kolom kode: prioritas "Code" (sesuai struktur Anda)
+  col_code <- names_cr[grep("^Code$|^Kode$|^KBLI$|^Kode_KBLI$",
+                            names_cr, ignore.case = TRUE)][1]
+  # Kolom nama: prioritas "Label" (sesuai struktur Anda)
+  col_name <- names_cr[grep("^Label$|^Nama$|^Name$|^Description$|^Sektor$|^Deskripsi$",
+                            names_cr, ignore.case = TRUE)][1]
+  # Kolom kategori: "Type" (sesuai struktur Anda)
+  col_type <- names_cr[grep("^Type$|^Kategori$|^Category$|^Tipe$",
+                            names_cr, ignore.case = TRUE)][1]
+  
+  # Validasi: kolom kode & nama wajib ada
+  if (is.na(col_code) || is.na(col_name)) {
+    warning("[get_final_demand_kbli] Kolom 'Code' / 'Label' tidak ditemukan. ",
+            "Kolom tersedia: ", paste(names_cr, collapse = ", "))
+    return(NULL)
+  }
+  
+  # --- Ekstrak kode 3 digit ---
+  code_str  <- as.character(cr[[col_code]])
+  code_num  <- suppressWarnings(as.numeric(gsub("[^0-9]", "", code_str)))
+  code_3dig <- floor(code_num / 10^(nchar(code_num) - 3))
+  
+  # --- Filter: kode dalam range DAN Type == "Final_Demand" ---
+  hit <- code_3dig %in% kbli_range
+  
+  if (!is.na(col_type)) {
+    hit <- hit & grepl("final.?demand", cr[[col_type]], ignore.case = TRUE)
+  }
+  
+  if (sum(hit) == 0) {
+    warning("[get_final_demand_kbli] Tidak ada baris dengan kode ",
+            paste(range(kbli_range), collapse = "-"),
+            " dan Type = 'Final_Demand'.")
+    return(NULL)
+  }
+  
+  # --- Bangun output ---
+  out <- data.frame(
+    Code  = code_str[hit],
+    Label = as.character(cr[[col_name]][hit]),
+    Type  = if (!is.na(col_type)) as.character(cr[[col_type]][hit]) else "Final_Demand",
+    stringsAsFactors = FALSE
+  )
+  
+  # Urutkan berdasarkan kode numerik
+  out <- out[order(as.numeric(gsub("[^0-9]", "", out$Code))), ]
+  rownames(out) <- NULL
+  out
 }
 
 #' Find row alias in matrix or data frame rownames
@@ -1675,76 +1803,6 @@ get_added_value_components <- function(intermediate_consumption_m, added_value_m
   )
 }
 
-#' Build full Input-Output table and code registry
-#'
-#' Combines Intermediate Consumption, Final Demand, and Added Value into a
-#' single complete matrix, along with a Code Registry that maps each code to
-#' label, type, and row/column position.
-#'
-#' @param sector A data frame or tibble with at least one column of sector names.
-#' @param intermediate_consumption_m Numeric matrix of intermediate consumption.
-#' @param final_demand_m Numeric matrix of final demand.
-#' @param final_demand_component Data frame or tibble with two columns:
-#'   code and label for final demand components.
-#' @param added_value_m Numeric matrix of added value.
-#' @param added_value_lookup Data frame or tibble with two columns:
-#'   code and label for added value components.
-#'
-#' @return A list with elements:
-#'   \item{full_io_table}{Complete IO matrix}
-#'   \item{code_registry}{Tibble with code mapping}
-#'   \item{n_sector}{Number of sectors}
-#'
-#' @examples
-#' \dontrun{
-#' full <- build_full_io_table(sector, ic, fd, fd_comp, av, av_lookup)
-#' }
-#'
-#' @export
-build_full_io_table <- function(sector, intermediate_consumption_m, final_demand_m,
-                                final_demand_component, added_value_m, added_value_lookup) {
-  n_sector   <- nrow(sector)
-  sector_codes <- as.character(seq_len(n_sector))
-  fd_codes   <- as.character(final_demand_component[[1]])
-  va_codes   <- as.character(added_value_lookup[[1]])
-  
-  if (anyNA(fd_codes) || any(trimws(fd_codes) == ""))
-    stop("There are empty/NA codes in the first column of 'final_demand'.", call. = FALSE)
-  if (anyNA(va_codes) || any(trimws(va_codes) == ""))
-    stop("There are empty/NA codes in the first column of 'added_value'.", call. = FALSE)
-  if (any(fd_codes %in% sector_codes))
-    stop("Final Demand codes conflict with sector codes (1..N).")
-  if (any(va_codes %in% sector_codes))
-    stop("Added Value codes conflict with sector codes (1..N).")
-  if (any(fd_codes %in% va_codes))
-    stop("Final Demand codes conflict with Added Value codes.")
-  
-  row_codes <- c(sector_codes, va_codes)
-  col_codes <- c(sector_codes, fd_codes)
-  n_row <- length(row_codes)
-  n_col <- length(col_codes)
-  
-  full_io <- matrix(NA_real_, nrow = n_row, ncol = n_col,
-                    dimnames = list(row_codes, col_codes))
-  full_io[seq_len(n_sector), seq_len(n_sector)] <- intermediate_consumption_m
-  full_io[seq_len(n_sector), (n_sector + 1):n_col] <- final_demand_m
-  full_io[(n_sector + 1):n_row, seq_len(n_sector)] <- added_value_m
-  
-  code_registry <- dplyr::bind_rows(
-    tibble::tibble(Code = sector_codes, Label = as.character(sector[[1]]),
-                   Type = "Sector", Axis = "Both",
-                   Row_Index = seq_len(n_sector), Col_Index = seq_len(n_sector)),
-    tibble::tibble(Code = fd_codes, Label = as.character(final_demand_component[[2]]),
-                   Type = "Final_Demand", Axis = "Column",
-                   Row_Index = NA_integer_, Col_Index = (n_sector + 1):n_col),
-    tibble::tibble(Code = va_codes, Label = as.character(added_value_lookup[[2]]),
-                   Type = "Added_Value", Axis = "Row",
-                   Row_Index = (n_sector + 1):n_row, Col_Index = NA_integer_)
-  )
-  
-  list(full_io_table = full_io, code_registry = code_registry, n_sector = n_sector)
-}
-
 #' Save core analysis results to RDS
 #'
 #' Saves the results of the core Input-Output analysis into an RDS file so
@@ -1804,6 +1862,43 @@ set_tab_color <- function(wb, sheet, color) {
   }
   wb
 }
+
+#' Export Input-Output Descriptive Analysis Results to Excel
+#'
+#' Generates a multi-tabbed Excel workbook (`.xlsx`) containing both the 
+#' baseline analysis output (descriptive statistics, multipliers, linkages, 
+#' and balance details) and protected raw input tables for data integrity tracking.
+#'
+#' @param sector Data frame or NULL. Economic sector definitions/categories.
+#' @param profile List or NULL. Metadata containing location, base year, currency, and IO source.
+#' @param gdp_baseline Data frame. Baseline GDP and sectoral economic indicators.
+#' @param linkage_result List. Contains Leontief inverse matrix and linkage indices.
+#' @param growth_rate Numeric vector or data frame. Baseline Final Demand growth rates.
+#' @param labour Numeric vector, list, or data frame. Sectoral labor data.
+#' @param OM List. Output Multiplier calculation results and table.
+#' @param IM List. Income Multiplier calculation results and table.
+#' @param LM List. Labor Multiplier calculation results and table.
+#' @param SUBM List. Gross Operating Surplus (SUB) Multiplier results and details.
+#' @param land_proportion Matrix or data frame. Baseline land proportion matrix (P).
+#' @param landuse_table Data frame or NULL. Historical/baseline land cover matrix.
+#' @param linkage_table Data frame. Summarized Backward and Forward Linkage table.
+#' @param full_io_table Matrix or data frame. Complete baseline Input-Output table.
+#' @param code_registry Data frame. Registry of sector codes and classifications.
+#' @param balance_detail Data frame or NULL. Detailed sector-by-sector IO balance checks.
+#' @param output_path Character. The destination file path for the exported Excel file.
+#'   Defaults to `"data/Hasil_Analisis_Modul_Deskriptif.xlsx"`.
+#'
+#' @return Invisibly returns the `output_path` string upon successful file creation.
+#'
+#' @details
+#' The exported workbook uses distinct tab colors for clarity:
+#' \itemize{
+#'   \item \strong{Blue Tab}: Readme / File Guide.
+#'   \item \strong{Green Tabs}: Editable output sheets (Descriptive analysis, multipliers, linkages).
+#'   \item \strong{Red Tabs}: Read-only protected input sheets (Raw IO table, land use, parameters).
+#' }
+#'
+#' @export
 
 export_io_analysis <- function(sector,
                                profile,
@@ -2551,4 +2646,113 @@ export_metadata_txt <- function(io_metadata, output_path) {
   writeLines("AKHIR DOKUMEN", con)
   
   invisible(output_path)
+}
+
+
+# ==============================================================================
+# UI HELP DICTIONARY & HELPER FUNCTIONS
+# ==============================================================================
+
+#' Regional Economic Descriptive UI Help Text Dictionary
+#'
+#' Named list of help dialog content (title + HTML body) for each input in the
+#' Regional Economic Descriptive Analysis Shiny module.
+#'
+#' @format A named list of lists with \code{title} and \code{body}.
+#' @export
+regeco_help_texts <- list(
+  io_file = list(
+    title = "Tabel Input/Output",
+    body = "<p>Berkas spreadsheet Excel (.xlsx) multi-sheet yang memuat tabel Input-Output regional serta data pendukung analisis.</p>
+            <p>Struktur sheet yang diperlukan:</p>
+            <ul>
+              <li><code>0. Profil Data</code>: Wilayah, tahun acuan, satuan mata uang, dan sumber data IO.</li>
+              <li><code>1. Sektor Ekonomi</code>: Daftar nama sektor, kategori agregasi, dan status sektor berbasis lahan.</li>
+              <li><code>2. Permintaan Antara</code>: Matriks transaksi ekonomi antar sektor produksi.</li>
+              <li><code>3. Permintaan Akhir</code>: Transaksi konsumsi rumah tangga, pemerintah, ekspor, investasi, dll.</li>
+              <li><code>4. Input Primer</code>: Komponen nilai tambah bruto (upah/gaji, surplus usaha, pajak, subsidi).</li>
+              <li><code>5. Tenaga Kerja</code>: Jumlah tenaga kerja (jiwa) per sektor ekonomi.</li>
+              <li><code>6. Proposi Lahan</code>: Matriks alokasi proporsi tutupan lahan terhadap sektor ekonomi.</li>
+              <li><code>7. Laju Pertumbuhan PDRB</code>: Laju pertumbuhan ekonomi riil per sektor.</li>
+            </ul>"
+  ),
+  landuse_table_file = list(
+    title = "Tabel Referensi Penutup Lahan",
+    body = "<p>Berkas spreadsheet Excel (.xlsx) yang memuat data luas tutupan/penggunaan lahan (hektar) di wilayah studi.</p>
+            <p>Tabel ini menghubungkan kelas-kelas tutupan lahan dengan sektor ekonomi berbasis lahan untuk menganalisis produktivitas lahan dan koefisien kebutuhan lahan.</p>"
+  ),
+  landuse_table_file_rds = list(
+    title = "Tabel Referensi Penutup Lahan",
+    body = "<p>Berkas spreadsheet Excel (.xlsx) yang memuat data luas tutupan/penggunaan lahan (hektar) di wilayah studi.</p>
+            <p>Tabel ini menghubungkan kelas-kelas tutupan lahan dengan sektor ekonomi berbasis lahan untuk menganalisis produktivitas lahan dan koefisien kebutuhan lahan.</p>"
+  ),
+  preprocessing_rds_file = list(
+    title = "Preprocessing RDS",
+    body = "<p>Berkas <code>descriptive_input_preprocessing.rds</code> yang dihasilkan secara otomatis dari analisis deskriptif sebelumnya.</p>
+            <p>Menyimpan seluruh struktur tabel Input-Output, parameter profil, dan data pendukung yang sudah divalidasi ke dalam format R Data Serialized (RDS). Menggunakan berkas ini mempercepat proses karena data tidak perlu dibaca ulang dari Excel.</p>"
+  ),
+  new_lc_area = list(
+    title = "Pembaharuan Luas Tutupan Lahan",
+    body = "<p>Opsi untuk memperbarui data luas tutupan lahan dari berkas Excel baru saat menjalankan analisis menggunakan data praproses (RDS).</p>
+            <p>Aktifkan opsi ini apabila Anda memiliki data luas tutupan lahan tahun yang berbeda/terbaru, namun ingin tetap mempertahankan struktur tabel Input-Output dari berkas RDS.</p>"
+  ),
+  wd = list(
+    title = "Folder Output",
+    body = "<p>Direktori tempat seluruh hasil analisis akan disimpan, meliputi:</p>
+            <ul>
+              <li>Laporan analisis interaktif (<code>ta-regeco1_report_*.html</code>)</li>
+              <li>Buku kerja Excel hasil analisis (<code>Input-Output_Descriptive_Analysis.xlsx</code>)</li>
+              <li>Berkas data praproses (<code>descriptive_input_preprocessing.rds</code>) dan berkas siap modul proyeksi (<code>descriptive_analysis_module_output.rds</code>)</li>
+              <li>Ringkasan metadata masukan (<code>metadata_data_input.txt</code>)</li>
+            </ul>"
+  )
+)
+
+#' Clickable Help Icon for Regional Economic Descriptive UI
+#'
+#' @param id Help topic ID (matches a key in [regeco_help_texts]).
+#' @return A `shiny.tag` containing an `actionLink` with a circle-question icon.
+#' @export
+regeco_help_icon <- function(id) {
+  tags$span(
+    class = "alloc-help-icon",
+    actionLink(
+      inputId = paste0("regeco_help_", id),
+      label   = NULL,
+      icon    = icon("circle-question")
+    )
+  )
+}
+
+#' Label With a Right-Aligned Help Icon
+#'
+#' @param text Label text.
+#' @param help_id Help topic ID.
+#' @return A `shiny.tag` combining the label and a help icon.
+#' @export
+label_with_help <- function(text, help_id) {
+  tags$div(
+    class = "alloc-label",
+    tags$span(text),
+    regeco_help_icon(help_id)
+  )
+}
+
+#' Directory-Picker Button With an Inline Help Icon
+#'
+#' @param id Shiny input ID.
+#' @param label Button label.
+#' @param title Button title tooltip.
+#' @param help_id Help topic ID.
+#' @return A `shiny.tag` containing a directory-picker button and help icon.
+#' @export
+dir_button_with_help <- function(id, label, title, help_id) {
+  tags$div(
+    class = "dir-btn-wrapper",
+    shinyDirButton(id, label, title),
+    tags$div(
+      class = "dir-help-overlay",
+      regeco_help_icon(help_id)
+    )
+  )
 }
