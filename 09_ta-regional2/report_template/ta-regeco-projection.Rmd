@@ -114,6 +114,11 @@ format_uang <- function(x, satuan = satuan_uang) {
 # - Kolom biasa (GDP, LABOUR, dll) → di-SUM antar sektor
 # - Kolom per kapita (INCOME_PER_CAPITA) → diambil nilai unik per tahun (first)
 agg_by_year <- function(df, col) {
+  # ---- PENGAMAN: Jika df NULL atau 0 baris ----
+  if (is.null(df) || nrow(df) == 0) {
+    return(tibble::tibble(YEAR = numeric(0), Total = numeric(0)))
+  }
+  
   # ---- Deteksi kolom tahun secara fleksibel ----
   year_col <- NULL
   for (cand in c("YEAR", "year", "Year", "Tahun", "tahun", "PERIODE", "periode")) {
@@ -123,13 +128,11 @@ agg_by_year <- function(df, col) {
     }
   }
   if (is.null(year_col)) {
-    stop(
-      "[agg_by_year] Kolom tahun tidak ditemukan. Kolom tersedia: ",
-      paste(names(df), collapse = ", ")
-    )
+    # Fallback jika tidak ada kolom tahun (kembalikan kosong, jangan error)
+    return(tibble::tibble(YEAR = numeric(0), Total = numeric(0)))
   }
   
-  # ---- Normalisasi: rename kolom tahun ke 'YEAR' dan konversi ke numerik ----
+  # ---- Normalisasi ----
   if (year_col != "YEAR") {
     df <- df |> dplyr::rename(YEAR = dplyr::all_of(year_col))
   }
@@ -737,44 +740,80 @@ if (has_a2 && is_valid_file(file_path_a2)) {
 # ============================================================
 # ASUMSI 3: Hilirisasi
 # ============================================================
-has_a3      <- "A3" %in% active_assumptions
+has_a3 <- "A3" %in% active_assumptions
 file_path_a3 <- params$file_a3
 
 if (has_a3 && is_valid_file(file_path_a3)) {
-  cat("\n\n## Asumsi 3: Hilirisasi\n\n")
-  
+  cat("\n\n## Asumsi 3: Re-alokasi Final Demand ke Sektor Ekonomi\n\n")
   sheets <- readxl::excel_sheets(file_path_a3)
   
-  if ("Restrukturisasi" %in% sheets) {
-    target_sheet <- "Restrukturisasi"
-    skip_rows <- 11
-  } else if ("Skenario_4_Restrukturisasi" %in% sheets) {
-    target_sheet <- "Skenario_4_Restrukturisasi"
-    skip_rows <- 11
+  # Deteksi Sheet Asumsi 3
+  if ("Asumsi_3_Realokasi_FD" %in% sheets) {
+    target_sheet <- "Asumsi_3_Realokasi_FD"
+    # Deteksi otomatis posisi header (Baris 1 vs Baris 4)
+    preview_df <- read_input_file(file_path_a3, sheet = target_sheet, skip = 0, header = FALSE)
+    if (any(grepl("Sektor Asal", unlist(preview_df[1, ]), ignore.case = TRUE))) {
+      skip_rows <- 0
+    } else {
+      skip_rows <- 3
+    }
   } else {
     target_sheet <- sheets[1]
     skip_rows <- 0
   }
   
-  df_a3 <- readxl::read_excel(file_path_a3, sheet = target_sheet, skip = skip_rows)
+  # Pembacaan menggunakan read_input_file()
+  df_a3 <- read_input_file(
+    path = file_path_a3,
+    sheet = target_sheet,
+    skip = skip_rows,
+    header = TRUE
+  )
   
+  # Pembersihan Nama Kolom & Filter Baris
+  names(df_a3) <- trimws(names(df_a3))
   col_from <- names(df_a3)[grep("SEKTOR ASAL|FROM SECTOR", names(df_a3), ignore.case = TRUE)][1]
-  col_to   <- names(df_a3)[grep("SEKTOR TUJUAN|TO SECTOR", names(df_a3), ignore.case = TRUE)][1]
+  col_to <- names(df_a3)[grep("SEKTOR TUJUAN|TO SECTOR", names(df_a3), ignore.case = TRUE)][1]
   
-    if (!is.na(col_from)) {
+  if (!is.na(col_from)) {
     df_a3 <- df_a3 |>
-      dplyr::filter(!is.na(.data[[col_from]])) |>
+      dplyr::filter(!is.na(.data[[col_from]]), trimws(as.character(.data[[col_from]])) != "") |>
       dplyr::mutate(dplyr::across(dplyr::all_of(col_from), trimws))
   }
+  
   if (!is.na(col_to)) {
     df_a3 <- df_a3 |>
       dplyr::mutate(dplyr::across(dplyr::all_of(col_to), trimws))
   }
   
+  # ---------------------------------------------------------
+  # KONVERSI DESIMAL KE PERSENTASE UNTUK KOLOM TAHUN
+  # ---------------------------------------------------------
+  # Mengidentifikasi kolom yang merupakan tahun (2025, 2026, dst)
+  year_cols <- names(df_a3)[grepl("^[0-9]{4}$", names(df_a3))]
+  
+  if (length(year_cols) > 0) {
+    df_a3 <- df_a3 |>
+      dplyr::mutate(
+        dplyr::across(
+          dplyr::all_of(year_cols),
+          ~ {
+            val <- as.numeric(gsub("%", "", as.character(.))) # Bersihkan simbol %
+            # Kalau string aslinya pakai "%" (misal "5%") dan angka < 1, berarti sudah persen
+            # Tapi kalau formatnya 0.10, kita kalikan 100
+            pct <- ifelse(val > 1, val, val * 100) 
+            # Bulatkan 2 desimal dan tambahkan %
+            paste0(round(pct, 2), "%")
+          }
+        )
+      )
+  }
+  
+  # Render Tabel Interaktif
   dt_a3 <- DT::datatable(
     df_a3,
     rownames = FALSE,
-    caption = paste0("Tabel Asumsi 3: Restrukturisasi Tabel I-O (Sheet: ", target_sheet, ")"),
+    caption = paste0("Tabel Asumsi 3: Re-alokasi Final Demand ke Sektor Ekonomi (Sheet: ", target_sheet, ")"),
     extensions = "Buttons",
     options = list(
       pageLength = 10,
