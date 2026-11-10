@@ -399,17 +399,34 @@ server <- function(input, output, session) {
     
     for (path in guide_paths) {
       if (file.exists(path)) {
-        html_content <- rmarkdown::render(
-          path, 
-          output_format = "html_fragment", 
+        # Render sebagai html_document penuh
+        html_file <- rmarkdown::render(
+          path,
+          output_format = rmarkdown::html_document(
+            toc = FALSE,
+            self_contained = TRUE,
+            mathjax = "default"
+          ),
           quiet = TRUE
         )
-        return(shiny::withMathJax(HTML(readLines(html_content))))
+        
+        # Baca HTML dan ekstrak hanya body-nya
+        lines <- readLines(html_file, warn = FALSE)
+        body_start <- grep("<body", lines, ignore.case = TRUE)[1]
+        body_end   <- grep("</body>", lines, ignore.case = TRUE)[1]
+        
+        if (!is.na(body_start) && !is.na(body_end) && body_end > body_start) {
+          body_lines <- lines[(body_start + 1):(body_end - 1)]
+          return(HTML(paste(body_lines, collapse = "\n")))
+        }
+        
+        return(HTML(paste(lines, collapse = "\n")))
       }
     }
     
     HTML("<p>User guide file not found.</p>")
   })
+  
   #' @section Observe Input Changes:
   #' Keeps reactive values synchronized with file and text inputs from the UI.
   observe({

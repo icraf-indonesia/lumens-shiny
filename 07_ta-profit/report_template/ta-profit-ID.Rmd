@@ -236,33 +236,32 @@ pu_map <- ggplot() +
 pu_map
 ```
 
-```{r pu-lookup-tab, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
+```{r pu-lookup-title, echo=FALSE, results='asis'}
 if (!is.null(params$pu_table_path) && file.exists(params$pu_table_path)) {
-
-  # Cetak judul tab secara manual jika menggunakan raster
   cat("## Tabel Acuan Unit Perencanaan\n\n")
+}
+```
 
-  # Tampilkan datatable
-  print(
-    datatable(
-      read_lookup_file(params$pu_table_path),
-      extensions = c('Buttons', 'Responsive'),
-      rownames = FALSE,
-      options = list(
-        paging = TRUE,
-        searching = TRUE,
-        fixedColumns = TRUE,
-        autoWidth = TRUE,
-        ordering = TRUE,
-        dom = 'Blfrtip',
-        buttons = list(
-          list(extend = "copy",  className = "btn btn-light btn-sm"),
-          list(extend = "csv",   className = "btn btn-light btn-sm"),
-          list(extend = "excel", className = "btn btn-light btn-sm")
-        )
-      ),
-      class = "display stripe hover"
-    )
+```{r pu-lookup-table, echo=FALSE, message=FALSE, warning=FALSE}
+if (!is.null(params$pu_table_path) && file.exists(params$pu_table_path)) {
+  datatable(
+    read_lookup_file(params$pu_table_path),
+    extensions = c('Buttons', 'Responsive'),
+    rownames = FALSE,
+    options = list(
+      paging = TRUE,
+      searching = TRUE,
+      fixedColumns = TRUE,
+      autoWidth = TRUE,
+      ordering = TRUE,
+      dom = 'Blfrtip',
+      buttons = list(
+        list(extend = "copy",  className = "btn btn-light btn-sm"),
+        list(extend = "csv",   className = "btn btn-light btn-sm"),
+        list(extend = "excel", className = "btn btn-light btn-sm")
+      )
+    ),
+    class = "display stripe hover"
   )
 }
 ```
