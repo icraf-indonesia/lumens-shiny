@@ -43,12 +43,6 @@ library(plotly)
 library(bslib)
 library(htmltools)
 
-if (requireNamespace("TARegEco", quietly = TRUE)) {
-  library(TARegEco)
-} else {
-  devtools::load_all(".")
-}
-
 format_dinamis <- function(x) {
   # x diasumsikan dalam satuan Juta (input awal)
   ifelse(is.na(x), "-",
