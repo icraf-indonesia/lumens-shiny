@@ -52,12 +52,6 @@ library(plotly)
 library(bslib)
 library(htmltools)
 
-if (requireNamespace("TARegEco", quietly = TRUE)) {
-  library(TARegEco)
-} else {
-  devtools::load_all(".")
-}
-
 # Ekstrak parameter
 result_scenario  <- params$result_scenario
 result_bau       <- params$result_bau
