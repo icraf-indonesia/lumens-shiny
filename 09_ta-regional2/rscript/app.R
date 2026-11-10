@@ -17,12 +17,6 @@ if (file.exists("functions.R")){
 
 check_and_install_packages(required_packages)
 
-if (!requireNamespace("TARegEco", quietly = TRUE)) {
-  if (!requireNamespace("devtools", quietly = TRUE)) install.packages("devtools")
-  devtools::install_github("icraf-indonesia/TARegEco")
-}
-library(TARegEco)
-
 # Cek fungsi kritis sudah ter-load
 required_fns <- c(
   "load_projection_baseline",
