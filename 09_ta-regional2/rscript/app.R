@@ -1678,10 +1678,97 @@ server <- function(input, output, session) {
     baseline        <- bl$baseline
     area_matrix_bau <- bl$area_matrix_bau
     
+    cat("=== STEP 0: Baseline structure ===\n")
+    cat("nrow(gdp_baseline) :", nrow(baseline$gdp_baseline), "\n")
+    cat("nrow(IC)           :", nrow(baseline$intermediate_consumption), "\n")
+    cat("dim(P_default)     :", paste(dim(baseline$P_default), collapse = " x "), "\n")
+    cat("dim(area_matrix)   :", paste(dim(baseline$area_matrix_bau), collapse = " x "), "\n")
+    cat("length(sector_idx) :", length(baseline$sector_idx), "\n")
+    cat("length(constrained):", length(baseline$constrained), "\n")
+    cat("length(growth_rate):", length(baseline$growth_rate), "\n")
+    
+    # ============================================================
+    cat("\n=== STEP 1: Ekstraksi vektor sektoral ===\n")
+    sektor_names <- as.character(unlist(baseline$gdp_baseline$SECTOR))
+    Y_0 <- as.numeric(unlist(baseline$gdp_baseline$FD))
+    x_0 <- as.numeric(unlist(baseline$gdp_baseline$OUTPUT))
+    Land_0 <- as.numeric(unlist(baseline$gdp_baseline$Land_Requirement))
+    LPC_0  <- as.numeric(unlist(baseline$gdp_baseline$LPC))
+    
+    cat("length(sektor_names):", length(sektor_names), "\n")
+    cat("length(Y_0)        :", length(Y_0), "\n")
+    cat("length(x_0)        :", length(x_0), "\n")
+    cat("sum(x_0 > 0)       :", sum(x_0 > 0), "\n")
+    cat("sum(x_0 <= 0)      :", sum(x_0 <= 0), "\n")
+    cat("sum(!is.finite(x_0)):", sum(!is.finite(x_0)), "\n")
+    
+    if (any(x_0 <= 0 | !is.finite(x_0))) {
+      cat("SEKTOR BERMASALAH:\n")
+      print(data.frame(
+        idx = seq_along(x_0),
+        sektor = sektor_names,
+        x_0 = x_0,
+        Land_0 = Land_0,
+        LPC_0 = LPC_0
+      )[x_0 <= 0 | !is.finite(x_0), ])
+    }
+    
+    # ============================================================
+    cat("\n=== STEP 2: Filter idx_valid ===\n")
+    Z <- as.matrix(baseline$intermediate_consumption); storage.mode(Z) <- "numeric"
+    idx_valid <- which(x_0 > 0)
+    cat("length(idx_valid):", length(idx_valid), "\n")
+    cat("nrow(Z)          :", nrow(Z), "\n")
+    cat("selisih          :", nrow(Z) - length(idx_valid), "  (0 = cocok)\n")
+    
+    # ============================================================
+    cat("\n=== STEP 3: Filter sektor ===\n")
+    sektor_names_f <- sektor_names[idx_valid]
+    x_0_f <- x_0[idx_valid]
+    Land_0_f <- Land_0[idx_valid]
+    LPC_0_f <- LPC_0[idx_valid]
+    Z_f <- Z[idx_valid, idx_valid, drop = FALSE]
+    
+    cat("length(sektor_names_f):", length(sektor_names_f), "\n")
+    cat("nrow(Z_f)            :", nrow(Z_f), "\n")
+    cat("sum(is.na(sektor_names_f)):", sum(is.na(sektor_names_f)), "\n")
+    cat("anyDuplicated(sektor_names_f):", anyDuplicated(sektor_names_f), "\n")
+    
+    # ============================================================
+    cat("\n=== STEP 4: Cek constrained/unconstrained ===\n")
+    cat("length(constrained)  :", length(baseline$constrained), "\n")
+    cat("length(unconstrained):", length(baseline$unconstrained), "\n")
+    cat("sum(constrained)     :", sum(baseline$constrained, na.rm = TRUE), "\n")
+    cat("sum(unconstrained)   :", sum(baseline$unconstrained, na.rm = TRUE), "\n")
+    
+    if (length(baseline$constrained) != length(x_0)) {
+      cat("!! MISMATCH: constrained length != x_0 length\n")
+    }
+    
+    # ============================================================
+    cat("\n=== STEP 5: Cek P_default vs area_matrix ===\n")
+    P <- as.matrix(baseline$P_default); storage.mode(P) <- "numeric"
+    area <- as.matrix(baseline$area_matrix_bau); storage.mode(area) <- "numeric"
+    cat("dim(P)    :", paste(dim(P), collapse = " x "), "\n")
+    cat("dim(area) :", paste(dim(area), collapse = " x "), "\n")
+    cat("ncol(P) == nrow(area):", ncol(P) == nrow(area), "\n")
+    cat("sum(is.na(P))    :", sum(is.na(P)), "\n")
+    cat("sum(is.na(area)) :", sum(is.na(area)), "\n")
+    
+    # ============================================================
+    cat("\n=== STEP 6: Cek Z singular ===\n")
+    A_full <- sweep(Z_f, 2, x_0_f, "/")
+    M_full <- diag(length(idx_valid)) - A_full
+    cat("det(M_full):", det(M_full), "\n")
+    cat("any(!is.finite(A_full)):", any(!is.finite(A_full)), "\n")
+    
+    # ============================================================
+    cat("\n=== STEP 7: Coba panggil run_projection_bau TANPA tryCatch ===\n")
+    
     options(initial_year = initial_year_val())
     
     hasil <- tryCatch(
-      run_projection_bau(
+      run_projection_scenario_bau(
         gdp_baseline      = baseline$gdp_baseline,
         income_multiplier = baseline$income_multiplier,
         labour_multiplier = baseline$labour_multiplier,
@@ -1691,15 +1778,12 @@ server <- function(input, output, session) {
         leontief_matrix   = baseline$leontief_matrix,
         full_io_table     = baseline$intermediate_consumption,
         sector_idx        = baseline$sector_idx,
-        P                 = baseline$P_default,      # ganti nama argumen
-        area_matrix       = area_matrix_bau,          # ganti nama argumen
+        P_baseline        = baseline$P_default,
+        area_matrix_bau   = area_matrix_bau,
         growth_rate       = baseline$growth_rate,
         constrained       = baseline$constrained,
         unconstrained     = baseline$unconstrained,
-        lpc_scenario      = NULL,   # BAU -> LPC statis
-        io_changes        = NULL,   # BAU -> Z baseline
-        intensity_table   = NULL,
-        pop_projection    = pop_projection()          # argumen baru di run_projection
+        pop_projection    = pop_projection()
       ),
       error = function(e) {
         warning("[hasil_bau] Error: ", conditionMessage(e))
