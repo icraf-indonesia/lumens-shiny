@@ -1,0 +1,105 @@
+---
+title: "Analisis Deskriptif Ekonomi Regional"
+output: 
+  html_document: 
+    toc: true
+    toc_float: true
+    number_sections: true
+    df_print: kable
+    math_method:
+      engine: mathjax
+---
+
+# Gambaran Umum
+
+Modul Analisis Deskriptif Ekonomi Regional dalam LUMENS menilai dinamika ekonomi suatu wilayah dengan memeriksa indikator-indikator kunci seperti PDRB (Produk Domestik Regional Bruto), kontribusi sektoral, penyerapan tenaga kerja, dan distribusi pendapatan. Analisis ini memberikan wawasan berharga mengenai pendorong ekonomi di balik penggunaan lahan dan alokasi sumber daya. Dengan memahami tren ini, para pemangku kepentingan dapat mengambil keputusan yang tepat untuk menyeimbangkan pertumbuhan ekonomi dengan penggunaan lahan yang berkelanjutan, meningkatkan mata pencaharian, dan mengoptimalkan kebijakan tata guna lahan, sehingga dapat menjawab tantangan nyata dalam pembangunan regional.
+
+# Konsep Kunci:
+
+1.  **Sektor Ekonomi**: Bidang kegiatan ekonomi yang berbeda seperti pertanian, industri, dan jasa. Setiap sektor memainkan peran vital dalam kinerja ekonomi regional, berkontribusi terhadap pertumbuhan dan lapangan kerja secara keseluruhan.
+
+2.  **Permintaan Antara**: Merupakan permintaan atas barang dan jasa yang digunakan sebagai input dalam proses produksi industri domestik, tidak termasuk konsumsi akhir atau investasi modal. Hal ini memberikan wawasan tentang keterkaitan antar sektor.
+
+3.  **Permintaan Akhir**: Total permintaan atas barang dan jasa di dalam wilayah, termasuk konsumsi rumah tangga, pemerintah, ekspor, dan investasi. Ini adalah ukuran kritis dari output ekonomi yang dibutuhkan untuk memenuhi kebutuhan regional.
+
+4.  **Nilai Tambah**: Nilai ekonomi yang ditambahkan oleh setiap sektor, dihitung sebagai pendapatan dikurangi konsumsi antara. Metrik ini menyoroti profitabilitas dan produktivitas masing-masing sektor, memberikan gambaran yang jelas tentang kontribusi mereka terhadap pertumbuhan ekonomi regional.
+
+5.  **Distribusi Tenaga Kerja**: Mengacu pada alokasi lapangan kerja di berbagai sektor ekonomi, yang menggambarkan bagaimana tenaga kerja dimanfaatkan di berbagai industri dan berkontribusi terhadap penciptaan lapangan kerja dan stabilitas ekonomi regional.
+
+6.  **Distribusi Penggunaan Lahan**: Alokasi sumber daya lahan di antara berbagai sektor ekonomi, yang mencerminkan bagaimana lahan digunakan untuk tujuan pertanian, industri, dan lainnya di dalam wilayah. Hal ini memberikan wawasan tentang keseimbangan antara kegiatan ekonomi dan pengelolaan lahan.
+
+### Penjelasan Kuadran Analisis Keterkaitan (Backward & Forward Linkage)
+
+Dalam analisis Tabel Input-Output, pemetaan sektor ekonomi ke dalam empat kuadran dilakukan berdasarkan **Indeks Daya Penyebaran (ITBL)** dan **Indeks Derajat Kepekaan (ITFL)**. Kedua indeks ini dinormalisasi sehingga nilai rata-rata seluruh sektor adalah 1. Garis pembatas pada grafik (nilai 1) menunjukkan nilai rata-rata tersebut.
+
+- **Kuadran I (Industri Unggulan / *Leading Sector*)**
+
+  - **Kriteria:** ITBL \> 1 dan ITFL \> 1.
+
+  - **Penjelasan:** Sektor pada kuadran ini memiliki keterkaitan ke belakang (backward linkage) dan ke depan (forward linkage) yang kuat. Sektor ini mampu menarik pertumbuhan sektor hulu (karena banyak menyerap input dari sektor lain) sekaligus mendorong sektor hilir (karena outputnya banyak digunakan sebagai input oleh sektor lain). Sektor di kuadran ini merupakan **sektor strategis dan penggerak utama** perekonomian wilayah.
+
+- **Kuadran II (Potensi Unggul)**
+
+  - **Kriteria:** ITBL \> 1 dan ITFL \< 1.
+
+  - **Penjelasan:** Sektor pada kuadran ini memiliki keterkaitan ke belakang yang kuat, namun keterkaitan ke depannya lemah. Artinya, peningkatan permintaan pada sektor ini akan sangat merangsang pertumbuhan sektor hulu (pemasok input), tetapi output sektor ini tidak banyak digunakan sebagai input oleh sektor produksi lainnya (lebih banyak untuk konsumsi akhir atau ekspor). Sektor ini berpotensi menjadi penggerak jika dapat ditingkatkan keterkaitan ke depannya.
+
+- **Kuadran III (Kurang Diunggulkan)**
+
+  - **Kriteria:** ITBL \< 1 dan ITFL \> 1.
+
+  - **Penjelasan:** Sektor pada kuadran ini memiliki keterkaitan ke depan yang kuat, namun keterkaitan ke belakang lemah. Sektor ini umumnya berfungsi sebagai **penyedia bahan baku** (hulu) yang outputnya sangat dibutuhkan oleh banyak sektor lain (hilir), tetapi dalam proses produksinya sendiri tidak banyak menyerap input dari sektor lain (rendah ketergantungan pada impor atau sektor lain).
+
+- **Kuadran IV (Tertinggal)**
+
+  - **Kriteria:** ITBL \< 1 dan ITFL \< 1.
+
+  - **Penjelasan:** Sektor pada kuadran ini memiliki keterkaitan ke belakang dan ke depan yang relatif lemah. Sektor ini cenderung memiliki keterbatasan dalam mendorong aktivitas ekonomi antar sektor. Sektor di kuadran ini sering kali memiliki ketergantungan yang tinggi terhadap impor atau berorientasi pada permintaan akhir domestik tanpa banyak melibatkan sektor produksi lain.
+
+# Data dan Variabel Input
+
+Sebelum menggunakan alat Analisis Deskriptif Ekonomi Regional, siapkan hal-hal berikut:
+
+1.  **Sektor**: File CSV yang mengategorikan sektor ekonomi seperti pertanian, industri, atau jasa. Ini mendefinisikan bidang utama kegiatan ekonomi di dalam wilayah.
+
+2.  **Permintaan Antara**: File CSV yang berisi data numerik tentang pembelian komoditas oleh industri domestik sebagai input untuk produksi, tidak termasuk investasi modal.
+
+3.  **Komponen Permintaan Akhir**: File CSV dengan data numerik yang mewakili total permintaan output ekonomi di semua sektor di wilayah tersebut.
+
+4.  **Permintaan Akhir**: File CSV yang memberikan pandangan komprehensif tentang total output ekonomi yang diminta oleh semua sektor di dalam wilayah.
+
+5.  **Komponen Nilai Tambah**: File CSV dengan data numerik yang mencerminkan jumlah keuntungan unit, dihitung sebagai pendapatan dikurangi konsumsi antara, untuk setiap sektor ekonomi.
+
+6.  **Nilai Tambah**: File CSV yang menunjukkan total nilai tambah di setiap sektor, dihitung dengan mengurangi konsumsi antara dari pendapatan.
+
+7.  **Tenaga Kerja**: File CSV yang merinci jumlah pekerja yang dipekerjakan di setiap sektor, memberikan wawasan tentang distribusi lapangan kerja di seluruh wilayah.
+
+8.  **Distribusi Lahan**: File CSV yang menunjukkan alokasi lahan di antara sektor-sektor yang berbeda, yang mewakili bagaimana lahan digunakan untuk berbagai tujuan ekonomi.
+
+9.  **Peta Penggunaan Lahan**: File raster GeoTIFF yang merinci klasifikasi spasial lahan berdasarkan sektor ekonomi. Peta ini menunjukkan bagaimana lahan digunakan di seluruh wilayah, menggunakan sistem proyeksi UTM.
+
+10. **Lookup Penggunaan Lahan**: Tabel lookup CSV yang menghubungkan kode penggunaan lahan dari kumpulan data spasial ke sektor ekonomi atau jenis penggunaan lahan tertentu, yang berfungsi sebagai referensi untuk analisis dan pelaporan.
+
+## Menggunakan Modul Analisis Deskriptif Ekonomi Regional
+
+Ikuti langkah-langkah berikut untuk menggunakan modul:
+
+<video controls style="max-width:80%;height:auto;">
+
+<source src="ta-reg1.mp4" type="video/mp4">
+
+Browser Anda tidak mendukung tag video. </video>
+
+# Mengakses Output
+
+Setelah analisis selesai, Anda akan menemukan hal-hal berikut di direktori output yang Anda pilih:
+
+1.  **Database Ekonomi Regional**: File RData yang berisi variabel-variabel kunci dari Analisis Deskriptif Ekonomi Regional. Variabel-variabel ini akan digunakan dalam modul Proyeksi Ekonomi Regional berikutnya untuk analisis lebih lanjut.
+
+2.  **Laporan Analisis Deskriptif Ekonomi Regional**: Laporan HTML yang memberikan ringkasan analisis, termasuk interpretasi dan visualisasi kunci. Laporan ini menyoroti indikator dan tren ekonomi penting, memberikan wawasan tentang struktur dan kinerja ekonomi wilayah.
+
+------------------------------------------------------------------------
+
+Untuk informasi lebih rinci atau pemecahan masalah, lihat dokumentasi lengkap Analisis Deskriptif Ekonomi Regional di sini <https://help.lumens.or.id/08-regional1.html> atau hubungi pengembang alat.
+
+LUMENS adalah perangkat lunak bebas dan disediakan TANPA JAMINAN APAPUN. Pengguna bertanggung jawab atas hasil yang dihasilkan. Hasil bergantung pada kualitas data input ("garbage in, garbage out") dan dapat bervariasi atau sensitif terhadap parameter yang digunakan. Silakan laporkan setiap masalah yang Anda temui saat menggunakan LUMENS sebagai [GitHub issue](https://github.com/icraf-indonesia/lumens-shiny/issues). Umpan balik dan pertanyaan sangat kami harapkan [Contact Us URL].
