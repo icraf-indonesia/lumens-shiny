@@ -230,14 +230,13 @@ if (is_scenario) {
 }
 
 # Mapping: kolom → label (digunakan untuk iterasi)
-ind_cols   <- c("GDP", "LABOUR", "INCOME", "INCOME_PER_CAPITA", "SURPLUS", "OUTPUT")
+ind_cols   <- c("GDP", "LABOUR", "INCOME", "INCOME_PER_CAPITA", "SURPLUS")
 ind_titles <- c(
   "GDP"                = "Proyeksi PDRB",
   "LABOUR"             = "Proyeksi Serapan Tenaga Kerja",
   "INCOME"             = "Proyeksi Pendapatan Tenaga Kerja",
   "INCOME_PER_CAPITA"  = "Proyeksi Pendapatan per Kapita",
-  "SURPLUS"            = "Proyeksi Surplus Usaha Bruto",
-  "OUTPUT"             = "Proyeksi Output Total"
+  "SURPLUS"            = "Proyeksi Surplus Usaha Bruto"
 )
 
 ind_units  <- c(
@@ -245,8 +244,7 @@ ind_units  <- c(
   "LABOUR"             = "Orang/Tahun",
   "INCOME"             = paste0(satuan_uang, "/Tahun"),
   "INCOME_PER_CAPITA"  = paste0(satuan_uang, "/Orang"),
-  "SURPLUS"            = paste0(satuan_uang, "/Tahun"),
-  "OUTPUT"             = paste0(satuan_uang, "/Tahun")
+  "SURPLUS"            = paste0(satuan_uang, "/Tahun")
 )
 
 has_a3 <- "A3" %in% active_assumptions
@@ -1799,68 +1797,6 @@ if (!is_money(ind_cols[5])) {
 dt
 ```
 
-## `r ind_titles[[ind_cols[6]]]` {.tabset}
-
-### Grafik Proyeksi
-
-```{r plot-output, echo=FALSE, message=FALSE, warning=FALSE}
-build_plot(ind_cols[6], ind_titles[[ind_cols[6]]])
-```
-
-### Tabel Rekapitulasi
-
-```{r recap-output, echo=FALSE, message=FALSE, warning=FALSE}
-recap_tbl <- build_recap_table(ind_cols[6], ind_titles[[ind_cols[6]]])
-
-if (is_money(ind_cols[6])) {
-  recap_tbl <- recap_tbl |>
-    dplyr::mutate(
-      BAU = format_uang(BAU, satuan_uang)
-    )
-  if (is_scenario) {
-    recap_tbl <- recap_tbl |>
-      dplyr::mutate(
-        Intervensi = format_uang(Intervensi, satuan_uang),  # <-- Ubah Skenario jadi Intervensi
-        `Selisih (%)` = formatC(`Selisih (%)`, format = "f", digits = 2, big.mark = ",")
-      )
-  }
-}
-
-# Tentukan nama kolom untuk tampilan header
-kolom_bau <- paste0("BAU (", params$unit, ")")
-kolom_intervensi <- paste0("Intervensi (", params$unit, ")")
-
-nama_kolom <- c("Tahun", kolom_bau)
-if (is_scenario) {
-  nama_kolom <- c(nama_kolom, kolom_intervensi, "Selisih (%)")
-}
-
-dt <- DT::datatable(
-  recap_tbl,
-  rownames   = FALSE,
-  colnames   = nama_kolom, # <-- Tambahkan colnames
-  caption    = paste0(
-    "Rekapitulasi ", ind_titles[[ind_cols[6]]],
-    " (", ind_units[[ind_cols[6]]], ")",
-    if (!is_scenario) " — BAU" else ""
-  ),
-  extensions = "Buttons",
-  options    = list(
-    pageLength = 15, dom = "Bfrtip",
-    buttons    = c("copy", "excel", "csv"), scrollX = TRUE
-  )
-)
-
-if (!is_money(ind_cols[6])) {
-  dt <- dt |> DT::formatRound("BAU", digits = 2, mark = ",")
-  if (is_scenario) {
-    # <-- Ubah "Skenario" jadi "Intervensi"
-    dt <- dt |> DT::formatRound(c("Intervensi", "Selisih (%)"), digits = 2, mark = ",")
-  }
-}
-dt
-```
-
 # Analisis Sektoral {.tabset}
 
 ## PDRB per Sektor
@@ -2146,5 +2082,17 @@ if (has_a3 && data_ok) {
 ```
 
 # Referensi
+
+- Dewi, S., Mulia, R., Johana, F., Ekadinata, A. and van Noordwijk, M., 2023. Integrating relational and instrumental values of nature in planning land use for multiple ecosystem services (LUMENS): tools and process. Current Opinion in Environmental Sustainability, 64, p.101333.
+
+- Dewi, S., Ekadinata, A., Indiarto, D., Nugraha, A. and van Noordwijk, M., 2015. Negotiation support tools to enhance multifunctioning landscapes. Climate-smart landscapes: multifunctionality in practice. World Agroforestry Centre (ICRAF), Nairobi, Kenya, pp.243-255.
+
+- Mulia, R., Hoan, D.T., Pham, V.T., Nguyen, T.Q., Dewi, S., Ekadinata, A., Dwiputra, A., Nugraha, A., Johana, F., Nguyen, K.Q. and Nguyen, D.K.T., 2019. Green Growth Action Plan for Lam Dong Province for the Period of 2021–2030, Vision to 2050. World Agroforestry (ICRAF): Hanoi, Vietnam.
+
+- Dewi, S., Ekadinata, A., Indiarto, D., Nugraha, A. and van Noordwijk, M., 2015. Negotiation support tools to enhance multifunctioning landscapes. Climate-smart landscapes: multifunctionality in practice. World Agroforestry Centre (ICRAF), Nairobi, Kenya, pp.243-255.
+
+- Minang, P.A., van Noordwijk, M., Freeman, O.E., Mbow, C., de Leeuw, J. and Catacutan, D. eds., 2014. Climate-smart landscapes: multifunctionality in practice. ASB Partnership for The Tropical Forest margins.
+
+------------------------------------------------------------------------
 
 <font size="1"> LUMENS adalah perangkat lunak bebas dan disediakan TANPA JAMINAN APAPUN. Pengguna bertanggung jawab atas hasil yang dihasilkan. Hasil bergantung pada kualitas data input ("garbage in, garbage out") dan dapat bervariasi atau sensitif terhadap parameter yang digunakan. </font>
