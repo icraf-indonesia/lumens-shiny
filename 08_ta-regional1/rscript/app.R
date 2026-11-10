@@ -24,13 +24,6 @@ required_packages <- c(
 
 check_and_install_packages(required_packages)
 
-# --- Load TARegEco package ---
-if (!requireNamespace("TARegEco", quietly = TRUE)) {
-  if (!requireNamespace("devtools", quietly = TRUE)) install.packages("devtools")
-  devtools::install_github("icraf-indonesia/TARegEco")
-}
-library(TARegEco)
-
 # --- JS untuk close window ---
 jscode <- "shinyjs.closeWindow = function() { window.close(); }"
 
