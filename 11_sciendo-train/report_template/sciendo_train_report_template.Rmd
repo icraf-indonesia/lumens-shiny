@@ -46,6 +46,11 @@ library(LUMENSR)
 library(knitr)
 library(corrplot)
 library(usdm)
+if ("conflicted" %in% loadedNamespaces()) {
+  conflicted::conflict_prefer("intersect", "base", quiet = TRUE)
+  conflicted::conflict_prefer("filter", "dplyr", quiet = TRUE)
+  conflicted::conflict_prefer("select", "dplyr", quiet = TRUE)
+}
 ```
 
 <details>
@@ -64,7 +69,7 @@ analysis_log <- tribble(
   "4. Year of T1",                as.character(params$inputs$year1),
   "5. Year of T2",                as.character(params$inputs$year2),
   "6. Land cover lookup table",   params$inputs$lc_lookup_table_path,
-  "7. Directory of factor maps ", params$inputs$factor_path,
+  "7. Directory of predictor maps ", params$inputs$factor_path,
   "Output Workspace",             params$inputs$output_dir,
   "1. Raster Cube",               params$rc_path,
   "2. Directory of Weight of Evidence Report",               params$woe_report_path,
@@ -125,11 +130,11 @@ lc_t2 <- lc_t2 %>% terra::rast() %>%
 
 # Module brief description
 
-- SCIENDO-Train systematically collects crucial data that represents both the initial and final conditions of a given region. This includes various factor maps, which serve as explanatory variables, providing context and insights into the changes observed over time. By establishing these data points, SCIENDO-Train creates a comprehensive framework for understanding the dynamics of the region.
+- SCIENDO-Train systematically collects crucial data that represents both the initial and final conditions of a given region. This includes various predictor maps, which serve as explanatory variables, providing context and insights into the changes observed over time. By establishing these data points, SCIENDO-Train creates a comprehensive framework for understanding the dynamics of the region.
 
-- The raster cube is an integrated collection of factor maps that captures significant geographic features of the area. This includes maps indicating distance to key landmarks, elevation levels that affect climate and ecosystem dynamics, and various environmental conditions, such as land use and vegetation cover. These factor maps are essential for analyzing spatial relationships and understanding how different elements interact within the region.
+- The raster cube is an integrated collection of predictor maps that captures significant geographic features of the area. This includes maps indicating distance to key landmarks, elevation levels that affect climate and ecosystem dynamics, and various environmental conditions, such as land use and vegetation cover. These predictor maps are essential for analyzing spatial relationships and understanding how different elements interact within the region.
 
-- To calculate the probability of the weight of evidence, a comparative analysis of all collected data values is performed. This involves assessing the relationships and variations among the factor maps and their influence on the observed conditions. 
+- To calculate the probability of the weight of evidence, a comparative analysis of all collected data values is performed. This involves assessing the relationships and variations among the predictor maps and their influence on the observed conditions. 
 
 
 # Input data {.tabset}
@@ -148,7 +153,7 @@ plot_categorical_raster(lc_t1)
 plot_categorical_raster(lc_t2)
 ```
 
-## Factor Maps {.tabset}
+## Predictor Maps {.tabset}
 
 ```{r plot factor, echo=FALSE, fig.keep='all', results='asis'}
 factor_path <- params$inputs$factor_path 
@@ -184,7 +189,7 @@ plot_categorical_raster(zone)
 
 # Results
 
-## Factors Multicollinearity {.tabset}
+## Multicollinearity of Predictors {.tabset}
 
 ### Variance Inflation Factor (VIF)
 ```{r vif, echo=FALSE, message=FALSE, warning=FALSE, fig.show='hide', results='asis'}
@@ -208,8 +213,27 @@ if (!is.null(collinearity$vif_table) && nrow(collinearity$vif_table) > 0) {
 ```
 
 ### Matrix of Collinearity
-```{r corrplot, echo=FALSE, message=FALSE, warning=FALSE}
-if (!is.null(collinearity$correlation_plot)) {
+```{r corrplot, echo=FALSE, message=FALSE, warning=FALSE, fig.width=7, fig.height=7, out.width='75%', fig.align='center'}
+if (!is.null(collinearity$correlation_matrix)) {
+  graphics::par(mfrow = c(1, 1))
+  n_vars <- ncol(collinearity$correlation_matrix)
+  tl_size <- if (n_vars <= 6) 0.85 else if (n_vars <= 10) 0.75 else if (n_vars <= 15) 0.65 else 0.5
+  num_size <- if (n_vars <= 6) 0.8 else if (n_vars <= 10) 0.7 else if (n_vars <= 15) 0.55 else 0.4
+  corrplot::corrplot(
+    collinearity$correlation_matrix,
+    method = "color",
+    type = "full",
+    order = "hclust",
+    tl.cex = tl_size,
+    tl.col = "black",
+    tl.srt = 45,
+    mar = c(0, 0, 1, 0),
+    addCoef.col = "black",
+    number.cex = num_size,
+    diag = TRUE
+  )
+} else if (!is.null(collinearity$correlation_plot)) {
+  graphics::par(mfrow = c(1, 1))
   collinearity$correlation_plot
 } else {
   cat("_Collinearity matrix cannot be displayed._\n")
@@ -247,15 +271,15 @@ for (key in pu_keys) {
 ```
 
 ```{r create expandable woe sections, echo=FALSE, results='asis'}
-pu_name_mapping <- setNames(df_pu$PU, paste0("pu", sprintf("%03d", df_pu$ID_PU)))
+pu_name_mapping <- as.list(setNames(as.character(df_pu$PU), paste0("pu", sprintf("%03d", as.numeric(df_pu$ID_PU)))))
+valid_pu_keys <- base::intersect(names(weighted_means_list), names(pu_name_mapping))
 
 # create expandable sections 
-src <- lapply(names(weighted_means_list), function(pu_key) {
+src <- lapply(valid_pu_keys, function(pu_key) {
   descriptive_name <- pu_name_mapping[[pu_key]]
-  if (is.null(descriptive_name) || is.na(descriptive_name)) {
-    descriptive_name <- pu_key
+  if (is.null(descriptive_name) || is.na(descriptive_name) || descriptive_name == "") {
+    return(NULL)
   }
-  
   knitr::knit_expand(text = c(
     "",
     "<details style='margin-bottom: 20px; border: 1px solid #ddd; border-radius: 5px; padding: 10px;'>",
@@ -294,8 +318,10 @@ src <- lapply(names(weighted_means_list), function(pu_key) {
   ), pu_key = pu_key, descriptive_name = descriptive_name)
 })
 
-res <- knitr::knit_child(text = unlist(src), quiet = TRUE)
-cat(res, sep = '\n')
+if (length(unlist(src)) > 0) {
+  res <- knitr::knit_child(text = unlist(src), quiet = TRUE)
+  cat(res, sep = '\n')
+}
 ```
 ------------------------------------------------------------------------
 

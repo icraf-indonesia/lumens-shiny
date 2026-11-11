@@ -46,6 +46,11 @@ library(LUMENSR)
 library(knitr)
 library(corrplot)
 library(usdm)
+if ("conflicted" %in% loadedNamespaces()) {
+  conflicted::conflict_prefer("intersect", "base", quiet = TRUE)
+  conflicted::conflict_prefer("filter", "dplyr", quiet = TRUE)
+  conflicted::conflict_prefer("select", "dplyr", quiet = TRUE)
+}
 ```
 
 <details>
@@ -64,7 +69,7 @@ analysis_log <- tribble(
   "4. Year of T1",                as.character(params$inputs$year1),
   "5. Year of T2",                as.character(params$inputs$year2),
   "6. Land cover lookup table",   params$inputs$lc_lookup_table_path,
-  "7. Directory of factor maps ", params$inputs$factor_path,
+  "7. Direktori peta prediktor ", params$inputs$factor_path,
   "Output Workspace",             params$inputs$output_dir,
   "1. Raster Cube",               params$rc_path,
   "2. Directory of Weight of Evidence Report",               params$woe_report_path,
@@ -125,11 +130,11 @@ lc_t2 <- lc_t2 %>% terra::rast() %>%
 
 # Deskripsi singkat modul
 
-- Modul SCIENDO-Train secara sistematis menghimpun informasi-informasi penting yang merepresentasikan kondisi awal dan akhir penutupan lahan suatu lanskap. Informasi ini mencakup data peta faktor, yang berfungsi sebagai variabel penentu untuk memberikan konteks dan wawasan terhadap pemicu perubahan penutupan lahan yang diamati dari waktu ke waktu. Dengan melatih data-data ini, SCIENDO-Train membangun sebuah kerangka kerja komprehensif untuk memahami dinamika perubahan pentupan lahan suatu wilayah.
+- Modul SCIENDO-Train secara sistematis menghimpun informasi-informasi penting yang merepresentasikan kondisi awal dan akhir penutupan lahan suatu lanskap. Informasi ini mencakup data peta prediktor, yang berfungsi sebagai variabel penentu untuk memberikan konteks dan wawasan terhadap pemicu perubahan penutupan lahan yang diamati dari waktu ke waktu. Dengan melatih data-data ini, SCIENDO-Train membangun sebuah kerangka kerja komprehensif untuk memahami dinamika perubahan pentupan lahan suatu wilayah.
 
-- Raster cube adalah kumpulan peta-peta faktor terintegrasi yang menghimpun informasi geografis penting di suatu lanskap. Di antaranya peta yang menunjukkan jarak ke titik-titik objek penting, elevasi yang memengaruhi iklim dan dinamika ekosistem, serta berbagai kondisi lingkungan seperti keragaman penggunaan lahan dan tutupan vegetasi. Peta faktor ini sangat penting untuk menganalisis hubungan spasial dan memahami bagaimana berbagai elemen saling berinteraksi di dalam lanskap tersebut.
+- Raster cube adalah kumpulan peta-peta prediktor terintegrasi yang menghimpun informasi geografis penting di suatu lanskap. Di antaranya peta yang menunjukkan jarak ke titik-titik objek penting, elevasi yang memengaruhi iklim dan dinamika ekosistem, serta berbagai kondisi lingkungan seperti keragaman penggunaan lahan dan tutupan vegetasi. Peta prediktor ini sangat penting untuk menganalisis hubungan spasial dan memahami bagaimana berbagai elemen saling berinteraksi di dalam lanskap tersebut.
 
-- Untuk menghitung probabilitas weight of evidence, dilakukan analisis komparatif terhadap semua nilai data yang terkumpul. Proses ini melibatkan analisis hubungan dan variasi antar peta faktor serta pengaruhnya terhadap kondisi yang diamati.
+- Untuk menghitung probabilitas weight of evidence, dilakukan analisis komparatif terhadap semua nilai data yang terkumpul. Proses ini melibatkan analisis hubungan dan variasi antar peta prediktor serta pengaruhnya terhadap kondisi yang diamati.
 
 
 # Data yang digunakan {.tabset}
@@ -148,7 +153,7 @@ plot_categorical_raster(lc_t1)
 plot_categorical_raster(lc_t2)
 ```
 
-## Peta Faktor-faktor {.tabset}
+## Peta Variabel Prediktor {.tabset}
 
 ```{r plot factor, echo=FALSE, fig.keep='all', results='asis'}
 factor_path <- params$inputs$factor_path 
@@ -184,7 +189,7 @@ plot_categorical_raster(zone)
 
 # Hasil
 
-## Multikolinearitas Faktor-faktor {.tabset}
+## Multikolinearitas Variabel Prediktor {.tabset}
 
 ### Variance Inflation Factor (VIF)
 
@@ -214,8 +219,27 @@ if (!is.null(collinearity$vif_table) && nrow(collinearity$vif_table) > 0) {
 
 Multikolinearitas terjadi ketika variabel independen saling berkorelasi tinggi sehingga sulit membedakan pengaruhnya masing-masing terhadap variabel dependen, membuat model menjadi tidak stabil dan hasilnya kurang akurat. Matriks Kolinearitas digunakan untuk mengidentifikasi isu tersebut dengan menunjukkan hubungan antarvariabel; nilai mendekati 1 atau -1 menandakan korelasi kuat, sedangkan nilai dekat 0 menandakan korelasi lemah.
 
-```{r corrplot, echo=FALSE, message=FALSE, warning=FALSE}
-if (!is.null(collinearity$correlation_plot)) {
+```{r corrplot, echo=FALSE, message=FALSE, warning=FALSE, fig.width=7, fig.height=7, out.width='75%', fig.align='center'}
+if (!is.null(collinearity$correlation_matrix)) {
+  graphics::par(mfrow = c(1, 1))
+  n_vars <- ncol(collinearity$correlation_matrix)
+  tl_size <- if (n_vars <= 6) 0.85 else if (n_vars <= 10) 0.75 else if (n_vars <= 15) 0.65 else 0.5
+  num_size <- if (n_vars <= 6) 0.8 else if (n_vars <= 10) 0.7 else if (n_vars <= 15) 0.55 else 0.4
+  corrplot::corrplot(
+    collinearity$correlation_matrix,
+    method = "color",
+    type = "full",
+    order = "hclust",
+    tl.cex = tl_size,
+    tl.col = "black",
+    tl.srt = 45,
+    mar = c(0, 0, 1, 0),
+    addCoef.col = "black",
+    number.cex = num_size,
+    diag = TRUE
+  )
+} else if (!is.null(collinearity$correlation_plot)) {
+  graphics::par(mfrow = c(1, 1))
   collinearity$correlation_plot
 } else {
   cat("_Matriks kolinearitas tidak dapat ditampilkan._\n")
@@ -253,15 +277,15 @@ for (key in pu_keys) {
 ```
 
 ```{r create expandable woe sections, echo=FALSE, results='asis'}
-pu_name_mapping <- setNames(df_pu$PU, paste0("pu", sprintf("%03d", df_pu$ID_PU)))
+pu_name_mapping <- as.list(setNames(as.character(df_pu$PU), paste0("pu", sprintf("%03d", as.numeric(df_pu$ID_PU)))))
+valid_pu_keys <- base::intersect(names(weighted_means_list), names(pu_name_mapping))
 
 # create expandable sections 
-src <- lapply(names(weighted_means_list), function(pu_key) {
+src <- lapply(valid_pu_keys, function(pu_key) {
   descriptive_name <- pu_name_mapping[[pu_key]]
-  if (is.null(descriptive_name) || is.na(descriptive_name)) {
-    descriptive_name <- pu_key
+  if (is.null(descriptive_name) || is.na(descriptive_name) || descriptive_name == "") {
+    return(NULL)
   }
-  
   knitr::knit_expand(text = c(
     "",
     "<details style='margin-bottom: 20px; border: 1px solid #ddd; border-radius: 5px; padding: 10px;'>",
@@ -301,8 +325,10 @@ src <- lapply(names(weighted_means_list), function(pu_key) {
   ), pu_key = pu_key, descriptive_name = descriptive_name)
 })
 
-res <- knitr::knit_child(text = unlist(src), quiet = TRUE)
-cat(res, sep = '\n')
+if (length(unlist(src)) > 0) {
+  res <- knitr::knit_child(text = unlist(src), quiet = TRUE)
+  cat(res, sep = '\n')
+}
 ```
 ------------------------------------------------------------------------
 

@@ -1,7 +1,26 @@
+Option Explicit
+
 Private Sub Workbook_Open()
-    ' Enable macros and create the initialize button and text box when workbook opens
+    ' Enable macros and initialize dashboard safely upon opening
+    On Error Resume Next
     Application.EnableEvents = True
     
-    ' Create the initialize button on the active sheet
-    CreateInitializeButton
+    ' Safe guard for Protected View and Read-Only environments
+    If Not Application.ActiveProtectedViewWindow Is Nothing Then
+        Exit Sub
+    End If
+    If ThisWorkbook.ReadOnly Then
+        Exit Sub
+    End If
+    
+    ThisWorkbook.Sheets("Dashboard").Activate
+    UpdateDashboardSummary
+    On Error GoTo 0
+End Sub
+
+Private Sub Workbook_SheetChange(ByVal Sh As Object, ByVal Target As Range)
+    ' Catch all cell edits across all worksheets
+    On Error Resume Next
+    HandleSheetChange Sh, Target
+    On Error GoTo 0
 End Sub

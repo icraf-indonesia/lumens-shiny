@@ -220,24 +220,191 @@ generate_dummy_crosstab <- function(landcover, zone){
 #' }
 #'
 #' @export
-plot_categorical_raster <- function(raster_object, filename = "raster_plot.png", dpi = 300) {
-  # Color palette
-  if ("color_palette" %in% names(cats(raster_object)[[1]]) &&
-      all(grepl("^#[0-9A-Fa-f]{6}$", cats(raster_object)$color_pallete))) {
-    fill_scale <- scale_fill_manual(values = cats(raster_object)[[1]]$color_palette, na.value = "white")
+EOX_ATTRIBUTION <- "EOxCloudless - https://cloudless.eox.at by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2025)"
+EOX_TILE_URL <- "https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2025_3857/default/g/{z}/{y}/{x}.jpg"
+
+BASEMAP_PROVIDERS <- list(
+  eox = list(
+    id = "eox",
+    name = "Satelit",
+    sublabel = "Sentinel-2 Cloudless 2025",
+    url = EOX_TILE_URL,
+    attribution = EOX_ATTRIBUTION,
+    maxZoom = 18
+  )
+)
+
+#' Interactive Categorical Raster Map with EOX Cloudless 2025 Satellite Basemap
+#'
+#' Builds an interactive mapview / leaflet map for a categorical raster,
+#' applying custom or predefined colors, layer checklist control, and extent reset.
+#'
+#' @param cat_raster A `SpatRaster` object.
+#' @param cat_table A data frame with at least two columns: ID and Category.
+#' @param layer_title Character string for the layer name in mapview and legend.
+#' @return A `mapview` object with an added legend and satellite basemap.
+#' @importFrom mapview mapview
+#' @importFrom leaflet colorFactor addLegend clearTiles addTiles addLayersControl addEasyButton easyButton JS fitBounds
+#' @export
+plot_categorical_raster_mapview <- function(cat_raster, cat_table,
+                                            layer_title = "Layer") {
+  names(cat_table)[1] <- "ID"
+  names(cat_table)[2] <- "Category"
+  cat_table$ID <- as.numeric(cat_table$ID)
+  
+  unique_values    <- unique(values(cat_raster, na.rm = TRUE))
+  cat_tbl_filtered <- cat_table[cat_table$ID %in% unique_values, ]
+  
+  reclass_from   <- cat_tbl_filtered$ID
+  reclass_to     <- seq_along(cat_tbl_filtered$ID)
+  reclass_matrix <- cbind(reclass_from, reclass_to)
+  
+  cat_reclass <- classify(cat_raster, reclass_matrix, others = NA)
+  cat_factor  <- as.factor(cat_reclass)
+  
+  levels_df <- data.frame(
+    ID       = reclass_to,
+    Category = factor(cat_tbl_filtered$Category,
+                      levels = cat_tbl_filtered$Category)
+  )
+  
+  levels(cat_factor) <- levels_df
+  activeCat(cat_factor) <- "Category"
+  
+  predefined_colors <- c(
+    "#E6194B", "#3CB44B", "#FFE119", "#4363D8", "#F58231", "#911EB4", "#46F0F0", "#F032E6",
+    "#BCF60C", "#FABEBE", "#008080", "#E6BEFF", "#9A6324", "#FFFAC8", "#800000", "#AAFFC3",
+    "#808000", "#FFD8B1", "#000075", "#A9A9A9", "#231F20", "#1170AA", "#A2C8EC", "#FFBC79",
+    "#C85200", "#FF9DA7", "#D55E00", "#59A14F", "#EDC948", "#B07AA1", "#9C755F", "#BAB0AC",
+    "#1B9E77", "#D95F02", "#7570B3", "#E7298A", "#66A61E", "#E6AB02", "#A6761D", "#666666",
+    "#A6CEE3", "#1F78B4", "#B2DF8A", "#33A02C", "#FB9A99", "#E31A1C", "#FDBF6F", "#FF7F00",
+    "#CAB2D6", "#6A3D9A", "#FFFF99", "#B15928", "#8DD3C7", "#FFFFB3", "#BEBADA", "#FB8072",
+    "#80B1D3", "#FDB462", "#B3DE69", "#FCCDE5", "#D9D9D9", "#BC80BD", "#CCEBC5", "#FFED6F",
+    "#2F4F4F", "#556B2F", "#A0522D", "#191970", "#006400", "#8B0000", "#4B0082", "#008B8B",
+    "#00008B", "#FF4500", "#FF8C00", "#FFD700", "#00FF00", "#00FA9A", "#00FFFF", "#00BFFF",
+    "#0000FF", "#FF00FF", "#1E90FF", "#DDA0DD", "#FF1493", "#98FB98", "#708090", "#D2B48C",
+    "#00FF7F", "#4682B4", "#D2691E", "#9932CC", "#87CEEB", "#FF69B4", "#CD5C5C", "#E9967A",
+    "#8A2BE2", "#2E8B57", "#228B22", "#DC143C"
+  )
+  
+  if ("color_palette" %in% names(cat_tbl_filtered)) {
+    map_colors <- cat_tbl_filtered$color_palette
   } else {
-    fill_scale <- scale_fill_manual(values = c(
-      "#4E79A7", "#F28E2B", "#E15759", "#76B7B2", "#59A14F",
-      "#EDC948", "#B07AA1", "#FF9DA7", "#9C755F", "#BAB0AC",
-      "#86BCB6", "#FFB84D", "#A5C1DC", "#D37295", "#C4AD66",
-      "#7B8D8E", "#B17B62", "#8CD17D", "#DE9D9C", "#5A5A5A",
-      "#A0A0A0", "#D7B5A6", "#6D9EEB", "#E69F00", "#56B4E9",
-      "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7",
-      "#999999", "#E51E10", "#FF7F00", "#FFFF33", "#A65628",
-      "#F781BF", "#999933", "#8DD3C7", "#FFFFB3", "#BEBADA",
-      "#FB8072", "#80B1D3", "#FDB462", "#B3DE69", "#FCCDE5",
-      "#D9D9D9", "#BC80BD", "#CCEBC5", "#FFED6F", "#E41A1C"
-    ), na.value = "white")
+    if (nrow(cat_tbl_filtered) > length(predefined_colors)) {
+      map_colors <- grDevices::colorRampPalette(predefined_colors)(nrow(cat_tbl_filtered))
+    } else {
+      map_colors <- predefined_colors[1:nrow(cat_tbl_filtered)]
+    }
+  }
+  
+  color_table <- data.frame(value = reclass_to, color = map_colors)
+  coltab(cat_factor) <- color_table
+  
+  # Calculate initial bounds in EPSG:4326 for reset button & fitBounds
+  initial_bb <- tryCatch({
+    poly_sf <- sf::st_as_sfc(sf::st_bbox(cat_raster))
+    poly_4326 <- sf::st_transform(poly_sf, 4326)
+    sf::st_bbox(poly_4326)
+  }, error = function(e) NULL)
+  
+  # Initialize base map with EOX Satellite tiles FIRST so raster renders ON TOP
+  m_base <- leaflet::leaflet() %>%
+    leaflet::addTiles(
+      urlTemplate = BASEMAP_PROVIDERS$eox$url,
+      attribution = BASEMAP_PROVIDERS$eox$attribution,
+      group       = BASEMAP_PROVIDERS$eox$name,
+      options     = leaflet::tileOptions(maxZoom = BASEMAP_PROVIDERS$eox$maxZoom)
+    )
+  
+  map_result <- mapview::mapview(
+    cat_factor,
+    map        = m_base,
+    zcol       = "Category",
+    maxpixels  = ncell(cat_factor),
+    layer.name = layer_title,
+    na.color   = "transparent",
+    legend     = FALSE
+  )
+  
+  pal <- leaflet::colorFactor(palette = color_table$color, domain = levels_df$Category)
+  leaflet_map <- map_result@map
+  
+  if (!is.null(initial_bb)) {
+    leaflet_map <- leaflet_map %>%
+      leaflet::fitBounds(
+        lng1 = unname(initial_bb$xmin),
+        lat1 = unname(initial_bb$ymin),
+        lng2 = unname(initial_bb$xmax),
+        lat2 = unname(initial_bb$ymax)
+      )
+  }
+  
+  leaflet_map <- leaflet_map %>%
+    leaflet::addLayersControl(
+      baseGroups = BASEMAP_PROVIDERS$eox$name,
+      overlayGroups = layer_title,
+      options = leaflet::layersControlOptions(collapsed = FALSE)
+    ) %>%
+    leaflet::addLegend(
+      position = "topright",
+      pal      = pal,
+      values   = levels_df$Category,
+      title    = layer_title
+    )
+  
+  # Add return to initial zoom level extent button
+  if (!is.null(initial_bb)) {
+    leaflet_map <- leaflet_map %>%
+      leaflet::addEasyButton(
+        leaflet::easyButton(
+          icon = "fa-globe",
+          title = "Kembalikan ke Batas / Zoom Awal (Reset Zoom)",
+          onClick = leaflet::JS(sprintf(
+            "function(btn, map){ map.fitBounds([[%f, %f], [%f, %f]]); }",
+            initial_bb$ymin, initial_bb$xmin, initial_bb$ymax, initial_bb$xmax
+          ))
+        )
+      )
+  }
+  
+  map_result@map <- leaflet_map
+  map_result
+}
+
+
+#'
+#' @export
+plot_categorical_raster <- function(raster_object, filename = "raster_plot.png", dpi = 300) {
+  default_palette <- c(
+    "#4E79A7", "#F28E2B", "#E15759", "#76B7B2", "#59A14F",
+    "#EDC948", "#B07AA1", "#FF9DA7", "#9C755F", "#BAB0AC",
+    "#86BCB6", "#FFB84D", "#A5C1DC", "#D37295", "#C4AD66",
+    "#7B8D8E", "#B17B62", "#8CD17D", "#DE9D9C", "#5A5A5A",
+    "#A0A0A0", "#D7B5A6", "#6D9EEB", "#E69F00", "#56B4E9",
+    "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7",
+    "#999999", "#E51E10", "#FF7F00", "#FFFF33", "#A65628",
+    "#F781BF", "#999933", "#8DD3C7", "#FFFFB3", "#BEBADA",
+    "#FB8072", "#80B1D3", "#FDB462", "#B3DE69", "#FCCDE5",
+    "#D9D9D9", "#BC80BD", "#CCEBC5", "#FFED6F", "#E41A1C"
+  )
+  
+  has_custom_colors <- length(cats(raster_object)) > 0 &&
+    !is.null(cats(raster_object)[[1]]) &&
+    "color_palette" %in% names(cats(raster_object)[[1]]) &&
+    all(grepl("^#[0-9A-Fa-f]{6}$", cats(raster_object)[[1]]$color_palette))
+  
+  if (has_custom_colors) {
+    fill_scale <- scale_fill_manual(
+      values = cats(raster_object)[[1]]$color_palette,
+      na.value = "transparent",
+      labels = scales::label_wrap(30)
+    )
+  } else {
+    fill_scale <- scale_fill_manual(
+      values = default_palette,
+      na.value = "transparent",
+      labels = scales::label_wrap(30)
+    )
   }
   
   if (!is.na(time(raster_object))) {
@@ -246,33 +413,54 @@ plot_categorical_raster <- function(raster_object, filename = "raster_plot.png",
     plot_title <- names(raster_object)
   }
   
+  n_cats <- if (length(cats(raster_object)) > 0 && !is.null(cats(raster_object)[[1]])) {
+    nrow(cats(raster_object)[[1]])
+  } else {
+    10
+  }
+  legend_ncol <- if (n_cats > 18) 2 else 1
+  
   # Generate the plot
   plot_lc <- ggplot() +
     tidyterra::geom_spatraster(data = raster_object) +
     fill_scale +
+    coord_sf(expand = FALSE) +
     theme_bw() +
     labs(title = plot_title, fill = NULL) +
-    guides(fill = guide_legend(title.position = "top", ncol = 2)) +
+    guides(
+      fill = guide_legend(
+        title.position = "top",
+        ncol = legend_ncol,
+        keywidth = grid::unit(0.4, "cm"),
+        keyheight = grid::unit(0.35, "cm")
+      )
+    ) +
     theme(
       axis.title.x = element_blank(),
       axis.title.y = element_blank(),
+      axis.text.x = element_text(size = 8),
+      axis.text.y = element_text(size = 8),
       panel.grid.major = element_blank(),
       panel.grid.minor = element_blank(),
-      legend.title = element_text(size = 12),
-      legend.text = element_text(size = 10),
-      legend.key.height = unit(0.25, "cm"),
-      legend.key.width = unit(0.25, "cm"),
-      legend.position = "bottom",
-      legend.justification = c(0, 0.8)
+      plot.title = element_text(size = 14, face = "bold", hjust = 0),
+      plot.margin = ggplot2::margin(t = 5, r = 5, b = 5, l = 5),
+      legend.title = element_text(size = 11),
+      legend.text = element_text(size = 8.5),
+      legend.position = "right",
+      legend.justification = c(0, 0.5),
+      legend.box.spacing = grid::unit(0.4, "cm"),
+      legend.margin = ggplot2::margin(0, 0, 0, 0)
     )
   
   if (!knitr::is_html_output()) {
     return(plot_lc)
   }
   
-  # Save PNG with custom dpi
+  # Save PNG with dynamic dimensions to prevent squishing and legend cropping
   tf <- tempfile(fileext = ".png")
-  ggsave(tf, plot_lc, width = 7, height = 5, dpi = dpi)
+  plot_width <- if (legend_ncol > 1) 10.5 else 9.0
+  plot_height <- max(5.5, min(9.0, 4.0 + (n_cats / legend_ncol) * 0.18))
+  ggsave(tf, plot_lc, width = plot_width, height = plot_height, dpi = dpi)
   img_data <- base64enc::dataURI(file = tf, mime = "image/png")
   
   # download button
@@ -280,7 +468,7 @@ plot_categorical_raster <- function(raster_object, filename = "raster_plot.png",
     tags$div(
       style = "margin-bottom:10px;",
       tags$img(
-        src = img_data, 
+        src = img_data,
         style = "max-width:100%; height:auto; display:block; margin-bottom:5px;"
       ),
       tags$button(
@@ -290,14 +478,15 @@ plot_categorical_raster <- function(raster_object, filename = "raster_plot.png",
           link.href = this.previousElementSibling.src; link.click();",
           filename
         ),
-        style = "padding:4px 8px; font-size:0.9em; 
-                 background:#d3d3d3; border-radius:4px; 
+        style = "padding:4px 8px; font-size:0.9em;
+                 background:#d3d3d3; border-radius:4px;
                  color:#333333; text-decoration:none;
                  border: none; outline: none;"
       )
     )
   )
 }
+
 
 create_list_of_weight_report <- function(woe_report_path, list_woe_report, df_zone, lc_lookup_table) {
   listWoeReport <- list_woe_report
@@ -306,16 +495,18 @@ create_list_of_weight_report <- function(woe_report_path, list_woe_report, df_zo
   
   vec <- c()
   for(j in listWoeReport) {
-    number <- gsub(paste0(woe_report_path, "/weight_report"), "", j) %>% substr(1, 2) %>% as.numeric()
+    number <- as.numeric(gsub("\\.csv$", "", gsub("^.*weight_report", "", j)))
     vec <- c(vec, number)
   }
   
   for(counter in 1:length(vec)){
     i <- vec[counter]
-    woe[[paste0("pu", sprintf("%03d", i))]][['name']] <- df_zone[i, 2]
+    pu_match <- which(df_zone[[1]] == i)
+    pu_name <- if (length(pu_match) > 0) as.character(df_zone[[2]][pu_match[1]]) else paste0("PU ", i)
+    woe[[paste0("pu", sprintf("%03d", i))]][['name']] <- pu_name
     woe[[paste0("pu", sprintf("%03d", i))]][['report']] <- listWoeReport[counter] %>%
       read.csv() %>%
-      dplyr::select(-X) %>% 
+      dplyr::select(-any_of(c("X", "X."))) %>%
       dplyr::left_join(lc_lookup_table, by = join_by(Transition_From. == ID_LC)) %>%
       dplyr::rename(LC_FROM = LC) %>%
       dplyr::left_join(lc_lookup_table, by = join_by(Transition_To. == ID_LC)) %>%
@@ -960,7 +1151,8 @@ run_dinamica_woe_model <- function(dinamica_path = NULL, output_dir, egoml, memo
 
 run_sciendo_train_process <- function(lc_t1_path, lc_t2_path, zone_path, lc_lookup_table_path,
                                       lc_lookup_table, z_lookup_table, factor_path, time_points,
-                                      dinamica_path = NULL, output_dir, memory_allocation, progress_callback = NULL) {
+                                      dinamica_path = NULL, output_dir, memory_allocation, progress_callback = NULL,
+                                      lang = "id") {
   start_time <- Sys.time()
   cat("Started at:", format(start_time, "%Y-%m-%d %H:%M:%S"), "\n")
   
@@ -978,7 +1170,12 @@ run_sciendo_train_process <- function(lc_t1_path, lc_t2_path, zone_path, lc_look
       input_dir = tpm_input_dir,
       lc_lookup_path = lc_lookup_table_path,
       output_dir = macro_dir,
-      template_path = "../macro_template/macro_template.xlsm"
+      template_path = "../macro_template/macro_template.xlsm",
+      pu_lookup = z_lookup_table,
+      lc_t1_path = lc_t1_path,
+      zone_path = zone_path,
+      time_points = time_points,
+      lang = lang
     )
   }, error = function(e) {
     stop("TPM conversion failed: ", e$message)
@@ -1087,6 +1284,9 @@ analyze_multicollinearity <- function(folder_path, sample_size = 10000, vif_thre
   
   # Read raster stack
   tif_files <- list.files(path = folder_path, pattern = "\\.tif$", full.names = TRUE)
+  if (length(tif_files) < 2) {
+    stop("Folder predictors must contain at least 2 GeoTIFF (.tif) files for collinearity analysis.")
+  }
   rasters <- rast(tif_files)
   names(rasters) <- gsub(".tif", "", basename(tif_files))
   
@@ -1095,10 +1295,24 @@ analyze_multicollinearity <- function(folder_path, sample_size = 10000, vif_thre
   sample_points <- spatSample(rasters, size = sample_size, na.rm = TRUE)
   sample_df <- as.data.frame(sample_points)
   
+  # Detect and exclude zero-variance variables
+  zero_var <- sapply(sample_df, function(col) {
+    v <- stats::var(col, na.rm = TRUE)
+    is.na(v) || v == 0
+  })
+  zero_variance_vars <- names(sample_df)[zero_var]
+  if (length(zero_variance_vars) > 0) {
+    sample_df <- sample_df[, !zero_var, drop = FALSE]
+  }
+  
+  if (ncol(sample_df) < 2) {
+    stop("After removing zero-variance variables, less than 2 variables remain for collinearity analysis.")
+  }
+  
   # Calculate VIF
   vif_result <- vifstep(sample_df, th = vif_threshold)
   high_vif_vars <- vif_result@excluded
-  vif_table <- vif_result@results 
+  vif_table <- vif_result@results
   
   # Verbose printing
   if (verbose) {
@@ -1106,7 +1320,7 @@ analyze_multicollinearity <- function(folder_path, sample_size = 10000, vif_thre
     print(vif_table)
     
     if (length(high_vif_vars) > 0) {
-      message("\n️ Variables recommended for removal (VIF > ", vif_threshold, "):\n", paste(high_vif_vars, collapse = "\n"))
+      message("\n Variables recommended for removal (VIF > ", vif_threshold, "):\n", paste(high_vif_vars, collapse = "\n"))
     } else {
       message("\n No variables exceeded VIF threshold.")
     }
@@ -1114,27 +1328,99 @@ analyze_multicollinearity <- function(folder_path, sample_size = 10000, vif_thre
   
   # Correlation matrix and plot
   cor_matrix <- cor(sample_df, use = "complete.obs")
-  corrplot(cor_matrix,
-           method = "color",
-           type = "full",
-           order = "hclust",
-           tl.cex = 0.7,
-           tl.col = "black",
-           mar = c(0, 0, 2, 0),
-           addCoef.col = "black",
-           number.cex = 0.6,
-           diag = TRUE)
-  
-  corr_plot <- recordPlot()
+  corr_plot <- tryCatch({
+    graphics::par(mfrow = c(1, 1))
+    n_vars <- ncol(cor_matrix)
+    tl_size <- if (n_vars <= 6) 0.85 else if (n_vars <= 10) 0.75 else if (n_vars <= 15) 0.65 else 0.5
+    num_size <- if (n_vars <= 6) 0.8 else if (n_vars <= 10) 0.7 else if (n_vars <= 15) 0.55 else 0.4
+    corrplot(cor_matrix,
+             method = "color",
+             type = "full",
+             order = "hclust",
+             tl.cex = tl_size,
+             tl.col = "black",
+             tl.srt = 45,
+             mar = c(0, 0, 1, 0),
+             addCoef.col = "black",
+             number.cex = num_size,
+             diag = TRUE)
+    recordPlot()
+  }, error = function(e) NULL)
   
   return(list(
     vif_result = vif_result,
     vif_table = vif_table,
     excluded_vars = high_vif_vars,
+    zero_variance_vars = zero_variance_vars,
     correlation_matrix = cor_matrix,
     correlation_plot = corr_plot
   ))
 }
+
+#'
+#' Generate Standalone Factor Evaluation Report
+#'
+#' @param factor_path Character string of folder containing factor GeoTIFF files.
+#' @param output_dir Directory where the HTML report will be saved.
+#' @param vif_threshold Numeric VIF threshold (default 5).
+#' @param sample_size Sample size for raster sampling (default 10000).
+#' @return File path of the generated HTML report.
+#' @export
+generate_factor_evaluation_report <- function(factor_path, output_dir, vif_threshold = 5, sample_size = 10000) {
+  start_time <- Sys.time()
+  
+  collinearity_res <- analyze_multicollinearity(
+    folder_path = factor_path,
+    sample_size = sample_size,
+    vif_threshold = vif_threshold,
+    verbose = FALSE
+  )
+  
+  end_time <- Sys.time()
+  
+  report_params <- list(
+    factor_path = factor_path,
+    vif_threshold = vif_threshold,
+    sample_size = sample_size,
+    start_time = as.character(format(start_time, "%Y-%m-%d %H:%M:%S")),
+    end_time = as.character(format(end_time, "%Y-%m-%d %H:%M:%S")),
+    collinearity_result = collinearity_res
+  )
+  
+  template_candidates <- c(
+    "../report_template/sciendo_factor_evaluation_report_template.Rmd",
+    "11_sciendo-train/report_template/sciendo_factor_evaluation_report_template.Rmd",
+    file.path(getwd(), "11_sciendo-train/report_template/sciendo_factor_evaluation_report_template.Rmd"),
+    file.path(getwd(), "report_template/sciendo_factor_evaluation_report_template.Rmd")
+  )
+  template_path <- NULL
+  for (cand in template_candidates) {
+    if (file.exists(cand)) {
+      template_path <- cand
+      break
+    }
+  }
+  if (is.null(template_path)) {
+    template_path <- "../report_template/sciendo_factor_evaluation_report_template.Rmd"
+  }
+  
+  if (!dir.exists(output_dir)) {
+    dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+  }
+  
+  output_filename <- paste0("sciendo_factor_evaluation_report_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".html")
+  
+  out_path <- rmarkdown::render(
+    input = template_path,
+    output_file = output_filename,
+    output_dir = output_dir,
+    params = report_params,
+    quiet = TRUE
+  )
+  
+  return(out_path)
+}
+
 
 #' Add Period and Planning Unit Classes to Raster Metadata File
 #' 
@@ -1336,290 +1622,883 @@ add_period_pu_classes_to_pam <- function(output_dir, pu_classes, time_points, ov
 #'   output_dir = "path/to/output/directory",
 #'   template_path = "path/to/template.xlsm"
 #' )
-#' }
+#' @param time_points Optional list or data frame containing time points with element `t1` for initial year display.
+#' @param lang Language code: "id" for Bahasa Indonesia (default), "en" for English.
 #'
 #' @importFrom openxlsx2 wb_load wb_save wb_add_data wb_add_fill wb_add_font
-#' @importFrom openxlsx2 wb_add_border wb_add_numfmt
+#' @importFrom openxlsx2 wb_add_border wb_add_numfmt wb_add_formula
 #' @importFrom tidyr pivot_wider expand_grid
 #' @importFrom dplyr select mutate left_join arrange
 #' @importFrom tools file_path_sans_ext
 #' @export
-tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, template_path) {
+tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, template_path, pu_lookup = NULL, lc_t1_path = NULL, zone_path = NULL, time_points = NULL, lang = "id") {
   # Load required libraries
-  if (!require(openxlsx2, quietly = TRUE)) {
+  if (!requireNamespace("openxlsx2", quietly = TRUE)) {
     stop("openxlsx2 package is required. Please install it with: install.packages('openxlsx2')")
   }
-  if (!require(dplyr, quietly = TRUE)) {
+  if (!requireNamespace("dplyr", quietly = TRUE)) {
     stop("dplyr package is required. Please install it with: install.packages('dplyr')")
   }
-  if (!require(tidyr, quietly = TRUE)) {
+  if (!requireNamespace("tidyr", quietly = TRUE)) {
     stop("tidyr package is required. Please install it with: install.packages('tidyr')")
   }
   
-  # Normalize paths to avoid issues
-  output_dir <- normalizePath(output_dir, winslash = "/")
-  
-  # Ensure output_dir does not already contain "baseline_tpm_macro"
+  # Normalize paths
+  output_dir <- normalizePath(output_dir, winslash = "/", mustWork = FALSE)
   if (basename(output_dir) == "baseline_tpm_macro") {
     output_dir <- dirname(output_dir)
   }
   
-  # Check if template file exists
-  if (!file.exists(template_path)) {
+  # Locate template file with fallbacks if not found at template_path
+  resolved_template <- template_path
+  if (!file.exists(resolved_template)) {
+    candidates <- c(
+      file.path(getwd(), template_path),
+      file.path("11_sciendo-train/macro_template/macro_template.xlsm"),
+      file.path(getwd(), "11_sciendo-train/macro_template/macro_template.xlsm"),
+      file.path("..", "macro_template", "macro_template.xlsm")
+    )
+    for (cand in candidates) {
+      if (file.exists(cand)) {
+        resolved_template <- cand
+        break
+      }
+    }
+  }
+  if (!file.exists(resolved_template)) {
     stop("Template file not found: ", template_path)
   }
   
-  lc_lookup_table <- read.csv(lc_lookup_path)
+  # Read LC lookup table (supports file path or data.frame)
+  if (is.character(lc_lookup_path)) {
+    lc_lookup_table <- read.csv(lc_lookup_path, stringsAsFactors = FALSE)
+  } else if (is.data.frame(lc_lookup_path)) {
+    lc_lookup_table <- lc_lookup_path
+  } else {
+    stop("lc_lookup_path must be a file path or data.frame")
+  }
+  
+  # Read PU lookup table if provided
+  pu_map <- list()
+  if (!is.null(pu_lookup)) {
+    pu_df <- NULL
+    if (is.character(pu_lookup) && file.exists(pu_lookup)) {
+      pu_df <- read.csv(pu_lookup, stringsAsFactors = FALSE)
+    } else if (is.data.frame(pu_lookup)) {
+      pu_df <- pu_lookup
+    }
+    if (!is.null(pu_df) && ncol(pu_df) >= 2) {
+      colnames(pu_df)[1:2] <- c("ID", "Name")
+      pu_map <- setNames(as.character(pu_df$Name), as.character(pu_df$ID))
+    }
+  }
+  
+  # Calculate initial baseline class area per PU in hectares if rasters available
+  pu_class_areas <- list() # key: paste0(pu_id, "_", lc_id) -> area_ha
+  if (!is.null(lc_t1_path) && !is.null(zone_path) && file.exists(lc_t1_path) && file.exists(zone_path)) {
+    tryCatch({
+      if (requireNamespace("terra", quietly = TRUE)) {
+        r_lc <- terra::rast(lc_t1_path)
+        r_zone <- terra::rast(zone_path)
+        cs_ha <- tryCatch({
+          if (!terra::is.lonlat(r_lc)) {
+            (terra::xres(r_lc) * terra::yres(r_lc)) / 10000
+          } else {
+            mean(terra::values(terra::cellSize(r_lc, unit = "ha")), na.rm = TRUE)
+          }
+        }, error = function(e) 1.0)
+        
+        if (!terra::same.crs(r_zone, r_lc)) {
+          r_zone <- terra::project(r_zone, r_lc, method = "near")
+        }
+        if (terra::ext(r_zone) != terra::ext(r_lc) || terra::res(r_zone)[1] != terra::res(r_lc)[1]) {
+          r_zone <- terra::resample(r_zone, r_lc, method = "near")
+        }
+        
+        ct <- terra::crosstab(c(r_zone, r_lc), long = TRUE)
+        if (ncol(ct) >= 3) {
+          colnames(ct)[1:3] <- c("PU", "LC", "Count")
+          for (k in seq_len(nrow(ct))) {
+            key <- paste0(ct$PU[k], "_", ct$LC[k])
+            pu_class_areas[[key]] <- round(as.numeric(ct$Count[k]) * cs_ha, 2)
+          }
+        }
+      }
+    }, error = function(e) {
+      message("Warning: could not calculate raster areas: ", e$message)
+    })
+  }
   
   macro_dir <- file.path(output_dir, "baseline_tpm_macro")
   dir.create(macro_dir, recursive = TRUE, showWarnings = FALSE)
+  output_file <- file.path(macro_dir, "sciendo_tpm_scenario.xlsm")
   
-  message("Macros will be saved to: ", macro_dir)
+  # Generate 1-click unblock utility script for Windows Mark of the Web
+  unblock_bat_path <- file.path(macro_dir, "activate_macros.bat")
+  bat_content <- if (lang == "id") {
+    c(
+      "@echo off",
+      "echo Membuka blokir keamanan Windows (Unblock Mark of the Web) untuk file makro...",
+      "powershell -NoProfile -ExecutionPolicy Bypass -Command \"Get-ChildItem -Path '%~dp0' -Filter '*.xlsm' | ForEach-Object { Unblock-File -LiteralPath $_.FullName; Write-Host ('Berhasil membuka blokir: ' + $_.Name) }\"",
+      "echo Selesai! File makro siap dibuka di Microsoft Excel.",
+      "pause"
+    )
+  } else {
+    c(
+      "@echo off",
+      "echo Unblocking Windows security (Unblock Mark of the Web) for macro files...",
+      "powershell -NoProfile -ExecutionPolicy Bypass -Command \"Get-ChildItem -Path '%~dp0' -Filter '*.xlsm' | ForEach-Object { Unblock-File -LiteralPath $_.FullName; Write-Host ('Successfully unblocked: ' + $_.Name) }\"",
+      "echo Done! Macro file is ready to open in Microsoft Excel.",
+      "pause"
+    )
+  }
+  writeLines(bat_content, unblock_bat_path)
+  
+  # Determine Column A header for initial T1 area
+  t1_year <- NULL
+  if (!is.null(time_points)) {
+    t1_key <- grep("^t1$", names(time_points), ignore.case = TRUE, value = TRUE)
+    if (length(t1_key) > 0) {
+      val <- time_points[[t1_key[1]]]
+      if (!is.null(val) && !is.na(val) && nzchar(trimws(as.character(val)))) {
+        t1_year <- trimws(as.character(val))
+      }
+    } else if (is.numeric(time_points) && length(time_points) >= 1) {
+      t1_year <- as.character(time_points[1])
+    }
+  }
+  
+  col_a_header <- if (!is.null(t1_year)) {
+    if (lang == "id") paste0("Luas ", t1_year, " (ha)") else paste0(t1_year, " Area (ha)")
+  } else {
+    if (lang == "id") "Luas T1 (ha)" else "T1 Area (ha)"
+  }
+  
+  base_label  <- if (lang == "id") "Luas Baseline Tahun Proyeksi (ha)" else "Baseline Projected Years Area (ha)"
+  scen_label  <- if (lang == "id") "Luas Skenario Tahun Proyeksi (ha)" else "Scenario Projected Years Area (ha)"
+  delta_label <- if (lang == "id") "Perubahan Bersih (ha)" else "Net Change (ha)"
+  
+  message("Consolidated scenario macro will be saved to: ", output_file)
   
   tpm_dinamica <- list.files(path = input_dir, pattern = "\\.csv$", full.names = TRUE)
+  if (length(tpm_dinamica) == 0) {
+    stop("No CSV files found in input directory: ", input_dir)
+  }
   
-  # Process each CSV file
-  for (tpm in tpm_dinamica) {
-    base_name <- tools::file_path_sans_ext(basename(tpm))
-    matrix1 <- read.csv(tpm)
+  # Extract numeric PU IDs to process files in numerical order
+  raw_ids <- suppressWarnings(as.numeric(gsub(".*?([0-9]+).*", "\\1", basename(tpm_dinamica))))
+  raw_ids[is.na(raw_ids)] <- seq_along(raw_ids)[is.na(raw_ids)]
+  ord <- order(raw_ids)
+  tpm_dinamica <- tpm_dinamica[ord]
+  pu_ids <- raw_ids[ord]
+  
+  # Pre-compute sheet names and PU names for navigation linking
+  all_sheet_names <- character(length(tpm_dinamica))
+  all_pu_names <- character(length(tpm_dinamica))
+  for (idx in seq_along(tpm_dinamica)) {
+    pu_id <- pu_ids[idx]
+    pu_name <- if (as.character(pu_id) %in% names(pu_map)) {
+      pu_map[[as.character(pu_id)]]
+    } else {
+      paste("Planning Unit", pu_id)
+    }
+    all_pu_names[idx] <- pu_name
     
-    # Prepare the matrix data and get all unique IDs from both From and To columns
-    matrix1 <- matrix1 %>%
-      dplyr::select(-X) %>%  # drop the unused column
-      dplyr::mutate(
-        From. = as.numeric(From.),
-        To. = as.numeric(To.),
-        Rate = as.numeric(Rate)
-      )
+    clean_label <- gsub("['\"\\\\/?*\\[\\]:]", "_", pu_name, perl = TRUE)
+    clean_label <- gsub("\\s+", "_", trimws(clean_label))
+    prefix <- paste0("PU_", pu_id, "_")
+    max_label_len <- max(1, 25 - nchar(prefix))
+    short_label <- substr(clean_label, 1, max_label_len)
+    all_sheet_names[idx] <- paste0(prefix, short_label)
+  }
+  
+  # Initialize workbook from template
+  file.copy(resolved_template, output_file, overwrite = TRUE)
+  wb <- openxlsx2::wb_load(output_file)
+  
+  # Rename initial template sheet to Dashboard
+  init_sheets <- wb$get_sheet_names()
+  if (length(init_sheets) > 0) {
+    wb$set_sheet_names(old = init_sheets[1], new = "Dashboard")
+  } else {
+    wb$add_worksheet("Dashboard")
+  }
+  
+  dashboard_rows <- list()
+  
+  for (idx in seq_along(tpm_dinamica)) {
+    tpm <- tpm_dinamica[idx]
+    pu_id <- pu_ids[idx]
+    pu_name <- all_pu_names[idx]
+    sheet_name <- all_sheet_names[idx]
     
-    # Get all unique IDs present in matrix1 (from both From and To columns)
-    all_ids <- sort(unique(c(matrix1$From., matrix1$To.)))
+    # Read TPM CSV
+    matrix1 <- read.csv(tpm, stringsAsFactors = FALSE)
+    if ("X" %in% colnames(matrix1)) {
+      matrix1 <- matrix1[, colnames(matrix1) != "X", drop = FALSE]
+    }
+    colnames(matrix1) <- gsub("[*.]", "", colnames(matrix1))
+    if (ncol(matrix1) >= 3) {
+      matrix1 <- matrix1[, 1:3]
+      colnames(matrix1) <- c("From", "To", "Rate")
+    }
+    matrix1$From <- as.numeric(matrix1$From)
+    matrix1$To   <- as.numeric(matrix1$To)
+    matrix1$Rate <- as.numeric(matrix1$Rate)
+    matrix1 <- matrix1[!is.na(matrix1$From) & !is.na(matrix1$To) & !is.na(matrix1$Rate), ]
     
-    # Create a complete grid of all possible combinations
-    complete_grid <- expand.grid(
-      From. = all_ids,
-      To. = all_ids
-    ) %>%
-      dplyr::left_join(matrix1, by = c("From.", "To.")) %>%
-      dplyr::mutate(Rate = ifelse(is.na(Rate), 0, Rate))
+    all_ids <- sort(unique(c(matrix1$From, matrix1$To)))
+    if (length(all_ids) == 0) {
+      next
+    }
     
-    # Pivot to wide format
-    wide_df <- complete_grid %>%
-      tidyr::pivot_wider(
-        names_from = To., 
-        values_from = Rate,
-        values_fill = 0
-      ) %>%
-      dplyr::arrange(From.)  # sort rows by From.
+    complete_grid <- expand.grid(From = all_ids, To = all_ids)
+    complete_grid <- merge(complete_grid, matrix1, by = c("From", "To"), all.x = TRUE)
+    complete_grid$Rate[is.na(complete_grid$Rate)] <- 0
     
-    # Reorder columns numerically
-    ordered_cols <- sort(as.numeric(names(wide_df)[-1]))
-    wide_df <- wide_df[, c("From.", as.character(ordered_cols))]
+    wide_df <- as.data.frame(tidyr::pivot_wider(
+      complete_grid,
+      names_from = To,
+      values_from = Rate,
+      values_fill = 0
+    ))
+    wide_df <- wide_df[order(wide_df$From), ]
     
-    # Convert to matrix
-    result_matrix <- as.matrix(wide_df[, -1])
-    rownames(result_matrix) <- wide_df$From.
+    ord_cols <- sort(as.numeric(colnames(wide_df)[-1]))
+    wide_df <- wide_df[, c("From", as.character(ord_cols))]
     
-    # Calculate diagonal values and normalize rows
-    for(i in 1:nrow(result_matrix)) {
-      # First, set diagonal to 0 temporarily
+    result_matrix <- as.matrix(wide_df[, -1, drop = FALSE])
+    rownames(result_matrix) <- wide_df$From
+    
+    # Calculate diagonal values and normalize rows to exactly 1.0
+    for (i in 1:nrow(result_matrix)) {
       result_matrix[i, i] <- 0
-      
-      # Calculate sum of off-diagonal elements
       row_sum_off_diag <- sum(result_matrix[i, ])
-      
-      # If off-diagonal sum is >= 1, proportionally scale them down
       if (row_sum_off_diag >= 1) {
-        # Scale off-diagonal elements to sum to 0.999999
         if (row_sum_off_diag > 0) {
           result_matrix[i, ] <- result_matrix[i, ] * (0.999999 / row_sum_off_diag)
         }
-        result_matrix[i, i] <- 0.000001  # Small persistence probability
+        result_matrix[i, i] <- 0.000001
       } else {
-        # Normal case: set diagonal to make row sum = 1
         result_matrix[i, i] <- 1 - row_sum_off_diag
       }
-      
-      # Force exact normalization to handle floating point precision
-      current_row_sum <- sum(result_matrix[i, ])
-      if (current_row_sum > 0) {
-        result_matrix[i, ] <- result_matrix[i, ] / current_row_sum
+      cur_sum <- sum(result_matrix[i, ])
+      if (cur_sum > 0) {
+        result_matrix[i, ] <- result_matrix[i, ] / cur_sum
       }
-      
-      # Final precision check - adjust the largest element if needed
       final_sum <- sum(result_matrix[i, ])
       if (abs(final_sum - 1) > .Machine$double.eps) {
-        # Find the largest element and adjust it
         max_idx <- which.max(result_matrix[i, ])
         result_matrix[i, max_idx] <- result_matrix[i, max_idx] + (1 - final_sum)
       }
     }
     
-    # Verify that all rows sum to exactly 1 (for debugging)
-    row_sums <- rowSums(result_matrix)
-    max_deviation <- max(abs(row_sums - 1))
-    message("Maximum deviation from 1: ", format(max_deviation, scientific = TRUE))
+    # Map row and col names to LC labels
+    row_ids <- as.numeric(rownames(result_matrix))
+    row_labels <- lc_lookup_table$LC[match(row_ids, lc_lookup_table$ID)]
+    row_labels[is.na(row_labels)] <- paste("LC", row_ids[is.na(row_labels)])
+    rownames(result_matrix) <- row_labels
     
-    if (any(abs(row_sums - 1) > 1e-10)) {
-      warning("Some rows do not sum to exactly 1 in file: ", basename(tpm))
-      problematic_rows <- which(abs(row_sums - 1) > 1e-10)
-      for (row_idx in problematic_rows) {
-        message("Row ", row_idx, " (", rownames(result_matrix)[row_idx], ") sum: ", 
-                format(row_sums[row_idx], digits = 15))
+    col_ids <- as.numeric(colnames(result_matrix))
+    col_labels <- lc_lookup_table$LC[match(col_ids, lc_lookup_table$ID)]
+    col_labels[is.na(col_labels)] <- paste("LC", col_ids[is.na(col_labels)])
+    colnames(result_matrix) <- col_labels
+    
+    n_rows <- nrow(result_matrix)
+    n_cols <- ncol(result_matrix)
+    
+    # Determine initial empirical class area in hectares for each class row
+    col_a_vals <- numeric(n_rows)
+    for (ri in 1:n_rows) {
+      from_id <- row_ids[ri]
+      area_key <- paste0(pu_id, "_", from_id)
+      col_a_vals[ri] <- if (area_key %in% names(pu_class_areas)) {
+        pu_class_areas[[area_key]]
+      } else if (length(pu_class_areas) > 0) {
+        0.00
+      } else {
+        1000.00
       }
     }
     
-    # Apply land cover labels
-    row_ids <- as.numeric(rownames(result_matrix))
-    row_labels <- lc_lookup_table$LC[match(row_ids, lc_lookup_table$ID)]
-    rownames(result_matrix) <- row_labels
-    col_ids <- as.numeric(colnames(result_matrix))
-    col_labels <- lc_lookup_table$LC[match(col_ids, lc_lookup_table$ID)]
-    colnames(result_matrix) <- col_labels
-    
-    # Convert matrix to data frame for writing
-    output_df <- as.data.frame(result_matrix)
-    output_df <- cbind(rownames(output_df), output_df)
-    colnames(output_df)[1] <- ""
-    
-    # Define output file path
-    output_file <- file.path(macro_dir, paste0(base_name, "_macros.xlsm"))
-    
-    # Copy template to output location first
-    file.copy(template_path, output_file, overwrite = TRUE)
-    message("Copied template to: ", output_file)
-    
-    # Load the workbook using
-    tryCatch({
-      wb <- wb_load(output_file)
-      message("Successfully loaded workbook")
-      
-      # Get the first sheet name
-      sheet_name <- wb$get_sheet_names()[1]
-      
-      n_rows <- nrow(output_df)
-      n_cols <- ncol(output_df)
-      row_names <- output_df[,1]
-      col_names <- colnames(output_df)[-1] 
-      
-      # Write the main data starting from A1
-      wb <- wb$add_data(
-        sheet = sheet_name,
-        x = output_df,
-        start_col = 1,
-        start_row = 1,
-        col_names = TRUE,
-        row_names = FALSE
-      )
-      
-      # Add "Grand Total" header in the last column of row 1
-      wb <- wb$add_data(
-        sheet = sheet_name,
-        x = "Grand Total",
-        start_col = n_cols + 1,
-        start_row = 1,
-        col_names = FALSE,
-        row_names = FALSE
-      )
-      
-      # Calculate and add row sums
-      for (i in 1:n_rows) {
-        # Calculate actual row sum from the matrix
-        actual_row_sum <- sum(as.numeric(output_df[i, -1]))
-        wb <- wb$add_data(
-          sheet = sheet_name,
-          x = actual_row_sum,
-          start_col = n_cols + 1,
-          start_row = i + 1,
-          col_names = FALSE,
-          row_names = FALSE
-        )
-      }
-      
-      # Add column sums in the last row
-      # col_sums <- c("Grand Total", colSums(output_df[, -1]), sum(colSums(output_df[, -1])))
-      # wb <- wb$add_data(
-      #   sheet = sheet_name,
-      #   x = t(col_sums),
-      #   start_col = 1,
-      #   start_row = n_rows + 2,
-      #   col_names = FALSE,
-      #   row_names = FALSE
-      # )
-      
-      # Apply formatting
-      # Style for sum cells (light blue background)
-      sum_fill <- wb$add_fill(fgColor = "lightblue")
-      
-      # Style for diagonal cells (yellow background)
-      diagonal_fill <- wb$add_fill(fgColor = "yellow")
-      
-      # Apply light blue background to row sum cells (column n_cols+1, rows 2 to n_rows+1)
-      wb <- wb$add_fill(
-        sheet = sheet_name,
-        dims = paste0(openxlsx2::int2col(n_cols + 1), "2:", openxlsx2::int2col(n_cols + 1), n_rows + 1),
-        color = wb_color("lightblue")
-      )
-      
-      # Apply light blue background to column sum cells (row n_rows+2, all columns)
-      wb <- wb$add_fill(
-        sheet = sheet_name,
-        dims = paste0("A", n_rows + 2, ":", openxlsx2::int2col(n_cols + 1), n_rows + 2),
-        color = wb_color("lightblue")
-      )
-      
-      # Apply yellow highlighting to diagonal cells
-      for (i in 1:n_rows) {
-        row_name <- row_names[i]
-        for (j in 2:n_cols) {
-          col_name <- col_names[j-1]
-          if (row_name == col_name) {
-            # Convert to Excel cell reference
-            cell_ref <- paste0(openxlsx2::int2col(j), i + 1)
-            wb <- wb$add_fill(
-              sheet = sheet_name,
-              dims = cell_ref,
-              color = wb_color("yellow")
-            )
-          }
+    # Build active transitions intervention panel (Row 6 headers, Row 7+ data)
+    active_records <- list()
+    for (ri in 1:n_rows) {
+      for (ci in 1:n_cols) {
+        if (ri != ci && result_matrix[ri, ci] > 0.000001) {
+          from_id <- row_ids[ri]
+          init_class_area <- col_a_vals[ri]
+          base_rate <- round(result_matrix[ri, ci], 6)
+          base_area <- round(init_class_area * base_rate, 2)
+          
+          active_records[[length(active_records) + 1]] <- data.frame(
+            From_Class          = row_labels[ri],
+            To_Class            = col_labels[ci],
+            Baseline_Rate       = base_rate,
+            Baseline_Area_ha    = base_area,
+            Pct_Adjustment      = 0.0,
+            Scenario_Rate       = base_rate,
+            Scenario_Area_ha    = base_area,
+            Intervention_Status = "Baseline",
+            Matrix_Row          = 6 + ri, # Sheet row (Row 6 is header, Row 7+ is data)
+            Matrix_Col          = 2 + ci, # Sheet col (B=2 is row header, C=3.. is matrix data)
+            stringsAsFactors    = FALSE
+          )
         }
       }
-      
-      # Format numeric cells to show 3 decimal places
-      # Format the data range (excluding headers and labels)
-      data_range <- paste0("B2:", openxlsx2::int2col(n_cols), n_rows + 1)
-      wb <- wb$add_numfmt(
-        sheet = sheet_name,
-        dims = data_range,
-        numfmt = "0.000"
+    }
+    if (length(active_records) > 0) {
+      panel_df <- do.call(rbind, active_records)
+    } else {
+      panel_df <- data.frame(
+        From_Class          = character(0),
+        To_Class            = character(0),
+        Baseline_Rate       = numeric(0),
+        Baseline_Area_ha    = numeric(0),
+        Pct_Adjustment      = numeric(0),
+        Scenario_Rate       = numeric(0),
+        Scenario_Area_ha    = numeric(0),
+        Intervention_Status = character(0),
+        Matrix_Row          = integer(0),
+        Matrix_Col          = integer(0),
+        stringsAsFactors    = FALSE
       )
-      
-      # Format sum cells
-      # sum_col_range <- paste0(openxlsx2::int2col(n_cols + 1), "2:", openxlsx2::int2col(n_cols + 1), n_rows + 2)
-      # wb <- wb$add_numfmt(
-      #   sheet = sheet_name,
-      #   dims = sum_col_range,
-      #   numfmt = "0.000"
-      # )
-      
-      sum_row_range <- paste0("B", n_rows + 2, ":", openxlsx2::int2col(n_cols), n_rows + 2)
-      wb <- wb$add_numfmt(
+    }
+    
+    # Add PU sheet
+    wb$add_worksheet(sheet_name)
+    
+    # 1. Title and Navigation Hyperlinks (Row 1 & 2)
+    pu_title_text <- if (lang == "id") {
+      paste0("Unit Perencanaan ", pu_id, ": ", pu_name, " - Matriks Probabilitas Transisi (TPM)")
+    } else {
+      paste0("Planning Unit ", pu_id, ": ", pu_name, " - Transition Probability Matrix (TPM)")
+    }
+    wb$add_data(sheet = sheet_name, x = pu_title_text, start_col = 2, start_row = 1)
+    wb$add_font(sheet = sheet_name, dims = "B1", size = 13, bold = TRUE, color = openxlsx2::wb_color("navy"))
+    
+    # Back to Dashboard link at B2
+    dash_link_text <- if (lang == "id") "<- Kembali ke Dashboard Utama" else "<- Back to Master Dashboard"
+    wb$add_formula(sheet = sheet_name, x = paste0('=HYPERLINK("#\'Dashboard\'!A1", "', dash_link_text, '")'), dims = "B2")
+    wb$add_font(sheet = sheet_name, dims = "B2", bold = TRUE, color = openxlsx2::wb_color("blue"), underline = "single")
+    
+    # Next Planning Unit link at D2 (loops to PU 1 at end)
+    next_sheet <- if (idx < length(all_sheet_names)) all_sheet_names[idx + 1] else all_sheet_names[1]
+    next_label <- if (idx < length(all_sheet_names)) {
+      if (lang == "id") "Lanjut ke Unit Perencanaan Berikutnya ->" else "Go to Next Planning Unit >"
+    } else {
+      if (lang == "id") paste0("Kembali ke Unit Perencanaan Pertama (PU ", pu_ids[1], ") ->") else paste0("Go to First Planning Unit (PU ", pu_ids[1], ") >")
+    }
+    wb$add_formula(sheet = sheet_name, x = paste0('=HYPERLINK("#\'', next_sheet, '\'!A1", "', next_label, '")'), dims = "D2")
+    wb$add_font(sheet = sheet_name, dims = "D2", bold = TRUE, color = openxlsx2::wb_color("blue"), underline = "single")
+    
+    # Rows 3-4: Compact, styled step-by-step instruction box
+    wb$set_row_heights(sheet = sheet_name, rows = c(3, 4), heights = c(20, 20))
+    pu_guide_line1 <- if (lang == "id") {
+      "Panduan Penggunaan: 1. Sunting nilai probabilitas langsung pada sel matriks, atau sesuaikan nilai % penyesuaian / luas skenario (ha) pada tabel hijau di kanan. 2. Nilai pada sel lain dalam baris otomatis disesuaikan secara proporsional agar total probabilitas baris tetap 1.000."
+    } else {
+      "Quick Guide: 1. Edit transition probabilities directly in matrix cells, or adjust % adjustment / scenario area (ha) in the green table on right. 2. Other cells in the row rebalance proportionally so the row sum remains 1.000."
+    }
+    pu_guide_line2 <- if (lang == "id") {
+      "3. Sel yang diubah otomatis ditandai kuning dan berstatus 'Diintervensi'. Transisi baru (nilai baseline 0) dapat langsung diisi nilai > 0. 4. Gunakan 'Lanjut ke Unit Perencanaan Berikutnya' untuk beralih lembar, atau 'Kembali ke Dashboard Utama'."
+    } else {
+      "3. Modified cells turn yellow with status 'Intervened'. New transitions (baseline 0) can be entered > 0. 4. Use 'Go to Next Planning Unit' to switch sheets, or 'Back to Master Dashboard'."
+    }
+    wb$add_data(sheet = sheet_name, x = pu_guide_line1, start_col = 2, start_row = 3)
+    wb$add_font(sheet = sheet_name, dims = "B3", size = 9.5, bold = TRUE, color = openxlsx2::wb_color(hex = "0369A1"))
+    wb$add_data(sheet = sheet_name, x = pu_guide_line2, start_col = 2, start_row = 4)
+    wb$add_font(sheet = sheet_name, dims = "B4", size = 9.5, italic = TRUE, color = openxlsx2::wb_color(hex = "075985"))
+    
+    mat_end_col <- 2 + n_cols
+    mat_sum_col <- mat_end_col + 1
+    panel_col <- mat_sum_col + 2
+    base_sheet_name <- substr(paste0("_Base_", sheet_name), 1, 31)
+    
+    pu_box_end_col <- panel_col + 7
+    pu_box_range <- paste0("B3:", openxlsx2::int2col(pu_box_end_col), "4")
+    wb$add_fill(sheet = sheet_name, dims = pu_box_range, color = openxlsx2::wb_color(hex = "F0F9FF"))
+    
+    # Row 5: Spacer
+    wb$set_row_heights(sheet = sheet_name, rows = 5, heights = 10)
+    
+    # 2. Transition Matrix Headers (Row 6)
+    wb$set_row_heights(sheet = sheet_name, rows = 6, heights = 24)
+    mat_from_to <- if (lang == "id") "Dari / Ke" else "From \\ To"
+    mat_gt      <- if (lang == "id") "Total Baris" else "Grand Total"
+    matrix_header <- c(mat_from_to, col_labels, mat_gt)
+    
+    # Column A Header (cell A6)
+    wb$add_data(sheet = sheet_name, x = col_a_header, start_col = 1, start_row = 6)
+    wb$add_data(sheet = sheet_name, x = as.data.frame(t(matrix_header)), start_col = 2, start_row = 6, col_names = FALSE)
+    
+    # Style Matrix Header row (A6 to end of matrix)
+    hdr_range <- paste0("A6:", openxlsx2::int2col(mat_sum_col), "6")
+    wb$add_fill(sheet = sheet_name, dims = hdr_range, color = openxlsx2::wb_color(hex = "1E3A8A")) # Dark navy
+    wb$add_font(sheet = sheet_name, dims = hdr_range, color = openxlsx2::wb_color("white"), bold = TRUE)
+    
+    # 3. Transition Matrix Data (Rows 7 to 6 + n_rows)
+    # Column A Data (cells A7:A<6 + n_rows>) - Initial class area in ha
+    wb$add_data(sheet = sheet_name, x = as.data.frame(col_a_vals), start_col = 1, start_row = 7, col_names = FALSE)
+    col_a_range <- paste0("A7:A", 6 + n_rows)
+    wb$add_fill(sheet = sheet_name, dims = col_a_range, color = openxlsx2::wb_color(hex = "F1F5F9")) # Light slate
+    wb$add_font(sheet = sheet_name, dims = col_a_range, bold = TRUE)
+    wb$add_numfmt(sheet = sheet_name, dims = col_a_range, numfmt = "#,##0.00")
+    
+    mat_data_df <- as.data.frame(result_matrix)
+    mat_data_df <- cbind(Row_Label = row_labels, mat_data_df)
+    
+    # Add row sums
+    row_sums_vec <- rowSums(result_matrix)
+    mat_data_df$Grand_Total <- row_sums_vec
+    
+    wb$add_data(sheet = sheet_name, x = mat_data_df, start_col = 2, start_row = 7, col_names = FALSE)
+    
+    # Format matrix row headers (Col B)
+    lbl_range <- paste0("B7:B", 6 + n_rows)
+    wb$add_fill(sheet = sheet_name, dims = lbl_range, color = openxlsx2::wb_color(hex = "F1F5F9")) # Light slate
+    wb$add_font(sheet = sheet_name, dims = lbl_range, bold = TRUE)
+    
+    # Format matrix data cells (Cols C to 2+n_cols)
+    data_range <- paste0("C7:", openxlsx2::int2col(mat_end_col), 6 + n_rows)
+    wb$add_numfmt(sheet = sheet_name, dims = data_range, numfmt = "0.000")
+    
+    # Format sum column (Col mat_sum_col)
+    sum_range <- paste0(openxlsx2::int2col(mat_sum_col), "7:", openxlsx2::int2col(mat_sum_col), 6 + n_rows)
+    wb$add_fill(sheet = sheet_name, dims = sum_range, color = openxlsx2::wb_color(hex = "E0F2FE")) # Soft sky blue
+    wb$add_font(sheet = sheet_name, dims = sum_range, bold = TRUE)
+    wb$add_numfmt(sheet = sheet_name, dims = sum_range, numfmt = "0.000")
+    
+    # Apply diagonal and active cell styling
+    for (ri in 1:n_rows) {
+      for (ci in 1:n_cols) {
+        cell_ref <- paste0(openxlsx2::int2col(2 + ci), 6 + ri)
+        if (ri == ci) {
+          # Diagonal persistence: light yellow
+          wb$add_fill(sheet = sheet_name, dims = cell_ref, color = openxlsx2::wb_color(hex = "FEF9C3"))
+        } else if (result_matrix[ri, ci] > 0.000001) {
+          # Active off-diagonal: subtle blue
+          wb$add_fill(sheet = sheet_name, dims = cell_ref, color = openxlsx2::wb_color(hex = "DBEAFE"))
+        } else {
+          # Zero cells: muted font
+          wb$add_font(sheet = sheet_name, dims = cell_ref, color = openxlsx2::wb_color(hex = "9CA3AF"))
+        }
+      }
+    }
+    
+    # 3b. Blank separator row and 3 Bottom Summary Rows
+    last_mat_row  <- 6 + n_rows
+    blank_row     <- last_mat_row + 1
+    base_sum_row  <- blank_row + 1
+    scen_sum_row  <- base_sum_row + 1
+    delta_sum_row <- scen_sum_row + 1
+    
+    wb$set_row_heights(sheet = sheet_name, rows = blank_row, heights = 12)
+    wb$set_row_heights(sheet = sheet_name, rows = c(base_sum_row, scen_sum_row, delta_sum_row), heights = c(22, 22, 22))
+    
+    first_c_let <- openxlsx2::int2col(3)
+    last_c_let  <- openxlsx2::int2col(mat_end_col)
+    gt_let      <- openxlsx2::int2col(mat_sum_col)
+    
+    # Row 1 - Baseline Projected Year Area
+    wb$add_data(sheet = sheet_name, x = base_label, start_col = 2, start_row = base_sum_row)
+    wb$add_formula(sheet = sheet_name, x = paste0("=SUM(A7:A", last_mat_row, ")"), dims = paste0("A", base_sum_row))
+    for (ci in 1:n_cols) {
+      c_let <- openxlsx2::int2col(2 + ci)
+      wb$add_formula(
         sheet = sheet_name,
-        dims = sum_row_range,
-        numfmt = "0.000"
+        x = paste0("=ROUND(SUMPRODUCT($A$7:$A$", last_mat_row, ", '", base_sheet_name, "'!", c_let, "7:", c_let, last_mat_row, "), 2)"),
+        dims = paste0(c_let, base_sum_row)
       )
+    }
+    wb$add_formula(sheet = sheet_name, x = paste0("=SUM(", first_c_let, base_sum_row, ":", last_c_let, base_sum_row, ")"), dims = paste0(gt_let, base_sum_row))
+    
+    # Row 2 - Scenario Projected Year Area
+    wb$add_data(sheet = sheet_name, x = scen_label, start_col = 2, start_row = scen_sum_row)
+    wb$add_formula(sheet = sheet_name, x = paste0("=SUM(A7:A", last_mat_row, ")"), dims = paste0("A", scen_sum_row))
+    for (ci in 1:n_cols) {
+      c_let <- openxlsx2::int2col(2 + ci)
+      wb$add_formula(
+        sheet = sheet_name,
+        x = paste0("=ROUND(SUMPRODUCT($A$7:$A$", last_mat_row, ", ", c_let, "7:", c_let, last_mat_row, "), 2)"),
+        dims = paste0(c_let, scen_sum_row)
+      )
+    }
+    wb$add_formula(sheet = sheet_name, x = paste0("=SUM(", first_c_let, scen_sum_row, ":", last_c_let, scen_sum_row, ")"), dims = paste0(gt_let, scen_sum_row))
+    
+    # Row 3 - Net Change / Delta
+    wb$add_data(sheet = sheet_name, x = delta_label, start_col = 2, start_row = delta_sum_row)
+    wb$add_formula(sheet = sheet_name, x = paste0("=ROUND(A", scen_sum_row, "-A", base_sum_row, ", 2)"), dims = paste0("A", delta_sum_row))
+    for (ci in 1:n_cols) {
+      c_let <- openxlsx2::int2col(2 + ci)
+      wb$add_formula(
+        sheet = sheet_name,
+        x = paste0("=ROUND(", c_let, scen_sum_row, "-", c_let, base_sum_row, ", 2)"),
+        dims = paste0(c_let, delta_sum_row)
+      )
+    }
+    wb$add_formula(sheet = sheet_name, x = paste0("=SUM(", first_c_let, delta_sum_row, ":", last_c_let, delta_sum_row, ")"), dims = paste0(gt_let, delta_sum_row))
+    
+    # Number formats
+    wb$add_numfmt(sheet = sheet_name, dims = paste0("A", base_sum_row, ":", gt_let, scen_sum_row), numfmt = "#,##0.00")
+    wb$add_numfmt(sheet = sheet_name, dims = paste0("A", delta_sum_row, ":", gt_let, delta_sum_row), numfmt = "+#,##0.00;-#,##0.00;0.00")
+    
+    # Fills: Baseline (#F1F5F9), Scenario (#E0F2FE), Net Change (#FEF3C7)
+    wb$add_fill(sheet = sheet_name, dims = paste0("A", base_sum_row, ":", gt_let, base_sum_row), color = openxlsx2::wb_color(hex = "F1F5F9"))
+    wb$add_fill(sheet = sheet_name, dims = paste0("A", scen_sum_row, ":", gt_let, scen_sum_row), color = openxlsx2::wb_color(hex = "E0F2FE"))
+    wb$add_fill(sheet = sheet_name, dims = paste0("A", delta_sum_row, ":", gt_let, delta_sum_row), color = openxlsx2::wb_color(hex = "FEF3C7"))
+    
+    # Bold fonts for labels (Col B), Col A, and Grand Total
+    wb$add_font(sheet = sheet_name, dims = paste0("A", base_sum_row, ":B", delta_sum_row), bold = TRUE)
+    wb$add_font(sheet = sheet_name, dims = paste0(gt_let, base_sum_row, ":", gt_let, delta_sum_row), bold = TRUE)
+    
+    # 4. Active Transitions Recapitulation Panel (Row 6 headers, Row 7+ data)
+    panel_headers <- if (lang == "id") {
+      c("Kelas Asal", "Kelas Tujuan", "Laju Baseline", "Luas Baseline (ha)", "% Penyesuaian", "Laju Skenario", "Luas Skenario (ha)", "Status Intervensi", "_mRow", "_mCol")
+    } else {
+      c("From Class", "To Class", "Baseline Rate", "Baseline Area (ha)", "% Adjustment", "Scenario Rate", "Scenario Area (ha)", "Intervention Status", "_mRow", "_mCol")
+    }
+    wb$add_data(sheet = sheet_name, x = as.data.frame(t(panel_headers)), start_col = panel_col, start_row = 6, col_names = FALSE)
+    
+    # Panel Header style (Col panel_col to panel_col + 7)
+    panel_hdr_range <- paste0(openxlsx2::int2col(panel_col), "6:", openxlsx2::int2col(panel_col + 7), "6")
+    wb$add_fill(sheet = sheet_name, dims = panel_hdr_range, color = openxlsx2::wb_color(hex = "0F766E")) # Dark teal
+    wb$add_font(sheet = sheet_name, dims = panel_hdr_range, color = openxlsx2::wb_color("white"), bold = TRUE)
+    
+    if (nrow(panel_df) > 0) {
+      wb$add_data(sheet = sheet_name, x = panel_df, start_col = panel_col, start_row = 7, col_names = FALSE)
       
-      # Save the workbook
-      wb$save(output_file)
-      message("Processed: ", tpm, " -> Saved to: ", output_file)
+      panel_end_row     <- 6 + nrow(panel_df)
+      base_rate_col_let <- openxlsx2::int2col(panel_col + 2)
+      base_area_col_let <- openxlsx2::int2col(panel_col + 3)
+      adj_col_let       <- openxlsx2::int2col(panel_col + 4)
+      scen_rate_col_let <- openxlsx2::int2col(panel_col + 5)
+      scen_area_col_let <- openxlsx2::int2col(panel_col + 6)
       
-    }, error = function(e) {
-      message("Error processing file with openxlsx2: ", e$message)
-      message("Skipping file: ", tpm)
-    })
+      # Add dynamic formula for Scenario Area (ha): =ROUND(Baseline_Area_ha * (1 + Pct_Adjustment), 2)
+      for (pr in 7:panel_end_row) {
+        form_str <- paste0("=ROUND(", base_area_col_let, pr, "*(1+", adj_col_let, pr, "), 2)")
+        wb$add_formula(sheet = sheet_name, x = form_str, dims = paste0(scen_area_col_let, pr))
+      }
+      
+      wb$add_numfmt(sheet = sheet_name, dims = paste0(base_rate_col_let, "7:", base_rate_col_let, panel_end_row), numfmt = "0.0000")
+      wb$add_numfmt(sheet = sheet_name, dims = paste0(base_area_col_let, "7:", base_area_col_let, panel_end_row), numfmt = "#,##0.00")
+      wb$add_numfmt(sheet = sheet_name, dims = paste0(adj_col_let, "7:", adj_col_let, panel_end_row), numfmt = "0.0%")
+      wb$add_numfmt(sheet = sheet_name, dims = paste0(scen_rate_col_let, "7:", scen_rate_col_let, panel_end_row), numfmt = "0.0000")
+      wb$add_numfmt(sheet = sheet_name, dims = paste0(scen_area_col_let, "7:", scen_area_col_let, panel_end_row), numfmt = "#,##0.00")
+    }
+    
+    # Hide helper columns _mRow, _mCol
+    wb$set_col_widths(sheet = sheet_name, cols = c(panel_col + 8, panel_col + 9), widths = 0.1, hidden = TRUE)
+    
+    # Set column widths for readability
+    wb$set_col_widths(sheet = sheet_name, cols = 1, widths = 18)
+    wb$set_col_widths(sheet = sheet_name, cols = 2, widths = 34)
+    wb$set_col_widths(sheet = sheet_name, cols = 3:mat_sum_col, widths = 14)
+    wb$set_col_widths(sheet = sheet_name, cols = panel_col:(panel_col + 1), widths = 24)
+    wb$set_col_widths(sheet = sheet_name, cols = (panel_col + 2):(panel_col + 7), widths = 18)
+    
+    # 5. Hidden Baseline Backup Sheet (_Base_<sheet_name>)
+    wb$add_worksheet(base_sheet_name)
+    wb$set_sheet_visibility(sheet = base_sheet_name, value = "hidden")
+    wb$add_data(sheet = base_sheet_name, x = pu_title_text, start_col = 2, start_row = 1)
+    
+    # Column A and Matrix Headers on _Base_
+    wb$add_data(sheet = base_sheet_name, x = col_a_header, start_col = 1, start_row = 6)
+    wb$add_data(sheet = base_sheet_name, x = as.data.frame(col_a_vals), start_col = 1, start_row = 7, col_names = FALSE)
+    wb$add_numfmt(sheet = base_sheet_name, dims = col_a_range, numfmt = "#,##0.00")
+    
+    wb$add_data(sheet = base_sheet_name, x = as.data.frame(t(matrix_header)), start_col = 2, start_row = 6, col_names = FALSE)
+    wb$add_data(sheet = base_sheet_name, x = mat_data_df, start_col = 2, start_row = 7, col_names = FALSE)
+    
+    # Mirror summary rows on _Base_ sheet
+    wb$add_data(sheet = base_sheet_name, x = base_label, start_col = 2, start_row = base_sum_row)
+    wb$add_formula(sheet = base_sheet_name, x = paste0("=SUM(A7:A", last_mat_row, ")"), dims = paste0("A", base_sum_row))
+    for (ci in 1:n_cols) {
+      c_let <- openxlsx2::int2col(2 + ci)
+      wb$add_formula(
+        sheet = base_sheet_name,
+        x = paste0("=ROUND(SUMPRODUCT($A$7:$A$", last_mat_row, ", ", c_let, "7:", c_let, last_mat_row, "), 2)"),
+        dims = paste0(c_let, base_sum_row)
+      )
+    }
+    wb$add_formula(sheet = base_sheet_name, x = paste0("=SUM(", first_c_let, base_sum_row, ":", last_c_let, base_sum_row, ")"), dims = paste0(gt_let, base_sum_row))
+
+    wb$add_data(sheet = base_sheet_name, x = scen_label, start_col = 2, start_row = scen_sum_row)
+    wb$add_formula(sheet = base_sheet_name, x = paste0("=SUM(A7:A", last_mat_row, ")"), dims = paste0("A", scen_sum_row))
+    for (ci in 1:n_cols) {
+      c_let <- openxlsx2::int2col(2 + ci)
+      wb$add_formula(
+        sheet = base_sheet_name,
+        x = paste0("=ROUND(SUMPRODUCT($A$7:$A$", last_mat_row, ", ", c_let, "7:", c_let, last_mat_row, "), 2)"),
+        dims = paste0(c_let, scen_sum_row)
+      )
+    }
+    wb$add_formula(sheet = base_sheet_name, x = paste0("=SUM(", first_c_let, scen_sum_row, ":", last_c_let, scen_sum_row, ")"), dims = paste0(gt_let, scen_sum_row))
+
+    wb$add_data(sheet = base_sheet_name, x = delta_label, start_col = 2, start_row = delta_sum_row)
+    wb$add_formula(sheet = base_sheet_name, x = paste0("=ROUND(A", scen_sum_row, "-A", base_sum_row, ", 2)"), dims = paste0("A", delta_sum_row))
+    for (ci in 1:n_cols) {
+      c_let <- openxlsx2::int2col(2 + ci)
+      wb$add_formula(
+        sheet = base_sheet_name,
+        x = paste0("=ROUND(", c_let, scen_sum_row, "-", c_let, base_sum_row, ", 2)"),
+        dims = paste0(c_let, delta_sum_row)
+      )
+    }
+    wb$add_formula(sheet = base_sheet_name, x = paste0("=SUM(", first_c_let, delta_sum_row, ":", last_c_let, delta_sum_row, ")"), dims = paste0(gt_let, delta_sum_row))
+
+    wb$add_numfmt(sheet = base_sheet_name, dims = paste0("A", base_sum_row, ":", gt_let, scen_sum_row), numfmt = "#,##0.00")
+    wb$add_numfmt(sheet = base_sheet_name, dims = paste0("A", delta_sum_row, ":", gt_let, delta_sum_row), numfmt = "+#,##0.00;-#,##0.00;0.00")
+    
+    if (nrow(panel_df) > 0) {
+      wb$add_data(sheet = base_sheet_name, x = as.data.frame(t(panel_headers)), start_col = panel_col, start_row = 6, col_names = FALSE)
+      wb$add_data(sheet = base_sheet_name, x = panel_df, start_col = panel_col, start_row = 7, col_names = FALSE)
+      for (pr in 7:(6 + nrow(panel_df))) {
+        form_str <- paste0("=ROUND(", base_area_col_let, pr, "*(1+", adj_col_let, pr, "), 2)")
+        wb$add_formula(sheet = base_sheet_name, x = form_str, dims = paste0(scen_area_col_let, pr))
+      }
+    }
+    
+    dashboard_rows[[length(dashboard_rows) + 1]] <- data.frame(
+      PU_ID        = pu_id,
+      PU_Name      = pu_name,
+      Sheet_Name   = sheet_name,
+      Active_Count = 0,
+      Status       = "VALID",
+      Transitions  = nrow(panel_df),
+      stringsAsFactors = FALSE
+    )
   }
   
-  message("\nAll files processed successfully!")
+  dash_df <- do.call(rbind, dashboard_rows)
+  
+  # 6. Reference Sheet for Dropdowns (_LULC_List)
+  wb$add_worksheet("_LULC_List")
+  wb$set_sheet_visibility(sheet = "_LULC_List", value = "hidden")
+  
+  unique_classes <- sort(unique(as.character(lc_lookup_table$LC)))
+  if (length(unique_classes) == 0) unique_classes <- c("Class 1", "Class 2")
+  wb$add_data(sheet = "_LULC_List", x = unique_classes, start_col = 1, start_row = 1, col_names = FALSE)
+  
+  default_target_pu_option <- if (lang == "id") "Semua Unit Perencanaan" else "All Planning Units"
+  pu_options <- c(default_target_pu_option, sprintf("PU %s: %s", dash_df$PU_ID, dash_df$PU_Name))
+  wb$add_data(sheet = "_LULC_List", x = pu_options, start_col = 2, start_row = 1, col_names = FALSE)
+  
+  # 7. Populate Master Dashboard Sheet
+  # Title Block (Rows 2 & 3)
+  dash_title <- if (lang == "id") {
+    "SCIENDO Scenario Builder"
+  } else {
+    "SCIENDO Scenario Builder"
+  }
+  wb$add_data(sheet = "Dashboard", x = dash_title, start_col = 2, start_row = 2)
+  wb$add_font(sheet = "Dashboard", dims = "B2", size = 14, bold = TRUE, color = openxlsx2::wb_color(hex = "1E3A8A"))
+  
+  dash_subtitle <- if (lang == "id") {
+    "Pembangunan Skenario Melalui Matriks Probabilitas Transisi (TPM)"
+  } else {
+    "Transition Probability Matrix (TPM) Scenario Builder"
+  }
+  wb$add_data(sheet = "Dashboard", x = dash_subtitle, start_col = 2, start_row = 3)
+  wb$add_font(sheet = "Dashboard", dims = "B3", size = 10, italic = TRUE, color = openxlsx2::wb_color(hex = "475569"))
+  
+  # Row 5: Action Toolbar space (height 32, buttons anchored in drawing1.xml)
+  wb$set_row_heights(sheet = "Dashboard", rows = 5, heights = 32)
+  
+  # Rows 7-10: Dedicated Dashboard-Embedded Policy Card
+  wb$set_row_heights(sheet = "Dashboard", rows = c(7, 8, 9, 10), heights = c(22, 25, 25, 20))
+  
+  # Card Header (Row 7)
+  policy_hdr <- if (lang == "id") "Input Intervensi untuk Seluruh Unit Perencanaan" else "Intervention Input Across Planning Units"
+  wb$add_data(sheet = "Dashboard", x = policy_hdr, start_col = 2, start_row = 7)
+  wb$add_fill(sheet = "Dashboard", dims = "B7:G7", color = openxlsx2::wb_color(hex = "0F766E"))
+  wb$add_font(sheet = "Dashboard", dims = "B7:G7", size = 11, bold = TRUE, color = openxlsx2::wb_color("white"))
+  
+  # Card Body styling (Rows 8-10 across columns B to G)
+  wb$add_fill(sheet = "Dashboard", dims = "B8:G10", color = openxlsx2::wb_color(hex = "F8FAFC"))
+  
+  # Row 8: From Class & % Adjustment (and Apply Policy button in F8:G9)
+  lbl_from <- if (lang == "id") "Kelas Asal:" else "From Class:"
+  wb$add_data(sheet = "Dashboard", x = lbl_from, start_col = 2, start_row = 8)
+  wb$add_font(sheet = "Dashboard", dims = "B8", bold = TRUE, color = openxlsx2::wb_color(hex = "334155"))
+  wb$add_data(sheet = "Dashboard", x = unique_classes[1], start_col = 3, start_row = 8)
+  
+  lbl_adj <- if (lang == "id") "% Penyesuaian:" else "% Adjustment:"
+  wb$add_data(sheet = "Dashboard", x = lbl_adj, start_col = 4, start_row = 8)
+  wb$add_font(sheet = "Dashboard", dims = "D8", bold = TRUE, color = openxlsx2::wb_color(hex = "334155"))
+  wb$add_data(sheet = "Dashboard", x = -0.50, start_col = 5, start_row = 8)
+  wb$add_numfmt(sheet = "Dashboard", dims = "E8", numfmt = "0.0%")
+  
+  # Row 9: To Class & Target PU
+  to_init <- if (length(unique_classes) > 1) unique_classes[2] else unique_classes[1]
+  lbl_to <- if (lang == "id") "Kelas Tujuan:" else "To Class:"
+  wb$add_data(sheet = "Dashboard", x = lbl_to, start_col = 2, start_row = 9)
+  wb$add_font(sheet = "Dashboard", dims = "B9", bold = TRUE, color = openxlsx2::wb_color(hex = "334155"))
+  wb$add_data(sheet = "Dashboard", x = to_init, start_col = 3, start_row = 9)
+  
+  lbl_pu <- if (lang == "id") "Target PU:" else "Target PU:"
+  wb$add_data(sheet = "Dashboard", x = lbl_pu, start_col = 4, start_row = 9)
+  wb$add_font(sheet = "Dashboard", dims = "D9", bold = TRUE, color = openxlsx2::wb_color(hex = "334155"))
+  wb$add_data(sheet = "Dashboard", x = default_target_pu_option, start_col = 5, start_row = 9)
+  
+  # Row 10: Instructions hint
+  policy_hint <- if (lang == "id") {
+    "Petunjuk: Pilih Kelas Asal/Tujuan, tentukan % Penyesuaian, pilih Target PU, lalu klik Input Intervensi."
+  } else {
+    "Instructions: Select From/To classes, specify % Adjustment, choose Target PU, and click Input Intervention."
+  }
+  wb$add_data(sheet = "Dashboard", x = policy_hint, start_col = 2, start_row = 10)
+  wb$add_font(sheet = "Dashboard", dims = "B10", size = 9, italic = TRUE, color = openxlsx2::wb_color(hex = "64748B"))
+  
+  # Attach native Excel Data Validation dropdowns to From Class, To Class, Target PU
+  wb$add_data_validation(
+    sheet = "Dashboard",
+    dims  = "C8",
+    type  = "list",
+    value = paste0("'_LULC_List'!$A$1:$A$", length(unique_classes))
+  )
+  wb$add_data_validation(
+    sheet = "Dashboard",
+    dims  = "C9",
+    type  = "list",
+    value = paste0("'_LULC_List'!$A$1:$A$", length(unique_classes))
+  )
+  wb$add_data_validation(
+    sheet = "Dashboard",
+    dims  = "E9",
+    type  = "list",
+    value = paste0("'_LULC_List'!$B$1:$B$", length(pu_options))
+  )
+  
+  # Row 11: Spacer row
+  wb$set_row_heights(sheet = "Dashboard", rows = 11, heights = 10)
+  
+  # Rows 12–16: 4-Step Compact Instruction Box on Dashboard
+  wb$set_row_heights(sheet = "Dashboard", rows = c(12, 13, 14, 15, 16), heights = c(20, 18, 18, 18, 18))
+  dash_box_hdr <- if (lang == "id") "Panduan Singkat Dashboard:" else "Quick Dashboard Guide:"
+  step1 <- if (lang == "id") {
+    "1. Periksa daftar Unit Perencanaan dan status validasinya pada tabel ringkasan di bawah."
+  } else {
+    "1. Review the Planning Units list and validation statuses in the summary table below."
+  }
+  step2 <- if (lang == "id") {
+    "2. Gunakan 'Input Intervensi untuk Seluruh Unit Perencanaan' untuk menerapkan intervensi secara serentak ke semua atau unit perencanaan tertentu."
+  } else {
+    "2. Use 'Intervention Input Across Planning Units' to input intervention across all or specific planning units."
+  }
+  step3_4 <- if (lang == "id") {
+    "3. Klik tautan navigasi untuk membuka sheet Unit Perencanaan masing-masing. 4. Klik 'Validasi Semua Unit Perencanaan' untuk memastikan seluruh matriks valid (total baris = 1.000) sebelum menjalankan modul SCIENDO Simulate."
+  } else {
+    "3. Click navigation links to open individual Planning Unit sheets. 4. Click 'Validate All Sheets' to verify all matrices sum to 1.000 before running SCIENDO Simulate."
+  }
+  motw_note <- if (lang == "id") {
+    "Catatan: Jika membuka di komputer lain, klik kanan file -> Properties -> centang 'Unblock' / Buka Blokir, atau jalankan berkas activate_macros.bat."
+  } else {
+    "Note: If opening on another computer, right-click file -> Properties -> check 'Unblock', or run the activate_macros.bat file."
+  }
+  
+  wb$add_data(sheet = "Dashboard", x = dash_box_hdr, start_col = 2, start_row = 12)
+  wb$add_fill(sheet = "Dashboard", dims = "B12:G12", color = openxlsx2::wb_color(hex = "E0F2FE"))
+  wb$add_font(sheet = "Dashboard", dims = "B12:G12", size = 10, bold = TRUE, color = openxlsx2::wb_color(hex = "0369A1"))
+  
+  wb$add_data(sheet = "Dashboard", x = step1, start_col = 2, start_row = 13)
+  wb$add_data(sheet = "Dashboard", x = step2, start_col = 2, start_row = 14)
+  wb$add_data(sheet = "Dashboard", x = step3_4, start_col = 2, start_row = 15)
+  wb$add_data(sheet = "Dashboard", x = motw_note, start_col = 2, start_row = 16)
+  wb$add_fill(sheet = "Dashboard", dims = "B13:G16", color = openxlsx2::wb_color(hex = "F0F9FF"))
+  wb$add_font(sheet = "Dashboard", dims = "B13:B15", size = 9.5, color = openxlsx2::wb_color(hex = "0F172A"))
+  wb$add_font(sheet = "Dashboard", dims = "B16", size = 9, italic = TRUE, color = openxlsx2::wb_color(hex = "64748B"))
+  
+  # Row 17: Planning Unit Summary Table Headers
+  wb$set_row_heights(sheet = "Dashboard", rows = 17, heights = 24)
+  dash_headers <- if (lang == "id") {
+    c("ID PU", "Nama Unit Perencanaan", "Tautan Navigasi", "Intervensi Aktif", "Status Validasi", "Transisi Historis")
+  } else {
+    c("PU ID", "Planning Unit Name", "Navigation Link", "Active Interventions", "Validation Status", "Historical Transitions")
+  }
+  wb$add_data(sheet = "Dashboard", x = as.data.frame(t(dash_headers)), start_col = 2, start_row = 17, col_names = FALSE)
+  wb$add_fill(sheet = "Dashboard", dims = "B17:G17", color = openxlsx2::wb_color(hex = "1E3A8A"))
+  wb$add_font(sheet = "Dashboard", dims = "B17:G17", color = openxlsx2::wb_color("white"), bold = TRUE)
+  
+  # Rows 18+: Planning Unit Summary Table Data
+  for (i in seq_len(nrow(dash_df))) {
+    row_num <- 17 + i
+    wb$add_data(sheet = "Dashboard", x = dash_df$PU_ID[i], start_col = 2, start_row = row_num)
+    wb$add_data(sheet = "Dashboard", x = dash_df$PU_Name[i], start_col = 3, start_row = row_num)
+    
+    link_label <- if (lang == "id") paste0("Buka Sheet ", dash_df$Sheet_Name[i]) else paste0("Go to ", dash_df$Sheet_Name[i])
+    link_formula <- paste0('=HYPERLINK("#\'', dash_df$Sheet_Name[i], '\'!A1", "', link_label, '")')
+    wb$add_formula(sheet = "Dashboard", x = link_formula, dims = paste0("D", row_num))
+    wb$add_font(sheet = "Dashboard", dims = paste0("D", row_num), color = openxlsx2::wb_color("blue"), underline = "single", bold = TRUE)
+    
+    wb$add_data(sheet = "Dashboard", x = dash_df$Active_Count[i], start_col = 5, start_row = row_num)
+    wb$add_data(sheet = "Dashboard", x = dash_df$Status[i], start_col = 6, start_row = row_num)
+    wb$add_fill(sheet = "Dashboard", dims = paste0("F", row_num), color = openxlsx2::wb_color(hex = "DCFCE7"))
+    wb$add_font(sheet = "Dashboard", dims = paste0("F", row_num), color = openxlsx2::wb_color(hex = "15803D"), bold = TRUE)
+    
+    wb$add_data(sheet = "Dashboard", x = dash_df$Transitions[i], start_col = 7, start_row = row_num)
+  }
+  
+  # Column widths for Dashboard
+  wb$set_col_widths(sheet = "Dashboard", cols = 2, widths = 14)
+  wb$set_col_widths(sheet = "Dashboard", cols = 3, widths = 28)
+  wb$set_col_widths(sheet = "Dashboard", cols = 4, widths = 26)
+  wb$set_col_widths(sheet = "Dashboard", cols = 5, widths = 22)
+  wb$set_col_widths(sheet = "Dashboard", cols = 6, widths = 18)
+  wb$set_col_widths(sheet = "Dashboard", cols = 7, widths = 22)
+  
+  # Save workbook
+  wb$save(output_file)
+  
+  # Localize DrawingML buttons in xl/drawings/drawing1.xml inside output_file
+  tryCatch({
+    unzip_dir <- tempfile("unzip_draw_")
+    dir.create(unzip_dir, recursive = TRUE)
+    utils::unzip(output_file, exdir = unzip_dir)
+    dpath <- file.path(unzip_dir, "xl", "drawings", "drawing1.xml")
+    if (file.exists(dpath)) {
+      dlines <- readLines(dpath, warn = FALSE, encoding = "UTF-8")
+      if (lang == "id") {
+        dlines <- gsub("Validate All Sheets", "Validasi Semua Unit Perencanaan", dlines, fixed = TRUE)
+        dlines <- gsub("Validasi Semua Lembar", "Validasi Semua Unit Perencanaan", dlines, fixed = TRUE)
+        dlines <- gsub("Reset All to Baseline", "Atur Ulang ke Baseline", dlines, fixed = TRUE)
+        dlines <- gsub("Apply Policy", "Aplikasikan Intervensi", dlines, fixed = TRUE)
+        dlines <- gsub("Apply Intervention", "Aplikasikan Intervensi", dlines, fixed = TRUE)
+        dlines <- gsub("Terapkan Kebijakan", "Aplikasikan Intervensi", dlines, fixed = TRUE)
+        dlines <- gsub("Input Intervention", "Aplikasikan Intervensi", dlines, fixed = TRUE)
+        dlines <- gsub("Input Intervensi", "Aplikasikan Intervensi", dlines, fixed = TRUE)
+      } else {
+        dlines <- gsub("Validasi Semua Unit Perencanaan", "Validate All Sheets", dlines, fixed = TRUE)
+        dlines <- gsub("Validasi Semua Lembar", "Validate All Sheets", dlines, fixed = TRUE)
+        dlines <- gsub("Atur Ulang ke Baseline", "Reset All to Baseline", dlines, fixed = TRUE)
+        dlines <- gsub("Apply Policy", "Apply Intervention", dlines, fixed = TRUE)
+        dlines <- gsub("Aplikasikan Intervensi", "Apply Intervention", dlines, fixed = TRUE)
+        dlines <- gsub("Terapkan Kebijakan", "Apply Intervention", dlines, fixed = TRUE)
+        dlines <- gsub("Input Intervensi", "Apply Intervention", dlines, fixed = TRUE)
+        dlines <- gsub("Input Intervention", "Apply Intervention", dlines, fixed = TRUE)
+      }
+      writeLines(dlines, dpath, useBytes = TRUE)
+      all_f <- list.files(unzip_dir, recursive = TRUE, all.files = TRUE, no.. = TRUE)
+      old_wd <- getwd()
+      tmp_zip <- tempfile(fileext = ".xlsm")
+      tryCatch({
+        setwd(unzip_dir)
+        zip::zip(tmp_zip, files = all_f)
+      }, finally = {
+        setwd(old_wd)
+      })
+      if (file.exists(tmp_zip) && file.info(tmp_zip)$size > 0) {
+        file.copy(tmp_zip, output_file, overwrite = TRUE)
+        unlink(tmp_zip)
+      }
+    }
+    unlink(unzip_dir, recursive = TRUE)
+  }, error = function(e) {
+    message("Notice: DrawingML localization skipped or failed: ", e$message)
+  })
+  
+  message("Consolidated TPM scenario workbook successfully generated: ", output_file)
+  invisible(output_file)
 }
 
 #' Render a DataTable with Enhanced Features
@@ -1762,4 +2641,152 @@ render_dt_table <- function(data, caption = NULL, digits = 2, area_digits = 0, n
   )
   
   htmltools::tagList(css_fix, dt)
+}
+
+#' Extract Calendar Year from Uploaded File Name
+#'
+#' Auto-detects 4-digit or 2-digit years from a filename string.
+#' 4-digit years (1900-2099) take precedence.
+#' 2-digit years: 00-70 -> 2000-2070, 71-99 -> 1971-1999.
+#'
+#' @param filename Character string.
+#' @return Integer year or NA_integer_.
+#' @export
+extract_year_from_filename <- function(filename) {
+  if (is.null(filename) || length(filename) == 0 || is.na(filename)) {
+    return(NA_integer_)
+  }
+  name_no_ext <- sub("\\.[^.]+$", "", basename(filename))
+  
+  # 1. 4-digit year (1900-2099)
+  m4 <- gregexpr("(?<![0-9])(?:19|20)[0-9]{2}(?![0-9])", name_no_ext, perl = TRUE)
+  matches4 <- regmatches(name_no_ext, m4)[[1]]
+  if (length(matches4) > 0) {
+    return(as.integer(tail(matches4, 1)))
+  }
+  
+  # Remove resolutions like 250m, 30m and versions like v1, v2
+  cleaned <- gsub("(?i)[0-9]+m(?![a-z])", "", name_no_ext, perl = TRUE)
+  cleaned <- gsub("(?i)v[0-9]+", "", cleaned, perl = TRUE)
+  
+  # 2. 2-digit year (00-70 -> 2000-2070, 71-99 -> 1971-1999)
+  m2 <- gregexpr("(?<![0-9])[0-9]{2}(?![0-9])", cleaned, perl = TRUE)
+  matches2 <- regmatches(cleaned, m2)[[1]]
+  if (length(matches2) > 0) {
+    val <- as.integer(tail(matches2, 1))
+    if (!is.na(val)) {
+      if (val >= 0 && val <= 70) {
+        return(2000L + val)
+      } else if (val >= 71 && val <= 99) {
+        return(1900L + val)
+      }
+    }
+  }
+  return(NA_integer_)
+}
+
+#' Help Text Definitions for SCIENDO Train Inputs
+#' @export
+train_help_texts <- list(
+  map1_file = list(
+    title = "Land Cover Map at T1 (Initial)",
+    body = "<p>Raster GeoTIFF (.tif) map representing land cover / use at the initial time period (T1).</p><p>Pixel values must correspond to the numeric IDs defined in the Land Use/Cover Lookup Table.</p>"
+  ),
+  map1_year = list(
+    title = "Year of T1",
+    body = "<p>Calendar year corresponding to the initial land cover map (T1), e.g. <code>2015</code>.</p><p>Used alongside the Year of T2 to determine the time interval for transition probability rates. This field is automatically prefilled if a year is detected in the uploaded file name.</p>"
+  ),
+  map2_file = list(
+    title = "Land Cover Map at T2 (Final)",
+    body = "<p>Raster GeoTIFF (.tif) map representing land cover / use at the final time period (T2).</p><p>Must share the spatial extent, resolution, and coordinate reference system of the T1 land cover map.</p>"
+  ),
+  map2_year = list(
+    title = "Year of T2",
+    body = "<p>Calendar year corresponding to the final land cover map (T2), e.g. <code>2020</code>.</p><p>Must be greater than the Year of T1. This field is automatically prefilled if a year is detected in the uploaded file name.</p>"
+  ),
+  lc_file = list(
+    title = "Land Use/Cover Lookup Table",
+    body = "<p>CSV file mapping numeric land cover IDs to descriptive class names.</p><p>It must contain at least two columns:</p><ol><li>Numeric ID (integer)</li><li>Land cover class name (text)</li></ol>"
+  ),
+  zone_type = list(
+    title = "Planning Unit Input Type",
+    body = "<p>Select whether the Planning Unit dataset is supplied as a categorical <b>Raster (.tif)</b> or a polygon <b>Shapefile (.shp)</b>.</p>"
+  ),
+  mapz_file = list(
+    title = "Planning Unit Map",
+    body = "<p>Spatial delineation of planning units or administrative zones (e.g. districts, watersheds, or spatial planning units).</p><p>Can be supplied as:</p><ul><li><b>Raster (.tif):</b> Categorical GeoTIFF where each integer pixel value corresponds to a planning unit ID.</li><li><b>Shapefile (.shp, .shx, .dbf, .prj):</b> Polygon vector features delineating planning units.</li></ul>"
+  ),
+  z_file = list(
+    title = "Planning Unit Lookup Table",
+    body = "<p>CSV table mapping numeric planning unit IDs to descriptive zone names.</p><p>Required when using raster planning units. Must contain at least two columns:</p><ol><li>Planning Unit ID (integer)</li><li>Planning Unit Name (text)</li></ol>"
+  ),
+  factors_path = list(
+    title = "Predictor Maps Directory",
+    body = "<p>Directory containing spatial predictor raster files in GeoTIFF (.tif) format.</p><p>These predictors represent spatial drivers of land use change (e.g., elevation, slope, distance to roads, distance to rivers, distance to settlements). All predictor maps will be assembled into a raster cube used to calculate Weights of Evidence.</p>"
+  ),
+  wd = list(
+    title = "Output Directory",
+    body = "<p>Folder where all SCIENDO Train analysis outputs, including transition matrices, raster cube, weights of evidence reports, and HTML summary reports, will be saved.</p>"
+  ),
+  memory_allocation = list(
+    title = "Memory Allocation Policy",
+    body = "<p>Controls how DINAMICA EGO manages RAM and disk space when executing the model.</p><ul><li><b>Balanced (default):</b> Keeps inputs in memory; keeps results in memory when RAM allows, otherwise writes to disk.</li><li><b>Prefer Memory:</b> Keeps both inputs and results in RAM whenever possible.</li><li><b>Prefer Disk:</b> Streams maps to/from disk to minimize RAM usage.</li><li><b>Memory Only:</b> Aborts execution if RAM is insufficient.</li><li><b>Aggressive:</b> Keeps inputs on disk while results are kept in RAM.</li></ul>"
+  ),
+  dinamica_path = list(
+    title = "DINAMICA EGO Path (Optional)",
+    body = "<p>Path to the DINAMICA EGO installation directory (e.g., <code>C:/Program Files/Dinamica EGO 7</code>).</p><p>If left blank, LUMENS automatically detects the installation under <code>Program Files</code>.</p>"
+  )
+)
+
+#' Clickable Help Icon for SCIENDO Train UI
+#'
+#' @param id Help topic ID.
+#' @return A `shiny.tag` containing an actionLink with circle-question icon.
+#' @export
+train_help_icon <- function(id) {
+  tags$span(
+    class = "alloc-help-icon",
+    actionLink(
+      inputId = paste0("train_help_", id),
+      label   = NULL,
+      icon    = icon("circle-question")
+    )
+  )
+}
+
+#' Label With a Right-Aligned Help Icon
+#'
+#' @param text Label text.
+#' @param help_id Help topic ID.
+#' @return A `shiny.tag` combining label text and a help icon.
+#' @export
+label_with_help <- function(text, help_id) {
+  tags$div(
+    class = "alloc-label",
+    tags$span(text),
+    train_help_icon(help_id)
+  )
+}
+
+#' Directory-Picker Button With an Inline Help Icon
+#'
+#' @param id Shiny input ID.
+#' @param label Button label.
+#' @param title Button title tooltip.
+#' @param help_id Help topic ID.
+#' @return A `shiny.tag` containing directory button and help icon.
+#' @export
+dir_button_with_help <- function(id, label, title, help_id, label_key = NULL) {
+  btn <- shinyDirButton(id, label, title)
+  if (!is.null(label_key)) {
+    btn[[2]]$children <- list(tags$span(class = "i18n", `data-key` = label_key, label))
+  }
+  tags$div(
+    class = "dir-btn-wrapper",
+    btn,
+    tags$div(
+      class = "dir-help-overlay",
+      train_help_icon(help_id)
+    )
+  )
 }

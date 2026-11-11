@@ -68,7 +68,7 @@ analysis_log <- tribble(
   "6. WoE directory",              params$inputs$dcf_path,
   "Output Workspace",              params$inputs$output_dir,
   "1. Land use/cover projection maps",               paste0(params$inputs$output_dir, '/landscape.tif'),
-  "2. Land use/cover change lookup table",         paste0(params$inputs$output_dir, '/luc_projection.csv'),
+  "2. Land use/cover change lookup table",         paste0(params$inputs$output_dir, '/luc_projection.xlsx'),
   "3. EGOML Simulation",         paste0(params$inputs$output_dir, '/03_sciendo_simulation.egoml'),
   "Session Summary",               ""
 ) %>% rbind(params$session_log)
@@ -128,60 +128,56 @@ render_dt_table(df_lc, caption = "Tabel Referensi Tutupan/Penggunaan Lahan")
 ```
 
 # Hasil
-## Peta Proyeksi Perubahan Tutupan/Penggunaan Lahan {.tabset}
+## Peta Proyeksi Perubahan Tutupan/Penggunaan Lahan
 
-```{r lu projected maps, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
+```{r lu projected maps, echo=FALSE, message=FALSE, warning=FALSE, out.width='100%'}
 list_luc <- params$inputs$output_dir %>%
-  list.files(full.names = TRUE, pattern = "^landscape\\d+\\.tif$")
+  list.files(full.names = TRUE, pattern = '^landscape\\d+\\.tif$')
 
 lc_tbl_path <- params$inputs$lc_lookup_table_path
 lc_tbl_ext  <- tolower(tools::file_ext(lc_tbl_path))
-all_names   <- c("ID", "LC", "ID_Traj", "Trajectory", "color_palette")
+all_names   <- c('ID', 'LC', 'ID_Traj', 'Trajectory', 'color_palette')
 
-lc_table <- if (lc_tbl_ext %in% c("xlsx", "xls")) {
+lc_table <- if (lc_tbl_ext %in% c('xlsx', 'xls')) {
   as.data.frame(openxlsx::read.xlsx(lc_tbl_path, startRow = 2, colNames = FALSE))
 } else {
   as.data.frame(readr::read_csv(lc_tbl_path, skip = 1, col_names = FALSE, show_col_types = FALSE))
 }
 names(lc_table) <- all_names[seq_len(ncol(lc_table))]
 
+# Kumpulkan raster temporal: baseline T1 diikuti hasil proyeksi simulasi
+raster_list <- list()
 
-list_luc <- list_luc[order(as.numeric(stringr::str_extract(basename(list_luc), "\\d+")))]
-rst_list <- list()
+init_yr <- if (!is.null(params$inputs$initial_year) && !is.na(params$inputs$initial_year) && nzchar(as.character(params$inputs$initial_year))) {
+  as.character(params$inputs$initial_year)
+} else {
+  detected_yr <- stringr::str_extract(basename(params$inputs$lc_t1_path), '\\d{4}')
+  if (!is.na(detected_yr) && nzchar(detected_yr)) detected_yr else 'Awal'
+}
 
-for(i in seq_along(list_luc)){
-  file_path <- list_luc[i]
-  
-  r <- rast(file_path)
-  rst_list[[file_path]] <- r
-  
-  year <- stringr::str_extract(basename(file_path), "\\d{4}")
-  if(is.na(year)) {
-    year <- stringr::str_extract(basename(file_path), "\\d+")
+if (!is.null(params$inputs$lc_t1_path) && file.exists(params$inputs$lc_t1_path)) {
+  raster_list[[init_yr]] <- terra::rast(params$inputs$lc_t1_path)
+}
+
+if (length(list_luc) > 0) {
+  list_luc <- list_luc[order(as.numeric(stringr::str_extract(basename(list_luc), '\\d+')))]
+  for (f in list_luc) {
+    year <- stringr::str_extract(basename(f), '\\d{4}')
+    if (is.na(year)) year <- stringr::str_extract(basename(f), '\\d+')
+    raster_list[[year]] <- terra::rast(f)
   }
-  lyr_title <- paste0("Landscape ", year)
-  
-  cat(paste0("### Proyeksi Tutupan/Penggunaan Lahan pada ", year, " \n\n"))
-  
-  child_env <- new.env()
-  child_env$r <- r
-  child_env$lc_table <- lc_table
-  child_env$year <- year
-  child_env$plot_categorical_raster_mapview <- plot_categorical_raster_mapview
+}
 
-  cat(
-  knitr::knit_child(
-    text = c(
-      "```{r, echo=FALSE, message=FALSE, warning=FALSE, out.width='100%', out.height='500px'}",
-      "plot_categorical_raster_mapview(r, lc_table, lyr_title)",
-      "```"
-    ),
-    envir = child_env,
-    quiet = TRUE
-  ), sep = "\n"
+if (length(raster_list) > 0) {
+  plot_multitemporal_raster_leaflet(
+    raster_list     = raster_list,
+    cat_table       = lc_table,
+    height          = '700px',
+    container_width = '100%',
+    legend_title    = 'Kategori Tutupan Lahan'
   )
-  
-  cat('\n\n')
+} else {
+  cat("<p class='text-muted'>Tidak ada peta proyeksi tutupan lahan yang tersedia untuk ditampilkan.</p>")
 }
 ```
 
@@ -190,27 +186,39 @@ for(i in seq_along(list_luc)){
 ```{r lut change, echo=FALSE, message=FALSE, warning=FALSE}
 # Calculate freq table
 lc_dir <- params$inputs$output_dir
-lc_freq_table <- multiple_lc_freq_combined(lc_dir, df_lc, PU = "NO")
+init_yr <- if (!is.null(params$inputs$initial_year) && !is.na(params$inputs$initial_year) && nzchar(as.character(params$inputs$initial_year))) {
+  as.character(params$inputs$initial_year)
+} else {
+  detected_yr <- stringr::str_extract(basename(params$inputs$lc_t1_path), "\\d{4}")
+  if (!is.na(detected_yr) && nzchar(detected_yr)) detected_yr else "Initial"
+}
+
+lc_freq_table <- multiple_lc_freq_combined(
+  lc_dir,
+  df_lc,
+  PU = "NO",
+  initial_raster = lc_t1,
+  initial_year = init_yr
+)
 
 # Export csv
 ref_subset <- df_lc[, 1:2]
 colnames(ref_subset) <- c("ID", "Landcover")
 
 lc_freq_table_raw <- merge(ref_subset, lc_freq_table, by = "Landcover", all.y = TRUE)
-lc_freq_table_export <- lc_freq_table_raw[, c("ID", "Landcover", setdiff(names(lc_freq_table_raw), c("ID", "Landcover")))]
+proj_cols <- setdiff(names(lc_freq_table), "Landcover")
+lc_freq_table_export <- lc_freq_table_raw[, c("ID", "Landcover", proj_cols)]
 lc_freq_table_export <- lc_freq_table_export[order(lc_freq_table_export$ID), ]
 
-write.table(lc_freq_table_export,
-  paste0(params$inputs$output_dir, "/luc_projection.csv"),
-  quote=FALSE,
-  row.names=FALSE,
-  sep=","
+openxlsx2::write_xlsx(
+  x = lc_freq_table_export,
+  file = paste0(params$inputs$output_dir, "/luc_projection.xlsx")
 )
 ```
 
 ### Grafik Luas Tutupan/Penggunaan Lahan Terproyeksi
 ```{r Stacked Area Chart, echo=FALSE, message=FALSE, warning=FALSE}
-plot_interactive_stacked_area(lc_freq_table_export)
+plot_interactive_stacked_area(lc_freq_table_export, cat_table = df_lc)
 ```
 
 ### Tabel Proyeksi Luas Tutupan/Penggunaan Lahan
@@ -235,7 +243,7 @@ DT::datatable(
 ## Tabel Proyeksi Perubahan Tutupan/Penggunaan Lahan pada Tingkat Unit Perencanaan {.tabset}
 
 ```{r child_document, echo=FALSE, message=FALSE, warning=FALSE, fig.keep='all', results='asis'}
-all_freq_pu_list <- multiple_lc_freq_combined(lc_dir, df_lc, PU = "YES", zone = zone, split = "YES")
+all_freq_pu_list <- multiple_lc_freq_combined(lc_dir, df_lc, PU = "YES", zone = zone, split = "YES", initial_raster = lc_t1, initial_year = init_yr)
 zone_df <- params$inputs$zone_lookup_table
 
 # create expandable sections for each zone

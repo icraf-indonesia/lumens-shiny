@@ -10,12 +10,12 @@ source('../../helper.R')
 options(repos = c(CRAN = "https://cloud.r-project.org"))
 
 install_load(
-  "shinyFiles", "shinyvalidate", "shinyjs", "bslib", "sf", "raster",
+  "shiny", "shinyFiles", "shinyvalidate", "shinyjs", "bslib", "sf", "raster",
   "dplyr", "remotes", "rmarkdown", "XML", "splitstackshape", "shinyalert",
   "terra", "tibble", "ggplot2", "magrittr", "tidyr", "tidyterra", "DT",
   "readr", "plotly", "scales", "ggthemes", "rlang", "xml2", "tidyverse",
   "readxl", "openxlsx", "openxlsx2", "conflicted", "stringr", "mapview",
-  "tools", "leafsync", "leaflet"
+  "tools", "leafsync", "leaflet", "shiny.i18n"
 )
 
 if (!("LUMENSR" %in% rownames(installed.packages()))) {
@@ -25,33 +25,99 @@ if (!("LUMENSR" %in% rownames(installed.packages()))) {
 
 library(LUMENSR)
 
+i18n <- Translator$new(
+  translation_csvs_path = "translations",
+  translation_csv_config = "translations/config.yaml"
+)
+i18n$set_translation_language("id")
+
+tr <- function(key, lang = i18n$get_translation_language()) {
+  df <- i18n$get_translations()
+  if (key %in% rownames(df) && lang %in% colnames(df)) {
+    val <- df[key, lang]
+    if (!is.null(val) && !is.na(val) && length(val) > 0) return(val)
+  }
+  key
+}
+
 ui <- fluidPage(
   useShinyjs(),
+  usei18n(i18n),
   theme = bs_theme(version = 5),
   extendShinyjs(text = jscode, functions = c("closeWindow")),
   tags$head(
     tags$link(rel = "shortcut icon", href = "favicon.ico")  
   ),
-  titlePanel("SCIENDO Simulate"),
+  div(
+    class = "d-flex justify-content-between align-items-center mb-3 mt-2 pb-2 border-bottom",
+    h2("SCIENDO Simulate", style = "margin: 0; font-weight: normal;"),
+    div(
+      class = "dropdown lang-dropdown",
+      tags$button(
+        class = "btn btn-lang-toggle dropdown-toggle d-flex align-items-center",
+        type = "button",
+        id = "langDropdownBtn",
+        `data-bs-toggle` = "dropdown",
+        `aria-expanded` = "false",
+        title = "Bahasa Indonesia",
+        tags$span(id = "current_lang_flag", HTML('<svg class="flag-icon" viewBox="0 0 20 14" width="22" height="15"><rect width="20" height="7" fill="#dc3545"/><rect y="7" width="20" height="7" fill="#ffffff"/></svg>'))
+      ),
+      tags$ul(
+        class = "dropdown-menu dropdown-menu-end shadow-sm",
+        `aria-labelledby` = "langDropdownBtn",
+        tags$li(
+          tags$a(
+            id = "opt_lang_id",
+            class = "dropdown-item active",
+            href = "#",
+            title = "Bahasa Indonesia",
+            onclick = "Shiny.setInputValue('selected_language', 'id', {priority: 'event'}); return false;",
+            HTML('<svg class="flag-icon" viewBox="0 0 20 14" width="22" height="15"><rect width="20" height="7" fill="#dc3545"/><rect y="7" width="20" height="7" fill="#ffffff"/></svg>')
+          )
+        ),
+        tags$li(
+          tags$a(
+            id = "opt_lang_en",
+            class = "dropdown-item",
+            href = "#",
+            title = "English",
+            onclick = "Shiny.setInputValue('selected_language', 'en', {priority: 'event'}); return false;",
+            HTML('<svg class="flag-icon" viewBox="0 0 60 30" width="22" height="15"><clipPath id="sim_dd_uk1"><path d="M0,0 v30 h60 v-30 z"/></clipPath><clipPath id="sim_dd_uk2"><path d="M30,15 h30 v15 z v15 h-30 z h-30 v-15 z v-15 h30 z"/></clipPath><g clip-path="url(#sim_dd_uk1)"><path d="M0,0 v30 h60 v-30 z" fill="#012169"/><path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" stroke-width="6"/><path d="M0,0 L60,30 M60,0 L0,30" clip-path="url(#sim_dd_uk2)" stroke="#C8102E" stroke-width="4"/><path d="M30,0 v30 M0,15 h60" stroke="#fff" stroke-width="10"/><path d="M30,0 v30 M0,15 h60" stroke="#C8102E" stroke-width="6"/></g></svg>')
+          )
+        )
+      )
+    )
+  ),
   sidebarLayout(
     sidebarPanel(
       fileInput("map1_file",
-                label = label_with_help("Initial Land Cover/Use Map", "map1_file"),
-                accept = c("image/tiff"), placeholder = "Upload raster file (.tif)"),
+                label = label_with_help(i18n$t("lbl_map1_file"), "map1_file"),
+                accept = c("image/tiff"), placeholder = tr("ph_map1_file", "id")),
       numericInput("init_year",
-                   label = label_with_help("Initial Year", "init_year"),
+                   label = label_with_help(i18n$t("lbl_init_year"), "init_year"),
                    value = 2025),
-      fileInput("mapz_file",
-                label = label_with_help("Planning Unit Map", "mapz_file"),
-                accept = c("image/tiff"), placeholder = "Upload raster file (.tif)"),
+      radioButtons("zone_type", label = label_with_help(i18n$t("lbl_zone_type"), "zone_type"),
+                   choiceNames = list(i18n$t("choice_raster"), i18n$t("choice_shapefiles")), choiceValues = list("raster", "shapefile"), inline = TRUE),
+      conditionalPanel(
+        condition = "input.zone_type == 'shapefile'",
+        fileInput("mapz_file",
+                  label = label_with_help(i18n$t("lbl_mapz_file_shp"), "mapz_file"),
+                  accept = c(".shp", ".dbf", ".sbn", ".sbx", ".shx", ".prj"),
+                  multiple = TRUE,
+                  placeholder = tr("ph_mapz_file_shp", "id"))
+      ),
+      conditionalPanel(
+        condition = "input.zone_type == 'raster'",
+        fileInput("mapz_file", label = label_with_help(i18n$t("lbl_mapz_file_rast"), "mapz_file"), accept = c("image/tiff"), placeholder = tr("ph_mapz_file_rast", "id"))
+      ),
       fileInput("lc_file",
-                label = label_with_help("Land Use/Cover Lookup Table", "lc_file"),
-                accept = c(".csv", ".xlsx"), placeholder = "Upload table file (.csv/.xlsx)"),
+                label = label_with_help(i18n$t("lbl_lc_file"), "lc_file"),
+                accept = c(".csv", ".xlsx"), placeholder = tr("ph_lc_file", "id")),
       fileInput("rc_file",
-                label = label_with_help("Raster Cube Map", "rc_file"),
-                accept = c(".tif", ".xml"), multiple = TRUE, placeholder = "Upload raster file (.tif & .xml)"),
+                label = label_with_help(i18n$t("lbl_rc_file"), "rc_file"),
+                accept = c(".tif", ".xml"), multiple = TRUE, placeholder = tr("ph_rc_file", "id")),
       numericInput("repetition",
-                   label = label_with_help("Simulation Periods", "repetition"),
+                   label = label_with_help(i18n$t("lbl_repetition"), "repetition"),
                    value = 2),
       
       tags$head(
@@ -90,6 +156,59 @@ ui <- fluidPage(
         flex-shrink: 0;
         margin-top: 2px;
         line-height: 1;
+      }
+      
+      .lang-dropdown .btn-lang-toggle {
+        background-color: #ffffff;
+        border: 1px solid #ced4da;
+        padding: 5px 8px;
+        border-radius: 6px;
+        cursor: pointer;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        transition: all 0.15s ease-in-out;
+      }
+      .lang-dropdown .btn-lang-toggle:hover,
+      .lang-dropdown .btn-lang-toggle:focus {
+        background-color: #f1f3f5;
+        border-color: #adb5bd;
+      }
+      .lang-dropdown .btn-lang-toggle::after {
+        margin-left: 5px;
+        vertical-align: middle;
+        font-size: 11px;
+        color: #6c757d;
+      }
+      .lang-dropdown .dropdown-menu {
+        min-width: unset !important;
+        width: auto !important;
+        padding: 4px !important;
+        border-radius: 6px !important;
+        border: 1px solid rgba(0,0,0,0.12) !important;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      }
+      .lang-dropdown .dropdown-item {
+        padding: 6px 10px !important;
+        border-radius: 4px !important;
+        cursor: pointer !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        transition: background-color 0.15s !important;
+      }
+      .lang-dropdown .dropdown-item:hover {
+        background-color: #f1f3f5 !important;
+      }
+      .lang-dropdown .dropdown-item.active {
+        background-color: #e7f1ff !important;
+      }
+      .flag-icon {
+        width: 22px !important;
+        height: 15px !important;
+        border-radius: 2px !important;
+        box-shadow: 0 0 1px rgba(0,0,0,0.4) !important;
+        display: inline-block !important;
+        vertical-align: middle !important;
+        flex-shrink: 0 !important;
       }
       .alloc-help-icon a,
       .alloc-help-icon .action-button {
@@ -142,47 +261,43 @@ ui <- fluidPage(
       div(style = "display: flex; flex-direction: column; gap: 10px;",
           dir_button_with_help(
             "tm_path",
-            "Transition Probability Matrix Folder Path",
-            "Choose a folder contains CSV files",
-            "tm_path"
+            tr("lbl_tm_path", "id"),
+            tr("tip_tm_path", "id"),
+            "tm_path",
+            label_key = "lbl_tm_path"
           ),
           verbatimTextOutput("print_tm_dir", placeholder = TRUE),
           
           dir_button_with_help(
             "dcf_path",
-            "Weights of Evidence Folder Path",
-            "Choose a folder contains DCF files",
-            "dcf_path"
+            tr("lbl_dcf_path", "id"),
+            tr("tip_dcf_path", "id"),
+            "dcf_path",
+            label_key = "lbl_dcf_path"
           ),
           verbatimTextOutput("print_dcf_dir", placeholder = TRUE),
           
           dir_button_with_help(
             "wd",
-            "Select output directory",
-            "Please select a directory",
-            "wd"
+            tr("lbl_wd", "id"),
+            tr("tip_wd", "id"),
+            "wd",
+            label_key = "lbl_wd"
           ),
           verbatimTextOutput("print_output_dir", placeholder = TRUE),
           
-          dir_button_with_help(
-            "dinamica_path",
-            "DINAMICA EGO Path (Optional)",
-            "(Optional)",
-            "dinamica_path"
-          ),
-          verbatimTextOutput("print_dinamica_path", placeholder = TRUE),
           
           accordion(
             open = FALSE,
             accordion_panel(
-              title = "Advanced Settings",
+              title = i18n$t("accordion_adv_settings"),
               icon = icon("gear"),
               value = "advanced_settings",
               
               selectizeInput("memory_allocation",
-                             label = label_with_help("Choose Memory Allocation", "memory_allocation"),
-                             choices = c("Balanced" = 1, "Prefer Memory" = 0, "Prefer Disk" = 2, 
-                                         "Memory Only" = 3, "Aggressive" = 4),
+                             label = label_with_help(i18n$t("lbl_memory_allocation"), "memory_allocation"),
+                             choices = c("Seimbang" = 1, "Utamakan Memori" = 0, "Utamakan Disk" = 2, 
+                                         "Hanya Memori" = 3, "Agresif" = 4),
                              options = list(render = I("
                    {
                      option: function(item, escape) {
@@ -199,12 +314,20 @@ ui <- fluidPage(
                    }
                  "))),
               
+              dir_button_with_help(
+                "dinamica_path",
+                tr("lbl_dinamica_path", "id"),
+                tr("tip_dinamica_path", "id"),
+                "dinamica_path",
+                label_key = "lbl_dinamica_path"
+              ),
+              verbatimTextOutput("print_dinamica_path", placeholder = TRUE),
               tags$hr(),
               
               tags$div(
                 class = "alloc-info-row",
                 checkboxInput("alloc_custom",
-                              "Parameterize Allocate Transitions",
+                              i18n$t("chk_alloc_custom"),
                               value = FALSE),
                 alloc_help_icon("custom")
               ),
@@ -227,7 +350,7 @@ ui <- fluidPage(
                   column(4, 
                          tags$div(
                            class = "alloc-label",
-                           tags$span(HTML("Expansion Mean<br>Patch Size (ha)")),
+                           tags$span(i18n$t("lbl_exp_mean")),
                            alloc_help_icon("exp_mean")
                          ),
                          numericInput("alloc_exp_mean", label = NULL, value = 2, min = 0, step = 0.1),
@@ -236,7 +359,7 @@ ui <- fluidPage(
                   column(4, 
                          tags$div(
                            class = "alloc-label",
-                           tags$span(HTML("Expansion Patch<br>Size Variance (ha)")),
+                           tags$span(i18n$t("lbl_exp_var")),
                            alloc_help_icon("exp_var")
                          ),
                          numericInput("alloc_exp_var", label = NULL, value = 1, min = 0, step = 0.1),
@@ -257,7 +380,7 @@ ui <- fluidPage(
                   column(4, 
                          tags$div(
                            class = "alloc-label",
-                           tags$span(HTML("Generation Mean<br>Patch Size (ha)")),
+                           tags$span(i18n$t("lbl_gen_mean")),
                            alloc_help_icon("gen_mean")
                          ),
                          numericInput("alloc_gen_mean", label = NULL, value = 1, min = 0, step = 0.1),
@@ -266,7 +389,7 @@ ui <- fluidPage(
                   column(4, 
                          tags$div(
                            class = "alloc-label",
-                           tags$span(HTML("Generation Patch<br>Size Variance (ha)")),
+                           tags$span(i18n$t("lbl_gen_var")),
                            alloc_help_icon("gen_var")
                          ),
                          numericInput("alloc_gen_var", label = NULL, value = 1, min = 0, step = 0.1),
@@ -286,7 +409,7 @@ ui <- fluidPage(
                 
                 tags$p(
                   style = "margin-bottom: 8px; display: flex; align-items: center; gap: 6px;",
-                  tags$span("Per-Transition Allocation (optional)"),
+                  tags$span(i18n$t("lbl_override")),
                   alloc_help_icon("override")
                 ),
                 
@@ -294,49 +417,46 @@ ui <- fluidPage(
                   class = "alloc-tmpl-row",
                   style = "display: flex; gap: 10px; margin-bottom: 10px;",
                   tags$div(style = "flex: 1;",
-                           actionButton("generate_alloc_template", "Generate Template",
+                           actionButton("generate_alloc_template", i18n$t("btn_gen_template"),
                                         icon = icon("file-excel"),
                                         style = "font-size: 14px; padding: 6px 10px; width: 100%; height: 38px;")
                   ),
                   tags$div(style = "flex: 1;",
-                           downloadButton("download_alloc_template", "Download Template",
+                           downloadButton("download_alloc_template", i18n$t("btn_download_template"),
                                           icon = icon("download"),
                                           style = "font-size: 14px; padding: 6px 10px; width: 100%; height: 38px;")
                   )
                 ),
                 
                 fileInput("alloc_override_file",
-                          "Upload Filled Template (.csv or .xlsx)",
-                          accept = c(".csv", ".xlsx"), placeholder = "Upload table file (.csv/.xlsx)",
+                          label = i18n$t("lbl_upload_override"),
+                          accept = c(".csv", ".xlsx"), placeholder = tr("ph_upload_override", "id"),
                           width = "100%")
               )
             )
           ),
           
-          actionButton("processSimulate", "Run Analysis", 
+          actionButton("processSimulate", i18n$t("btn_run_analysis"), 
                        style = "font-size: 18px; padding: 10px 15px; background-color: #4CAF50; color: white;"),
           
           hidden(
-            actionButton("openReport", "Open Report",
+            actionButton("openReport", i18n$t("btn_open_report"),
                          style = "font-size: 18px; padding: 10px 15px; background-color: #008CBA; color: white;")
           ),
           hidden(
-            actionButton("open_output_folder", "Open Output Folder",
+            actionButton("open_output_folder", i18n$t("btn_open_output_folder"),
                          style = "font-size: 18px; padding: 10px 15px; background-color: #008CBA; color: white;")
           ),
-          actionButton("returnButton", "Return to Main Menu", 
+          actionButton("returnButton", i18n$t("btn_return_main"), 
                        style = "font-size: 18px; padding: 10px 15px; background-color: #FA8072; color: white;")
       )
     ),
     mainPanel(
       tabsetPanel(
-        tabPanel("User Guide", 
-                 div(
-                   style = "height: 800px; overflow-y: auto; padding: 15px; border: 1px solid #ddd; border-radius: 5px; background-color: #fff;",
-                   includeMarkdown("../helpfile/sciendo_simulate_quick_user_guide_ID.md")
-                 )
+        tabPanel(i18n$t("tab_user_guide"), 
+                 uiOutput("user_guide_content")
         ),
-        tabPanel("Log",
+        tabPanel(i18n$t("tab_log"),
                  textOutput("selected_directory"),
                  textOutput("dinamica_path"),
                  textOutput("tm_directory"),
@@ -352,6 +472,70 @@ ui <- fluidPage(
 
 server <- function(input, output, session) {
   options(shiny.maxRequestSize = 100 * 1024^2)
+  current_lang <- reactiveVal("id")
+  
+  update_file_input_placeholders <- function(lang) {
+    ph_map1  <- tr("ph_map1_file", lang)
+    ph_mapz  <- if (isTRUE(input$zone_type == "raster")) tr("ph_mapz_file_rast", lang) else tr("ph_mapz_file_shp", lang)
+    ph_lc    <- tr("ph_lc_file", lang)
+    ph_rc    <- tr("ph_rc_file", lang)
+    ph_ov    <- tr("ph_upload_override", lang)
+    js <- sprintf("
+      $('#map1_file').closest('.form-group').find('input[type=text]').attr('placeholder', '%s');
+      $('#mapz_file').closest('.form-group').find('input[type=text]').attr('placeholder', '%s');
+      $('#lc_file').closest('.form-group').find('input[type=text]').attr('placeholder', '%s');
+      $('#rc_file').closest('.form-group').find('input[type=text]').attr('placeholder', '%s');
+      $('#alloc_override_file').closest('.form-group').find('input[type=text]').attr('placeholder', '%s');
+    ", ph_map1, ph_mapz, ph_lc, ph_rc, ph_ov)
+    shinyjs::runjs(js)
+  }
+  
+  update_memory_choices <- function(lang) {
+    curr <- input$memory_allocation
+    choices <- if (lang == "en") {
+      c("Balanced" = 1, "Prefer Memory" = 0, "Prefer Disk" = 2, "Memory Only" = 3, "Aggressive" = 4)
+    } else {
+      c("Seimbang" = 1, "Utamakan Memori" = 0, "Utamakan Disk" = 2, "Hanya Memori" = 3, "Agresif" = 4)
+    }
+    updateSelectizeInput(session, "memory_allocation", choices = choices, selected = curr)
+  }
+  
+  svg_flag_id <- '<svg class="flag-icon" viewBox="0 0 20 14" width="22" height="15"><rect width="20" height="7" fill="#dc3545"/><rect y="7" width="20" height="7" fill="#ffffff"/></svg>'
+  svg_flag_en <- '<svg class="flag-icon" viewBox="0 0 60 30" width="22" height="15"><clipPath id="sim_dd_uk1"><path d="M0,0 v30 h60 v-30 z"/></clipPath><clipPath id="sim_dd_uk2"><path d="M30,15 h30 v15 z v15 h-30 z h-30 v-15 z v-15 h30 z"/></clipPath><g clip-path="url(#sim_dd_uk1)"><path d="M0,0 v30 h60 v-30 z" fill="#012169"/><path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" stroke-width="6"/><path d="M0,0 L60,30 M60,0 L0,30" clip-path="url(#sim_dd_uk2)" stroke="#C8102E" stroke-width="4"/><path d="M30,0 v30 M0,15 h60" stroke="#fff" stroke-width="10"/><path d="M30,0 v30 M0,15 h60" stroke="#C8102E" stroke-width="6"/></g></svg>'
+  
+  observeEvent(input$selected_language, {
+    lang <- input$selected_language
+    req(lang)
+    current_lang(lang)
+    shiny.i18n::update_lang(lang)
+    i18n$set_translation_language(lang)
+    
+    if (lang == "id") {
+      shinyjs::html("current_lang_flag", svg_flag_id)
+      shinyjs::runjs("$('#langDropdownBtn').attr('title', 'Bahasa Indonesia');")
+      shinyjs::addClass("opt_lang_id", "active")
+      shinyjs::removeClass("opt_lang_en", "active")
+    } else {
+      shinyjs::html("current_lang_flag", svg_flag_en)
+      shinyjs::runjs("$('#langDropdownBtn').attr('title', 'English');")
+      shinyjs::addClass("opt_lang_en", "active")
+      shinyjs::removeClass("opt_lang_id", "active")
+    }
+    
+    update_file_input_placeholders(lang)
+    update_memory_choices(lang)
+  }, ignoreInit = TRUE)
+  
+  output$user_guide_content <- renderUI({
+    div(
+      style = "height: 800px; overflow-y: auto; padding: 15px; border: 1px solid #ddd; border-radius: 5px; background-color: #fff;",
+      if (current_lang() == "en" && file.exists("../helpfile/sciendo_simulate_quick_user_guide.md")) {
+        includeMarkdown("../helpfile/sciendo_simulate_quick_user_guide.md")
+      } else {
+        includeMarkdown("../helpfile/sciendo_simulate_quick_user_guide_ID.md")
+      }
+    )
+  })
   rv <- reactiveValues(
     wd = NULL,
     dinamica_path = NULL,
@@ -390,6 +574,12 @@ server <- function(input, output, session) {
       return()
     
     rv$map1_file <- rename_uploaded_file(map1)
+    if (!is.null(map1$name)) {
+      detected_yr <- extract_year_from_filename(map1$name[1])
+      if (!is.na(detected_yr)) {
+        updateNumericInput(session, "init_year", value = detected_yr)
+      }
+    }
     tryCatch({
       r_tmp <- terra::rast(rv$map1_file)
       res_xy <- terra::res(r_tmp)
@@ -406,10 +596,105 @@ server <- function(input, output, session) {
   
   observeEvent(input$mapz_file, {
     mapz <- input$mapz_file
-    if(is.null(mapz))
-      return()
+    if (is.null(mapz)) return()
     
-    rv$mapz_file <- rename_uploaded_file(mapz)
+    if (is.null(input$zone_type) || input$zone_type == "raster") {
+      rv$mapz_file <- rename_uploaded_file(mapz)
+    } else {
+      # Check if map1_file is uploaded first
+      if (is.null(rv$map1_file)) {
+        lang <- current_lang()
+        showModal(modalDialog(
+          title = tr("modal_map1_missing_title", lang),
+          div(
+            p(tr("modal_map1_missing_p1", lang)),
+            p(tr("modal_map1_missing_p2", lang))
+          ),
+          easyClose = TRUE,
+          footer = modalButton(tr("btn_close", lang))
+        ))
+        showNotification(
+          tr("notif_map1_missing_pu", lang),
+          type = "error",
+          duration = 10
+        )
+        return()
+      }
+      
+      # Check if all shapefile components are present
+      has_shp <- any(grepl("\\.shp$", mapz$name, ignore.case = TRUE))
+      has_shx <- any(grepl("\\.shx$", mapz$name, ignore.case = TRUE))
+      has_dbf <- any(grepl("\\.dbf$", mapz$name, ignore.case = TRUE))
+      has_prj <- any(grepl("\\.prj$", mapz$name, ignore.case = TRUE))
+      
+      if (!has_shp || !has_shx || !has_dbf || !has_prj) {
+        showNotification(
+          "Please upload all shapefile components (.shp, .shx, .dbf, .prj)",
+          type = "error",
+          duration = 8
+        )
+        return()
+      }
+      
+      shp <- mapz
+      prev_wd <- getwd()
+      uploaded_dir <- dirname(shp$datapath[1])
+      setwd(uploaded_dir)
+      for (i in 1:nrow(shp)) {
+        file.rename(shp$datapath[i], shp$name[i])
+      }
+      setwd(prev_wd)
+      
+      shp_path <- paste(uploaded_dir, shp$name[grep(pattern="*\\.shp$", shp$name, ignore.case = TRUE)][1], sep = "/")
+      zone_sf <- tryCatch({
+        sf::st_read(shp_path, quiet = TRUE)
+      }, error = function(e) {
+        showNotification(paste("Error reading shapefile:", e$message), type = "error", duration = 8)
+        NULL
+      })
+      if (is.null(zone_sf)) return()
+      
+      numeric_cols <- sapply(zone_sf, function(x) is.numeric(x) || is.factor(x) || is.character(x))
+      if (sum(numeric_cols) == 0) {
+        showNotification(
+          "Shapefile must contain at least one numeric, factor, or character column for rasterization.",
+          type = "error",
+          duration = 10
+        )
+        return()
+      }
+      
+      id_field <- names(zone_sf)[numeric_cols][1]
+      if (is.null(id_field) || length(id_field) == 0) {
+        zone_sf$IDS <- seq_len(nrow(zone_sf))
+        id_field <- "IDS"
+      }
+      
+      tryCatch({
+        map1_raster <- raster::raster(rv$map1_file)
+        raster_res <- raster::res(map1_raster)
+        
+        zone <- zone_sf %>%
+          rasterise_multipolygon(
+            raster_res = raster_res,
+            field = id_field
+          )
+        
+        zone_tif_path <- file.path(uploaded_dir, "planning_unit_rasterized.tif")
+        raster::writeRaster(zone %>% raster::raster(), zone_tif_path, datatype = "INT1U", overwrite = TRUE)
+        
+        rv$mapz_file <- zone_tif_path
+        rv$mapz_rast <- zone %>% raster::raster()
+        
+        showNotification("Shapefile planning unit successfully rasterized!", type = "message", duration = 6)
+      }, error = function(e) {
+        showNotification(
+          paste("Error processing raster resolution:", e$message),
+          type = "error",
+          duration = 10
+        )
+      })
+    }
   })
   
   # Read file inputs
@@ -537,7 +822,7 @@ server <- function(input, output, session) {
     if(!is.null(rv$wd)) {
       cat(paste(rv$wd))
     } else {
-      cat("No output directory selected")
+      cat(tr("ph_print_wd", current_lang()))
     }
   })
   
@@ -559,7 +844,7 @@ server <- function(input, output, session) {
     if(!is.null(rv$tm_path)) {
       cat(paste(rv$tm_path))
     } else {
-      cat("No transition matrix directory selected")
+      cat(tr("ph_print_tm_dir", current_lang()))
     }
   })
   
@@ -581,7 +866,7 @@ server <- function(input, output, session) {
     if(!is.null(rv$dcf_path)) {
       cat(paste(rv$dcf_path))
     } else {
-      cat("No woe dcf directory selected")
+      cat(tr("ph_print_dcf_dir", current_lang()))
     }
   })
   
@@ -621,7 +906,7 @@ server <- function(input, output, session) {
     if(!is.null(rv$dinamica_path)) {
       cat(paste(rv$dinamica_path))
     } else {
-      cat("No DINAMICA EGO path selected")
+      cat(tr("ph_print_dinamica", current_lang()))
     }
   })
   
@@ -638,12 +923,23 @@ server <- function(input, output, session) {
   #### Click-to-open help modals ####
   lapply(names(alloc_help_texts), function(id) {
     observeEvent(input[[paste0("alloc_help_", id)]], {
-      info <- alloc_help_texts[[id]]
+      lang <- current_lang()
+      title_key <- paste0("help_", id, "_title")
+      body_key  <- paste0("help_", id, "_body")
+      
+      modal_title <- tr(title_key, lang)
+      modal_body  <- tr(body_key, lang)
+      
+      if (modal_title == title_key && id %in% names(alloc_help_texts)) {
+        modal_title <- alloc_help_texts[[id]]$title
+        modal_body  <- alloc_help_texts[[id]]$body
+      }
+      
       showModal(modalDialog(
-        title = tagList(icon("circle-info"), " ", info$title),
-        HTML(info$body),
+        title = tagList(icon("circle-info"), " ", modal_title),
+        HTML(modal_body),
         easyClose = TRUE,
-        footer = modalButton("Close"),
+        footer = modalButton(tr("btn_close", lang)),
         size = "m"
       ))
     })
@@ -660,16 +956,17 @@ server <- function(input, output, session) {
   
   # Dynamic feedback for patch size ha -> pixel conversion
   output$alloc_pixel_info <- renderUI({
+    lang <- current_lang()
     if (!is.null(rv$map1_file)) {
+      msg <- sprintf(tr("info_pixel_res_detected", lang), rv$pixel_resolution_m, rv$cell_area_ha)
       tags$div(
         class = "alert alert-info py-1 px-2 mb-2", style = "font-size: 12px; margin-top: 5px;",
-        sprintf("Raster resolution: %s m (1 pixel \u2248 %.3f ha). Patch size parameters are in ha and converted to pixels for Dinamica EGO.",
-                rv$pixel_resolution_m, rv$cell_area_ha)
+        msg
       )
     } else {
       tags$div(
         class = "alert alert-secondary py-1 px-2 mb-2", style = "font-size: 12px; margin-top: 5px;",
-        "Default resolution: 30 m (1 pixel \u2248 0.090 ha). Upload Initial Land Cover Map to auto-detect."
+        tr("info_pixel_res_default", lang)
       )
     }
   })
@@ -783,14 +1080,14 @@ server <- function(input, output, session) {
   # Input validation
   iv <- InputValidator$new()
   
-  iv$add_rule("map1_file", sv_required(message = "Please upload land cover map at T1"))
-  iv$add_rule("mapz_file", sv_required(message = "Please upload planning unit"))
-  iv$add_rule("rc_file", sv_required(message = "Please upload raster cube"))
-  iv$add_rule("lc_file", sv_required(message = "Please upload land cover lookup table"))
-  iv$add_rule("tm_path", sv_required(message = "Please select a directory of transition matrix"))
-  iv$add_rule("dcf_path", sv_required(message = "Please select a directory of woe dcf"))
-  iv$add_rule("wd", sv_required(message = "Please select an output directory"))
-  iv$add_rule("memory_allocation", sv_required(message = "Please select memory allocation option"))
+  iv$add_rule("map1_file", function(value) if (is.null(value)) tr("val_map1_req", current_lang()) else NULL)
+  iv$add_rule("mapz_file", function(value) if (is.null(value)) tr("val_mapz_req", current_lang()) else NULL)
+  iv$add_rule("rc_file", function(value) if (is.null(value)) tr("val_rc_req", current_lang()) else NULL)
+  iv$add_rule("lc_file", function(value) if (is.null(value)) tr("val_lc_req", current_lang()) else NULL)
+  iv$add_rule("tm_path", function(value) if (is.null(value)) tr("val_tm_req", current_lang()) else NULL)
+  iv$add_rule("dcf_path", function(value) if (is.null(value)) tr("val_dcf_req", current_lang()) else NULL)
+  iv$add_rule("wd", function(value) if (is.null(value)) tr("val_wd_req", current_lang()) else NULL)
+  iv$add_rule("memory_allocation", function(value) if (is.null(value)) tr("val_memory_req", current_lang()) else NULL)
   
   # Raster cube input validation
   iv$add_rule("rc_file", function(value) {
@@ -800,7 +1097,7 @@ server <- function(input, output, session) {
     has_xml <- any(grepl("\\.xml$", value$name, ignore.case = TRUE))
     
     if (!has_tif || !has_xml) {
-      return("Please upload both a .tif and a .xml file for the raster cube")
+      return(tr("val_rc_both", current_lang()))
     }
     
     NULL
@@ -809,44 +1106,44 @@ server <- function(input, output, session) {
   # Only validate allocate transition parameters when the checkbox is enabled
   iv$add_rule("alloc_percent", function(value) {
     if (!isTRUE(input$alloc_custom)) return(NULL)
-    if (is.null(value) || is.na(value)) return("Please provide a value")
-    if (value < 0 || value > 1) return("Must be between 0 and 1 (inclusive)")
+    if (is.null(value) || is.na(value)) return(tr("val_provide_val", current_lang()))
+    if (value < 0 || value > 1) return(tr("val_between_0_1", current_lang()))
     NULL
   })
   iv$add_rule("alloc_exp_mean", function(value) {
     if (!isTRUE(input$alloc_custom)) return(NULL)
-    if (is.null(value) || is.na(value)) return("Please provide a value")
-    if (value <= 0) return("Must be greater than 0")
+    if (is.null(value) || is.na(value)) return(tr("val_provide_val", current_lang()))
+    if (value <= 0) return(tr("val_gt_0", current_lang()))
     NULL
   })
   iv$add_rule("alloc_exp_var", function(value) {
     if (!isTRUE(input$alloc_custom)) return(NULL)
-    if (is.null(value) || is.na(value)) return("Please provide a value")
-    if (value < 0) return("Must be 0 or greater")
+    if (is.null(value) || is.na(value)) return(tr("val_provide_val", current_lang()))
+    if (value < 0) return(tr("val_gte_0", current_lang()))
     NULL
   })
   iv$add_rule("alloc_exp_iso", function(value) {
     if (!isTRUE(input$alloc_custom)) return(NULL)
-    if (is.null(value) || is.na(value)) return("Please provide a value")
-    if (value < 0 || value > 2) return("Must be between 0 and 2 (inclusive)")
+    if (is.null(value) || is.na(value)) return(tr("val_provide_val", current_lang()))
+    if (value < 0 || value > 2) return(tr("val_between_0_2", current_lang()))
     NULL
   })
   iv$add_rule("alloc_gen_mean", function(value) {
     if (!isTRUE(input$alloc_custom)) return(NULL)
-    if (is.null(value) || is.na(value)) return("Please provide a value")
-    if (value <= 0) return("Must be greater than 0")
+    if (is.null(value) || is.na(value)) return(tr("val_provide_val", current_lang()))
+    if (value <= 0) return(tr("val_gt_0", current_lang()))
     NULL
   })
   iv$add_rule("alloc_gen_var", function(value) {
     if (!isTRUE(input$alloc_custom)) return(NULL)
-    if (is.null(value) || is.na(value)) return("Please provide a value")
-    if (value < 0) return("Must be 0 or greater")
+    if (is.null(value) || is.na(value)) return(tr("val_provide_val", current_lang()))
+    if (value < 0) return(tr("val_gte_0", current_lang()))
     NULL
   })
   iv$add_rule("alloc_gen_iso", function(value) {
     if (!isTRUE(input$alloc_custom)) return(NULL)
-    if (is.null(value) || is.na(value)) return("Please provide a value")
-    if (value < 0 || value > 2) return("Must be between 0 and 2 (inclusive)")
+    if (is.null(value) || is.na(value)) return(tr("val_provide_val", current_lang()))
+    if (value < 0 || value > 2) return(tr("val_between_0_2", current_lang()))
     NULL
   })
   
@@ -961,10 +1258,13 @@ server <- function(input, output, session) {
   })
   
   observeEvent(input$returnButton, {
+    lang <- current_lang()
     shinyalert(
-      title = "Confirmation",
-      text =  "Do you want to return to main menu?",
+      title = tr("confirm_title", lang),
+      text =  tr("confirm_text", lang),
       showCancelButton = TRUE,
+      cancelButtonText = tr("btn_close", lang),
+      confirmButtonText = "OK",
       size = "xs",
       type = "warning",
       inputId = "alert"
