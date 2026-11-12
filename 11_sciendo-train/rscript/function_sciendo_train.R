@@ -27,6 +27,88 @@ format_session_info_table <- function() {
   return(session_summary)
 }
 
+#' Read Table Flexibly from CSV or Excel (.xlsx/.xls)
+#'
+#' Reads a data frame from a file path (.csv, .xlsx, .xls) or returns the data frame as is.
+#' Handles various delimiters for CSV (comma, semicolon, tab) automatically.
+#'
+#' @param path_or_df Character file path or data.frame
+#' @return A data.frame or NULL
+#' @export
+read_table_flexible <- function(path_or_df) {
+  if (is.null(path_or_df)) return(NULL)
+  if (is.data.frame(path_or_df)) return(as.data.frame(path_or_df, stringsAsFactors = FALSE))
+  if (!is.character(path_or_df) || length(path_or_df) == 0 || !nzchar(trimws(path_or_df[1]))) return(NULL)
+  
+  fpath <- path_or_df[1]
+  if (!file.exists(fpath)) return(NULL)
+  
+  ext <- tolower(tools::file_ext(fpath))
+  
+  # 1. Excel format (.xlsx, .xls)
+  if (ext %in% c("xlsx", "xls")) {
+    df_xl <- tryCatch({
+      if (requireNamespace("readxl", quietly = TRUE)) {
+        as.data.frame(readxl::read_excel(fpath), stringsAsFactors = FALSE)
+      } else if (requireNamespace("openxlsx2", quietly = TRUE)) {
+        as.data.frame(openxlsx2::read_xlsx(fpath), stringsAsFactors = FALSE)
+      } else if (requireNamespace("openxlsx", quietly = TRUE)) {
+        as.data.frame(openxlsx::read.xlsx(fpath), stringsAsFactors = FALSE)
+      } else {
+        NULL
+      }
+    }, error = function(e) NULL)
+    if (!is.null(df_xl)) return(df_xl)
+  }
+  
+  # 2. Delimited text / CSV format
+  # Try comma-delimited first
+  df <- tryCatch({
+    read.csv(fpath, stringsAsFactors = FALSE, check.names = FALSE)
+  }, error = function(e) NULL)
+  
+  # If 1 column or failed, try semicolon (European/Indonesian CSV)
+  if (is.null(df) || ncol(df) < 2) {
+    df_semi <- tryCatch({
+      read.csv2(fpath, stringsAsFactors = FALSE, check.names = FALSE)
+    }, error = function(e) NULL)
+    if (!is.null(df_semi) && ncol(df_semi) >= 2) {
+      df <- df_semi
+    }
+  }
+  
+  # If still 1 column or failed, try tab delimiter
+  if (is.null(df) || ncol(df) < 2) {
+    df_tab <- tryCatch({
+      read.delim(fpath, stringsAsFactors = FALSE, check.names = FALSE)
+    }, error = function(e) NULL)
+    if (!is.null(df_tab) && ncol(df_tab) >= 2) {
+      df <- df_tab
+    }
+  }
+  
+  # Fallback: if extension was wrong or missing, try Excel
+  if (is.null(df) || ncol(df) < 2) {
+    df_xl_fallback <- tryCatch({
+      if (requireNamespace("readxl", quietly = TRUE)) {
+        as.data.frame(readxl::read_excel(fpath), stringsAsFactors = FALSE)
+      } else if (requireNamespace("openxlsx2", quietly = TRUE)) {
+        as.data.frame(openxlsx2::read_xlsx(fpath), stringsAsFactors = FALSE)
+      } else if (requireNamespace("openxlsx", quietly = TRUE)) {
+        as.data.frame(openxlsx::read.xlsx(fpath), stringsAsFactors = FALSE)
+      } else {
+        NULL
+      }
+    }, error = function(e) NULL)
+    if (!is.null(df_xl_fallback) && ncol(df_xl_fallback) >= 2) {
+      df <- df_xl_fallback
+    }
+  }
+  
+  if (is.null(df)) return(NULL)
+  return(as.data.frame(df, stringsAsFactors = FALSE))
+}
+
 ### Required Library ####
 #' Install Required Library
 #' 
@@ -489,6 +571,11 @@ plot_categorical_raster <- function(raster_object, filename = "raster_plot.png",
 
 
 create_list_of_weight_report <- function(woe_report_path, list_woe_report, df_zone, lc_lookup_table) {
+  if (!is.null(lc_lookup_table) && ncol(lc_lookup_table) >= 2) {
+    colnames(lc_lookup_table)[1:2] <- c("ID_LC", "LC")
+    lc_lookup_table$ID_LC <- suppressWarnings(as.numeric(as.character(lc_lookup_table$ID_LC)))
+    lc_lookup_table$LC <- as.character(lc_lookup_table$LC)
+  }
   listWoeReport <- list_woe_report
   woe <- list()
   len <- nrow(df_zone)
@@ -1168,7 +1255,7 @@ run_sciendo_train_process <- function(lc_t1_path, lc_t2_path, zone_path, lc_look
   tryCatch({
     tpm_to_matrix_conversion(
       input_dir = tpm_input_dir,
-      lc_lookup_path = lc_lookup_table_path,
+      lc_lookup_path = if (!is.null(lc_lookup_table) && is.data.frame(lc_lookup_table)) lc_lookup_table else lc_lookup_table_path,
       output_dir = macro_dir,
       template_path = "../macro_template/macro_template.xlsm",
       pu_lookup = z_lookup_table,
@@ -1669,24 +1756,23 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, temp
     stop("Template file not found: ", template_path)
   }
   
-  # Read LC lookup table (supports file path or data.frame)
-  if (is.character(lc_lookup_path)) {
-    lc_lookup_table <- read.csv(lc_lookup_path, stringsAsFactors = FALSE)
-  } else if (is.data.frame(lc_lookup_path)) {
-    lc_lookup_table <- lc_lookup_path
-  } else {
-    stop("lc_lookup_path must be a file path or data.frame")
+  # Read LC lookup table (supports file path .csv/.xlsx/.xls or data.frame)
+  lc_lookup_table <- read_table_flexible(lc_lookup_path)
+  if (is.null(lc_lookup_table)) {
+    stop("Failed to read lc_lookup_path or table is empty: ", lc_lookup_path)
   }
   
-  # Read PU lookup table if provided
+  # Standardize LC lookup table by column order: column 1 is always ID, column 2 is always LC
+  if (ncol(lc_lookup_table) >= 2) {
+    colnames(lc_lookup_table)[1:2] <- c("ID", "LC")
+    lc_lookup_table$ID <- suppressWarnings(as.numeric(as.character(lc_lookup_table$ID)))
+    lc_lookup_table$LC <- as.character(lc_lookup_table$LC)
+  }
+  
+  # Read PU lookup table if provided (supports file path .csv/.xlsx/.xls or data.frame)
   pu_map <- list()
   if (!is.null(pu_lookup)) {
-    pu_df <- NULL
-    if (is.character(pu_lookup) && file.exists(pu_lookup)) {
-      pu_df <- read.csv(pu_lookup, stringsAsFactors = FALSE)
-    } else if (is.data.frame(pu_lookup)) {
-      pu_df <- pu_lookup
-    }
+    pu_df <- read_table_flexible(pu_lookup)
     if (!is.null(pu_df) && ncol(pu_df) >= 2) {
       colnames(pu_df)[1:2] <- c("ID", "Name")
       pu_map <- setNames(as.character(pu_df$Name), as.character(pu_df$ID))
@@ -1893,15 +1979,31 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, temp
       }
     }
     
-    # Map row and col names to LC labels
+    # Map row and col names to LC labels (order-specific fallback safe)
     row_ids <- as.numeric(rownames(result_matrix))
-    row_labels <- lc_lookup_table$LC[match(row_ids, lc_lookup_table$ID)]
-    row_labels[is.na(row_labels)] <- paste("LC", row_ids[is.na(row_labels)])
+    row_labels <- if (!is.null(lc_lookup_table) && "LC" %in% colnames(lc_lookup_table) && "ID" %in% colnames(lc_lookup_table)) {
+      lc_lookup_table$LC[match(row_ids, lc_lookup_table$ID)]
+    } else {
+      NULL
+    }
+    if (is.null(row_labels) || length(row_labels) == 0) {
+      row_labels <- paste("LC", row_ids)
+    } else {
+      row_labels[is.na(row_labels)] <- paste("LC", row_ids[is.na(row_labels)])
+    }
     rownames(result_matrix) <- row_labels
     
     col_ids <- as.numeric(colnames(result_matrix))
-    col_labels <- lc_lookup_table$LC[match(col_ids, lc_lookup_table$ID)]
-    col_labels[is.na(col_labels)] <- paste("LC", col_ids[is.na(col_labels)])
+    col_labels <- if (!is.null(lc_lookup_table) && "LC" %in% colnames(lc_lookup_table) && "ID" %in% colnames(lc_lookup_table)) {
+      lc_lookup_table$LC[match(col_ids, lc_lookup_table$ID)]
+    } else {
+      NULL
+    }
+    if (is.null(col_labels) || length(col_labels) == 0) {
+      col_labels <- paste("LC", col_ids)
+    } else {
+      col_labels[is.na(col_labels)] <- paste("LC", col_ids[is.na(col_labels)])
+    }
     colnames(result_matrix) <- col_labels
     
     n_rows <- nrow(result_matrix)
@@ -2276,7 +2378,11 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, temp
   wb$add_worksheet("_LULC_List")
   wb$set_sheet_visibility(sheet = "_LULC_List", value = "hidden")
   
-  unique_classes <- sort(unique(as.character(lc_lookup_table$LC)))
+  unique_classes <- if (!is.null(lc_lookup_table) && "LC" %in% colnames(lc_lookup_table)) {
+    sort(unique(as.character(lc_lookup_table$LC)))
+  } else {
+    character(0)
+  }
   if (length(unique_classes) == 0) unique_classes <- c("Class 1", "Class 2")
   wb$add_data(sheet = "_LULC_List", x = unique_classes, start_col = 1, start_row = 1, col_names = FALSE)
   
