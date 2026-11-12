@@ -28,6 +28,88 @@ format_session_info_table <- function() {
   )
 }
 
+#' Read Table Flexibly from CSV or Excel (.xlsx/.xls)
+#'
+#' Reads a data frame from a file path (.csv, .xlsx, .xls) or returns the data frame as is.
+#' Handles various delimiters for CSV (comma, semicolon, tab) automatically.
+#'
+#' @param path_or_df Character file path or data.frame
+#' @return A data.frame or NULL
+#' @export
+read_table_flexible <- function(path_or_df) {
+  if (is.null(path_or_df)) return(NULL)
+  if (is.data.frame(path_or_df)) return(as.data.frame(path_or_df, stringsAsFactors = FALSE))
+  if (!is.character(path_or_df) || length(path_or_df) == 0 || !nzchar(trimws(path_or_df[1]))) return(NULL)
+  
+  fpath <- path_or_df[1]
+  if (!file.exists(fpath)) return(NULL)
+  
+  ext <- tolower(tools::file_ext(fpath))
+  
+  # 1. Excel format (.xlsx, .xls)
+  if (ext %in% c("xlsx", "xls")) {
+    df_xl <- tryCatch({
+      if (requireNamespace("readxl", quietly = TRUE)) {
+        as.data.frame(readxl::read_excel(fpath), stringsAsFactors = FALSE)
+      } else if (requireNamespace("openxlsx2", quietly = TRUE)) {
+        as.data.frame(openxlsx2::read_xlsx(fpath), stringsAsFactors = FALSE)
+      } else if (requireNamespace("openxlsx", quietly = TRUE)) {
+        as.data.frame(openxlsx::read.xlsx(fpath), stringsAsFactors = FALSE)
+      } else {
+        NULL
+      }
+    }, error = function(e) NULL)
+    if (!is.null(df_xl)) return(df_xl)
+  }
+  
+  # 2. Delimited text / CSV format
+  # Try comma-delimited first
+  df <- tryCatch({
+    read.csv(fpath, stringsAsFactors = FALSE, check.names = FALSE)
+  }, error = function(e) NULL)
+  
+  # If 1 column or failed, try semicolon (European/Indonesian CSV)
+  if (is.null(df) || ncol(df) < 2) {
+    df_semi <- tryCatch({
+      read.csv2(fpath, stringsAsFactors = FALSE, check.names = FALSE)
+    }, error = function(e) NULL)
+    if (!is.null(df_semi) && ncol(df_semi) >= 2) {
+      df <- df_semi
+    }
+  }
+  
+  # If still 1 column or failed, try tab delimiter
+  if (is.null(df) || ncol(df) < 2) {
+    df_tab <- tryCatch({
+      read.delim(fpath, stringsAsFactors = FALSE, check.names = FALSE)
+    }, error = function(e) NULL)
+    if (!is.null(df_tab) && ncol(df_tab) >= 2) {
+      df <- df_tab
+    }
+  }
+  
+  # Fallback: if extension was wrong or missing, try Excel
+  if (is.null(df) || ncol(df) < 2) {
+    df_xl_fallback <- tryCatch({
+      if (requireNamespace("readxl", quietly = TRUE)) {
+        as.data.frame(readxl::read_excel(fpath), stringsAsFactors = FALSE)
+      } else if (requireNamespace("openxlsx2", quietly = TRUE)) {
+        as.data.frame(openxlsx2::read_xlsx(fpath), stringsAsFactors = FALSE)
+      } else if (requireNamespace("openxlsx", quietly = TRUE)) {
+        as.data.frame(openxlsx::read.xlsx(fpath), stringsAsFactors = FALSE)
+      } else {
+        NULL
+      }
+    }, error = function(e) NULL)
+    if (!is.null(df_xl_fallback) && ncol(df_xl_fallback) >= 2) {
+      df <- df_xl_fallback
+    }
+  }
+  
+  if (is.null(df)) return(NULL)
+  return(as.data.frame(df, stringsAsFactors = FALSE))
+}
+
 # ------------------------------------------------------------- utilities ---
 
 #' Install and Load Packages
@@ -1400,6 +1482,15 @@ matrix_to_tpm <- function(input_folder_path, lc_lookup, output_dir) {
     return(invisible(NULL))
   }
   
+  if (is.character(lc_lookup)) {
+    lc_lookup <- read_table_flexible(lc_lookup)
+  }
+  if (!is.null(lc_lookup) && ncol(lc_lookup) >= 2) {
+    colnames(lc_lookup)[1:2] <- c("ID", "LC")
+    lc_lookup$ID <- suppressWarnings(as.numeric(as.character(lc_lookup$ID)))
+    lc_lookup$LC <- as.character(lc_lookup$LC)
+  }
+  
   clean_text <- function(x) tolower(trimws(gsub("\\s+", " ", as.character(x))))
   lc_lookup_clean <- lc_lookup %>% dplyr::mutate(LC_clean = clean_text(LC))
   
@@ -2073,8 +2164,11 @@ build_allocate_transitions <- function(
   for (nm in names(uniform)) df[[nm]] <- uniform[[nm]]
   
   if (!is.null(override_df)) {
+    if (is.character(override_df)) {
+      override_df <- read_table_flexible(override_df)
+    }
     if (!is.data.frame(override_df))
-      stop("`override_df` must be a data.frame.", call. = FALSE)
+      stop("`override_df` must be a data.frame or valid file path.", call. = FALSE)
     
     required <- c("from_id", "to_id",
                   "percent", "exp_mean", "exp_var", "exp_iso",

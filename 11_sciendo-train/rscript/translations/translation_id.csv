@@ -20,7 +20,7 @@ ph_mapz_file_shp,"Unggah semua berkas terkait (.shp, .dbf, .prj, .shx)"
 lbl_mapz_file_rast,Unit Perencanaan
 ph_mapz_file_rast,Unggah raster (.tif)
 lbl_z_file,Tabel Referensi Unit Perencanaan 
-ph_z_file,Unggah tabel (.csv)
+ph_z_file,Unggah tabel (.csv/.xlsx)
 hdr_predictors,Prediktor
 lbl_factors_path,Folder Prediktor
 tip_factors_path,Pilih folder yang memuat berkas prediktor

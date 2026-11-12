@@ -20,7 +20,7 @@ ph_mapz_file_shp,"Upload all related files (.shp, .dbf, .prj, .shx)"
 lbl_mapz_file_rast,Planning Unit
 ph_mapz_file_rast,Upload raster (.tif)
 lbl_z_file,Planning Unit Lookup Table 
-ph_z_file,Upload table (.csv)
+ph_z_file,Upload table (.csv/.xlsx)
 hdr_predictors,Predictors
 lbl_factors_path,Predictor(s) Folder Path
 tip_factors_path,Choose a folder contains predictor files

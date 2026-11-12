@@ -112,7 +112,7 @@ ui <- fluidPage(
       ),
       fileInput("lc_file",
                 label = label_with_help(i18n$t("lbl_lc_file"), "lc_file"),
-                accept = c(".csv", ".xlsx"), placeholder = tr("ph_lc_file", "id")),
+                accept = c(".csv", ".xlsx", ".xls"), placeholder = tr("ph_lc_file", "id")),
       fileInput("rc_file",
                 label = label_with_help(i18n$t("lbl_rc_file"), "rc_file"),
                 accept = c(".tif", ".xml"), multiple = TRUE, placeholder = tr("ph_rc_file", "id")),
@@ -430,7 +430,7 @@ ui <- fluidPage(
                 
                 fileInput("alloc_override_file",
                           label = i18n$t("lbl_upload_override"),
-                          accept = c(".csv", ".xlsx"), placeholder = tr("ph_upload_override", "id"),
+                          accept = c(".csv", ".xlsx", ".xls"), placeholder = tr("ph_upload_override", "id"),
                           width = "100%")
               )
             )
@@ -763,15 +763,8 @@ server <- function(input, output, session) {
     
     rv$lc_path <- rename_uploaded_file(f)
     
-    ext <- tolower(tools::file_ext(f$name))
     df_c <- tryCatch({
-      if (ext == "csv") {
-        read.csv(rv$lc_path, stringsAsFactors = FALSE, check.names = FALSE)
-      } else if (ext == "xlsx") {
-        as.data.frame(openxlsx::read.xlsx(rv$lc_path, check.names = FALSE))
-      } else {
-        stop("Unsupported file format. Please upload a .csv or .xlsx file.")
-      }
+      read_table_flexible(rv$lc_path)
     }, error = function(e) {
       showNotification(paste("Error reading file:", e$message),
                        type = "error", duration = 6)
@@ -1032,15 +1025,8 @@ server <- function(input, output, session) {
       return()
     }
     
-    ext <- tolower(tools::file_ext(f$name))
     df <- tryCatch({
-      if (ext == "csv") {
-        read.csv(f$datapath, stringsAsFactors = FALSE, check.names = FALSE)
-      } else if (ext == "xlsx") {
-        as.data.frame(openxlsx::read.xlsx(f$datapath, check.names = FALSE))
-      } else {
-        stop("Unsupported file format. Please upload a .csv or .xlsx file.")
-      }
+      read_table_flexible(f$datapath)
     }, error = function(e) {
       showNotification(paste("Error reading file:", e$message),
                        type = "error", duration = 6)

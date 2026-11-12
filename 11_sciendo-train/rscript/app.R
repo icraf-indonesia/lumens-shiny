@@ -6,7 +6,7 @@ options(repos = c(CRAN = "https://cloud.r-project.org"))
 install_load(
   "shiny", "shiny.i18n", "shinyFiles", "shinyvalidate", "shinyjs", "bslib", "sf", "raster",
   "dplyr", "remotes", "rmarkdown", "XML", "splitstackshape", "shinyalert",
-  "usdm", "corrplot", "tidyr", "openxlsx", "openxlsx2", "XML", "xml2"
+  "usdm", "corrplot", "tidyr", "openxlsx", "openxlsx2", "readxl", "XML", "xml2"
 )
 
 if (!("LUMENSR" %in% rownames(installed.packages()))) {
@@ -188,7 +188,7 @@ ui <- fluidPage(
       numericInput("map1_year", label = label_with_help(i18n$t("lbl_map1_year"), "map1_year"), value = 2015),
       fileInput("map2_file", label = label_with_help(i18n$t("lbl_map2_file"), "map2_file"), accept = c("image/tiff"), placeholder = tr("ph_map1_file", "id")),
       numericInput("map2_year", label = label_with_help(i18n$t("lbl_map2_year"), "map2_year"), value = 2020),
-      fileInput("lc_file", label = label_with_help(i18n$t("lbl_lc_file"), "lc_file"), accept = c(".csv"), placeholder = tr("ph_lc_file", "id")),
+      fileInput("lc_file", label = label_with_help(i18n$t("lbl_lc_file"), "lc_file"), accept = c(".csv", ".xlsx", ".xls"), placeholder = tr("ph_lc_file", "id")),
       radioButtons("zone_type", label = label_with_help(i18n$t("lbl_zone_type"), "zone_type"),
                    choiceNames = list(i18n$t("choice_raster"), i18n$t("choice_shapefiles")), choiceValues = list("raster", "shapefile"), inline = T),
       conditionalPanel(
@@ -202,7 +202,7 @@ ui <- fluidPage(
       conditionalPanel(
         condition = "input.zone_type == 'raster'",
         fileInput("mapz_file", label = label_with_help(i18n$t("lbl_mapz_file_rast"), "mapz_file"), accept = c("image/tiff"), placeholder = tr("ph_mapz_file_rast", "id")),
-        fileInput("z_file", label = label_with_help(i18n$t("lbl_z_file"), "z_file"), accept = c(".csv"), placeholder = tr("ph_z_file", "id"))
+        fileInput("z_file", label = label_with_help(i18n$t("lbl_z_file"), "z_file"), accept = c(".csv", ".xlsx", ".xls"), placeholder = tr("ph_z_file", "id"))
       ),
       
       div(style = "display: flex; flex-direction: column; gap: 10px;",
@@ -563,9 +563,14 @@ server <- function(input, output, session) {
   observeEvent(input$lc_file, {
     f <- input$lc_file
     rv$lc_path <- rename_uploaded_file(f)
-    df_c <- read.csv(rv$lc_path)
+    df_c <- tryCatch({
+      read_table_flexible(rv$lc_path)
+    }, error = function(e) {
+      showNotification(paste("Error reading land cover table:", e$message), type = "error", duration = 6)
+      NULL
+    })
     
-    if(nrow(df_c) == 0)
+    if(is.null(df_c) || nrow(df_c) == 0)
       return()
     if(nrow(df_c) < 2)
       return()
@@ -573,7 +578,7 @@ server <- function(input, output, session) {
       return()
     
     df <- data.frame("ID_LC" = as.integer((as.character(df_c[, 1]))))
-    df$LC <- df_c[, 2]
+    df$LC <- as.character(df_c[, 2])
     rv$lc_df <- df
   })
   
@@ -585,14 +590,26 @@ server <- function(input, output, session) {
     
     f <- input$z_file
     rv$z_path <- rename_uploaded_file(f)
-    rv$mapz_df <- read.csv(rv$z_path)
+    df_z <- tryCatch({
+      read_table_flexible(rv$z_path)
+    }, error = function(e) {
+      showNotification(paste("Error reading zone table:", e$message), type = "error", duration = 6)
+      NULL
+    })
     
-    if(nrow(rv$mapz_df) == 0)
+    if(is.null(df_z) || nrow(df_z) == 0)
       return()
-    if(nrow(rv$mapz_df) < 2)
+    if(nrow(df_z) < 2)
       return()
-    if(!is_numeric_str(rv$mapz_df[1, 1]))
+    if(!is_numeric_str(df_z[1, 1]))
       return()
+      
+    if (ncol(df_z) >= 2) {
+      colnames(df_z)[1:2] <- c("ID_PU", "PU")
+      df_z$ID_PU <- suppressWarnings(as.numeric(as.character(df_z$ID_PU)))
+      df_z$PU <- as.character(df_z$PU)
+    }
+    rv$mapz_df <- df_z
   })
   
   #### Set working directory ####
