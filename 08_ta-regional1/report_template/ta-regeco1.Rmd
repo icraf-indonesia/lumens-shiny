@@ -461,6 +461,7 @@ Diagram donat menunjukkan kontribusi `r gdp_donut$top_count` sektor terbesar ter
 col_pdrb  <- paste0("PDRB (", params$unit, ")")
 col_out   <- paste0("Output Total (", params$unit, ")")
 col_fd    <- paste0("Permintaan Akhir (", params$unit, ")")
+col_va_output <- "Nilai tambah / output sektor (%)"
 
 # ---- Siapkan data, format angka, & rename ----
 dt_gdp <- gdp_baseline
@@ -481,7 +482,7 @@ dt_gdp <- dt_gdp %>%
     !!col_out                       := OUTPUT,
     !!col_fd                        := FD,
     "Kebutuhan Lahan (Ha)"          = Land_Requirement,
-    "Proporsi PDRB (%)"             = GDP_PROP,
+    !!col_va_output                 := GDP_PROP,
     "Koef. Produktivitas Lahan"     = LPC,
     "Proporsi Permintaan Akhir (%)" = Prop_FD
   )
@@ -514,11 +515,11 @@ DT::datatable(
     digits = 5, mark = ","
   ) %>%
   DT::formatRound(
-    columns = intersect(
-      c("Proporsi PDRB (%)", "Koef. Produktivitas Lahan",
-        "Proporsi Permintaan Akhir (%)"),
-      colnames(dt_gdp)
-    ),
+    columns = "Koef. Produktivitas Lahan",
+    digits = 2
+  ) %>%
+  DT::formatPercentage(
+    columns = c(col_va_output, "Proporsi Permintaan Akhir (%)"),
     digits = 2
   )
 ```
@@ -594,7 +595,7 @@ ggplotly(
 
 ## Surplus Usaha Bruto
 
-Analisis SUB multiplier merupakan indikator ekonomi yang mengukur sejauh mana suntikan dana investasi atau pengeluaran di suatu sektor dapat melipatgandakan keuntungan bersih (surplus usaha) yang dihasilkan oleh seluruh sektor ekonomi. Hasil analisis SUB multiplier di wilayah **`r params$location`** tahun **`r params$io_period`** menunjukkan bahwa *sektor `r multiplier_table$SECTOR[which.max(multiplier_table$SUB.multiplier)]`* memiliki nilai SUB multiplier tertinggi, yaitu sebesar *`r round(max(multiplier_table$SUB.multiplier),3)`*.
+Pengganda Surplus Usaha Bruto (SUB) menunjukkan tambahan surplus usaha bruto di seluruh sektor untuk setiap kenaikan permintaan akhir sebesar Rp1 juta pada sektor yang dipilih. Nilai ini mencakup dampak langsung dan tidak langsung melalui transaksi antarsektor. Surplus usaha bruto dihitung sebelum pengurangan penyusutan aset tetap. Di wilayah **`r params$location`** pada tahun **`r params$io_period`**, sektor *`r multiplier_table$SECTOR[which.max(multiplier_table$SUB.multiplier)]`* memiliki pengganda SUB tertinggi, yaitu *`r round(max(multiplier_table$SUB.multiplier), 3)`* juta rupiah per Rp1 juta permintaan akhir.
 
 ```{r, sub-graph, echo=FALSE, warning=FALSE, message=FALSE}
 ggplotly(

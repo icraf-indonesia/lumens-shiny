@@ -1503,7 +1503,7 @@ calculate_gdp <- function(added_value_m,
   GDP$GDP_PROP <- ifelse(GDP$OUTPUT == 0, 0, GDP$GDP / GDP$OUTPUT)
   GDP$FD <- rowSums(final_demand_m)
   GDP$Prop_FD <- ifelse(GDP$OUTPUT == 0, 0, GDP$FD / GDP$OUTPUT)
-  GDP$Total_OUTPUT <- leontief %*% GDP$FD
+  GDP$Total_OUTPUT <- as.numeric(leontief %*% GDP$FD)
   
   GDP
 }
