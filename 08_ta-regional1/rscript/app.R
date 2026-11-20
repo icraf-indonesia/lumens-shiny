@@ -265,7 +265,6 @@ ui <- fluidPage(
 server <- function(input, output, session) {
   
   rv <- reactiveValues(
-    wd           = "",
     report_file  = NULL,
     load_rds     = FALSE,
     new_lc_area  = FALSE,
@@ -276,14 +275,19 @@ server <- function(input, output, session) {
   volumes <- c(Home = fs::path_home(), "R Installation" = R.home(), getVolumes()())
   shinyDirChoose(input, "wd", roots = volumes, session = session)
   
-  observeEvent(input$wd, {
-    rv$wd <- parseDirPath(volumes, input$wd)
+  selected_output_dir <- reactive({
+    selection <- input$wd
+    if (is.null(selection)) return(NULL)
+
+    path <- parseDirPath(volumes, selection)
+    if (length(path) != 1L || is.na(path) || !dir.exists(path)) return(NULL)
+    path
   })
   
   output$selected_directory <- renderText({
-    rv$wd <- parseDirPath(volumes, input$wd)
-    if (length(rv$wd) == 0) return()
-    paste0("Folder output terpilih: ", rv$wd)
+    path <- selected_output_dir()
+    if (is.null(path)) return("")
+    paste0("Folder output terpilih: ", path)
   })
   
   #### Click-to-open help modals ####
@@ -391,7 +395,8 @@ server <- function(input, output, session) {
       }
     }
     
-    if (is.null(rv$wd) || rv$wd == "") {
+    output_dir <- selected_output_dir()
+    if (is.null(output_dir)) {
       missing_inputs <- c(missing_inputs, "Folder Output")
     }
     
@@ -407,7 +412,6 @@ server <- function(input, output, session) {
     withProgress(message = "Running TA Regional Economy Descriptive Analysis", value = 0, {
       tryCatch({
         
-        output_dir <- rv$wd
         start_time <- Sys.time()
         
         # =====================================================================
@@ -687,10 +691,8 @@ server <- function(input, output, session) {
         multiplier_table <- combine_multipliers(OM, IM, LM, SUBM)
         
         # =====================================================================
-        # SAVE CORE ANALYSIS RDS
+        # PREPARE REPORT DATA
         # =====================================================================
-        incProgress(0.05, detail = "Saving core analysis RDS")
-        
         core_analysis_results <- list(
           sector                   = sector,
           intermediate_consumption = intermediate_consumption.m,
@@ -714,8 +716,6 @@ server <- function(input, output, session) {
           status                   = validation_status,
           metadata                 = io_metadata          
         )
-        
-        save_core_analysis_data(core_analysis_results)
         
         # =====================================================================
         # EXPORT EXCEL & RDS
@@ -810,8 +810,9 @@ server <- function(input, output, session) {
   
   # --- Open folder ---
   observeEvent(input$open_output_folder, {
-    if (!is.null(rv$wd) && dir.exists(rv$wd)) {
-      if (.Platform$OS.type == "windows") shell.exec(rv$wd) else system2("open", args = shQuote(rv$wd))
+    path <- selected_output_dir()
+    if (!is.null(path)) {
+      if (.Platform$OS.type == "windows") shell.exec(path) else system2("open", args = shQuote(path))
     } else {
       showNotification("Output directory not found", type = "error")
     }
