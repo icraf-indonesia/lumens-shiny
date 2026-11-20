@@ -2290,24 +2290,15 @@ generate_prs_plot <- function(linkages_table,
                               point_size = 5,
                               label_size = 3,
                               label_alpha = 0.6) {
-  # ITBL and ITFL are normalised so their mean is exactly 1: the reference line
-  # at 1 is therefore both the BPS threshold and the cross-sector average.
   linkages_table <- linkages_table %>%
     mutate(
-      Quadrant = factor(
-        Quadrant,
-        levels = c("Kuadran I", "Kuadran II", "Kuadran III", "Kuadran IV")
-      ),
-      # Pastikan ID karakter (untuk label)
+      CATEGORY = coalesce(na_if(as.character(CATEGORY), ""), "Tidak tercatat"),
       ID = as.character(ID)
     )
-  
-  # Color code per kategori/kuadran
-  quadrant_colors <- c(
-    "Kuadran I"   = "#2E86AB",  # Biru - unggulan
-    "Kuadran II"  = "#A23B72",  # Magenta - potensi unggul
-    "Kuadran III" = "#F18F01",  # Orange - kurang diunggulkan
-    "Kuadran IV"  = "#C73E1D"   # Merah - tertinggal
+  extra_categories <- setdiff(sort(unique(linkages_table$CATEGORY)), names(category_colors))
+  plot_colors <- c(
+    category_colors,
+    setNames(grDevices::hcl.colors(length(extra_categories), "Dark 3"), extra_categories)
   )
   
   p <- ggplot(
@@ -2315,24 +2306,20 @@ generate_prs_plot <- function(linkages_table,
     aes(
       x = ITBL,
       y = ITFL,
-      color = Quadrant,
+      color = CATEGORY,
       text = paste0(
         "<b>", SECTOR, "</b><br>",
+        "Kategori: ", CATEGORY, "<br>",
         "ITBL: ", round(ITBL, 3), "<br>",
         "ITFL: ", round(ITFL, 3), "<br>",
-        "Kuadran: ", Quadrant
+        if_else(Quadrant == "Undefined", "Pada garis acuan", as.character(Quadrant))
       )
     )
   ) +
     # Garis pembatas kuadran
     geom_hline(yintercept = 1, linetype = "dashed", color = "grey40", alpha = 0.7) +
     geom_vline(xintercept = 1, linetype = "dashed", color = "grey40", alpha = 0.7) +
-    # Bubble dengan ukuran SERAGAM + alpha transparan + jitter ringan
-    geom_point(
-      size = point_size,
-      alpha = 0.6,
-      position = position_jitter(width = 0.01, height = 0.01, seed = 42)
-    ) +
+    geom_point(size = point_size, alpha = 0.6) +
     # Angka ID di tengah bubble, warna transparan
     geom_text(
       aes(label = ID),
@@ -2340,19 +2327,18 @@ generate_prs_plot <- function(linkages_table,
       alpha = label_alpha,
       size = label_size,
       fontface = "bold",
-      position = position_jitter(width = 0.01, height = 0.01, seed = 42),
       show.legend = FALSE
     ) +
-    scale_color_manual(values = quadrant_colors, name = "Kategori") +
+    scale_color_manual(values = plot_colors, name = NULL) +
     labs(
-      title = "Peta Sektor Berdasarkan Backward & Forward Linkage",
+      title = "Peta keterkaitan antarsektor",
       subtitle = "Garis putus-putus menunjukkan nilai rata-rata (indeks = 1)",
-      x = "Indeks Total Backward Linkage (ITBL)",
-      y = "Indeks Total Forward Linkage (ITFL)"
+      x = "Indeks Daya Penyebaran (ITBL)",
+      y = "Indeks Derajat Kepekaan (ITFL)"
     ) +
     theme_minimal(base_size = 12) +
     theme(
-      legend.position = "right",
+      legend.position = "bottom",
       panel.grid.minor = element_blank(),
       plot.title = element_text(face = "bold")
     )
@@ -2391,6 +2377,7 @@ category_colors <- c(
   "Konstruksi"       = "#8E24AA",
   "Perdagangan"      = "#FB8C00",
   "Transportasi"     = "#3949AB",
+  "Jasa Pertanian"   = "#B83280",
   "Jasa & Layanan"   = "#29B6F6",
   "Pelayanan Umum"   = "#546E7A",
   "Lainnya"          = "#BDBDBD"
