@@ -195,7 +195,7 @@ ui <- fluidPage(
           condition = "input.new_lc_area == true",
           fileInput(
             "landuse_table_file",
-            label = label_with_help("Tabel Referensi Penutup Lahan", "landuse_table_file_rds"),
+            label = label_with_help("Tabel Luas Tutupan Lahan (ha)", "landuse_table_file_rds"),
             accept = c(".xlsx", ".xls"),
             placeholder = "Unggah berkas tabel (.xlsx)"
           )
@@ -217,7 +217,7 @@ ui <- fluidPage(
         # Input Land Use Lookup Table
         fileInput(
           "landuse_table_file",
-          label = label_with_help("Tabel Referensi Penutup Lahan", "landuse_table_file"),
+          label = label_with_help("Tabel Luas Tutupan Lahan (ha)", "landuse_table_file"),
           accept = c(".xlsx", ".xls"),
           placeholder = "Unggah berkas tabel (.xlsx)"
         )
@@ -265,25 +265,28 @@ ui <- fluidPage(
 server <- function(input, output, session) {
   
   rv <- reactiveValues(
-    wd           = "",
     report_file  = NULL,
     load_rds     = FALSE,
-    new_lc_area  = FALSE,
-    profile      = NULL
+    new_lc_area  = FALSE
   )
   
   # --- Output directory ---
   volumes <- c(Home = fs::path_home(), "R Installation" = R.home(), getVolumes()())
   shinyDirChoose(input, "wd", roots = volumes, session = session)
   
-  observeEvent(input$wd, {
-    rv$wd <- parseDirPath(volumes, input$wd)
+  selected_output_dir <- reactive({
+    selection <- input$wd
+    if (is.null(selection)) return(NULL)
+
+    path <- parseDirPath(volumes, selection)
+    if (length(path) != 1L || is.na(path) || !dir.exists(path)) return(NULL)
+    path
   })
   
   output$selected_directory <- renderText({
-    rv$wd <- parseDirPath(volumes, input$wd)
-    if (length(rv$wd) == 0) return()
-    paste0("Folder output terpilih: ", rv$wd)
+    path <- selected_output_dir()
+    if (is.null(path)) return("")
+    paste0("Folder output terpilih: ", path)
   })
   
   #### Click-to-open help modals ####
@@ -318,10 +321,15 @@ server <- function(input, output, session) {
   # --- Sync checkbox ke reactive values ---
   observeEvent(input$load_rds,    { rv$load_rds    <- isTRUE(input$load_rds) })
   observeEvent(input$new_lc_area, { rv$new_lc_area <- isTRUE(input$new_lc_area) })
+
+  uploaded_landuse_metadata <- reactive({
+    file <- input$landuse_table_file
+    if (is.null(file)) return(NULL)
+    read_landuse_metadata(file$datapath)
+  })
   
   # --- Preview metadata ---
   output$metadata_preview <- renderText({
-    # Opsi 1: dari RDS
     if (rv$load_rds) {
       if (is.null(input$preprocessing_rds_file)) {
         return("RDS: menunggu file...")
@@ -330,47 +338,46 @@ server <- function(input, output, session) {
         readRDS(input$preprocessing_rds_file$datapath),
         error = function(e) NULL
       )
-      if (!is.null(obj) && !is.null(obj$io$profile)) {
-        p <- obj$io$profile
-        return(paste0(
-          "Source  : RDS\n",
-          "Area    : ", p$area_name, "\n",
-          "Year    : ", p$year, "\n",
-          "Currency: ", p$currency, "\n",
-          "IO Src  : ", p$io_source %||% "-"
-        ))
-      }
-      return("RDS: gagal dibaca.")
-    }
-    
-    # Opsi 2: dari Excel IO
-    if (!is.null(input$io_file)) {
+      if (is.null(obj$io$profile)) return("RDS: gagal dibaca.")
+      profile <- obj$io$profile
+      data_source <- "RDS"
+    } else {
+      if (is.null(input$io_file)) return("Belum ada input.")
       profil_io <- tryCatch(
         read_input_file(input$io_file$datapath,
                         sheet = "0. Profil Data",
                         skip = 2, header = TRUE),
         error = function(e) NULL
       )
-      if (!is.null(profil_io) && nrow(profil_io) >= 3) {
-        profile <- list(
-          area_name = trimws(profil_io$Deskripsi[1]),
-          year      = as.numeric(profil_io$Deskripsi[2]),
-          currency  = trimws(profil_io$Deskripsi[3]),
-          io_source = trimws(profil_io$Deskripsi[4])
-        )
-        rv$profile <- profile
-        return(paste0(
-          "Source  : Excel\n",
-          "Area    : ", profile$area_name, "\n",
-          "Year    : ", profile$year, "\n",
-          "Currency: ", profile$currency, "\n",
-          "IO Src  : ", profile$io_source
-        ))
+      if (is.null(profil_io) || nrow(profil_io) < 3) {
+        return("Excel: gagal membaca sheet '0. Profil Data'.")
       }
-      return("Excel: gagal membaca sheet '0. Profil Data'.")
+      profile <- list(
+        area_name = trimws(profil_io$Deskripsi[1]),
+        year      = as.numeric(profil_io$Deskripsi[2]),
+        currency  = trimws(profil_io$Deskripsi[3]),
+        io_source = trimws(profil_io$Deskripsi[4])
+      )
+      data_source <- "Excel"
     }
-    
-    "Belum ada input."
+
+    landuse <- profile$landuse
+    if (!rv$load_rds || rv$new_lc_area) {
+      landuse <- tryCatch(uploaded_landuse_metadata(), error = function(e) NULL)
+    }
+    paste(
+      c(
+        paste0("Sumber input: ", data_source),
+        paste0("Wilayah: ", profile$area_name),
+        paste0("Tahun IO: ", profile$year),
+        paste0("Mata uang: ", profile$currency),
+        paste0("Sumber IO: ", profile$io_source %||% "-"),
+        paste0("Tahun luas tutupan lahan: ", landuse$year %||% "Belum tercatat"),
+        paste0("Sumber luas tutupan lahan: ", landuse$source %||% "Belum tercatat"),
+        landuse_year_warning(profile$year, landuse$year)
+      ),
+      collapse = "\n"
+    )
   })
   
   # --- Process Analysis ---
@@ -381,17 +388,18 @@ server <- function(input, output, session) {
     
     if (!rv$load_rds) {
       if (is.null(input$io_file))            missing_inputs <- c(missing_inputs, "Tabel Input/Output")
-      if (is.null(input$landuse_table_file)) missing_inputs <- c(missing_inputs, "Tabel Referensi Penutup Lahan")
+      if (is.null(input$landuse_table_file)) missing_inputs <- c(missing_inputs, "Tabel Luas Tutupan Lahan (ha)")
     } else {
       if (is.null(input$preprocessing_rds_file)) {
         missing_inputs <- c(missing_inputs, "Preprocessing RDS")
       }
       if (rv$new_lc_area && is.null(input$landuse_table_file)) {
-        missing_inputs <- c(missing_inputs, "Tabel Referensi Penutup Lahan")
+        missing_inputs <- c(missing_inputs, "Tabel Luas Tutupan Lahan (ha)")
       }
     }
     
-    if (is.null(rv$wd) || rv$wd == "") {
+    output_dir <- selected_output_dir()
+    if (is.null(output_dir)) {
       missing_inputs <- c(missing_inputs, "Folder Output")
     }
     
@@ -407,7 +415,6 @@ server <- function(input, output, session) {
     withProgress(message = "Running TA Regional Economy Descriptive Analysis", value = 0, {
       tryCatch({
         
-        output_dir <- rv$wd
         start_time <- Sys.time()
         
         # =====================================================================
@@ -550,6 +557,14 @@ server <- function(input, output, session) {
           full_io_table              <- input_preprocessing$io$full_io_table
           code_registry              <- input_preprocessing$io$code_registry
         }
+
+        if (!load_rds || new_lc_area) {
+          profile$landuse <- uploaded_landuse_metadata()
+        }
+        year_warning <- landuse_year_warning(profile$year, profile$landuse$year)
+        if (!is.null(year_warning)) {
+          showNotification(year_warning, type = "warning", duration = 10)
+        }
         
         # =====================================================================
         # DERIVE SECTOR INDEX
@@ -687,10 +702,8 @@ server <- function(input, output, session) {
         multiplier_table <- combine_multipliers(OM, IM, LM, SUBM)
         
         # =====================================================================
-        # SAVE CORE ANALYSIS RDS
+        # PREPARE REPORT DATA
         # =====================================================================
-        incProgress(0.05, detail = "Saving core analysis RDS")
-        
         core_analysis_results <- list(
           sector                   = sector,
           intermediate_consumption = intermediate_consumption.m,
@@ -714,8 +727,6 @@ server <- function(input, output, session) {
           status                   = validation_status,
           metadata                 = io_metadata          
         )
-        
-        save_core_analysis_data(core_analysis_results)
         
         # =====================================================================
         # EXPORT EXCEL & RDS
@@ -788,6 +799,9 @@ server <- function(input, output, session) {
             location    = profile$area_name,
             io_period   = profile$year,
             io_source   = profile$io_source,
+            landuse_year = profile$landuse$year %||% "Belum tercatat",
+            landuse_source = profile$landuse$source %||% "Belum tercatat",
+            landuse_year_warning = year_warning %||% "",
             data_source = if (load_rds) "RDS" else "Excel",
             output_dir  = output_dir
           ),
@@ -810,8 +824,9 @@ server <- function(input, output, session) {
   
   # --- Open folder ---
   observeEvent(input$open_output_folder, {
-    if (!is.null(rv$wd) && dir.exists(rv$wd)) {
-      if (.Platform$OS.type == "windows") shell.exec(rv$wd) else system2("open", args = rv$wd)
+    path <- selected_output_dir()
+    if (!is.null(path)) {
+      if (.Platform$OS.type == "windows") shell.exec(path) else system2("open", args = shQuote(path))
     } else {
       showNotification("Output directory not found", type = "error")
     }
@@ -820,7 +835,7 @@ server <- function(input, output, session) {
   # --- Open report ---
   observeEvent(input$open_report, {
     if (!is.null(rv$report_file) && file.exists(rv$report_file)) {
-      if (.Platform$OS.type == "windows") shell.exec(rv$report_file) else system2("open", args = rv$report_file)
+      if (.Platform$OS.type == "windows") shell.exec(rv$report_file) else system2("open", args = shQuote(rv$report_file))
     } else {
       showNotification("Report file not found", type = "error")
     }

@@ -139,6 +139,29 @@ read_input_file <- function(path, sheet = NULL, skip = 0, header = FALSE, as_mat
   return(data)
 }
 
+read_landuse_metadata <- function(path) {
+  row <- readxl::read_excel(path, range = "B2:G2", col_names = FALSE,
+                            col_types = "text", .name_repair = "minimal")
+  cells <- trimws(unlist(row[1, ], use.names = FALSE))
+  year <- cells[2]
+  source <- cells[6]
+  list(
+    year = if (isTRUE(cells[1] == "Tahun acuan luas") &&
+               !is.na(year) && grepl("^[1-9][0-9]{3}$", year)) as.integer(year),
+    source = if (isTRUE(cells[4] == "Sumber data") &&
+                 !is.na(source) && nzchar(source)) source
+  )
+}
+
+landuse_year_warning <- function(io_year, landuse_year) {
+  if (isTRUE(landuse_year != io_year)) {
+    sprintf(
+      "Tahun luas tutupan lahan (%s) berbeda dari tahun acuan IO (%s). Periksa apakah perbedaan ini disengaja.",
+      landuse_year, io_year
+    )
+  }
+}
+
 #' Build full Input-Output table and code registry
 #'
 #' Combines Intermediate Consumption, Final Demand, and Added Value into a
@@ -1480,7 +1503,7 @@ calculate_gdp <- function(added_value_m,
   GDP$GDP_PROP <- ifelse(GDP$OUTPUT == 0, 0, GDP$GDP / GDP$OUTPUT)
   GDP$FD <- rowSums(final_demand_m)
   GDP$Prop_FD <- ifelse(GDP$OUTPUT == 0, 0, GDP$FD / GDP$OUTPUT)
-  GDP$Total_OUTPUT <- leontief %*% GDP$FD
+  GDP$Total_OUTPUT <- as.numeric(leontief %*% GDP$FD)
   
   GDP
 }
@@ -1801,25 +1824,6 @@ get_added_value_components <- function(intermediate_consumption_m, added_value_m
     other_tax_row      = other_tax_row,
     tax_product_row    = tax_product_row
   )
-}
-
-#' Save core analysis results to RDS
-#'
-#' Saves the results of the core Input-Output analysis into an RDS file so
-#' that visualisation can be performed without recalculating.
-#'
-#' @param core_analysis_results List containing core analysis outputs.
-#' @param output_dir Character. Directory to save the RDS file.
-#'   Default is `"inst/extdata/output"`.
-#'
-#' @return Invisibly returns the output directory.
-#' @export
-save_core_analysis_data <- function(core_analysis_results,
-                                    output_dir = "inst/extdata/output") {
-  dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
-  saveRDS(core_analysis_results,
-          file = file.path(output_dir, "descriptive_core_analysis.rds"))
-  invisible(output_dir)
 }
 
 #' Set Excel Worksheet Tab Color
@@ -2286,24 +2290,15 @@ generate_prs_plot <- function(linkages_table,
                               point_size = 5,
                               label_size = 3,
                               label_alpha = 0.6) {
-  # ITBL and ITFL are normalised so their mean is exactly 1: the reference line
-  # at 1 is therefore both the BPS threshold and the cross-sector average.
   linkages_table <- linkages_table %>%
     mutate(
-      Quadrant = factor(
-        Quadrant,
-        levels = c("Kuadran I", "Kuadran II", "Kuadran III", "Kuadran IV")
-      ),
-      # Pastikan ID karakter (untuk label)
+      CATEGORY = coalesce(na_if(as.character(CATEGORY), ""), "Tidak tercatat"),
       ID = as.character(ID)
     )
-  
-  # Color code per kategori/kuadran
-  quadrant_colors <- c(
-    "Kuadran I"   = "#2E86AB",  # Biru - unggulan
-    "Kuadran II"  = "#A23B72",  # Magenta - potensi unggul
-    "Kuadran III" = "#F18F01",  # Orange - kurang diunggulkan
-    "Kuadran IV"  = "#C73E1D"   # Merah - tertinggal
+  extra_categories <- setdiff(sort(unique(linkages_table$CATEGORY)), names(category_colors))
+  plot_colors <- c(
+    category_colors,
+    setNames(grDevices::hcl.colors(length(extra_categories), "Dark 3"), extra_categories)
   )
   
   p <- ggplot(
@@ -2311,24 +2306,20 @@ generate_prs_plot <- function(linkages_table,
     aes(
       x = ITBL,
       y = ITFL,
-      color = Quadrant,
+      color = CATEGORY,
       text = paste0(
         "<b>", SECTOR, "</b><br>",
+        "Kategori: ", CATEGORY, "<br>",
         "ITBL: ", round(ITBL, 3), "<br>",
         "ITFL: ", round(ITFL, 3), "<br>",
-        "Kuadran: ", Quadrant
+        if_else(Quadrant == "Undefined", "Pada garis acuan", as.character(Quadrant))
       )
     )
   ) +
     # Garis pembatas kuadran
     geom_hline(yintercept = 1, linetype = "dashed", color = "grey40", alpha = 0.7) +
     geom_vline(xintercept = 1, linetype = "dashed", color = "grey40", alpha = 0.7) +
-    # Bubble dengan ukuran SERAGAM + alpha transparan + jitter ringan
-    geom_point(
-      size = point_size,
-      alpha = 0.6,
-      position = position_jitter(width = 0.01, height = 0.01, seed = 42)
-    ) +
+    geom_point(size = point_size, alpha = 0.6) +
     # Angka ID di tengah bubble, warna transparan
     geom_text(
       aes(label = ID),
@@ -2336,19 +2327,18 @@ generate_prs_plot <- function(linkages_table,
       alpha = label_alpha,
       size = label_size,
       fontface = "bold",
-      position = position_jitter(width = 0.01, height = 0.01, seed = 42),
       show.legend = FALSE
     ) +
-    scale_color_manual(values = quadrant_colors, name = "Kategori") +
+    scale_color_manual(values = plot_colors, name = NULL) +
     labs(
-      title = "Peta Sektor Berdasarkan Backward & Forward Linkage",
+      title = "Peta keterkaitan antarsektor",
       subtitle = "Garis putus-putus menunjukkan nilai rata-rata (indeks = 1)",
-      x = "Indeks Total Backward Linkage (ITBL)",
-      y = "Indeks Total Forward Linkage (ITFL)"
+      x = "Indeks Daya Penyebaran (ITBL)",
+      y = "Indeks Derajat Kepekaan (ITFL)"
     ) +
     theme_minimal(base_size = 12) +
     theme(
-      legend.position = "right",
+      legend.position = "bottom",
       panel.grid.minor = element_blank(),
       plot.title = element_text(face = "bold")
     )
@@ -2387,6 +2377,7 @@ category_colors <- c(
   "Konstruksi"       = "#8E24AA",
   "Perdagangan"      = "#FB8C00",
   "Transportasi"     = "#3949AB",
+  "Jasa Pertanian"   = "#B83280",
   "Jasa & Layanan"   = "#29B6F6",
   "Pelayanan Umum"   = "#546E7A",
   "Lainnya"          = "#BDBDBD"
@@ -2523,11 +2514,12 @@ generate_gdp_bar_chart <- function(gdp_sector, sector_info, top_n = 10) {
 #' @param sector A tibble with sector names and categories.
 #' @param top_n Integer. Number of top sectors to display before grouping the
 #'   rest into "Lainnya" (default 15).
+#' @param currency Currency code for GDP values expressed in millions.
 #'
-#' @return A list with elements `plot` (plotly) and `data` (tibble).
+#' @return The plot, plotted data with formatted GDP labels, and number of named sectors.
 #'
 #' @export
-generate_gdp_donut_chart <- function(gdp_baseline, sector, top_n = 15) {
+generate_gdp_donut_chart <- function(gdp_baseline, sector, top_n = 15, currency = "IDR") {
   total_gdp <- sum(gdp_baseline$GDP, na.rm = TRUE)
   
   gdp_sorted <- gdp_baseline %>%
@@ -2535,37 +2527,40 @@ generate_gdp_donut_chart <- function(gdp_baseline, sector, top_n = 15) {
     arrange(desc(GDP))
   
   # Ambil Top N sektor
-  top_sectors <- gdp_sorted %>% slice_head(n = top_n)
-  
-  # Hitung sisanya untuk "Lainnya"
-  others_gdp <- sum(gdp_sorted$GDP) - sum(top_sectors$GDP)
-  
-  donut_data <- bind_rows(
-    top_sectors %>% select(SECTOR, GDP),
-    tibble(SECTOR = "Lainnya", GDP = others_gdp)
-  ) %>%
-    mutate(
-      CONTRIBUTION = GDP / total_gdp * 100,
-      SECTOR = factor(SECTOR, levels = c(rev(top_sectors$SECTOR), "Lainnya"))
-    )
-  
-  # Palet warna: `top_n` warna untuk sektor + abu untuk "Lainnya"
-  cols <- c(
-    scales::hue_pal()(top_n),
-    "grey70"
+  top_sectors <- gdp_sorted %>% slice_head(n = top_n) %>% select(SECTOR, GDP)
+  top_count <- nrow(top_sectors)
+  cols <- scales::hue_pal()(top_count)
+
+  donut_data <- top_sectors
+  if (top_count < nrow(gdp_sorted)) {
+    others_gdp <- total_gdp - sum(top_sectors$GDP)
+    donut_data <- bind_rows(donut_data, tibble(SECTOR = "Lainnya", GDP = others_gdp))
+    cols <- c(cols, "#C8CDD2")
+  }
+  donut_data <- donut_data %>% mutate(CONTRIBUTION = GDP / total_gdp * 100)
+
+  unit_index <- findInterval(abs(donut_data$GDP), c(1e3, 1e6)) + 1L
+  currency_prefix <- if (identical(currency, "IDR")) "Rp" else paste0(currency, " ")
+  donut_data$GDP_LABEL <- paste0(
+    currency_prefix,
+    scales::number(donut_data$GDP / c(1, 1e3, 1e6)[unit_index],
+                   accuracy = 0.01, big.mark = ",", decimal.mark = "."),
+    " ", c("juta", "miliar", "triliun")[unit_index]
   )
   
   p <- plot_ly(
     donut_data,
     labels = ~SECTOR,
     values = ~GDP,
+    customdata = ~GDP_LABEL,
     type = "pie",
+    sort = FALSE,
     hole = 0.5,  # <- ini yang bikin bolong
     textposition = "inside",
     textinfo = "percent",
     hovertemplate = paste0(
       "<b>%{label}</b><br>",
-      "PDRB: %{value:,.0f}<br>",
+      "PDRB: %{customdata}<br>",
       "Kontribusi: %{percent}<extra></extra>"
     ),
     marker = list(
@@ -2574,10 +2569,11 @@ generate_gdp_donut_chart <- function(gdp_baseline, sector, top_n = 15) {
     )
   ) %>%
     layout(
-      title = "Top 15 Proporsi Kontribusi PDRB per Sektor",
+      title = paste("Kontribusi PDRB", top_count, "Sektor Terbesar"),
       showlegend = TRUE,
       legend = list(
         orientation = "v", 
+        traceorder = "normal",
         x = 1, 
         y = 0.5,
         # Memperkecil ukuran font legend
@@ -2586,7 +2582,7 @@ generate_gdp_donut_chart <- function(gdp_baseline, sector, top_n = 15) {
       )
     )
   
-  list(plot = p, data = donut_data)
+  list(plot = p, data = donut_data, top_count = top_count)
 }
 
 #' Export Input-Output Metadata to a TXT file
@@ -2677,13 +2673,15 @@ regeco_help_texts <- list(
             </ul>"
   ),
   landuse_table_file = list(
-    title = "Tabel Referensi Penutup Lahan",
+    title = "Tabel Luas Tutupan Lahan (ha)",
     body = "<p>Berkas spreadsheet Excel (.xlsx) yang memuat data luas tutupan/penggunaan lahan (hektar) di wilayah studi.</p>
+            <p>Isi tahun acuan luas pada sel C2 dan sumber data pada sel G2 sesuai label di templat. Pertahankan judul kolom data di baris 3.</p>
             <p>Tabel ini menghubungkan kelas-kelas tutupan lahan dengan sektor ekonomi berbasis lahan untuk menganalisis produktivitas lahan dan koefisien kebutuhan lahan.</p>"
   ),
   landuse_table_file_rds = list(
-    title = "Tabel Referensi Penutup Lahan",
+    title = "Tabel Luas Tutupan Lahan (ha)",
     body = "<p>Berkas spreadsheet Excel (.xlsx) yang memuat data luas tutupan/penggunaan lahan (hektar) di wilayah studi.</p>
+            <p>Isi tahun acuan luas pada sel C2 dan sumber data pada sel G2 sesuai label di templat. Pertahankan judul kolom data di baris 3.</p>
             <p>Tabel ini menghubungkan kelas-kelas tutupan lahan dengan sektor ekonomi berbasis lahan untuk menganalisis produktivitas lahan dan koefisien kebutuhan lahan.</p>"
   ),
   preprocessing_rds_file = list(
