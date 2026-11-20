@@ -18,6 +18,9 @@ params:
   location: NA
   io_period: NA
   io_source: NA      
+  landuse_year: "Belum tercatat"
+  landuse_source: "Belum tercatat"
+  landuse_year_warning: ""
   data_source: NA   
   output_dir: NA
 ---
@@ -114,7 +117,9 @@ intisari_data <- tibble::tibble(
     "Tahun IO",
     "Mata Uang",
     "Satuan Angka",
-    "Sumber IO"
+    "Sumber IO",
+    "Tahun luas tutupan lahan",
+    "Sumber luas tutupan lahan"
   ),
   Keterangan = c(
     as.character(params$data_source),
@@ -123,7 +128,9 @@ intisari_data <- tibble::tibble(
     as.character(params$unit),
     paste0("Juta (nilai aktual = angka × ", 
            format(1000000, big.mark = ".", scientific = FALSE), ")"),
-    as.character(params$io_source)
+    as.character(params$io_source),
+    as.character(params$landuse_year),
+    as.character(params$landuse_source)
   )
 )
 
@@ -138,6 +145,12 @@ knitr::kable(
 ```
 
 > **Catatan Format Angka:** Seluruh angka dalam laporan ini menggunakan format standar internasional, di mana **titik (.)** digunakan sebagai pemisah desimal dan **koma (,)** digunakan sebagai pemisah ribuan (contoh: `1,234.56`).
+
+```{r landuse-year-warning, results='asis'}
+if (nzchar(params$landuse_year_warning)) {
+  cat("\n> **Peringatan tahun acuan.** ", params$landuse_year_warning, "\n\n", sep = "")
+}
+```
 
 # Karakteristik Data {#karakteristik-data .tabset}
 

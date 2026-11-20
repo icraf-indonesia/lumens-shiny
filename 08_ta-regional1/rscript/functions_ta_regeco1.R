@@ -139,6 +139,29 @@ read_input_file <- function(path, sheet = NULL, skip = 0, header = FALSE, as_mat
   return(data)
 }
 
+read_landuse_metadata <- function(path) {
+  row <- readxl::read_excel(path, range = "B2:G2", col_names = FALSE,
+                            col_types = "text", .name_repair = "minimal")
+  cells <- trimws(unlist(row[1, ], use.names = FALSE))
+  year <- cells[2]
+  source <- cells[6]
+  list(
+    year = if (isTRUE(cells[1] == "Tahun acuan luas") &&
+               !is.na(year) && grepl("^[1-9][0-9]{3}$", year)) as.integer(year),
+    source = if (isTRUE(cells[4] == "Sumber data") &&
+                 !is.na(source) && nzchar(source)) source
+  )
+}
+
+landuse_year_warning <- function(io_year, landuse_year) {
+  if (isTRUE(landuse_year != io_year)) {
+    sprintf(
+      "Tahun luas tutupan lahan (%s) berbeda dari tahun acuan IO (%s). Periksa apakah perbedaan ini disengaja.",
+      landuse_year, io_year
+    )
+  }
+}
+
 #' Build full Input-Output table and code registry
 #'
 #' Combines Intermediate Consumption, Final Demand, and Added Value into a
@@ -2658,13 +2681,15 @@ regeco_help_texts <- list(
             </ul>"
   ),
   landuse_table_file = list(
-    title = "Tabel Referensi Penutup Lahan",
+    title = "Tabel Luas Tutupan Lahan (ha)",
     body = "<p>Berkas spreadsheet Excel (.xlsx) yang memuat data luas tutupan/penggunaan lahan (hektar) di wilayah studi.</p>
+            <p>Isi tahun acuan luas pada sel C2 dan sumber data pada sel G2 sesuai label di templat. Pertahankan judul kolom data di baris 3.</p>
             <p>Tabel ini menghubungkan kelas-kelas tutupan lahan dengan sektor ekonomi berbasis lahan untuk menganalisis produktivitas lahan dan koefisien kebutuhan lahan.</p>"
   ),
   landuse_table_file_rds = list(
-    title = "Tabel Referensi Penutup Lahan",
+    title = "Tabel Luas Tutupan Lahan (ha)",
     body = "<p>Berkas spreadsheet Excel (.xlsx) yang memuat data luas tutupan/penggunaan lahan (hektar) di wilayah studi.</p>
+            <p>Isi tahun acuan luas pada sel C2 dan sumber data pada sel G2 sesuai label di templat. Pertahankan judul kolom data di baris 3.</p>
             <p>Tabel ini menghubungkan kelas-kelas tutupan lahan dengan sektor ekonomi berbasis lahan untuk menganalisis produktivitas lahan dan koefisien kebutuhan lahan.</p>"
   ),
   preprocessing_rds_file = list(
