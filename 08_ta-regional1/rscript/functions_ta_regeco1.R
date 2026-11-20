@@ -2527,11 +2527,12 @@ generate_gdp_bar_chart <- function(gdp_sector, sector_info, top_n = 10) {
 #' @param sector A tibble with sector names and categories.
 #' @param top_n Integer. Number of top sectors to display before grouping the
 #'   rest into "Lainnya" (default 15).
+#' @param currency Currency code for GDP values expressed in millions.
 #'
-#' @return A list with elements `plot` (plotly) and `data` (tibble).
+#' @return The plot, plotted data with formatted GDP labels, and number of named sectors.
 #'
 #' @export
-generate_gdp_donut_chart <- function(gdp_baseline, sector, top_n = 15) {
+generate_gdp_donut_chart <- function(gdp_baseline, sector, top_n = 15, currency = "IDR") {
   total_gdp <- sum(gdp_baseline$GDP, na.rm = TRUE)
   
   gdp_sorted <- gdp_baseline %>%
@@ -2539,37 +2540,40 @@ generate_gdp_donut_chart <- function(gdp_baseline, sector, top_n = 15) {
     arrange(desc(GDP))
   
   # Ambil Top N sektor
-  top_sectors <- gdp_sorted %>% slice_head(n = top_n)
-  
-  # Hitung sisanya untuk "Lainnya"
-  others_gdp <- sum(gdp_sorted$GDP) - sum(top_sectors$GDP)
-  
-  donut_data <- bind_rows(
-    top_sectors %>% select(SECTOR, GDP),
-    tibble(SECTOR = "Lainnya", GDP = others_gdp)
-  ) %>%
-    mutate(
-      CONTRIBUTION = GDP / total_gdp * 100,
-      SECTOR = factor(SECTOR, levels = c(rev(top_sectors$SECTOR), "Lainnya"))
-    )
-  
-  # Palet warna: `top_n` warna untuk sektor + abu untuk "Lainnya"
-  cols <- c(
-    scales::hue_pal()(top_n),
-    "grey70"
+  top_sectors <- gdp_sorted %>% slice_head(n = top_n) %>% select(SECTOR, GDP)
+  top_count <- nrow(top_sectors)
+  cols <- scales::hue_pal()(top_count)
+
+  donut_data <- top_sectors
+  if (top_count < nrow(gdp_sorted)) {
+    others_gdp <- total_gdp - sum(top_sectors$GDP)
+    donut_data <- bind_rows(donut_data, tibble(SECTOR = "Lainnya", GDP = others_gdp))
+    cols <- c(cols, "#C8CDD2")
+  }
+  donut_data <- donut_data %>% mutate(CONTRIBUTION = GDP / total_gdp * 100)
+
+  unit_index <- findInterval(abs(donut_data$GDP), c(1e3, 1e6)) + 1L
+  currency_prefix <- if (identical(currency, "IDR")) "Rp" else paste0(currency, " ")
+  donut_data$GDP_LABEL <- paste0(
+    currency_prefix,
+    scales::number(donut_data$GDP / c(1, 1e3, 1e6)[unit_index],
+                   accuracy = 0.01, big.mark = ",", decimal.mark = "."),
+    " ", c("juta", "miliar", "triliun")[unit_index]
   )
   
   p <- plot_ly(
     donut_data,
     labels = ~SECTOR,
     values = ~GDP,
+    customdata = ~GDP_LABEL,
     type = "pie",
+    sort = FALSE,
     hole = 0.5,  # <- ini yang bikin bolong
     textposition = "inside",
     textinfo = "percent",
     hovertemplate = paste0(
       "<b>%{label}</b><br>",
-      "PDRB: %{value:,.0f}<br>",
+      "PDRB: %{customdata}<br>",
       "Kontribusi: %{percent}<extra></extra>"
     ),
     marker = list(
@@ -2578,10 +2582,11 @@ generate_gdp_donut_chart <- function(gdp_baseline, sector, top_n = 15) {
     )
   ) %>%
     layout(
-      title = "Top 15 Proporsi Kontribusi PDRB per Sektor",
+      title = paste("Kontribusi PDRB", top_count, "Sektor Terbesar"),
       showlegend = TRUE,
       legend = list(
         orientation = "v", 
+        traceorder = "normal",
         x = 1, 
         y = 0.5,
         # Memperkecil ukuran font legend
@@ -2590,7 +2595,7 @@ generate_gdp_donut_chart <- function(gdp_baseline, sector, top_n = 15) {
       )
     )
   
-  list(plot = p, data = donut_data)
+  list(plot = p, data = donut_data, top_count = top_count)
 }
 
 #' Export Input-Output Metadata to a TXT file

@@ -448,11 +448,11 @@ DT::datatable(
 ## Proporsi Sektor
 
 ```{r, gdp-donut, echo=FALSE, warning=FALSE, message=FALSE}
-gdp_donut <- generate_gdp_donut_chart(gdp_baseline, sector)
+gdp_donut <- generate_gdp_donut_chart(gdp_baseline, sector, currency = params$unit)
 gdp_donut$plot
 ```
 
-Diagram donat menunjukkan kontribusi 10 sektor terbesar terhadap total PDRB wilayah. Sektor `r gdp_donut$data$SECTOR[1]` merupakan kontributor terbesar dengan nilai PDRB sebesar `r format(round(gdp_donut$data$GDP[1],0), big.mark = ",")` `r params$unit` atau sekitar `r gdp_donut$data$CONTRIBUTION[1]`% dari total PDRB.
+Diagram donat menunjukkan kontribusi `r gdp_donut$top_count` sektor terbesar terhadap total PDRB wilayah.`r if (nrow(gdp_donut$data) > gdp_donut$top_count) " Sektor sisanya digabung dalam kategori Lainnya."` Sektor `r gdp_donut$data$SECTOR[1]` memiliki PDRB sebesar `r gdp_donut$data$GDP_LABEL[1]`, atau `r scales::number(gdp_donut$data$CONTRIBUTION[1], accuracy = 0.01)`% dari total PDRB.
 
 # Analisis Deskriptif per Sektor {#pdrb-per-sektor}
 
