@@ -811,7 +811,7 @@ server <- function(input, output, session) {
   # --- Open folder ---
   observeEvent(input$open_output_folder, {
     if (!is.null(rv$wd) && dir.exists(rv$wd)) {
-      if (.Platform$OS.type == "windows") shell.exec(rv$wd) else system2("open", args = rv$wd)
+      if (.Platform$OS.type == "windows") shell.exec(rv$wd) else system2("open", args = shQuote(rv$wd))
     } else {
       showNotification("Output directory not found", type = "error")
     }
@@ -820,7 +820,7 @@ server <- function(input, output, session) {
   # --- Open report ---
   observeEvent(input$open_report, {
     if (!is.null(rv$report_file) && file.exists(rv$report_file)) {
-      if (.Platform$OS.type == "windows") shell.exec(rv$report_file) else system2("open", args = rv$report_file)
+      if (.Platform$OS.type == "windows") shell.exec(rv$report_file) else system2("open", args = shQuote(rv$report_file))
     } else {
       showNotification("Report file not found", type = "error")
     }
