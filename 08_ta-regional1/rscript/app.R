@@ -344,20 +344,22 @@ server <- function(input, output, session) {
                         skip = 2, header = TRUE),
         error = function(e) NULL
       )
-      if (!is.null(profil_io) && nrow(profil_io) >= 3) {
+      if (!is.null(profil_io) && nrow(profil_io) >= 5) {
         profile <- list(
           area_name = trimws(profil_io$Deskripsi[1]),
           year      = as.numeric(profil_io$Deskripsi[2]),
           currency  = trimws(profil_io$Deskripsi[3]),
-          io_source = trimws(profil_io$Deskripsi[4])
+          io_source = trimws(profil_io$Deskripsi[4]),
+          n_sector  = as.integer(profil_io$Deskripsi[5])
         )
         rv$profile <- profile
         return(paste0(
-          "Source  : Excel\n",
-          "Area    : ", profile$area_name, "\n",
-          "Year    : ", profile$year, "\n",
-          "Currency: ", profile$currency, "\n",
-          "IO Src  : ", profile$io_source
+          "Source       : Excel\n",
+          "Area         : ", profile$area_name, "\n",
+          "Year         : ", profile$year, "\n",
+          "Currency     : ", profile$currency, "\n",
+          "IO Src       : ", profile$io_source, "\n",
+          "Jumlah Sektor: ", profile$n_sector
         ))
       }
       return("Excel: gagal membaca sheet '0. Profil Data'.")
@@ -418,12 +420,22 @@ server <- function(input, output, session) {
           # --- Read inputs (persis notebook) ---
           profil_io         <- read_input_file(io_file_path, sheet = "0. Profil Data", skip = 2, header = TRUE)
           sektor_ekonomi    <- read_input_file(io_file_path, sheet = "1. Sektor Ekonomi", skip = 2, header = TRUE)
-          permintaan_antara <- read_input_file(io_file_path, sheet = "2. Permintaan Antara", skip = 8, as_matrix = TRUE, header = TRUE)
-          permintaan_akhir  <- read_input_file(io_file_path, sheet = "3. Permintaan Akhir", skip = 3, header = TRUE)
-          input_primer      <- read_input_file(io_file_path, sheet = "4. Input Primer", skip = 2, header = TRUE)
-          tenaga_kerja      <- read_input_file(io_file_path, sheet = "5. Tenaga Kerja", skip = 2, header = TRUE)
-          proposi_lahan     <- read_input_file(io_file_path, sheet = "6. Proposi Lahan", skip = 9, as_matrix = TRUE, header = TRUE)
-          laju_pertumbuhan  <- read_input_file(io_file_path, sheet = "7. Laju Pertumbuhan PDRB", skip = 2, header = TRUE)
+          
+          # --- Parse consolidated "2. Tabel IO" sheet ---
+          n_sector_excel <- as.integer(profil_io$Deskripsi[5])
+          if (is.na(n_sector_excel) || n_sector_excel < 1) {
+            stop("Kolom 'Jumlah Sektor Ekonomi' pada sheet '0. Profil Data' tidak valid.")
+          }
+          parsed_io <- parse_io_sheet(
+            io_file_path = io_file_path,
+            n_sector     = n_sector_excel,
+            sheet        = "2. Tabel IO",
+            skip         = 7
+          )
+          
+          tenaga_kerja      <- read_input_file(io_file_path, sheet = "3. Tenaga Kerja", skip = 2, header = TRUE)
+          proposi_lahan     <- read_input_file(io_file_path, sheet = "4. Proposi Lahan", skip = 9, as_matrix = TRUE, header = TRUE)
+          laju_pertumbuhan  <- read_input_file(io_file_path, sheet = "5. Laju Pertumbuhan PDRB", skip = 2, header = TRUE)
           luas_area         <- read_input_file(landuse_table_file_path, skip = 2, header = TRUE)
         } else {
           # --- Reload from RDS ---
@@ -438,7 +450,7 @@ server <- function(input, output, session) {
         }
         
         # =====================================================================
-        # PREPARE DATA (persis notebook)
+        # PREPARE DATA
         # =====================================================================
         incProgress(0.1, detail = "Preparing data")
         
@@ -448,7 +460,8 @@ server <- function(input, output, session) {
             area_name = trimws(profil_io$Deskripsi[1]),
             year      = as.numeric(profil_io$Deskripsi[2]),
             currency  = trimws(profil_io$Deskripsi[3]),
-            io_source = trimws(profil_io$Deskripsi[4])
+            io_source = trimws(profil_io$Deskripsi[4]),
+            n_sector  = n_sector_excel
           )
           
           # --- Prepare sectors ---
@@ -457,50 +470,55 @@ server <- function(input, output, session) {
             stats::setNames(c("Nama_Sektor", "Kategori", "Berbasis_Lahan")) %>%
             dplyr::filter(complete.cases(.))
           
-          # --- Prepare intermediate consumption ---
-          permintaan_antara <- permintaan_antara[
-            rowSums(is.na(permintaan_antara)) != ncol(permintaan_antara),
-            colSums(is.na(permintaan_antara)) != nrow(permintaan_antara)
-          ]
+          if (nrow(sector) != n_sector_excel) {
+            stop(sprintf(
+              "Jumlah sektor di '0. Profil Data' (%d) tidak sama dengan baris di '1. Sektor Ekonomi' (%d).",
+              n_sector_excel, nrow(sector)
+            ))
+          }
           
-          intermediate_consumption.m <- matrix(
-            as.numeric(permintaan_antara[, -1]),
-            nrow = nrow(permintaan_antara),
-            ncol = ncol(permintaan_antara) - 1
-          )
-          
-          # --- Prepare final demand ---
-          final_demand.m <- permintaan_akhir %>%
-            dplyr::filter(rowSums(is.na(dplyr::select(., -`Sektor Ekonomi`))) <
-                            ncol(dplyr::select(., -`Sektor Ekonomi`))) %>%
-            tibble::column_to_rownames(var = "Sektor Ekonomi") %>%
-            as.matrix()
-          
-          final_demand_component <- tibble::tibble(
-            ID = seq_along(colnames(permintaan_akhir)[-1]) + 300,
-            Nama_Komponen = colnames(permintaan_akhir)[-1]
-          )
-          
-          # --- Prepare added value ---
-          added_value.m <- input_primer %>%
-            dplyr::select(-ID) %>%
-            dplyr::select(where(~ !all(is.na(.)))) %>%
-            dplyr::filter(rowSums(is.na(dplyr::select(., -`Sektor Ekonomi`))) <
-                            ncol(dplyr::select(., -`Sektor Ekonomi`))) %>%
-            tibble::column_to_rownames(var = "Sektor Ekonomi") %>%
-            as.matrix()
-          
-          added_value_lookup <- input_primer %>% dplyr::select(1:2)
+          # --- Assign parsed IO blocks ---
+          intermediate_consumption.m <- parsed_io$intermediate_consumption
+          final_demand.m             <- parsed_io$final_demand
+          added_value.m              <- parsed_io$added_value
+          final_demand_component     <- parsed_io$final_demand_component
+          added_value_lookup         <- parsed_io$added_value_lookup
           
           # --- Prepare labour ---
           labour <- tenaga_kerja$`Tenaga Kerja (Jiwa)`
           labour <- labour[!is.na(labour)]
           
           # --- Prepare land proportion ---
-          land_proportion <- apply(proposi_lahan[, -1], 2, as.numeric)
-          land_proportion <- land_proportion[!apply(is.na(land_proportion), 1, all), , drop = FALSE]
-          land_proportion <- land_proportion[, !apply(is.na(land_proportion), 2, all), drop = FALSE]
+          land_proportion <- proposi_lahan[, -1, drop = FALSE]
+          storage.mode(land_proportion) <- "numeric"
+          if (anyNA(land_proportion)) {
+            land_proportion <- land_proportion[
+              rowSums(!is.na(land_proportion)) > 0,
+              colSums(!is.na(land_proportion)) > 0,
+              drop = FALSE
+            ]
+          }
           dimnames(land_proportion) <- NULL
+          
+          # Validasi dimensi & konsistensi
+          if (nrow(land_proportion) != n_sector_excel) {
+            stop(sprintf(
+              "Jumlah baris '4. Proposi Lahan' (%d) != n_sector (%d).",
+              nrow(land_proportion), n_sector_excel
+            ))
+          }
+          if (anyNA(land_proportion)) {
+            stop("Masih ada NA di land_proportion setelah pembersihan. Periksa sheet '4. Proposi Lahan'.")
+          }
+          col_sums_lp <- colSums(land_proportion)
+          bad_col <- which(abs(col_sums_lp - 1) > 1e-6)
+          if (length(bad_col) > 0) {
+            warning(sprintf(
+              "Kolom land_proportion yang jumlahnya != 1: %s (colSums: %s)",
+              paste(bad_col, collapse = ", "),
+              paste(signif(col_sums_lp[bad_col], 4), collapse = ", ")
+            ))
+          }
           
           # --- Prepare landuse table ---
           landuse_table <- luas_area
@@ -530,6 +548,10 @@ server <- function(input, output, session) {
           }
           
           profile                    <- input_preprocessing$io$profile
+          if (is.null(profile$n_sector)) {
+            profile$n_sector <- nrow(input_preprocessing$io$sector)   # fallback RDS lama
+          }
+          sector                     <- input_preprocessing$io$sector
           sector                     <- input_preprocessing$io$sector
           intermediate_consumption.m <- input_preprocessing$io$intermediate_consumption
           final_demand.m             <- input_preprocessing$io$final_demand

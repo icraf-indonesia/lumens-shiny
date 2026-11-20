@@ -139,6 +139,385 @@ read_input_file <- function(path, sheet = NULL, skip = 0, header = FALSE, as_mat
   return(data)
 }
 
+#' Parse consolidated "Tabel IO" sheet into IC, FD, and AV blocks
+#'
+#' Reads a single consolidated Input-Output sheet (layout: Kode | Sektor Ekonomi |
+#' Sektor 1..N | Total Permintaan Antara | FD 1..FD m | Total Permintaan Akhir |
+#' Total Output) and extracts the three core blocks required by the analysis:
+#' intermediate consumption (IC), final demand (FD), and added value (AV).
+#'
+#' Aggregate columns ("Total Permintaan Antara", "Total Permintaan Akhir",
+#' "Total Output") and the aggregate row ("Total Konsumsi Antara") are used
+#' **only for validation** and are excluded from the returned matrices, so that
+#' `build_full_io_table()` and `validate_io_data()` do not double-count.
+#'
+#' @param io_file_path Character. Path to the Excel workbook.
+#' @param n_sector Integer. Number of economic sectors, taken from
+#'   "0. Profil Data" (row 5, column "Deskripsi").
+#' @param sheet Character. Name of the consolidated IO sheet.
+#'   Default `"2. Tabel IO"`.
+#' @param skip Integer. Number of rows to skip before the header row.
+#'   Default `7` (title rows 1-7, header at row 8).
+#' @param col_code Integer. Column index of the row code (default `1`).
+#' @param col_label Integer. Column index of the row label (default `2`).
+#' @param tolerance Numeric. Absolute tolerance for aggregate consistency
+#'   checks. Default `0.5`.
+#' @param stop_on_fail Logical. If `TRUE` (default), stops when an aggregate
+#'   check fails; otherwise emits a warning and continues.
+#'
+#' @return A list with elements:
+#'   \item{intermediate_consumption}{Numeric matrix (N x N) of IC.}
+#'   \item{final_demand}{Numeric matrix (N x m) of FD.}
+#'   \item{added_value}{Numeric matrix (k x N) of AV rows.}
+#'   \item{final_demand_component}{Tibble with `ID` and `Nama_Komponen` for FD.}
+#'   \item{added_value_lookup}{Tibble with `ID` and `Nama_Komponen` for AV.}
+#'   \item{aggregates}{List of sheet aggregate values (for reporting):}
+#'     \itemize{
+#'       \item `total_permintaan_antara` (vector length N)
+#'       \item `total_permintaan_akhir` (vector length N)
+#'       \item `total_output` (vector length N)
+#'       \item `total_konsumsi_antara` (vector length N)
+#'       \item `total_input_columns` (vector length N; IC colSum + AV colSum)
+#'     }
+#'   \item{validation}{Tibble with `Check`, `Status`, `Details`.}
+#'   \item{raw}{The raw tibble read from the sheet (for debugging).}
+#'   \item{layout}{List of resolved indices (columns and rows) used.}
+#'
+#' @details
+#' The function assumes the following layout (1-indexed sheet rows/columns):
+#' \preformatted{
+#' Row 1-7 : title / blank
+#' Row 8   : header  → A="Kode", B="Sektor Ekonomi", C..=Sektor 1..N,
+#'                     then "Total Permintaan Antara", FD 1..FD m,
+#'                     "Total Permintaan Akhir", "Total Output"
+#' Row 9 .. 8+N    : sector rows (N rows)
+#' Row 9+N         : "Total Konsumsi Antara" (aggregate)
+#' Row 10+N .. end : added value rows (k rows)
+#' }
+#'
+#' The returned `intermediate_consumption`, `final_demand`, and `added_value`
+#' matrices use **sector names** as row/column names (not codes), matching the
+#' convention used by `build_full_io_table()`.
+#'
+#' @examples
+#' \dontrun{
+#' parsed <- parse_io_sheet("io.xlsx", n_sector = 61)
+#' ic <- parsed$intermediate_consumption
+#' fd <- parsed$final_demand
+#' av <- parsed$added_value
+#' }
+#'
+#' @export
+parse_io_sheet <- function(io_file_path,
+                           n_sector,
+                           sheet        = "2. Tabel IO",
+                           skip         = 7,
+                           col_code     = 1,
+                           col_label    = 2,
+                           tolerance    = 0.5,
+                           stop_on_fail = TRUE) {
+  
+  # ---- 0. Validasi argumen ----
+  if (!file.exists(io_file_path)) {
+    stop("File IO tidak ditemukan: ", io_file_path, call. = FALSE)
+  }
+  if (!is.numeric(n_sector) || length(n_sector) != 1 || is.na(n_sector) || n_sector < 1) {
+    stop("`n_sector` harus berupa bilangan bulat positif.", call. = FALSE)
+  }
+  n_sector <- as.integer(n_sector)
+  
+  # ---- 1. Baca sheet ----
+  raw <- read_input_file(io_file_path, sheet = sheet, skip = skip, header = TRUE)
+  
+  if (nrow(raw) < n_sector + 2) {
+    stop(sprintf(
+      "Sheet '%s' hanya memiliki %d baris; minimal %d baris diperlukan (N sektor + Total Konsumsi Antara + minimal 1 baris AV).",
+      sheet, nrow(raw), n_sector + 2
+    ), call. = FALSE)
+  }
+  
+  # Pastikan kolom label ada
+  if (ncol(raw) < col_label + n_sector) {
+    stop(sprintf(
+      "Sheet '%s' memiliki %d kolom; minimal %d kolom diperlukan (label + %d sektor).",
+      sheet, ncol(raw), col_label + n_sector, n_sector
+    ), call. = FALSE)
+  }
+  
+  # ---- 2. Resolusi indeks kolom (berbasis nama header) ----
+  n_col <- ncol(raw)
+  col_sektor <- (col_label + 1):(col_label + n_sector)   # C .. (B+N)
+  
+  # Header kolom (baris 1 tibble)
+  header_cols <- tolower(trimws(as.character(unlist(raw[1, , drop = TRUE]))))
+  
+  # Deteksi kolom agregat berdasarkan nama (case-insensitive)
+  find_col <- function(pattern, label) {
+    hit <- which(grepl(pattern, header_cols, perl = TRUE))
+    if (length(hit) == 0) {
+      stop(sprintf("Kolom '%s' tidak ditemukan di header sheet '2. Tabel IO'.", label),
+           call. = FALSE)
+    }
+    if (length(hit) > 1) {
+      stop(sprintf("Kolom '%s' ditemukan lebih dari sekali di header.", label),
+           call. = FALSE)
+    }
+    hit
+  }
+  
+  col_tot_ia  <- find_col("^total permintaan antara$",  "Total Permintaan Antara")
+  col_tot_fa  <- find_col("^total permintaan akhir$",   "Total Permintaan Akhir")
+  col_tot_out <- find_col("^total output$",             "Total Output")
+  
+  # FD = semua kolom antara col_tot_ia dan col_tot_fa (eksklusif)
+  col_fd <- (col_tot_ia + 1):(col_tot_fa - 1)
+  
+  if (length(col_fd) < 1) {
+    stop("Tidak ada kolom Final Demand terdeteksi antara 'Total Permintaan Antara' dan 'Total Permintaan Akhir'.",
+         call. = FALSE)
+  }
+  
+  # Kolom tambahan di kanan "Total Output" (409, 509, 600, 700, 800) — diabaikan
+  col_extra <- if (col_tot_out < n_col) (col_tot_out + 1):n_col else integer(0)
+  if (length(col_extra) > 0) {
+    message(sprintf(
+      "[parse_io_sheet] %d kolom tambahan di kanan 'Total Output' diabaikan: %s",
+      length(col_extra),
+      paste(header_cols[col_extra], collapse = ", ")
+    ))
+  }
+  
+  # ---- 3. Resolusi indeks baris ----
+  # Layout: baris 1 tibble = header NAMA (kode sudah jadi colnames),
+  #         baris 2.. = data sektor
+  header_rows <- 1L
+  row_sektor  <- (header_rows + 1):(header_rows + n_sector)
+  row_tot_ia  <- header_rows + n_sector + 1
+  row_av      <- (header_rows + n_sector + 2):nrow(raw)
+  
+  if (length(row_av) < 1) {
+    stop("Tidak ada baris Added Value di sheet '2. Tabel IO'.", call. = FALSE)
+  }
+  
+  # ---- 4. Ambil label baris & kolom ----
+  # Baris 1 tibble = header NAMA; kode kolom ada di `colnames`
+  row_labels <- trimws(as.character(raw[[col_label]][row_sektor]))
+  av_labels  <- trimws(as.character(raw[[col_label]][row_av]))
+  
+  # Nama kolom sektor & FD = baris 1 tibble
+  col_labels <- trimws(as.character(unlist(raw[1, col_sektor, drop = TRUE])))
+  fd_labels  <- trimws(as.character(unlist(raw[1, col_fd,    drop = TRUE])))
+  
+  # Kode asli: sektor & AV dari kolom "Kode" (kolom A); FD dari `colnames`
+  row_codes <- trimws(as.character(raw[[col_code]][row_sektor]))
+  av_codes  <- trimws(as.character(raw[[col_code]][row_av]))
+  fd_codes  <- trimws(as.character(colnames(raw)[col_fd]))
+  if (any(is.na(row_labels) | row_labels == "")) {
+    stop("Ada label sektor kosong/NA pada baris sektor. Periksa sheet 'Tabel IO'.", call. = FALSE)
+  }
+  if (any(is.na(fd_labels) | fd_labels == "")) {
+    stop("Ada nama komponen Final Demand kosong/NA. Periksa header kolom FD.", call. = FALSE)
+  }
+  if (any(is.na(av_labels) | av_labels == "")) {
+    stop("Ada label baris Added Value kosong/NA. Periksa blok AV.", call. = FALSE)
+  }
+  
+  # ---- 5. Helper konversi blok ke numeric matrix ----
+  to_num_matrix <- function(df_block, row_names, col_names, block_name = "block") {
+    df <- as.data.frame(df_block, stringsAsFactors = FALSE)
+    
+    # Ganti string kosong / "-" / "n/a" / "NA" menjadi NA
+    df[] <- lapply(df, function(x) {
+      if (is.character(x)) {
+        x <- trimws(x)
+        x[x %in% c("", "-", "–", "n/a", "N/A", "na", "NA", "null", "NULL")] <- NA_character_
+      }
+      x
+    })
+    
+    m <- suppressWarnings(as.matrix(df))
+    storage.mode(m) <- "numeric"
+    
+    # Laporkan sel yang jadi NA akibat coercion
+    na_idx <- which(is.na(m))
+    if (length(na_idx) > 0) {
+      warning(sprintf(
+        "[parse_io_sheet] %d sel non-numerik/kosong di blok '%s' dikonversi menjadi NA. Contoh baris: %s",
+        length(na_idx), block_name,
+        paste(head(unique(arrayInd(na_idx, dim(m))[, 1]), 5), collapse = ", ")
+      ), call. = FALSE)
+    }
+    
+    rownames(m) <- row_names
+    colnames(m) <- col_names
+    m
+  }
+  
+  # ---- 6a. Ekstraksi blok inti ----
+  ic <- to_num_matrix(raw[row_sektor, col_sektor], row_labels, col_labels, "IC")
+  fd <- to_num_matrix(raw[row_sektor, col_fd], row_labels, fd_codes, "FD")
+  av <- to_num_matrix(raw[row_av,     col_sektor], av_labels,  col_labels, "AV")
+  
+  # ---- 6b. Filter baris AV agregat ----
+  # Pola agregat yang harus dikeluarkan dari matriks AV:
+  #   Padagimo : "Total Input Primer", "Total Input"
+  #   Sulsel   : "Nilai Tambah Bruto"
+  #   Varian   : "Total Nilai Tambah"
+  av_aggregate_pattern <- paste0(
+    "^(total\\s+input(\\s+primer)?|",
+    "nilai\\s+tambah\\s+bruto|",
+    "total\\s+nilai\\s+tambah)$"
+  )
+  is_aggregate_av <- grepl(av_aggregate_pattern, tolower(trimws(av_labels)), perl = TRUE)
+  if (any(is_aggregate_av)) {
+    message(sprintf(
+      "[parse_io_sheet] %d baris AV agregat dikeluarkan dari matriks AV: %s",
+      sum(is_aggregate_av),
+      paste(av_labels[is_aggregate_av], collapse = ", ")
+    ))
+    av         <- av[!is_aggregate_av, , drop = FALSE]
+    av_labels  <- av_labels[!is_aggregate_av]
+    av_codes   <- av_codes[!is_aggregate_av]
+  }
+  
+  # ---- 6c. Bersihkan NA & cek kritis ----
+  na_fd_before <- sum(is.na(fd))
+  if (na_fd_before > 0) {
+    fd[is.na(fd)] <- 0
+    warning(sprintf(
+      "[parse_io_sheet] %d NA di blok FD diisi 0 (baris: %s).",
+      na_fd_before,
+      paste(head(unique(which(is.na(fd), arr.ind = TRUE)[, 1]), 10), collapse = ", ")
+    ), call. = FALSE)
+  }
+  
+  na_ic <- sum(is.na(ic))
+  na_av <- sum(is.na(av))
+  if (na_ic + na_av > 0) {
+    stop(sprintf(
+      "Blok IC/AV mengandung NA setelah konversi numerik: IC=%d, AV=%d. Periksa sel non-numerik di sheet '2. Tabel IO'.",
+      na_ic, na_av
+    ), call. = FALSE)
+  }
+  
+  # ---- 7. Ambil nilai agregat dari sheet ----
+  tot_ia_row  <- suppressWarnings(as.numeric(unlist(raw[row_sektor, col_tot_ia,  drop = TRUE])))
+  tot_fa_row  <- suppressWarnings(as.numeric(unlist(raw[row_sektor, col_tot_fa,  drop = TRUE])))
+  tot_fa_row[is.na(tot_fa_row)] <- 0
+  tot_out_row <- suppressWarnings(as.numeric(unlist(raw[row_sektor, col_tot_out, drop = TRUE])))
+  tot_ia_col  <- suppressWarnings(as.numeric(unlist(raw[row_tot_ia, col_sektor,  drop = TRUE])))
+  
+  # "Total Input" per kolom tidak tersedia sebagai baris di sheet; turunkan dari IC + AV
+  tot_input_col <- colSums(ic, na.rm = TRUE) + colSums(av, na.rm = TRUE)
+  
+  # ---- 8. Komponen FD & AV lookup (pakai kode asli, bukan seq) ----
+  final_demand_component <- tibble::tibble(
+    ID            = fd_codes,
+    Nama_Komponen = fd_labels
+  )
+  added_value_lookup <- tibble::tibble(
+    ID            = av_codes,
+    Nama_Komponen = av_labels
+  )
+  
+  # ---- 9. Validasi agregat ----
+  checks <- list()
+  add_check <- function(check, status, details = NA_character_) {
+    checks[[length(checks) + 1]] <<- tibble::tibble(
+      Check = check, Status = status, Details = details
+    )
+  }
+  
+  check_vec <- function(sheet_val, calc_val, label) {
+    if (length(sheet_val) != length(calc_val)) {
+      add_check(label, "FAIL", sprintf(
+        "Panjang tidak cocok: sheet=%d, calc=%d", length(sheet_val), length(calc_val)))
+      return(invisible(FALSE))
+    }
+    bad <- which(abs(sheet_val - calc_val) > tolerance)
+    if (length(bad) > 0) {
+      add_check(label, "FAIL", sprintf(
+        "%d selisih > toleransi (%g). Contoh: baris %s; sheet=%s; calc=%s",
+        length(bad), tolerance,
+        paste(head(bad, 5), collapse = ", "),
+        paste(signif(sheet_val[bad][1:min(5, length(bad))], 6), collapse = ", "),
+        paste(signif(calc_val[bad][1:min(5, length(bad))], 6), collapse = ", ")
+      ))
+      invisible(FALSE)
+    } else {
+      add_check(label, "PASS", NA_character_)
+      invisible(TRUE)
+    }
+  }
+  
+  ok_ia  <- check_vec(tot_ia_row,  rowSums(ic), "Total Permintaan Antara == rowSums(IC)")
+  ok_fa  <- check_vec(tot_fa_row,  rowSums(fd), "Total Permintaan Akhir == rowSums(FD)")
+  ok_out <- check_vec(tot_out_row, tot_ia_row + tot_fa_row,
+                      "Total Output == Total Permintaan Antara + Akhir")
+  ok_ic  <- check_vec(tot_ia_col,  colSums(ic), "Total Konsumsi Antara == colSums(IC)")
+  
+  # Cek IO identity (row output vs col input)
+  rel_diff <- abs(tot_out_row - tot_input_col) / pmax(abs(tot_out_row), abs(tot_input_col), 1e-9)
+  bad_id <- which(rel_diff > 0.01)
+  if (length(bad_id) > 0) {
+    add_check("IO identity (Total Output == Total Input)", "WARN", sprintf(
+      "%d sektor dengan selisih > 1%%: %s",
+      length(bad_id), paste(row_labels[bad_id][1:min(5, length(bad_id))], collapse = ", ")
+    ))
+  } else {
+    add_check("IO identity (Total Output == Total Input)", "PASS", NA_character_)
+  }
+  
+  validation <- dplyr::bind_rows(checks)
+  has_fail   <- any(validation$Status == "FAIL")
+  
+  if (has_fail && stop_on_fail) {
+    msg <- paste(
+      "Validasi agregat sheet 'Tabel IO' GAGAL:",
+      paste(sprintf("  - %s: %s", validation$Check[validation$Status == "FAIL"],
+                    validation$Details[validation$Status == "FAIL"]), collapse = "\n"),
+      sep = "\n"
+    )
+    stop(msg, call. = FALSE)
+  }
+  if (has_fail && !stop_on_fail) {
+    warning("Validasi agregat sheet 'Tabel IO' gagal (stop_on_fail = FALSE); lanjut dengan risiko.", call. = FALSE)
+  }
+  
+  # ---- 10. Return ----
+  list(
+    intermediate_consumption = ic,
+    final_demand             = fd,
+    added_value              = av,
+    final_demand_component   = final_demand_component,
+    added_value_lookup       = added_value_lookup,
+    aggregates = list(
+      total_permintaan_antara = tot_ia_row,
+      total_permintaan_akhir  = tot_fa_row,
+      total_output            = tot_out_row,
+      total_konsumsi_antara   = tot_ia_col,
+      total_input_columns     = tot_input_col
+    ),
+    validation = validation,
+    raw        = raw,
+    layout = list(
+      n_sector    = n_sector,
+      n_fd        = length(fd_labels),
+      n_av        = length(av_labels),
+      col_sektor  = col_sektor,
+      col_tot_ia  = col_tot_ia,
+      col_fd      = col_fd,
+      col_tot_fa  = col_tot_fa,
+      col_tot_out = col_tot_out,
+      col_extra   = col_extra,                      
+      extra_names = header_cols[col_extra],          
+      row_sektor  = row_sektor,
+      row_tot_ia  = row_tot_ia,
+      row_av      = row_av
+    )
+  )
+}
+
 #' Build full Input-Output table and code registry
 #'
 #' Combines Intermediate Consumption, Final Demand, and Added Value into a
@@ -775,8 +1154,11 @@ validate_io_data <- function(sector,
       add_check("growth_rate", "No NA values", "PASS")
     }
     if (any(growth_rate < 0)) {
-      add_check("growth_rate", "Non‑negative values", "FAIL",
-                "Contains negative growth rates.")
+      neg_idx <- which(growth_rate < 0)
+      add_check("growth_rate", "Non‑negative values", "WARN",
+                sprintf("%d sektor dengan growth rate negatif (wajar untuk analisis deskriptif): %s",
+                        length(neg_idx),
+                        paste(sector_names[neg_idx][1:min(5, length(neg_idx))], collapse = ", ")))
     } else {
       add_check("growth_rate", "Non‑negative values", "PASS")
     }
@@ -851,7 +1233,18 @@ validate_io_data <- function(sector,
   has_fail <- any(report_tbl$Status == "FAIL")
   
   if (has_fail && stop_on_fail) {
-    stop("Validation FAILED. See report above for details.", call. = FALSE)
+    fail_detail <- report_tbl %>%
+      dplyr::filter(Status == "FAIL") %>%
+      dplyr::mutate(msg = sprintf("  [%s] %s: %s", Component, Check, Details)) %>%
+      dplyr::pull(msg)
+    stop(
+      paste(
+        "Validation FAILED:",
+        paste(fail_detail, collapse = "\n"),
+        sep = "\n"
+      ),
+      call. = FALSE
+    )
   }
   if (!has_fail) {
     message("All critical checks passed. ", n_sec, " sectors confirmed consistent.")
@@ -1750,7 +2143,13 @@ combine_multipliers <- function(OM, IM, LM, SUBM) {
 #' @export
 get_added_value_components <- function(intermediate_consumption_m, added_value_m) {
   row_mapping <- list(
-    import_input   = c("Total Konsumsi Antara Impor", "Input Antara (Impor)"),
+    import_input   = c(
+      "Total Konsumsi Antara Impor",
+      "Input Antara (Impor)",
+      "Total Konsumsi Impor",   
+      "Konsumsi Antara Impor",
+      "Impor"                      
+    ),
     compensation   = c("Kompensasi Tenaga Kerja"),
     surplus        = c("Surplus Usaha Bruto"),
     other_tax      = c("Pajak Dikurang Subsidi Lainnya Atas Produksi", "Pajak Neto Subsidi Atas Produksi"),
@@ -1763,15 +2162,26 @@ get_added_value_components <- function(intermediate_consumption_m, added_value_m
   other_tax_row    <- find_row_alias(added_value_m, row_mapping$other_tax)
   tax_product_row  <- find_row_alias(added_value_m, row_mapping$tax_product)
   
+  # Komponen WAJIB (untuk GDP)
   missing_rows <- c()
-  if (is.null(import_row))       missing_rows <- c(missing_rows, "200 - Total Konsumsi Antara Impor / Input Antara (Impor)")
+  if (is.null(import_row))       missing_rows <- c(missing_rows, "200 - Impor / Total Konsumsi Antara Impor")
   if (is.null(compensation_row)) missing_rows <- c(missing_rows, "201 - Kompensasi Tenaga Kerja")
   if (is.null(surplus_row))      missing_rows <- c(missing_rows, "202 - Surplus Usaha Bruto")
   if (is.null(other_tax_row))    missing_rows <- c(missing_rows, "203 - Pajak Dikurang Subsidi Lainnya Atas Produksi / Pajak Neto Subsidi Atas Produksi")
-  if (is.null(tax_product_row))  missing_rows <- c(missing_rows, "195 - Pajak Dikurang Subsidi Atas Produk")
   if (length(missing_rows) > 0) {
     stop(paste("The following components were not found:\n", paste(missing_rows, collapse = "\n")),
          call. = FALSE)
+  }
+  
+  # Komponen OPSIONAL: tax_product (195)
+  if (is.null(tax_product_row)) {
+    warning("Row 'Pajak Dikurang Subsidi Atas Produk' (195) not found. ",
+            "Total input dihitung tanpa pajak atas produk. ",
+            "Ini normal untuk template yang menggunakan pendekatan supply-use (mis. Sulsel).",
+            call. = FALSE)
+    tax_product <- rep(0, ncol(added_value_m))
+  } else {
+    tax_product <- as.numeric(added_value_m[tax_product_row, ])
   }
   
   intermediate_input <- colSums(intermediate_consumption_m, na.rm = TRUE)
@@ -1779,7 +2189,6 @@ get_added_value_components <- function(intermediate_consumption_m, added_value_m
   compensation    <- as.numeric(added_value_m[compensation_row, ])
   surplus         <- as.numeric(added_value_m[surplus_row, ])
   other_tax       <- as.numeric(added_value_m[other_tax_row, ])
-  tax_product     <- as.numeric(added_value_m[tax_product_row, ])
   
   gdp_val       <- compensation + surplus + other_tax
   primary_input <- gdp_val
@@ -1999,7 +2408,7 @@ export_io_analysis <- function(sector,
   openxlsx::writeData(wb, sheet = "Readme", x = readme_text, colNames = FALSE)
   
   # -------------------------------------------------------------------------
-  # SHEET: PROFILE DATA (TAMBAHAN BARU)
+  # SHEET: PROFILE DATA
   # -------------------------------------------------------------------------
   if (!is.null(profile)) {
     # Ubah list profile menjadi data frame 2 kolom (Parameter & Keterangan)
