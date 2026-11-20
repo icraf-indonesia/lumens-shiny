@@ -1803,25 +1803,6 @@ get_added_value_components <- function(intermediate_consumption_m, added_value_m
   )
 }
 
-#' Save core analysis results to RDS
-#'
-#' Saves the results of the core Input-Output analysis into an RDS file so
-#' that visualisation can be performed without recalculating.
-#'
-#' @param core_analysis_results List containing core analysis outputs.
-#' @param output_dir Character. Directory to save the RDS file.
-#'   Default is `"inst/extdata/output"`.
-#'
-#' @return Invisibly returns the output directory.
-#' @export
-save_core_analysis_data <- function(core_analysis_results,
-                                    output_dir = "inst/extdata/output") {
-  dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
-  saveRDS(core_analysis_results,
-          file = file.path(output_dir, "descriptive_core_analysis.rds"))
-  invisible(output_dir)
-}
-
 #' Set Excel Worksheet Tab Color
 #'
 #' Sets the tab color of a worksheet within an `openxlsx` workbook object by
