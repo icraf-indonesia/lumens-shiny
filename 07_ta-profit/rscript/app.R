@@ -250,7 +250,7 @@ ui <- fluidPage(
         condition = "input.npv_table_year == 'Others'",
         numericInput(
           "npv_table_year_custom",
-          "Custom Year",
+          "Tahun Lainnya",
           value = as.numeric(format(Sys.Date(), "%Y")),
           min = 1900
         )
