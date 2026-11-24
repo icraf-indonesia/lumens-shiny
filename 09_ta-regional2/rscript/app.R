@@ -2275,6 +2275,7 @@ server <- function(input, output, session) {
   })
   
   # ---- Download hasil proyeksi (.xlsx) ----
+  # ---- Download hasil proyeksi (.xlsx) ----
   output$download_results <- downloadHandler(
     filename = function() {
       nm <- gsub("[^A-Za-z0-9_-]+", "_", trimws(input$scenario_name))
@@ -2332,11 +2333,6 @@ server <- function(input, output, session) {
       )
       openxlsx::addWorksheet(wb, "Metadata")
       openxlsx::writeData(wb, "Metadata", meta)
-      
-      if (!is.null(output_dir())) {
-        out_path <- file.path(output_dir(), basename(file))
-        try(openxlsx::saveWorkbook(wb, out_path, overwrite = TRUE), silent = TRUE)
-      }
       
       openxlsx::saveWorkbook(wb, file, overwrite = TRUE)
     }
