@@ -470,6 +470,12 @@ plot_categorical_raster <- function(raster_object, filename = "raster_plot.png",
     "#D9D9D9", "#BC80BD", "#CCEBC5", "#FFED6F", "#E41A1C"
   )
   
+  n_cats <- if (length(cats(raster_object)) > 0 && !is.null(cats(raster_object)[[1]])) {
+    nrow(cats(raster_object)[[1]])
+  } else {
+    10
+  }
+
   has_custom_colors <- length(cats(raster_object)) > 0 &&
     !is.null(cats(raster_object)[[1]]) &&
     "color_palette" %in% names(cats(raster_object)[[1]]) &&
@@ -482,8 +488,13 @@ plot_categorical_raster <- function(raster_object, filename = "raster_plot.png",
       labels = scales::label_wrap(30)
     )
   } else {
+    palette_vals <- if (n_cats > length(default_palette)) {
+      grDevices::colorRampPalette(default_palette)(n_cats)
+    } else {
+      default_palette
+    }
     fill_scale <- scale_fill_manual(
-      values = default_palette,
+      values = palette_vals,
       na.value = "transparent",
       labels = scales::label_wrap(30)
     )
@@ -495,12 +506,7 @@ plot_categorical_raster <- function(raster_object, filename = "raster_plot.png",
     plot_title <- names(raster_object)
   }
   
-  n_cats <- if (length(cats(raster_object)) > 0 && !is.null(cats(raster_object)[[1]])) {
-    nrow(cats(raster_object)[[1]])
-  } else {
-    10
-  }
-  legend_ncol <- if (n_cats > 18) 2 else 1
+  legend_ncol <- if (n_cats > 54) 4 else if (n_cats > 36) 3 else if (n_cats > 18) 2 else 1
   
   # Generate the plot
   plot_lc <- ggplot() +

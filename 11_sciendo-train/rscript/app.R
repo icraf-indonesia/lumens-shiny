@@ -595,8 +595,10 @@ server <- function(input, output, session) {
       NULL
     })
     
-    if(is.null(df_c) || nrow(df_c) == 0)
+    if(is.null(df_c) || nrow(df_c) == 0 || ncol(df_c) < 2) {
+      showNotification("Land cover lookup table must have at least 2 columns (ID and LC).", type = "error", duration = 6)
       return()
+    }
     if(nrow(df_c) < 2)
       return()
     if(!is_numeric_str(df_c[1, 1]))

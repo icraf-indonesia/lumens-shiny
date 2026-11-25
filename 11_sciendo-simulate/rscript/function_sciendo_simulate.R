@@ -286,6 +286,12 @@ plot_categorical_raster <- function(raster_object, filename = "raster_plot.png",
     "#D9D9D9", "#BC80BD", "#CCEBC5", "#FFED6F", "#E41A1C"
   )
   
+  n_cats <- if (length(cats(raster_object)) > 0 && !is.null(cats(raster_object)[[1]])) {
+    nrow(cats(raster_object)[[1]])
+  } else {
+    10
+  }
+
   has_custom_colors <- length(cats(raster_object)) > 0 &&
     !is.null(cats(raster_object)[[1]]) &&
     "color_palette" %in% names(cats(raster_object)[[1]]) &&
@@ -298,8 +304,13 @@ plot_categorical_raster <- function(raster_object, filename = "raster_plot.png",
       labels = scales::label_wrap(30)
     )
   } else {
+    palette_vals <- if (n_cats > length(default_palette)) {
+      grDevices::colorRampPalette(default_palette)(n_cats)
+    } else {
+      default_palette
+    }
     fill_scale <- scale_fill_manual(
-      values = default_palette,
+      values = palette_vals,
       na.value = "transparent",
       labels = scales::label_wrap(30)
     )
@@ -311,12 +322,7 @@ plot_categorical_raster <- function(raster_object, filename = "raster_plot.png",
     plot_title <- names(raster_object)
   }
   
-  n_cats <- if (length(cats(raster_object)) > 0 && !is.null(cats(raster_object)[[1]])) {
-    nrow(cats(raster_object)[[1]])
-  } else {
-    10
-  }
-  legend_ncol <- if (n_cats > 18) 2 else 1
+  legend_ncol <- if (n_cats > 54) 4 else if (n_cats > 36) 3 else if (n_cats > 18) 2 else 1
   
   plot_lc <- ggplot() +
     tidyterra::geom_spatraster(data = raster_object) +
@@ -1380,6 +1386,8 @@ calc_lc_freq <- function(raster_list) {
     for (i in 2:length(freq_tables)) {
       freq_df <- dplyr::left_join(freq_df, freq_tables[[i]], by = c("layer", "value"))
     }
+  }
+  if ("layer" %in% names(freq_df)) {
     freq_df <- dplyr::select(freq_df, -layer)
   }
   
@@ -1390,7 +1398,9 @@ calc_lc_freq <- function(raster_list) {
   if (all_times_present) {
     for (i in seq_along(raster_list)) {
       time_i <- as.character(time(raster_list[[i]]))
-      names(freq_df)[i + 1] <- time_i
+      if (!is.na(time_i) && nzchar(time_i)) {
+        names(freq_df)[i + 1] <- time_i
+      }
     }
     return(freq_df)
   } else {
@@ -1443,11 +1453,16 @@ add_legend_to_categorical_raster <- function(raster_file, lookup_table, year = N
     as.numeric(terra::freq(raster_file)[["value"]])
   })
   
-  lookup_table <- lookup_table[lookup_table[[1]] %in% raw_vals, ]
+  lookup_table <- lookup_table[as.numeric(lookup_table[[1]]) %in% raw_vals, , drop = FALSE]
   lookup_table <- data.frame(lookup_table)
   
-  if (!is.numeric(first_column)) {
-    lookup_table[[1]] <- as.numeric(first_column)
+  if (nrow(lookup_table) == 0) {
+    warning("No matching categories found between raster values and lookup_table.")
+    return(raster_file)
+  }
+  
+  if (!is.numeric(lookup_table[[1]])) {
+    lookup_table[[1]] <- as.numeric(lookup_table[[1]])
   }
   
   name_rast <- names(raster_file)
@@ -1619,7 +1634,9 @@ multiple_lc_freq_combined <- function(lc_dir, df_lc, PU = "NO", zone = NULL,
         dplyr::group_split(PU) %>%
         purrr::map(~ dplyr::select(., -PU))
       pu_names <- unique(final_data$PU)
-      names(pu_list) <- paste0("PU_", pu_names)
+      if (length(pu_list) > 0) {
+        names(pu_list) <- paste0("PU_", pu_names)
+      }
       return(pu_list)
     }
     return(final_data)

@@ -155,3 +155,51 @@ test_that("is_ego_temp_read_error detects Issue #221 ERMapper read-mode errors",
   expect_false(is_ego_temp_read_error("Some other DINAMICA EGO error"))
   expect_false(is_ego_temp_read_error(character(0)))
 })
+
+test_that("multiple_lc_freq_combined handles single simulation period (1 landscape file) without initial_raster", {
+  tmp_dir <- file.path(tempdir(), paste0("sciendo_1period_", Sys.getpid()))
+  unlink(tmp_dir, recursive = TRUE, force = TRUE)
+  dir.create(tmp_dir, recursive = TRUE)
+  on.exit(unlink(tmp_dir, recursive = TRUE, force = TRUE), add = TRUE)
+
+  r <- terra::rast(nrows = 4, ncols = 4, xmin = 0, xmax = 400, ymin = 0, ymax = 400, crs = "EPSG:32748")
+  terra::values(r) <- rep(c(1, 2), each = 8)
+  terra::writeRaster(r, file.path(tmp_dir, "landscape2025.tif"), overwrite = TRUE)
+
+  lc_lookup <- data.frame(ID = c(1, 2), LC = c("Forest", "Agriculture"), stringsAsFactors = FALSE)
+
+  res <- multiple_lc_freq_combined(tmp_dir, lc_lookup, PU = "NO", initial_raster = NULL)
+  expect_s3_class(res, "data.frame")
+  expect_equal(names(res), c("Landcover", "2025"))
+  expect_equal(nrow(res), 2)
+})
+
+test_that("plot_categorical_raster handles >50 classes (e.g. 60 planning units)", {
+  r <- terra::rast(nrows = 12, ncols = 10, xmin = 0, xmax = 1200, ymin = 0, ymax = 1200, crs = "EPSG:32748")
+  terra::values(r) <- rep(1:60, each = 2)
+  pu_lookup <- data.frame(ID = 1:60, PU = paste0("PU_", sprintf("%02d", 1:60)), stringsAsFactors = FALSE)
+  r_cat <- add_legend_to_categorical_raster(r, pu_lookup)
+
+  p <- plot_categorical_raster(r_cat)
+  expect_s3_class(p, "ggplot")
+  expect_no_error(ggplot2::ggplot_build(p))
+})
+
+test_that("add_legend_to_categorical_raster handles character IDs with unused lookup rows and 8-bit class 128", {
+  f <- tempfile(fileext = ".tif")
+  on.exit(unlink(f), add = TRUE)
+  r <- terra::rast(nrows = 6, ncols = 5, xmin = 0, xmax = 500, ymin = 0, ymax = 600, crs = "EPSG:32748")
+  terra::values(r) <- c(1:29, 128)
+  terra::writeRaster(r, f, datatype = "INT1U", overwrite = TRUE)
+  r8 <- terra::rast(f)
+
+  lt <- data.frame(
+    ID = as.character(c(1:29, 128, 999)),
+    LC = paste0("Class_", c(1:29, 128, 999)),
+    stringsAsFactors = FALSE
+  )
+  r_out <- add_legend_to_categorical_raster(r8, lt)
+  lvls <- terra::levels(r_out)[[1]]
+  expect_equal(nrow(lvls), 30)
+  expect_true(128 %in% lvls[[1]])
+})

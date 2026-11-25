@@ -118,7 +118,7 @@ ui <- fluidPage(
                 accept = c(".tif", ".xml"), multiple = TRUE, placeholder = tr("ph_rc_file", "id")),
       numericInput("repetition",
                    label = label_with_help(i18n$t("lbl_repetition"), "repetition"),
-                   value = 2),
+                   value = 2, min = 1, step = 1),
       
       tags$head(
         tags$style(HTML("
@@ -802,8 +802,10 @@ server <- function(input, output, session) {
     }
     
     
-    if(nrow(df_c) == 0)
+    if(nrow(df_c) == 0 || ncol(df_c) < 2) {
+      showNotification("Land cover lookup table must have at least 2 columns (ID and LC).", type = "error")
       return()
+    }
     if(nrow(df_c) < 2)
       return()
     if(!is_numeric_str(df_c[1, 1]))
@@ -1099,6 +1101,11 @@ server <- function(input, output, session) {
   iv$add_rule("dcf_path", function(value) if (is.null(value)) tr("val_dcf_req", current_lang()) else NULL)
   iv$add_rule("wd", function(value) if (is.null(value)) tr("val_wd_req", current_lang()) else NULL)
   iv$add_rule("memory_allocation", function(value) if (is.null(value)) tr("val_memory_req", current_lang()) else NULL)
+  iv$add_rule("repetition", function(value) {
+    if (is.null(value) || is.na(value)) return(tr("val_provide_val", current_lang()))
+    if (!is.numeric(value) || value < 1 || value != floor(value)) return(tr("val_gt_0", current_lang()))
+    NULL
+  })
   
   # Raster cube input validation
   iv$add_rule("rc_file", function(value) {
