@@ -262,6 +262,12 @@ ui <- fluidPage(
                     }
                   "))),
               
+              selectizeInput("dinamica_temp_option",
+                             label = label_with_help(i18n$t("lbl_temp_folder"), "temp_folder"),
+                             choices = c("Default" = "default",
+                                         "Folder Output" = "output_dir"),
+                             selected = "default"),
+              
               dir_button_with_help("dinamica_path", tr("lbl_dinamica_path", "id"), tr("tip_dinamica_path", "id"), "dinamica_path", label_key = "lbl_dinamica_path"),
               verbatimTextOutput("print_dinamica_path", placeholder = TRUE)
             )

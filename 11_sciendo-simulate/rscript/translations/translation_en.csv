@@ -31,6 +31,7 @@ tip_wd,Please select a directory
 ph_print_wd,No output directory selected
 accordion_adv_settings,Advanced Settings
 lbl_memory_allocation,Choose Memory Allocation
+lbl_temp_folder,Choose Temporary Folder (Optional)
 opt_balanced,Balanced
 opt_prefer_memory,Prefer Memory
 opt_prefer_disk,Prefer Disk
@@ -136,3 +137,5 @@ help_gen_iso_title,Generation Patch Isometry
 help_gen_iso_body,<p>Shape of newly generated patches.</p> <ul> <li><code>0</code> = linear</li> <li><code>1</code> = neutral</li> <li><code>2</code> = circular / compact</li> </ul> <p>Value range: <code>0</code> - <code>2</code>.</p>
 help_override_title,Per-Transition Allocation (Optional)
 help_override_body,<p>Upload an Excel/CSV template to customize allocation transition parameters for individual transitions.</p>
+help_temp_folder_title,Temporary Folder (Optional)
+help_temp_folder_body,"<p>Selects where DINAMICA EGO stores temporary files during execution.</p><ul><li><b>Default:</b> Uses DINAMICA EGO's built-in temporary folder setting.</li><li><b>Output Folder:</b> Creates a temporary <code>TEMP_SCIENDO</code> subfolder inside your Output Folder.</li><li><b>Local Drive (e.g., D:/TEMP_SCIENDO):</b> Creates a temporary folder on the selected local drive.</li></ul><p>Temporary files created by SCIENDO are automatically removed once finished.</p>"

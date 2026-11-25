@@ -87,3 +87,62 @@ test_that("Function correctly cleans character-based numeric data", {
   plot_output <- plot_interactive_stacked_area(char_data)
   expect_s3_class(plot_output, "plotly")
 })
+
+#-------------------------------------------------------------------------------
+# Test Cases for DINAMICA EGO Temporary Folder Helpers
+#-------------------------------------------------------------------------------
+
+test_that("resolve_dinamica_temp_dir maps options correctly", {
+  expect_null(resolve_dinamica_temp_dir(NULL, "D:/out"))
+  expect_null(resolve_dinamica_temp_dir("", "D:/out"))
+  expect_null(resolve_dinamica_temp_dir("default", "D:/out"))
+  expect_null(resolve_dinamica_temp_dir("output_dir", NULL))
+  expect_equal(resolve_dinamica_temp_dir("output_dir", "D:/out"), "D:/out/TEMP_SCIENDO")
+  expect_equal(resolve_dinamica_temp_dir("D:/TEMP_SCIENDO", "D:/out"), "D:/TEMP_SCIENDO")
+})
+
+test_that("detect_dinamica_version extracts major version", {
+  expect_equal(detect_dinamica_version("C:/Program Files/Dinamica EGO 7", "DinamicaConsole7.exe"), "7")
+  expect_equal(detect_dinamica_version("C:/Program Files/Dinamica EGO 6", NULL), "6")
+  expect_null(detect_dinamica_version("C:/Program Files/Dinamica", NULL))
+})
+
+test_that("detect_writable_non_c_drives excludes C: and returns valid paths", {
+  drives <- detect_writable_non_c_drives()
+  expect_type(drives, "character")
+  expect_false(any(grepl("^C:", drives, ignore.case = TRUE)))
+  if (length(drives) > 0) {
+    expect_true(all(grepl("/TEMP_SCIENDO$", drives)))
+  }
+})
+
+test_that("with_dinamica_temp_dir creates, isolates, and cleans up temp folder on success and error", {
+  base_dir <- file.path(tempdir(), paste0("TEMP_SCIENDO_TEST_", Sys.getpid()))
+  unlink(base_dir, recursive = TRUE, force = TRUE)
+
+  old_temp <- Sys.getenv("TEMP", unset = NA)
+  old_tmp  <- Sys.getenv("TMP", unset = NA)
+
+  # Success case
+  res <- with_dinamica_temp_dir(base_dir, NULL, NULL, {
+    expect_true(dir.exists(Sys.getenv("TEMP")))
+    expect_true(startsWith(normalizePath(Sys.getenv("TEMP"), winslash = "/", mustWork = FALSE),
+                           normalizePath(base_dir, winslash = "/", mustWork = FALSE)))
+    "ok"
+  })
+  expect_equal(res, "ok")
+  expect_false(dir.exists(base_dir))
+  expect_equal(Sys.getenv("TEMP", unset = NA), old_temp)
+  expect_equal(Sys.getenv("TMP", unset = NA), old_tmp)
+
+  # Error case: still cleans up and restores env
+  expect_error(
+    with_dinamica_temp_dir(base_dir, NULL, NULL, {
+      stop("simulated crash")
+    }),
+    "simulated crash"
+  )
+  expect_false(dir.exists(base_dir))
+  expect_equal(Sys.getenv("TEMP", unset = NA), old_temp)
+  expect_equal(Sys.getenv("TMP", unset = NA), old_tmp)
+})

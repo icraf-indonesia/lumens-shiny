@@ -648,7 +648,207 @@ generate_sciendo_train_report <- function(output, dir) {
 }
 
 
-executeDINAMICA <- function(params, memory_allocation) {
+#' Detect Writable Non-C: Fixed Drives on Windows
+#'
+#' Queries fixed local drives on Windows, excludes `C:`, and verifies that a
+#' `TEMP_SCIENDO` subfolder can be created and written to.
+#'
+#' @return Character vector of writable `TEMP_SCIENDO` paths (e.g., `"D:/TEMP_SCIENDO"`).
+detect_writable_non_c_drives <- function() {
+  if (.Platform$OS.type != "windows") {
+    return(character(0))
+  }
+  drives <- tryCatch(
+    system2(
+      "powershell",
+      args = c(
+        "-NoProfile", "-Command",
+        "[System.IO.DriveInfo]::GetDrives() | Where-Object { $_.DriveType -eq 'Fixed' -and $_.IsReady } | ForEach-Object { $_.Name }"
+      ),
+      stdout = TRUE,
+      stderr = FALSE
+    ),
+    error = function(e) character(0)
+  )
+  drives <- trimws(drives)
+  drives <- drives[nzchar(drives)]
+  drives <- drives[!grepl("^C:", drives, ignore.case = TRUE)]
+  if (length(drives) == 0) {
+    return(character(0))
+  }
+  writable <- character(0)
+  for (drv in drives) {
+    drv_clean <- sub("[/\\\\]+$", "", drv)
+    candidate <- paste0(drv_clean, "/TEMP_SCIENDO")
+    existed <- dir.exists(candidate)
+    ok <- tryCatch({
+      if (!existed) {
+        dir.create(candidate, recursive = TRUE, showWarnings = FALSE)
+      }
+      if (!dir.exists(candidate)) {
+        FALSE
+      } else {
+        probe <- file.path(candidate, paste0(".write_test_", Sys.getpid()))
+        writeLines("ok", probe)
+        res <- file.exists(probe)
+        unlink(probe)
+        if (!existed && length(list.files(candidate, all.files = TRUE, no.. = TRUE)) == 0) {
+          unlink(candidate, recursive = TRUE)
+        }
+        res
+      }
+    }, error = function(e) FALSE)
+    if (isTRUE(ok)) {
+      writable <- c(writable, candidate)
+    }
+  }
+  writable
+}
+
+#' Resolve DINAMICA EGO Temporary Folder Option
+#'
+#' @param temp_option Selection value: `"default"`, `"output_dir"`, or a drive path.
+#' @param output_dir Optional output directory.
+#' @return Character path or `NULL`.
+resolve_dinamica_temp_dir <- function(temp_option, output_dir = NULL) {
+  if (is.null(temp_option) || !nzchar(temp_option) || identical(temp_option, "default")) {
+    return(NULL)
+  }
+  if (identical(temp_option, "output_dir")) {
+    if (is.null(output_dir) || !nzchar(output_dir)) {
+      return(NULL)
+    }
+    return(gsub("\\\\", "/", file.path(output_dir, "TEMP_SCIENDO")))
+  }
+  gsub("\\\\", "/", temp_option)
+}
+
+#' Extract DINAMICA EGO Major Version
+#'
+#' @param dinamica_path Path to the DINAMICA EGO installation directory.
+#' @param dinamica_exe Optional path to the `DinamicaConsole` executable.
+#' @return Major version string (e.g., `"7"` or `"6"`), or `NULL`.
+detect_dinamica_version <- function(dinamica_path = NULL, dinamica_exe = NULL) {
+  candidates <- c(
+    if (!is.null(dinamica_exe)) basename(dinamica_exe) else character(0),
+    if (!is.null(dinamica_path)) basename(dinamica_path) else character(0)
+  )
+  for (cand in candidates) {
+    m <- regmatches(cand, regexec("([0-9]+)", cand))[[1]]
+    if (length(m) >= 2 && nzchar(m[2])) {
+      return(m[2])
+    }
+  }
+  NULL
+}
+
+#' Read a Windows Registry String Value Safely
+#'
+#' @param reg_key Registry key path.
+#' @param value_name Registry value name.
+#' @return List with `exists` (logical) and `value` (character or `NULL`).
+read_windows_reg_value <- function(reg_key, value_name) {
+  out <- tryCatch(
+    suppressWarnings(system2("reg", c("query", shQuote(reg_key), "/v", shQuote(value_name)), stdout = TRUE, stderr = TRUE)),
+    error = function(e) NULL
+  )
+  status <- attr(out, "status")
+  if (is.null(out) || (!is.null(status) && status != 0)) {
+    return(list(exists = FALSE, value = NULL))
+  }
+  line <- grep(paste0("\\b", value_name, "\\b"), out, value = TRUE)
+  if (length(line) == 0) {
+    return(list(exists = FALSE, value = NULL))
+  }
+  val <- sub(paste0("^\\s*", value_name, "\\s+REG_[A-Z_]+\\s*"), "", line[1])
+  list(exists = TRUE, value = trimws(val))
+}
+
+#' Run Expression with Temporary DINAMICA EGO Temp Folder
+#'
+#' @param temp_base_dir Base `TEMP_SCIENDO` directory, or `NULL` for default.
+#' @param dinamica_path Path to the DINAMICA EGO installation directory.
+#' @param dinamica_exe Path to the `DinamicaConsole` executable.
+#' @param expr Expression to evaluate.
+#' @return Result of evaluating `expr`.
+with_dinamica_temp_dir <- function(temp_base_dir, dinamica_path, dinamica_exe, expr) {
+  if (is.null(temp_base_dir) || !nzchar(temp_base_dir)) {
+    return(force(expr))
+  }
+  base_existed <- dir.exists(temp_base_dir)
+  run_id <- paste0("run_", Sys.getpid(), "_", format(Sys.time(), "%Y%m%d%H%M%S"))
+  run_temp_dir <- file.path(temp_base_dir, run_id)
+  dir.create(run_temp_dir, recursive = TRUE, showWarnings = FALSE)
+  if (!dir.exists(run_temp_dir)) {
+    warning("Could not create temporary folder '", run_temp_dir, "'. Using DINAMICA EGO default.")
+    return(force(expr))
+  }
+  run_temp_win <- normalizePath(run_temp_dir, winslash = "\\", mustWork = FALSE)
+  message(paste("Using DINAMICA EGO temporary folder:", run_temp_win))
+
+  old_temp <- Sys.getenv("TEMP", unset = NA)
+  old_tmp  <- Sys.getenv("TMP", unset = NA)
+  Sys.setenv(TEMP = run_temp_win, TMP = run_temp_win)
+
+  reg_key <- NULL
+  prev_reg <- list(exists = FALSE, value = NULL)
+  reg_modified <- FALSE
+  if (.Platform$OS.type == "windows") {
+    ver <- detect_dinamica_version(dinamica_path, dinamica_exe)
+    if (!is.null(ver)) {
+      reg_key <- paste0("HKCU\\Software\\CSR\\Dinamica EGO ", ver)
+      prev_reg <- read_windows_reg_value(reg_key, "TempDir")
+      set_status <- tryCatch(
+        suppressWarnings(system2(
+          "reg",
+          c("add", shQuote(reg_key), "/v", "TempDir", "/t", "REG_SZ", "/d", shQuote(run_temp_win), "/f"),
+          stdout = FALSE, stderr = FALSE
+        )),
+        error = function(e) 1L
+      )
+      if (identical(set_status, 0L)) {
+        reg_modified <- TRUE
+      } else {
+        warning("Could not update DINAMICA EGO registry TempDir; falling back to TEMP/TMP environment variables.")
+      }
+    }
+  }
+
+  on.exit({
+    if (is.na(old_temp)) Sys.unsetenv("TEMP") else Sys.setenv(TEMP = old_temp)
+    if (is.na(old_tmp))  Sys.unsetenv("TMP")  else Sys.setenv(TMP = old_tmp)
+
+    if (reg_modified && !is.null(reg_key)) {
+      tryCatch({
+        if (isTRUE(prev_reg$exists)) {
+          suppressWarnings(system2(
+            "reg",
+            c("add", shQuote(reg_key), "/v", "TempDir", "/t", "REG_SZ", "/d", shQuote(prev_reg$value), "/f"),
+            stdout = FALSE, stderr = FALSE
+          ))
+        } else {
+          suppressWarnings(system2(
+            "reg",
+            c("delete", shQuote(reg_key), "/v", "TempDir", "/f"),
+            stdout = FALSE, stderr = FALSE
+          ))
+        }
+      }, error = function(e) {
+        warning("Failed to restore DINAMICA EGO registry TempDir: ", e$message)
+      })
+    }
+
+    unlink(run_temp_dir, recursive = TRUE, force = TRUE)
+    if (!base_existed && dir.exists(temp_base_dir) &&
+        length(list.files(temp_base_dir, all.files = TRUE, no.. = TRUE)) == 0) {
+      unlink(temp_base_dir, recursive = TRUE, force = TRUE)
+    }
+  }, add = TRUE)
+
+  force(expr)
+}
+
+executeDINAMICA <- function(params, memory_allocation, temp_dir = NULL) {
   # # Find DINAMICA directory if not provided
   # if (is.null(params$dinamica_path) | identical(params$dinamica_path, character(0))) {
   #   program_files <- c("C:/Program Files/", "C:/Program Files (x86)/")
@@ -691,7 +891,9 @@ executeDINAMICA <- function(params, memory_allocation) {
   )
   
   # Execute DINAMICA
-  result <- system(command)
+  result <- with_dinamica_temp_dir(temp_dir, dinamica_path, dinamica_exe, {
+    system(command)
+  })
   
   if(result != 0) {
     stop("DINAMICA EGO execution failed. Check DINAMICA EGO installation and parameters.")
@@ -826,13 +1028,13 @@ generate_egoml_transition_matrix <- function(lc1_path, lc2_path,
   return(egoml_mtx_file)
 }
 
-run_dinamica_transition_matrix <- function(dinamica_path = NULL, output_dir, egoml, memory_allocation) {
+run_dinamica_transition_matrix <- function(dinamica_path = NULL, output_dir, egoml, memory_allocation, temp_dir = NULL) {
   params <- list()
   params$dinamica_path <- dinamica_path
   params$output_dir <- output_dir
   params$egoml <- egoml
   
-  executeDINAMICA(params, memory_allocation)
+  executeDINAMICA(params, memory_allocation, temp_dir = temp_dir)
 }
 
 generate_egoml_raster_cube <- function(factor_path, output_dir, egoml) {
@@ -941,13 +1143,13 @@ generate_egoml_raster_cube <- function(factor_path, output_dir, egoml) {
   return(out)
 }
 
-run_dinamica_raster_cube <- function(dinamica_path = NULL, output_dir, egoml, memory_allocation) {
+run_dinamica_raster_cube <- function(dinamica_path = NULL, output_dir, egoml, memory_allocation, temp_dir = NULL) {
   params <- list()
   params$dinamica_path <- dinamica_path
   params$output_dir <- output_dir
   params$egoml <- egoml
   
-  executeDINAMICA(params, memory_allocation)
+  executeDINAMICA(params, memory_allocation, temp_dir = temp_dir)
   
   # check raster cube file 
   ers_file <- paste0(output_dir, "/sciendo_factors.tif")
@@ -1220,13 +1422,13 @@ generate_egoml_woe_model <- function(aliasFactor, lusim_lc,
   return(out)
 }
 
-run_dinamica_woe_model <- function(dinamica_path = NULL, output_dir, egoml, memory_allocation){
+run_dinamica_woe_model <- function(dinamica_path = NULL, output_dir, egoml, memory_allocation, temp_dir = NULL){
   params <- list()
   params$dinamica_path <- dinamica_path
   params$output_dir <- output_dir
   params$egoml <- egoml
   
-  executeDINAMICA(params, memory_allocation)
+  executeDINAMICA(params, memory_allocation, temp_dir = temp_dir)
   
   n_woe_report <- paste0(output_dir, "/woe") %>% 
     list.files(full.names=TRUE, pattern="weight_report*") %>%
@@ -1239,14 +1441,15 @@ run_dinamica_woe_model <- function(dinamica_path = NULL, output_dir, egoml, memo
 run_sciendo_train_process <- function(lc_t1_path, lc_t2_path, zone_path, lc_lookup_table_path,
                                       lc_lookup_table, z_lookup_table, factor_path, time_points,
                                       dinamica_path = NULL, output_dir, memory_allocation, progress_callback = NULL,
-                                      lang = "id") {
+                                      lang = "id", temp_option = "default") {
   start_time <- Sys.time()
   cat("Started at:", format(start_time, "%Y-%m-%d %H:%M:%S"), "\n")
+  temp_dir <- resolve_dinamica_temp_dir(temp_option, output_dir = output_dir)
   
   if (!is.null(progress_callback)) progress_callback(0.1, "generate egoml: baseline matrix generation")
   period <- as.numeric(time_points$t2) - as.numeric(time_points$t1)
   egoml_mtx_file <- generate_egoml_transition_matrix(lc_t1_path, lc_t2_path, zone_path, period, output_dir, egoml = "00_sciendo_baseline_tpm")
-  run_dinamica_transition_matrix(dinamica_path, output_dir, egoml_mtx_file, memory_allocation)
+  run_dinamica_transition_matrix(dinamica_path, output_dir, egoml_mtx_file, memory_allocation, temp_dir = temp_dir)
 
   # Convert TPM long format to wide format
   macro_dir <- file.path(output_dir, "baseline_tpm_macro")
@@ -1272,7 +1475,7 @@ run_sciendo_train_process <- function(lc_t1_path, lc_t2_path, zone_path, lc_look
   out_rc <- generate_egoml_raster_cube(factor_path, output_dir, egoml = "01_sciendo_train_raster_cube")
   
   if (!is.null(progress_callback)) progress_callback(0.5, "run dinamica raster cube")
-  run_dinamica_raster_cube(dinamica_path, output_dir, out_rc$egoml_rc_file, memory_allocation)
+  run_dinamica_raster_cube(dinamica_path, output_dir, out_rc$egoml_rc_file, memory_allocation, temp_dir = temp_dir)
   
   # generate modified xml file
   pu_df <- z_lookup_table
@@ -1290,7 +1493,7 @@ run_sciendo_train_process <- function(lc_t1_path, lc_t2_path, zone_path, lc_look
                                       egoml = "02_sciendo_train_woe")
   
   if (!is.null(progress_callback)) progress_callback(0.9, "run dinamica determine weight of evidence")
-  run_dinamica_woe_model(dinamica_path, output_dir, out_woe$egoml_woe_file, memory_allocation)
+  run_dinamica_woe_model(dinamica_path, output_dir, out_woe$egoml_woe_file, memory_allocation, temp_dir = temp_dir)
   
   listWoeReport <- out_woe$weight  %>% list.files(full.names=TRUE, pattern="weight_report*")
   df_pu <- z_lookup_table %>% dplyr::rename(ID_PU = 1, PU = 2)
@@ -2867,6 +3070,10 @@ train_help_texts <- list(
   dinamica_path = list(
     title = "DINAMICA EGO Path (Optional)",
     body = "<p>Path to the DINAMICA EGO installation directory (e.g., <code>C:/Program Files/Dinamica EGO 7</code>).</p><p>If left blank, LUMENS automatically detects the installation under <code>Program Files</code>.</p>"
+  ),
+  temp_folder = list(
+    title = "Temporary Folder (Optional)",
+    body = "<p>Selects where DINAMICA EGO stores temporary files during execution.</p><ul><li><b>Default:</b> Uses DINAMICA EGO's built-in temporary folder setting.</li><li><b>Output Folder:</b> Creates a temporary <code>TEMP_SCIENDO</code> subfolder inside your Output Folder.</li><li><b>Local Drive (e.g., D:/TEMP_SCIENDO):</b> Creates a temporary folder on the selected local drive.</li></ul><p>Temporary files created by SCIENDO are automatically removed once finished.</p>"
   )
 )
 

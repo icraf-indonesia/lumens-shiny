@@ -32,6 +32,7 @@ tip_wd,Silakan pilih direktori,Please select a directory
 ph_print_wd,Belum ada folder output yang dipilih,No output directory selected
 accordion_adv_settings,Pengaturan Lanjutan,Advanced Settings
 lbl_memory_allocation,Pilih Alokasi Memori,Choose Memory Allocation
+lbl_temp_folder,Pilih Temporary Folder (Opsional),Choose Temporary Folder (Optional)
 opt_balanced,Seimbang ,Balanced
 opt_prefer_memory,Utamakan Memori ,Prefer Memory
 opt_prefer_disk,Utamakan Disk ,Prefer Disk
@@ -98,3 +99,5 @@ help_memory_allocation_body,"<p>Mengatur bagaimana DINAMICA EGO mengelola memori
 help_dinamica_path_title,Path Instalasi DINAMICA EGO (Opsional),DINAMICA EGO Path (Optional)
 help_dinamica_path_body,"<p>Path folder instalasi DINAMICA EGO (contoh: <code>C:/Program Files/Dinamica EGO 7</code>).</p><p>Jika dikosongkan, LUMENS akan mendeteksi instalasi di bawah <code>Program Files</code> secara otomatis.</p>","<p>Path to the DINAMICA EGO installation directory (e.g., <code>C:/Program Files/Dinamica EGO 7</code>).</p><p>If left blank, LUMENS automatically detects the installation under <code>Program Files</code>.</p>"
 notif_macro_unblock_hint,"Catatan: Jika makro terblokir saat membuka file di komputer lain, klik kanan file -> Properties -> centang 'Unblock', atau jalankan 'activate_macros.bat' di folder output.","Note: If macros are blocked when opening the file on another computer, right-click the file -> Properties -> check 'Unblock', or run 'activate_macros.bat' in the output folder."
+help_temp_folder_title,Pilih Temporary Folder (Opsional),Temporary Folder (Optional)
+help_temp_folder_body,"<p>Menentukan lokasi penyimpanan berkas sementara DINAMICA EGO selama proses berlangsung.</p><ul><li><b>Default:</b> Menggunakan pengaturan folder sementara bawaan DINAMICA EGO.</li><li><b>Folder Output:</b> Membuat subfolder sementara <code>TEMP_SCIENDO</code> di dalam Folder Output.</li><li><b>Drive Lokal (misalnya D:/TEMP_SCIENDO):</b> Membuat folder sementara pada drive lokal yang dipilih.</li></ul><p>Berkas sementara yang dibuat oleh SCIENDO akan dihapus otomatis setelah proses selesai.</p>","<p>Selects where DINAMICA EGO stores temporary files during execution.</p><ul><li><b>Default:</b> Uses DINAMICA EGO's built-in temporary folder setting.</li><li><b>Output Folder:</b> Creates a temporary <code>TEMP_SCIENDO</code> subfolder inside your Output Folder.</li><li><b>Local Drive (e.g., D:/TEMP_SCIENDO):</b> Creates a temporary folder on the selected local drive.</li></ul><p>Temporary files created by SCIENDO are automatically removed once finished.</p>"
