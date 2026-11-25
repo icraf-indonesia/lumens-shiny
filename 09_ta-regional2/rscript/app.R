@@ -768,10 +768,15 @@ server <- function(input, output, session) {
     paste("Tahun:", paste(periods(), collapse = ", "))
   })
   
-  # ---- Nama skenario ----
   scen_label <- reactive({
-    nm <- trimws(input$scenario_name)
-    if (!nzchar(nm)) nm <- "Skenario"
+    nm <- trimws(input$scenario_name %||% "")
+    
+    # Jika tidak ada asumsi A1/A2/A3 aktif → paksa BAU
+    if (n_assumptions() == 0 || !nzchar(nm)) {
+      return("BAU")
+    }
+    
+    # Jika user mengetik "BAU" padahal ada asumsi, beri label pembeda
     if (identical(toupper(nm), "BAU")) nm <- "BAU (skenario)"
     nm
   })

@@ -1104,7 +1104,7 @@ fmt_uang_penuh <- function(x) {
 }
 fmt_pct <- function(x) {
   if (is.na(x)) return("-")
-  paste0(ifelse(x > 0, "+", ""), format(round(x, 2), big.mark = ".", decimal.mark = ","), "%")
+  paste0(ifelse(x > 0, "+", ""), format(round(x, 2), big.mark = ".", decimal.mark = ",", nsmall = 2), "%")
 }
 
 pdrb_bau_fmt      <- format_uang(pdrb_bau_end)
@@ -1841,10 +1841,6 @@ DT::datatable(
   top20,
   rownames   = FALSE,
   escape     = FALSE,
-  caption    = paste0(
-    "Top 20 Sektor berdasarkan PDRB Akhir — ",
-    params$initial_year, " s.d. ", params$end_year
-  ),
   extensions = "Buttons",
   options    = list(
     pageLength = 20,
@@ -1904,10 +1900,6 @@ DT::datatable(
   top20_lab,
   rownames   = FALSE,
   escape     = FALSE,
-  caption    = paste0(
-    "Top 20 Sektor berdasarkan Serapan Tenaga Kerja ", params$end_year, " — ",
-    params$initial_year, " s.d. ", params$end_year
-  ),
   extensions = "Buttons",
   options    = list(
     pageLength = 20,
@@ -1965,10 +1957,6 @@ DT::datatable(
   top20_out,
   rownames   = FALSE,
   escape     = FALSE,
-  caption    = paste0(
-    "Top 20 Sektor berdasarkan Output Akhir — ",
-    params$initial_year, " s.d. ", params$end_year
-  ),
   extensions = "Buttons",
   options    = list(
     pageLength = 20,
