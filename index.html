@@ -4,6 +4,15 @@
 		<link rel="shortcut icon" href="images/favicon.png">
 		<title>LUMENS - Inclusive | Informed | Integrative</title>
 		{{headContent()}}
+		<script>
+			document.addEventListener('DOMContentLoaded', function() {
+				if (window.Shiny) {
+					Shiny.addCustomMessageHandler('lumens_navigate', function(url) {
+						window.location.replace(url);
+					});
+				}
+			});
+		</script>
 
 		<!-- Bootstrap core CSS -->
 		<link rel="stylesheet" type="text/css" href="css/bootstrap.min.css">

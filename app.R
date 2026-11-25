@@ -40,13 +40,7 @@ lumens_button <- function(id, label, abbr) {
   )
 }
 
-ui <- tagList(
-  tags$head(
-    tags$script(HTML(
-      "Shiny.addCustomMessageHandler('lumens_navigate', function(url) { window.location.replace(url); });"
-    ))
-  ),
-  htmlTemplate("index.html",
+ui <- htmlTemplate("index.html",
                    button01 = lumens_button("buildButton", "Build", "Planning Unit Reconciliation - Build"),
                    button02 = lumens_button("reconcileButton", "Reconcile", "Planning Unit Reconciliation - Reconcile"),
                    button03 = lumens_button("prequesButton", "Pre-QUES", "Preliminary Quantification of Ecosystem Services"),
@@ -60,7 +54,6 @@ ui <- tagList(
                    button11 = lumens_button("trainModelButton", "Train Model", "SCIENDO Train Model"),
                    button12 = lumens_button("simulateBuilderButton", "Simulate", "SCIENDO Simulate"),
                    button13 = lumens_button("lasemButton", "LaSEM", "Land Suitability Evaluation Module")
-  )
 )
 
 server <- function(input, output, session) {
