@@ -8,7 +8,17 @@ if(rmarkdown::pandoc_available() == FALSE) {
   )
 }
 
-jscode <- "shinyjs.closeWindow = function() { window.close(); }"
+jscode <- local({
+  landing_url <- Sys.getenv("LUMENS_LANDING_URL", unset = "")
+  if (nzchar(landing_url)) {
+    sprintf(
+      "shinyjs.closeWindow = function() { window.location.replace(%s); }",
+      jsonlite::toJSON(landing_url, auto_unbox = TRUE)
+    )
+  } else {
+    "shinyjs.closeWindow = function() { window.close(); }"
+  }
+})
 
 substrRight <- function(x, n){
   substr(x, nchar(x)-n+1, nchar(x))

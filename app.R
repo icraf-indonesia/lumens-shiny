@@ -1,18 +1,42 @@
 library(shiny)
 
-call_lumens_shiny_module <- function(r_script, module_name) {
-  msg <- paste0("Running ", module_name)
-  showNotification(msg, type = "message", duration = NULL, id = "running_message")
-  
-  command <- paste0("rscript.exe ", r_script)
-  system(command)
-  
-  removeNotification("running_message")
-  msg <- paste0(module_name, " has closed")
-  showNotification(msg, type = "message")
+MODULE_PORT <- 875L
+
+is_port_open <- function(port = MODULE_PORT, host = "127.0.0.1") {
+  con <- tryCatch(
+    suppressWarnings(socketConnection(host = host, port = port, open = "r+", blocking = TRUE, timeout = 1)),
+    error = function(e) NULL
+  )
+  if (is.null(con)) return(FALSE)
+  close(con)
+  TRUE
 }
 
-ui <- htmlTemplate("index.html",
+get_landing_url <- function(session) {
+  cd <- session$clientData
+  protocol <- cd$url_protocol
+  hostname <- cd$url_hostname
+  port <- cd$url_port
+  pathname <- cd$url_pathname
+  if (!nzchar(protocol) || !nzchar(hostname)) return("")
+  port_part <- if (nzchar(port)) paste0(":", port) else ""
+  paste0(protocol, "//", hostname, port_part, pathname)
+}
+
+get_module_url <- function(session, port = MODULE_PORT) {
+  cd <- session$clientData
+  protocol <- if (nzchar(cd$url_protocol)) cd$url_protocol else "http:"
+  hostname <- if (nzchar(cd$url_hostname)) cd$url_hostname else "127.0.0.1"
+  paste0(protocol, "//", hostname, ":", port, "/")
+}
+
+ui <- tagList(
+  tags$head(
+    tags$script(HTML(
+      "Shiny.addCustomMessageHandler('lumens_navigate', function(url) { window.location.replace(url); });"
+    ))
+  ),
+  htmlTemplate("index.html",
                    button01 = actionButton("buildButton", "Build"),
                    button02 = actionButton("reconcileButton", "Reconcile"),
                    button03 = actionButton("prequesButton", "Pre-QUES"),
@@ -26,9 +50,58 @@ ui <- htmlTemplate("index.html",
                    button11 = actionButton("trainModelButton", "Train Model"),
                    button12 = actionButton("simulateBuilderButton", "Simulate"),
                    button13 = actionButton("lasemButton", "LASEM")
+  )
 )
 
-server <- function(input, output) {
+server <- function(input, output, session) {
+  pending_launch <- reactiveVal(NULL)
+
+  call_lumens_shiny_module <- function(r_script, module_name) {
+    if (!is.null(pending_launch()) || is_port_open(MODULE_PORT)) {
+      showNotification("Another module is already starting or running.", type = "warning", duration = 4)
+      return(invisible(NULL))
+    }
+
+    showNotification(paste0("Running ", module_name, "..."), type = "message", duration = NULL, id = "running_message")
+
+    landing_url <- get_landing_url(session)
+    if (nzchar(landing_url)) {
+      Sys.setenv(LUMENS_LANDING_URL = landing_url)
+    }
+    Sys.setenv(LUMENS_LAUNCH_BROWSER = "FALSE")
+    on.exit(Sys.unsetenv(c("LUMENS_LANDING_URL", "LUMENS_LAUNCH_BROWSER")), add = TRUE)
+
+    rscript_bin <- file.path(R.home("bin"), if (.Platform$OS.type == "windows") "Rscript.exe" else "Rscript")
+    null_dev <- if (.Platform$OS.type == "windows") "NUL" else "/dev/null"
+    system2(
+      rscript_bin,
+      args = shQuote(r_script),
+      stdout = null_dev,
+      stderr = null_dev,
+      stdin = null_dev,
+      wait = FALSE
+    )
+
+    pending_launch(list(module_name = module_name, started_at = Sys.time()))
+  }
+
+  observe({
+    launch <- pending_launch()
+    req(launch)
+
+    if (is_port_open(MODULE_PORT)) {
+      pending_launch(NULL)
+      removeNotification("running_message")
+      session$sendCustomMessage("lumens_navigate", get_module_url(session, MODULE_PORT))
+    } else if (as.numeric(difftime(Sys.time(), launch$started_at, units = "secs")) > 60) {
+      pending_launch(NULL)
+      removeNotification("running_message")
+      showNotification(paste0("Timed out starting ", launch$module_name, "."), type = "error", duration = 6)
+    } else {
+      invalidateLater(300, session)
+    }
+  })
+
   observeEvent(input$buildButton, {
     call_lumens_shiny_module("call01.R", "PUR Build")
   })
