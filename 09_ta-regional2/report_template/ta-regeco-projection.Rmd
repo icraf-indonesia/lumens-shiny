@@ -1,5 +1,5 @@
 ---
-title: "Regional Economic Projection Report"
+title: "Laporan Proyeksi Ekonomi Regional"
 output: 
   html_document:
     toc: true
@@ -18,11 +18,11 @@ params:
   location: NA
   years: NA
   sector_names: NA
-  result_scenario: NA     # tibble hasil proyeksi skenario
-  result_bau: NA          # tibble hasil proyeksi BAU
-  recap_scenario: NA      # tibble rekap per tahun (skenario)
-  recap_bau: NA           # tibble rekap per tahun (BAU)
-  indicator_labels: NA    # named list label indikator
+  result_scenario: NA
+  result_bau: NA
+  recap_scenario: NA
+  recap_bau: NA
+  indicator_labels: NA
   linkage_compare: NA
   output_dir: NA
   file_baseline: NA       
