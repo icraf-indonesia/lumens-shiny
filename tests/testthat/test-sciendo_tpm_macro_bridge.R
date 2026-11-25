@@ -199,9 +199,23 @@ test_that("Indonesian PU sheets have localized headers, instruction box, row sum
   for (r in mat_row_indices) {
     row_sum_val <- as.numeric(raw_pu1[r, gt_col])
     expect_equal(row_sum_val, 1.0, tolerance = 1e-4)
-    # Column A contains initial class area in ha
+    # Column A contains initial class area in ha (>= 0)
     expect_true(!is.na(raw_pu1[r, 1]))
-    expect_true(as.numeric(raw_pu1[r, 1]) > 0)
+    expect_true(as.numeric(raw_pu1[r, 1]) >= 0)
+  }
+  
+  # Universal matrix dimension: all PU sheets have exact same class count matching lc_lookup_table
+  lc_lookup_full <- read.csv(lc_tbl_file)
+  expect_equal(length(mat_row_indices), nrow(lc_lookup_full))
+  
+  # For classes with 0 initial area: diagonal is 1.000 and off-diagonals are 0.000
+  zero_rows <- mat_row_indices[sapply(mat_row_indices, function(r) as.numeric(raw_pu1[r, 1]) <= 1e-6)]
+  expect_true(length(zero_rows) > 0)
+  for (zr in zero_rows) {
+    diag_c <- zr - 7 + 3
+    expect_equal(as.numeric(raw_pu1[zr, diag_c]), 1.0, tolerance = 1e-4)
+    off_cols <- setdiff(3:(gt_col - 1), diag_c)
+    expect_equal(sum(as.numeric(raw_pu1[zr, off_cols])), 0.0, tolerance = 1e-4)
   }
   
   # Check 1 blank separator row below last matrix row
@@ -486,14 +500,21 @@ try {
     # 2. Configure Policy Card: From Class (C8), To Class (C9), Pct (E8), Target PU (E9)
     $pu1 = $wb.Sheets.Item("PU_1_Protected_Forest")
     $matHeaderRow = 6
-    $panelCol = 0
-    for ($c = 1; $c -le 40; $c++) {
+    $matStartCol  = 3
+    $matEndCol    = 0
+    $panelCol     = 0
+    for ($c = 1; $c -le 100; $c++) {
         $t = $pu1.Cells.Item($matHeaderRow, $c).Text
+        if ($t -like "*Total Baris*" -or $t -like "*Row Total*" -or $t -like "*Grand Total*") {
+            $matEndCol = $c - 1
+        }
         if ($t -like "*From Class*" -or $t -like "*Kelas Asal*") {
             $panelCol = $c
             break
         }
     }
+    $nClasses = $matEndCol - $matStartCol + 1
+    $matEndRow = $matHeaderRow + $nClasses
     $firstDataRow = $matHeaderRow + 1
     $fromClass = $pu1.Cells.Item($firstDataRow, $panelCol).Text
     $toClass   = $pu1.Cells.Item($firstDataRow, $panelCol + 1).Text
@@ -529,7 +550,6 @@ try {
     $areaEditStatus = $pu1.Cells.Item($firstDataRow, $panelCol + 7).Text
     
     # Check bottom summary rows after policy & area edit
-    $matEndRow = $matHeaderRow + ($matEndCol - $matStartCol + 1)
     $blankRow = $matEndRow + 1
     $baseR = $blankRow + 1
     $scenR = $blankRow + 2
@@ -543,9 +563,26 @@ try {
     $excel.Run("TriggerCellChange", "PU_1_Protected_Forest", $firstDataRow, 1, 9999.0)
     $colAEditMatVal = [double]$pu1.Cells.Item($firstDataRow, 3).Value2
     
-    # Test editing summary row (Cell C18) is safely ignored by VBA
-    $excel.Run("TriggerCellChange", "PU_1_Protected_Forest", $baseR, 3, 1234.5)
+    # Test editing out-of-matrix separator row (Cell C48) is safely ignored by VBA
+    $excel.Run("TriggerCellChange", "PU_1_Protected_Forest", $blankRow, 3, 1234.5)
     $sumEditMatVal = [double]$pu1.Cells.Item($firstDataRow, 3).Value2
+    
+    # Test editing 0-area row is reverted by VBA guard
+    $zeroR = 0
+    For ($zr = 7; $zr -le $matEndRow; $zr++) {
+        if ([double]$pu1.Cells.Item($zr, 1).Value2 -le 0.000001) {
+            $zeroR = $zr
+            break
+        }
+    }
+    $zeroRowReverted = "NOT_TESTED"
+    if ($zeroR -gt 0) {
+        $testCol = 3
+        if ($testCol -eq ($zeroR - $matHeaderRow + 2)) { $testCol = 4 }
+        $excel.Run("TriggerCellChange", "PU_1_Protected_Forest", $zeroR, $testCol, 0.25)
+        $valAfterZeroEdit = [double]$pu1.Cells.Item($zeroR, $testCol).Value2
+        if ($valAfterZeroEdit -eq 0.0) { $zeroRowReverted = "YES" } else { $zeroRowReverted = "NO" }
+    }
     
     # 5. Run ResetAllSheetsToBaseline
     $excel.Run("ResetAllSheetsToBaseline")
@@ -575,13 +612,14 @@ try {
     Write-Output "POLICY_DELTA_C:$policyDeltaC"
     Write-Output "COLA_EDIT_MAT_VAL:$colAEditMatVal"
     Write-Output "SUM_EDIT_MAT_VAL:$sumEditMatVal"
+    Write-Output "ZERO_ROW_REVERTED:$zeroRowReverted"
     Write-Output "RESET_RATE:$resetRate"
     Write-Output "RESET_STATUS:$resetStatus"
     Write-Output "RESET_SCEN_C:$resetScenAreaC"
     Write-Output "RESET_BASE_C:$resetBaseAreaC"
     Write-Output "RESET_DELTA_C:$resetDeltaC"
 } catch {
-    Write-Output ("ERROR:" + $_.Exception.Message)
+    Write-Output ("ERROR at line " + $_.InvocationInfo.ScriptLineNumber + ": " + $_.Exception.Message)
 } finally {
     $excel.Quit()
     [System.Runtime.InteropServices.Marshal]::ReleaseComObject($excel) | Out-Null
@@ -603,6 +641,7 @@ try {
   expect_true(any(grepl("AREA_EDIT_STATUS:(Intervened|Diintervensi)", res_lines)))
   expect_true(any(grepl("COLA_EDIT_MAT_VAL:", res_lines)))
   expect_true(any(grepl("SUM_EDIT_MAT_VAL:", res_lines)))
+  expect_true(any(grepl("ZERO_ROW_REVERTED:YES", res_lines)))
   expect_true(any(grepl("RESET_STATUS:Baseline", res_lines)))
   expect_true(any(grepl("RESET_DELTA_C:0", res_lines)))
 })
@@ -646,21 +685,23 @@ test_that("Live Excel COM handles 0-to-exist dynamic row lifecycle with real per
     '        $pEnd0++',
     '    }',
     '',
-    '    # Locate off-diagonal 0 cell in matrix',
+    '    # Locate off-diagonal 0 cell on an active (initial area > 0) matrix row',
     '    $zeroRow = 0',
     '    $zeroCol = 0',
     '    for ($r = ($matHeaderRow + 1); $r -le $matEndRow; $r++) {',
-    '        for ($c = $matStartCol; $c -le $matEndCol; $c++) {',
-    '            if (($r - $matHeaderRow) -ne ($c - $matLabelCol)) {',
-    '                $val = [double]$pu1.Cells.Item($r, $c).Value2',
-    '                if ($val -lt 0.0001) {',
-    '                    $zeroRow = $r',
-    '                    $zeroCol = $c',
-    '                    break',
+    '        if ([double]$pu1.Cells.Item($r, 1).Value2 -gt 0.000001) {',
+    '            for ($c = $matStartCol; $c -le $matEndCol; $c++) {',
+    '                if (($r - $matHeaderRow) -ne ($c - $matLabelCol)) {',
+    '                    $val = [double]$pu1.Cells.Item($r, $c).Value2',
+    '                    if ($val -lt 0.0001) {',
+    '                        $zeroRow = $r',
+    '                        $zeroCol = $c',
+    '                        break',
+    '                    }',
     '                }',
     '            }',
+    '            if ($zeroRow -gt 0) { break }',
     '        }',
-    '        if ($zeroRow -gt 0) { break }',
     '    }',
     '',
     '    # 1. Dynamically append row by modifying 0-cell to 0.05',
@@ -711,17 +752,19 @@ test_that("Live Excel COM handles 0-to-exist dynamic row lifecycle with real per
     '    $zeroRow2 = 0',
     '    $zeroCol2 = 0',
     '    for ($r = ($matHeaderRow + 1); $r -le $matEndRow; $r++) {',
-    '        for ($c = $matStartCol; $c -le $matEndCol; $c++) {',
-    '            if (($r - $matHeaderRow) -ne ($c - $matLabelCol) -and ($r -ne $zeroRow -or $c -ne $zeroCol)) {',
-    '                $v = [double]$pu1.Cells.Item($r, $c).Value2',
-    '                if ($v -lt 0.0001) {',
-    '                    $zeroRow2 = $r',
-    '                    $zeroCol2 = $c',
-    '                    break',
+    '        if ([double]$pu1.Cells.Item($r, 1).Value2 -gt 0.000001) {',
+    '            for ($c = $matStartCol; $c -le $matEndCol; $c++) {',
+    '                if (($r - $matHeaderRow) -ne ($c - $matLabelCol) -and ($r -ne $zeroRow -or $c -ne $zeroCol)) {',
+    '                    $v = [double]$pu1.Cells.Item($r, $c).Value2',
+    '                    if ($v -lt 0.0001) {',
+    '                        $zeroRow2 = $r',
+    '                        $zeroCol2 = $c',
+    '                        break',
+    '                    }',
     '                }',
     '            }',
+    '            if ($zeroRow2 -gt 0) { break }',
     '        }',
-    '        if ($zeroRow2 -gt 0) { break }',
     '    }',
     '    $excel.Run("TriggerCellChange", "PU_1_Protected_Forest", $zeroRow2, $zeroCol2, 0.04)',
     '    $pEnd2App = $matHeaderRow',
@@ -879,7 +922,7 @@ test_that("Live Excel COM handles 0-to-exist dynamic row lifecycle with real per
     '    Write-Output "RESET_ZERO_VAL:$resetZeroVal"',
     '    Write-Output "RESET_VALID:$dashValid"',
     '} catch {',
-    '    Write-Output ("ERROR:" + $_.Exception.Message)',
+    '    Write-Output ("ERROR at line " + $_.InvocationInfo.ScriptLineNumber + ": " + $_.Exception.Message)',
     '} finally {',
     '    $excel.Quit()',
     '    [System.Runtime.InteropServices.Marshal]::ReleaseComObject($excel) | Out-Null',

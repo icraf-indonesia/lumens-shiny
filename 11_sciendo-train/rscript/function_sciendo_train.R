@@ -1933,7 +1933,13 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, temp
     matrix1$Rate <- as.numeric(matrix1$Rate)
     matrix1 <- matrix1[!is.na(matrix1$From) & !is.na(matrix1$To) & !is.na(matrix1$Rate), ]
     
-    all_ids <- sort(unique(c(matrix1$From, matrix1$To)))
+    # Universal matrix dimension: include all classes from lc_lookup_table
+    master_lc_ids <- if (!is.null(lc_lookup_table) && "ID" %in% colnames(lc_lookup_table)) {
+      sort(unique(suppressWarnings(as.numeric(as.character(lc_lookup_table$ID[!is.na(lc_lookup_table$ID)])))))
+    } else {
+      numeric(0)
+    }
+    all_ids <- sort(unique(c(master_lc_ids, matrix1$From, matrix1$To)))
     if (length(all_ids) == 0) {
       next
     }
@@ -2018,8 +2024,18 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, temp
         pu_class_areas[[area_key]]
       } else if (length(pu_class_areas) > 0) {
         0.00
-      } else {
+      } else if (from_id %in% matrix1$From) {
         1000.00
+      } else {
+        0.00
+      }
+    }
+    
+    # Enforce diagonal = 1.0 and off-diagonals = 0.0 for classes with 0 initial area
+    for (ri in 1:n_rows) {
+      if (col_a_vals[ri] <= 0.000001) {
+        result_matrix[ri, ] <- 0
+        result_matrix[ri, ri] <- 1.0
       }
     }
     
@@ -2027,7 +2043,7 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, temp
     active_records <- list()
     for (ri in 1:n_rows) {
       for (ci in 1:n_cols) {
-        if (ri != ci && result_matrix[ri, ci] > 0.000001) {
+        if (ri != ci && result_matrix[ri, ci] > 0.000001 && col_a_vals[ri] > 0.000001) {
           from_id <- row_ids[ri]
           init_class_area <- col_a_vals[ri]
           base_rate <- round(result_matrix[ri, ci], 6)
@@ -2170,19 +2186,29 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, temp
     wb$add_font(sheet = sheet_name, dims = sum_range, bold = TRUE)
     wb$add_numfmt(sheet = sheet_name, dims = sum_range, numfmt = "0.000")
     
-    # Apply diagonal and active cell styling
+    # Apply diagonal, active cell, and 0-area row styling
     for (ri in 1:n_rows) {
-      for (ci in 1:n_cols) {
-        cell_ref <- paste0(openxlsx2::int2col(2 + ci), 6 + ri)
-        if (ri == ci) {
-          # Diagonal persistence: light yellow
-          wb$add_fill(sheet = sheet_name, dims = cell_ref, color = openxlsx2::wb_color(hex = "FEF9C3"))
-        } else if (result_matrix[ri, ci] > 0.000001) {
-          # Active off-diagonal: subtle blue
-          wb$add_fill(sheet = sheet_name, dims = cell_ref, color = openxlsx2::wb_color(hex = "DBEAFE"))
-        } else {
-          # Zero cells: muted font
-          wb$add_font(sheet = sheet_name, dims = cell_ref, color = openxlsx2::wb_color(hex = "9CA3AF"))
+      row_idx <- 6 + ri
+      is_zero_area <- col_a_vals[ri] <= 0.000001
+      
+      if (is_zero_area) {
+        # Style entire 0-area row with muted gray #E2E8F0 and italic font
+        row_range <- paste0("A", row_idx, ":", openxlsx2::int2col(mat_sum_col), row_idx)
+        wb$add_fill(sheet = sheet_name, dims = row_range, color = openxlsx2::wb_color(hex = "E2E8F0"))
+        wb$add_font(sheet = sheet_name, dims = row_range, italic = TRUE, color = openxlsx2::wb_color(hex = "64748B"))
+      } else {
+        for (ci in 1:n_cols) {
+          cell_ref <- paste0(openxlsx2::int2col(2 + ci), row_idx)
+          if (ri == ci) {
+            # Diagonal persistence: light yellow
+            wb$add_fill(sheet = sheet_name, dims = cell_ref, color = openxlsx2::wb_color(hex = "FEF9C3"))
+          } else if (result_matrix[ri, ci] > 0.000001) {
+            # Active off-diagonal: subtle blue
+            wb$add_fill(sheet = sheet_name, dims = cell_ref, color = openxlsx2::wb_color(hex = "DBEAFE"))
+          } else {
+            # Zero cells: muted font
+            wb$add_font(sheet = sheet_name, dims = cell_ref, color = openxlsx2::wb_color(hex = "9CA3AF"))
+          }
         }
       }
     }

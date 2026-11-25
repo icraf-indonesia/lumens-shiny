@@ -329,6 +329,24 @@ server <- function(input, output, session) {
     }
     updateSelectizeInput(session, "memory_allocation", choices = choices, selected = curr)
   }
+
+  writable_drives <- detect_writable_non_c_drives()
+
+  update_temp_folder_choices <- function(lang) {
+    curr <- isolate(input$dinamica_temp_option)
+    if (is.null(curr) || !nzchar(curr)) curr <- "default"
+    base_choices <- if (lang == "en") {
+      c("Default" = "default", "Output Folder" = "output_dir")
+    } else {
+      c("Default" = "default", "Folder Output" = "output_dir")
+    }
+    drive_choices <- stats::setNames(writable_drives, writable_drives)
+    choices <- c(base_choices, drive_choices)
+    if (!(curr %in% unname(choices))) curr <- "default"
+    updateSelectizeInput(session, "dinamica_temp_option", choices = choices, selected = curr)
+  }
+
+  update_temp_folder_choices(isolate(current_lang()))
   
   svg_flag_id <- '<svg class="flag-icon" viewBox="0 0 20 14" width="22" height="15"><rect width="20" height="7" fill="#dc3545"/><rect y="7" width="20" height="7" fill="#ffffff"/></svg>'
   svg_flag_en <- '<svg class="flag-icon" viewBox="0 0 60 30" width="22" height="15"><clipPath id="trn_dd_uk1"><path d="M0,0 v30 h60 v-30 z"/></clipPath><clipPath id="trn_dd_uk2"><path d="M30,15 h30 v15 z v15 h-30 z h-30 v-15 z v-15 h30 z"/></clipPath><g clip-path="url(#trn_dd_uk1)"><path d="M0,0 v30 h60 v-30 z" fill="#012169"/><path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" stroke-width="6"/><path d="M0,0 L60,30 M60,0 L0,30" clip-path="url(#trn_dd_uk2)" stroke="#C8102E" stroke-width="4"/><path d="M30,0 v30 M0,15 h60" stroke="#fff" stroke-width="10"/><path d="M30,0 v30 M0,15 h60" stroke="#C8102E" stroke-width="6"/></g></svg>'
@@ -354,6 +372,7 @@ server <- function(input, output, session) {
     
     update_file_input_placeholders(lang)
     update_memory_choices(lang)
+    update_temp_folder_choices(lang)
   }, ignoreInit = TRUE)
   
   output$user_guide_content <- renderUI({
@@ -910,6 +929,7 @@ server <- function(input, output, session) {
           dinamica_path = rv$dinamica_path,
           output_dir = rv$wd,
           memory_allocation = input$memory_allocation,
+          temp_option = input$dinamica_temp_option,
           progress_callback = function(value, detail) {
             setProgress(value = value, message = detail)
           },
