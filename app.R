@@ -30,6 +30,16 @@ get_module_url <- function(session, port = MODULE_PORT) {
   paste0(protocol, "//", hostname, ":", port, "/")
 }
 
+lumens_button <- function(id, label, abbr) {
+  actionButton(
+    id,
+    tagList(
+      tags$span(class = "btn-title", label),
+      tags$span(class = "btn-abbr", abbr)
+    )
+  )
+}
+
 ui <- tagList(
   tags$head(
     tags$script(HTML(
@@ -37,24 +47,25 @@ ui <- tagList(
     ))
   ),
   htmlTemplate("index.html",
-                   button01 = actionButton("buildButton", "Build"),
-                   button02 = actionButton("reconcileButton", "Reconcile"),
-                   button03 = actionButton("prequesButton", "Pre-QUES"),
-                   button04 = actionButton("quescButton", "QUES-C"),
-                   button05 = actionButton("quesbButton", "QUES-B"),
-                   button06 = actionButton("queshButton", "QUES-H"),
-                   button07 = actionButton("taProfitButton", "LU Profitability"),
-                   button08 = actionButton("reDescButton", "RE Descriptive"),
-                   button09 = actionButton("reProjButton", "RE Projection"),
-                   button10 = actionButton("scenarioBuilderButton", "Scenario Builder"),
-                   button11 = actionButton("trainModelButton", "Train Model"),
-                   button12 = actionButton("simulateBuilderButton", "Simulate"),
-                   button13 = actionButton("lasemButton", "LASEM")
+                   button01 = lumens_button("buildButton", "Build", "Planning Unit Reconciliation - Build"),
+                   button02 = lumens_button("reconcileButton", "Reconcile", "Planning Unit Reconciliation - Reconcile"),
+                   button03 = lumens_button("prequesButton", "Pre-QUES", "Preliminary Quantification of Ecosystem Services"),
+                   button04 = lumens_button("quescButton", "QUES-C", "Quantification of Environmental Services on Carbon"),
+                   button05 = lumens_button("quesbButton", "QUES-B", "Quantification of Environmental Services on Biodiversity"),
+                   button06 = lumens_button("queshButton", "QUES-H", "Quantification of Environmental Services on Hydrology"),
+                   button07 = lumens_button("taProfitButton", "LU Profitability", "Land Use Profitability Analysis"),
+                   button08 = lumens_button("reDescButton", "RE Descriptive", "Regional Economic Descriptive Analysis"),
+                   button09 = lumens_button("reProjButton", "RE Projection", "Regional Economic Projection Analysis"),
+                   button10 = lumens_button("scenarioBuilderButton", "Scenario Builder", "SCIENDO Scenario Builder"),
+                   button11 = lumens_button("trainModelButton", "Train Model", "SCIENDO Train Model"),
+                   button12 = lumens_button("simulateBuilderButton", "Simulate", "SCIENDO Simulate"),
+                   button13 = lumens_button("lasemButton", "LaSEM", "Land Suitability Evaluation Module")
   )
 )
 
 server <- function(input, output, session) {
   pending_launch <- reactiveVal(NULL)
+  launch_lines_read <- 0L
 
   call_lumens_shiny_module <- function(r_script, module_name) {
     if (!is.null(pending_launch()) || is_port_open(MODULE_PORT)) {
@@ -68,32 +79,57 @@ server <- function(input, output, session) {
     if (nzchar(landing_url)) {
       Sys.setenv(LUMENS_LANDING_URL = landing_url)
     }
-    Sys.setenv(LUMENS_LAUNCH_BROWSER = "FALSE")
-    on.exit(Sys.unsetenv(c("LUMENS_LANDING_URL", "LUMENS_LAUNCH_BROWSER")), add = TRUE)
+    Sys.setenv(
+      LUMENS_LAUNCH_BROWSER = "FALSE",
+      R_LIBS = paste(.libPaths(), collapse = .Platform$path.sep)
+    )
+    on.exit(Sys.unsetenv(c("LUMENS_LANDING_URL", "LUMENS_LAUNCH_BROWSER", "R_LIBS")), add = TRUE)
 
     rscript_bin <- file.path(R.home("bin"), if (.Platform$OS.type == "windows") "Rscript.exe" else "Rscript")
     null_dev <- if (.Platform$OS.type == "windows") "NUL" else "/dev/null"
+    log_file <- tempfile(fileext = ".log")
+    file.create(log_file)
+    launch_lines_read <<- 0L
+
+    message(sprintf("[LUMENS] Launching %s (%s)...", module_name, r_script))
     system2(
       rscript_bin,
       args = shQuote(r_script),
-      stdout = null_dev,
-      stderr = null_dev,
+      stdout = log_file,
+      stderr = log_file,
       stdin = null_dev,
       wait = FALSE
     )
 
-    pending_launch(list(module_name = module_name, started_at = Sys.time()))
+    pending_launch(list(
+      module_name = module_name,
+      started_at = Sys.time(),
+      log_file = log_file
+    ))
+  }
+
+  flush_launch_log <- function(log_file) {
+    if (is.null(log_file) || !file.exists(log_file)) return(invisible(NULL))
+    lines <- tryCatch(suppressWarnings(readLines(log_file, warn = FALSE)), error = function(e) character(0))
+    n <- length(lines)
+    if (n > launch_lines_read) {
+      cat(paste(lines[(launch_lines_read + 1L):n], collapse = "\n"), "\n", sep = "")
+      launch_lines_read <<- n
+    }
   }
 
   observe({
     launch <- pending_launch()
     req(launch)
 
+    flush_launch_log(launch$log_file)
+
     if (is_port_open(MODULE_PORT)) {
       pending_launch(NULL)
       removeNotification("running_message")
+      message(sprintf("[LUMENS] %s ready on port %d.", launch$module_name, MODULE_PORT))
       session$sendCustomMessage("lumens_navigate", get_module_url(session, MODULE_PORT))
-    } else if (as.numeric(difftime(Sys.time(), launch$started_at, units = "secs")) > 60) {
+    } else if (as.numeric(difftime(Sys.time(), launch$started_at, units = "secs")) > 90) {
       pending_launch(NULL)
       removeNotification("running_message")
       showNotification(paste0("Timed out starting ", launch$module_name, "."), type = "error", duration = 6)
@@ -151,7 +187,7 @@ server <- function(input, output, session) {
   })
   
   observeEvent(input$lasemButton, {
-    call_lumens_shiny_module("call13.R", "LASEM")
+    call_lumens_shiny_module("call13.R", "LaSEM")
   })
 }
 
