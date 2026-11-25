@@ -596,6 +596,19 @@ with_dinamica_temp_dir <- function(temp_base_dir, dinamica_path, dinamica_exe, e
   force(expr)
 }
 
+#' Check DINAMICA Output for Temporary ERMapper Read-Lock Error
+#'
+#' @param log_lines Character vector of DINAMICA EGO stdout/stderr output.
+#' @return Logical `TRUE` if the `EGOTmp_*.ers` read-mode error is detected.
+is_ego_temp_read_error <- function(log_lines) {
+  if (is.null(log_lines) || length(log_lines) == 0) {
+    return(FALSE)
+  }
+  txt <- paste(log_lines, collapse = "\n")
+  grepl("can not be open in read mode", txt, ignore.case = TRUE) &&
+    grepl("EGOTmp_|ERMapper map", txt, ignore.case = TRUE)
+}
+
 #' Execute DINAMICA EGO Console Model
 #'
 #' @param params List containing `dinamica_path` and `egoml`.
@@ -621,18 +634,33 @@ executeDINAMICA <- function(params, memory_allocation, temp_dir = NULL) {
     stop("Specified egoml does not exist.")
   }
   
-  command <- paste0(
-    '"', dinamica_exe, '" ',
-    "-processors 0 -log-level 4 ",
-    "-memory-allocation-policy ", memory_allocation, " ",
-    '"', params$egoml, '"'
+  args <- c(
+    "-processors", "0",
+    "-log-level", "4",
+    "-memory-allocation-policy", as.character(memory_allocation),
+    shQuote(params$egoml)
   )
   
-  result <- with_dinamica_temp_dir(temp_dir, dinamica_path, dinamica_exe, {
-    system(command)
+  out <- with_dinamica_temp_dir(temp_dir, dinamica_path, dinamica_exe, {
+    suppressWarnings(system2(dinamica_exe, args = args, stdout = TRUE, stderr = TRUE))
   })
   
-  if (result != 0) {
+  if (length(out) > 0) {
+    cat(paste(out, collapse = "\n"), "\n")
+  }
+  
+  status <- attr(out, "status")
+  if (!is.null(status) && status != 0) {
+    if (is_ego_temp_read_error(out)) {
+      stop(errorCondition(
+        paste0(
+          "DINAMICA EGO crashed because a temporary file (EGOTmp_*.ers) could not be opened in read mode. ",
+          "To fix this: (1) Under Advanced Settings -> Choose Temporary Folder (Optional), select a non-C: local drive (e.g., D:/TEMP_SCIENDO) or a non-OneDrive Output Folder; ",
+          "or (2) change Choose Memory Allocation to Prefer Memory or Aggressive."
+        ),
+        class = "ego_temp_read_error"
+      ))
+    }
     stop("DINAMICA EGO execution failed. Check DINAMICA EGO installation and parameters.")
   }
   message("DINAMICA EGO execution completed successfully.")

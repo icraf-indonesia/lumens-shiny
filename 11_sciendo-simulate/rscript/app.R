@@ -1234,11 +1234,20 @@ server <- function(input, output, session) {
         shinyjs::show("openReport")
         shinyjs::show("open_output_folder")
       }, error = function(e) {
-        output$status_messages <- renderText(paste("Error in analysis:", e$message))
-        output$error_messages <- renderText(paste("Error in analysis:", e$message))
-        output$success_message <- renderText(NULL)
         removeNotification("running_notification")
-        showNotification("Error in analysis. Please check the error messages.", type = "error")
+        output$success_message <- renderText(NULL)
+        if (inherits(e, "ego_temp_read_error") || is_ego_temp_read_error(e$message)) {
+          lang <- current_lang()
+          log_msg <- tr("err_ego_temp_read_log", lang)
+          notif_msg <- tr("err_ego_temp_read_notif", lang)
+          output$status_messages <- renderText(log_msg)
+          output$error_messages <- renderText(log_msg)
+          showNotification(notif_msg, type = "error", duration = NULL)
+        } else {
+          output$status_messages <- renderText(paste("Error in analysis:", e$message))
+          output$error_messages <- renderText(paste("Error in analysis:", e$message))
+          showNotification("Error in analysis. Please check the error messages.", type = "error")
+        }
       })
     })
     

@@ -146,3 +146,12 @@ test_that("with_dinamica_temp_dir creates, isolates, and cleans up temp folder o
   expect_equal(Sys.getenv("TEMP", unset = NA), old_temp)
   expect_equal(Sys.getenv("TMP", unset = NA), old_tmp)
 })
+
+test_that("is_ego_temp_read_error detects Issue #221 ERMapper read-mode errors", {
+  expect_true(is_ego_temp_read_error(c(
+    '[@2 ERROR] "ForEachCategory":',
+    '  The header file of ERMapper map "C:/Users/u/AppData/Local/Temp/EGO123.tmp_TEMP/EGOTmp_1_.ers" can not be open in read mode.'
+  )))
+  expect_false(is_ego_temp_read_error("Some other DINAMICA EGO error"))
+  expect_false(is_ego_temp_read_error(character(0)))
+})
