@@ -20,7 +20,7 @@ ph_mapz_file_shp,"Upload all related files (.shp, .dbf, .prj, .shx)"
 lbl_mapz_file_rast,Planning Unit
 ph_mapz_file_rast,Upload raster (.tif)
 lbl_z_file,Planning Unit Lookup Table 
-ph_z_file,Upload table (.csv)
+ph_z_file,Upload table (.csv/.xlsx)
 hdr_predictors,Predictors
 lbl_factors_path,Predictor(s) Folder Path
 tip_factors_path,Choose a folder contains predictor files
@@ -32,6 +32,7 @@ tip_wd,Please select a directory
 ph_print_wd,No output directory selected
 accordion_adv_settings,Advanced Settings
 lbl_memory_allocation,Choose Memory Allocation
+lbl_temp_folder,Choose Temporary Folder (Optional)
 opt_balanced,Balanced
 opt_prefer_memory,Prefer Memory
 opt_prefer_disk,Prefer Disk
@@ -98,3 +99,7 @@ help_memory_allocation_body,"<p>Controls how DINAMICA EGO manages RAM and disk s
 help_dinamica_path_title,DINAMICA EGO Path (Optional)
 help_dinamica_path_body,"<p>Path to the DINAMICA EGO installation directory (e.g., <code>C:/Program Files/Dinamica EGO 7</code>).</p><p>If left blank, LUMENS automatically detects the installation under <code>Program Files</code>.</p>"
 notif_macro_unblock_hint,"Note: If macros are blocked when opened on another computer, right-click file -> Properties -> check 'Unblock', or run 'activate_macros.bat' in the output folder."
+help_temp_folder_title,Temporary Folder (Optional)
+help_temp_folder_body,"<p>Selects where DINAMICA EGO stores temporary files during execution.</p><ul><li><b>Default:</b> Uses DINAMICA EGO's built-in temporary folder setting.</li><li><b>Output Folder:</b> Creates a temporary <code>TEMP_SCIENDO</code> subfolder inside your Output Folder.</li><li><b>Local Drive (e.g., D:/TEMP_SCIENDO):</b> Creates a temporary folder on the selected local drive.</li></ul><p>Temporary files created by SCIENDO are automatically removed once finished.</p>"
+err_ego_temp_read_log,"Error: DINAMICA EGO could not open a temporary file (EGOTmp_*.ers) in read mode. To resolve this: (1) Open Advanced Settings -> Choose Temporary Folder (Optional) and select a non-C: local drive (e.g., D:/TEMP_SCIENDO) or a non-OneDrive Output Folder; or (2) change Choose Memory Allocation to Prefer Memory or Aggressive."
+err_ego_temp_read_notif,"DINAMICA EGO temporary file read error (EGOTmp_*.ers). In Advanced Settings, switch Choose Temporary Folder to a non-C: drive (e.g., D:/TEMP_SCIENDO) or non-OneDrive Output Folder, or set Memory Allocation to Prefer Memory / Aggressive."

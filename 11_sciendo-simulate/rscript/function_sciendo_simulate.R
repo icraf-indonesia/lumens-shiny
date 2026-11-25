@@ -28,6 +28,88 @@ format_session_info_table <- function() {
   )
 }
 
+#' Read Table Flexibly from CSV or Excel (.xlsx/.xls)
+#'
+#' Reads a data frame from a file path (.csv, .xlsx, .xls) or returns the data frame as is.
+#' Handles various delimiters for CSV (comma, semicolon, tab) automatically.
+#'
+#' @param path_or_df Character file path or data.frame
+#' @return A data.frame or NULL
+#' @export
+read_table_flexible <- function(path_or_df) {
+  if (is.null(path_or_df)) return(NULL)
+  if (is.data.frame(path_or_df)) return(as.data.frame(path_or_df, stringsAsFactors = FALSE))
+  if (!is.character(path_or_df) || length(path_or_df) == 0 || !nzchar(trimws(path_or_df[1]))) return(NULL)
+  
+  fpath <- path_or_df[1]
+  if (!file.exists(fpath)) return(NULL)
+  
+  ext <- tolower(tools::file_ext(fpath))
+  
+  # 1. Excel format (.xlsx, .xls)
+  if (ext %in% c("xlsx", "xls")) {
+    df_xl <- tryCatch({
+      if (requireNamespace("readxl", quietly = TRUE)) {
+        as.data.frame(readxl::read_excel(fpath), stringsAsFactors = FALSE)
+      } else if (requireNamespace("openxlsx2", quietly = TRUE)) {
+        as.data.frame(openxlsx2::read_xlsx(fpath), stringsAsFactors = FALSE)
+      } else if (requireNamespace("openxlsx", quietly = TRUE)) {
+        as.data.frame(openxlsx::read.xlsx(fpath), stringsAsFactors = FALSE)
+      } else {
+        NULL
+      }
+    }, error = function(e) NULL)
+    if (!is.null(df_xl)) return(df_xl)
+  }
+  
+  # 2. Delimited text / CSV format
+  # Try comma-delimited first
+  df <- tryCatch({
+    read.csv(fpath, stringsAsFactors = FALSE, check.names = FALSE)
+  }, error = function(e) NULL)
+  
+  # If 1 column or failed, try semicolon (European/Indonesian CSV)
+  if (is.null(df) || ncol(df) < 2) {
+    df_semi <- tryCatch({
+      read.csv2(fpath, stringsAsFactors = FALSE, check.names = FALSE)
+    }, error = function(e) NULL)
+    if (!is.null(df_semi) && ncol(df_semi) >= 2) {
+      df <- df_semi
+    }
+  }
+  
+  # If still 1 column or failed, try tab delimiter
+  if (is.null(df) || ncol(df) < 2) {
+    df_tab <- tryCatch({
+      read.delim(fpath, stringsAsFactors = FALSE, check.names = FALSE)
+    }, error = function(e) NULL)
+    if (!is.null(df_tab) && ncol(df_tab) >= 2) {
+      df <- df_tab
+    }
+  }
+  
+  # Fallback: if extension was wrong or missing, try Excel
+  if (is.null(df) || ncol(df) < 2) {
+    df_xl_fallback <- tryCatch({
+      if (requireNamespace("readxl", quietly = TRUE)) {
+        as.data.frame(readxl::read_excel(fpath), stringsAsFactors = FALSE)
+      } else if (requireNamespace("openxlsx2", quietly = TRUE)) {
+        as.data.frame(openxlsx2::read_xlsx(fpath), stringsAsFactors = FALSE)
+      } else if (requireNamespace("openxlsx", quietly = TRUE)) {
+        as.data.frame(openxlsx::read.xlsx(fpath), stringsAsFactors = FALSE)
+      } else {
+        NULL
+      }
+    }, error = function(e) NULL)
+    if (!is.null(df_xl_fallback) && ncol(df_xl_fallback) >= 2) {
+      df <- df_xl_fallback
+    }
+  }
+  
+  if (is.null(df)) return(NULL)
+  return(as.data.frame(df, stringsAsFactors = FALSE))
+}
+
 # ------------------------------------------------------------- utilities ---
 
 #' Install and Load Packages
@@ -204,6 +286,12 @@ plot_categorical_raster <- function(raster_object, filename = "raster_plot.png",
     "#D9D9D9", "#BC80BD", "#CCEBC5", "#FFED6F", "#E41A1C"
   )
   
+  n_cats <- if (length(cats(raster_object)) > 0 && !is.null(cats(raster_object)[[1]])) {
+    nrow(cats(raster_object)[[1]])
+  } else {
+    10
+  }
+
   has_custom_colors <- length(cats(raster_object)) > 0 &&
     !is.null(cats(raster_object)[[1]]) &&
     "color_palette" %in% names(cats(raster_object)[[1]]) &&
@@ -216,8 +304,13 @@ plot_categorical_raster <- function(raster_object, filename = "raster_plot.png",
       labels = scales::label_wrap(30)
     )
   } else {
+    palette_vals <- if (n_cats > length(default_palette)) {
+      grDevices::colorRampPalette(default_palette)(n_cats)
+    } else {
+      default_palette
+    }
     fill_scale <- scale_fill_manual(
-      values = default_palette,
+      values = palette_vals,
       na.value = "transparent",
       labels = scales::label_wrap(30)
     )
@@ -229,12 +322,7 @@ plot_categorical_raster <- function(raster_object, filename = "raster_plot.png",
     plot_title <- names(raster_object)
   }
   
-  n_cats <- if (length(cats(raster_object)) > 0 && !is.null(cats(raster_object)[[1]])) {
-    nrow(cats(raster_object)[[1]])
-  } else {
-    10
-  }
-  legend_ncol <- if (n_cats > 18) 2 else 1
+  legend_ncol <- if (n_cats > 54) 4 else if (n_cats > 36) 3 else if (n_cats > 18) 2 else 1
   
   plot_lc <- ggplot() +
     tidyterra::geom_spatraster(data = raster_object) +
@@ -305,12 +393,238 @@ plot_categorical_raster <- function(raster_object, filename = "raster_plot.png",
 #'
 #' @param params List with elements `dinamica_path` and `egoml`.
 #' @param memory_allocation Memory-allocation policy string passed to the
-#'   console.
+#' Detect Writable Non-C: Fixed Drives on Windows
+#'
+#' Queries fixed local drives on Windows, excludes `C:`, and verifies that a
+#' `TEMP_SCIENDO` subfolder can be created and written to.
+#'
+#' @return Character vector of writable `TEMP_SCIENDO` paths (e.g., `"D:/TEMP_SCIENDO"`).
+#' @export
+detect_writable_non_c_drives <- function() {
+  if (.Platform$OS.type != "windows") {
+    return(character(0))
+  }
+  drives <- tryCatch(
+    system2(
+      "powershell",
+      args = c(
+        "-NoProfile", "-Command",
+        "[System.IO.DriveInfo]::GetDrives() | Where-Object { $_.DriveType -eq 'Fixed' -and $_.IsReady } | ForEach-Object { $_.Name }"
+      ),
+      stdout = TRUE,
+      stderr = FALSE
+    ),
+    error = function(e) character(0)
+  )
+  drives <- trimws(drives)
+  drives <- drives[nzchar(drives)]
+  drives <- drives[!grepl("^C:", drives, ignore.case = TRUE)]
+  if (length(drives) == 0) {
+    return(character(0))
+  }
+  writable <- character(0)
+  for (drv in drives) {
+    drv_clean <- sub("[/\\\\]+$", "", drv)
+    candidate <- paste0(drv_clean, "/TEMP_SCIENDO")
+    existed <- dir.exists(candidate)
+    ok <- tryCatch({
+      if (!existed) {
+        dir.create(candidate, recursive = TRUE, showWarnings = FALSE)
+      }
+      if (!dir.exists(candidate)) {
+        FALSE
+      } else {
+        probe <- file.path(candidate, paste0(".write_test_", Sys.getpid()))
+        writeLines("ok", probe)
+        res <- file.exists(probe)
+        unlink(probe)
+        if (!existed && length(list.files(candidate, all.files = TRUE, no.. = TRUE)) == 0) {
+          unlink(candidate, recursive = TRUE)
+        }
+        res
+      }
+    }, error = function(e) FALSE)
+    if (isTRUE(ok)) {
+      writable <- c(writable, candidate)
+    }
+  }
+  writable
+}
+
+#' Resolve DINAMICA EGO Temporary Folder Option
+#'
+#' Maps the UI temporary folder selection to a concrete `TEMP_SCIENDO` path,
+#' or `NULL` when Dinamica's default behavior should be preserved.
+#'
+#' @param temp_option Selection value: `"default"`, `"output_dir"`, or a drive path.
+#' @param output_dir Optional simulation output directory.
+#' @return Character path or `NULL`.
+#' @export
+resolve_dinamica_temp_dir <- function(temp_option, output_dir = NULL) {
+  if (is.null(temp_option) || !nzchar(temp_option) || identical(temp_option, "default")) {
+    return(NULL)
+  }
+  if (identical(temp_option, "output_dir")) {
+    if (is.null(output_dir) || !nzchar(output_dir)) {
+      return(NULL)
+    }
+    return(gsub("\\\\", "/", file.path(output_dir, "TEMP_SCIENDO")))
+  }
+  gsub("\\\\", "/", temp_option)
+}
+
+#' Extract DINAMICA EGO Major Version
+#'
+#' @param dinamica_path Path to the DINAMICA EGO installation directory.
+#' @param dinamica_exe Optional path to the `DinamicaConsole` executable.
+#' @return Major version string (e.g., `"7"` or `"6"`), or `NULL`.
+detect_dinamica_version <- function(dinamica_path = NULL, dinamica_exe = NULL) {
+  candidates <- c(
+    if (!is.null(dinamica_exe)) basename(dinamica_exe) else character(0),
+    if (!is.null(dinamica_path)) basename(dinamica_path) else character(0)
+  )
+  for (cand in candidates) {
+    m <- regmatches(cand, regexec("([0-9]+)", cand))[[1]]
+    if (length(m) >= 2 && nzchar(m[2])) {
+      return(m[2])
+    }
+  }
+  NULL
+}
+
+#' Read a Windows Registry String Value Safely
+#'
+#' @param reg_key Registry key path (e.g., `"HKCU\\Software\\CSR\\Dinamica EGO 7"`).
+#' @param value_name Registry value name.
+#' @return List with `exists` (logical) and `value` (character or `NULL`).
+read_windows_reg_value <- function(reg_key, value_name) {
+  out <- tryCatch(
+    suppressWarnings(system2("reg", c("query", shQuote(reg_key), "/v", shQuote(value_name)), stdout = TRUE, stderr = TRUE)),
+    error = function(e) NULL
+  )
+  status <- attr(out, "status")
+  if (is.null(out) || (!is.null(status) && status != 0)) {
+    return(list(exists = FALSE, value = NULL))
+  }
+  line <- grep(paste0("\\b", value_name, "\\b"), out, value = TRUE)
+  if (length(line) == 0) {
+    return(list(exists = FALSE, value = NULL))
+  }
+  val <- sub(paste0("^\\s*", value_name, "\\s+REG_[A-Z_]+\\s*"), "", line[1])
+  list(exists = TRUE, value = trimws(val))
+}
+
+#' Run Expression with Temporary DINAMICA EGO Temp Folder
+#'
+#' Creates a dedicated run subfolder under `temp_base_dir`, sets `TEMP`/`TMP`
+#' and (on Windows) `HKCU\Software\CSR\Dinamica EGO <ver>\TempDir`, and
+#' restores all original state and deletes the temporary subfolder on exit.
+#'
+#' @param temp_base_dir Base `TEMP_SCIENDO` directory, or `NULL` for default.
+#' @param dinamica_path Path to the DINAMICA EGO installation directory.
+#' @param dinamica_exe Path to the `DinamicaConsole` executable.
+#' @param expr Expression to evaluate.
+#' @return Result of evaluating `expr`.
+with_dinamica_temp_dir <- function(temp_base_dir, dinamica_path, dinamica_exe, expr) {
+  if (is.null(temp_base_dir) || !nzchar(temp_base_dir)) {
+    return(force(expr))
+  }
+  base_existed <- dir.exists(temp_base_dir)
+  run_id <- paste0("run_", Sys.getpid(), "_", format(Sys.time(), "%Y%m%d%H%M%S"))
+  run_temp_dir <- file.path(temp_base_dir, run_id)
+  dir.create(run_temp_dir, recursive = TRUE, showWarnings = FALSE)
+  if (!dir.exists(run_temp_dir)) {
+    warning("Could not create temporary folder '", run_temp_dir, "'. Using DINAMICA EGO default.")
+    return(force(expr))
+  }
+  run_temp_win <- normalizePath(run_temp_dir, winslash = "\\", mustWork = FALSE)
+  message(paste("Using DINAMICA EGO temporary folder:", run_temp_win))
+
+  old_temp <- Sys.getenv("TEMP", unset = NA)
+  old_tmp  <- Sys.getenv("TMP", unset = NA)
+  Sys.setenv(TEMP = run_temp_win, TMP = run_temp_win)
+
+  reg_key <- NULL
+  prev_reg <- list(exists = FALSE, value = NULL)
+  reg_modified <- FALSE
+  if (.Platform$OS.type == "windows") {
+    ver <- detect_dinamica_version(dinamica_path, dinamica_exe)
+    if (!is.null(ver)) {
+      reg_key <- paste0("HKCU\\Software\\CSR\\Dinamica EGO ", ver)
+      prev_reg <- read_windows_reg_value(reg_key, "TempDir")
+      set_status <- tryCatch(
+        suppressWarnings(system2(
+          "reg",
+          c("add", shQuote(reg_key), "/v", "TempDir", "/t", "REG_SZ", "/d", shQuote(run_temp_win), "/f"),
+          stdout = FALSE, stderr = FALSE
+        )),
+        error = function(e) 1L
+      )
+      if (identical(set_status, 0L)) {
+        reg_modified <- TRUE
+      } else {
+        warning("Could not update DINAMICA EGO registry TempDir; falling back to TEMP/TMP environment variables.")
+      }
+    }
+  }
+
+  on.exit({
+    if (is.na(old_temp)) Sys.unsetenv("TEMP") else Sys.setenv(TEMP = old_temp)
+    if (is.na(old_tmp))  Sys.unsetenv("TMP")  else Sys.setenv(TMP = old_tmp)
+
+    if (reg_modified && !is.null(reg_key)) {
+      tryCatch({
+        if (isTRUE(prev_reg$exists)) {
+          suppressWarnings(system2(
+            "reg",
+            c("add", shQuote(reg_key), "/v", "TempDir", "/t", "REG_SZ", "/d", shQuote(prev_reg$value), "/f"),
+            stdout = FALSE, stderr = FALSE
+          ))
+        } else {
+          suppressWarnings(system2(
+            "reg",
+            c("delete", shQuote(reg_key), "/v", "TempDir", "/f"),
+            stdout = FALSE, stderr = FALSE
+          ))
+        }
+      }, error = function(e) {
+        warning("Failed to restore DINAMICA EGO registry TempDir: ", e$message)
+      })
+    }
+
+    unlink(run_temp_dir, recursive = TRUE, force = TRUE)
+    if (!base_existed && dir.exists(temp_base_dir) &&
+        length(list.files(temp_base_dir, all.files = TRUE, no.. = TRUE)) == 0) {
+      unlink(temp_base_dir, recursive = TRUE, force = TRUE)
+    }
+  }, add = TRUE)
+
+  force(expr)
+}
+
+#' Check DINAMICA Output for Temporary ERMapper Read-Lock Error
+#'
+#' @param log_lines Character vector of DINAMICA EGO stdout/stderr output.
+#' @return Logical `TRUE` if the `EGOTmp_*.ers` read-mode error is detected.
+is_ego_temp_read_error <- function(log_lines) {
+  if (is.null(log_lines) || length(log_lines) == 0) {
+    return(FALSE)
+  }
+  txt <- paste(log_lines, collapse = "\n")
+  grepl("can not be open in read mode", txt, ignore.case = TRUE) &&
+    grepl("EGOTmp_|ERMapper map", txt, ignore.case = TRUE)
+}
+
+#' Execute DINAMICA EGO Console Model
+#'
+#' @param params List containing `dinamica_path` and `egoml`.
+#' @param memory_allocation Memory-allocation policy code.
+#' @param temp_dir Optional base temporary folder path (or `NULL` for default).
 #' @return Invisibly `NULL`; called for its side effects.
 #' @importFrom magrittr %>%
 #' @importFrom purrr nth
 #' @export
-executeDINAMICA <- function(params, memory_allocation) {
+executeDINAMICA <- function(params, memory_allocation, temp_dir = NULL) {
   dinamica_path <- params$dinamica_path
   message(paste("Using DINAMICA EGO installation:", dinamica_path))
   
@@ -326,16 +640,33 @@ executeDINAMICA <- function(params, memory_allocation) {
     stop("Specified egoml does not exist.")
   }
   
-  command <- paste0(
-    '"', dinamica_exe, '" ',
-    "-processors 0 -log-level 4 ",
-    "-memory-allocation-policy ", memory_allocation, " ",
-    '"', params$egoml, '"'
+  args <- c(
+    "-processors", "0",
+    "-log-level", "4",
+    "-memory-allocation-policy", as.character(memory_allocation),
+    shQuote(params$egoml)
   )
   
-  result <- system(command)
+  out <- with_dinamica_temp_dir(temp_dir, dinamica_path, dinamica_exe, {
+    suppressWarnings(system2(dinamica_exe, args = args, stdout = TRUE, stderr = TRUE))
+  })
   
-  if (result != 0) {
+  if (length(out) > 0) {
+    cat(paste(out, collapse = "\n"), "\n")
+  }
+  
+  status <- attr(out, "status")
+  if (!is.null(status) && status != 0) {
+    if (is_ego_temp_read_error(out)) {
+      stop(errorCondition(
+        paste0(
+          "DINAMICA EGO crashed because a temporary file (EGOTmp_*.ers) could not be opened in read mode. ",
+          "To fix this: (1) Under Advanced Settings -> Choose Temporary Folder (Optional), select a non-C: local drive (e.g., D:/TEMP_SCIENDO) or a non-OneDrive Output Folder; ",
+          "or (2) change Choose Memory Allocation to Prefer Memory or Aggressive."
+        ),
+        class = "ego_temp_read_error"
+      ))
+    }
     stop("DINAMICA EGO execution failed. Check DINAMICA EGO installation and parameters.")
   }
   message("DINAMICA EGO execution completed successfully.")
@@ -663,17 +994,18 @@ generate_egoml_simulate <- function(lc1_path, lusim_lc,
 #' @param output_dir Directory where outputs are written.
 #' @param egoml Path to the `.egoml` model file.
 #' @param memory_allocation Memory-allocation policy string.
+#' @param temp_dir Optional base temporary folder path (or `NULL` for default).
 #' @return Invisibly `NULL`; called for its side effects.
 #' @export
 run_dinamica_simulation <- function(dinamica_path = NULL, output_dir, egoml,
-                                    memory_allocation) {
+                                    memory_allocation, temp_dir = NULL) {
   params <- list(
     dinamica_path = dinamica_path,
     output_dir    = output_dir,
     egoml         = egoml
   )
   
-  executeDINAMICA(params, memory_allocation)
+  executeDINAMICA(params, memory_allocation, temp_dir = temp_dir)
   
   new_lc_file <- paste0(output_dir, "/landscape01.tif")
   if (!file.exists(new_lc_file)) {
@@ -704,6 +1036,7 @@ run_dinamica_simulation <- function(dinamica_path = NULL, output_dir, egoml,
 #' @param alloc_params Optional list of `AllocateTransitions` parameters.
 #' @param alloc_override_df Optional per-transition override data frame.
 #' @param progress_callback Optional `function(progress, message)`.
+#' @param temp_option Temporary folder option (`"default"`, `"output_dir"`, or drive path).
 #' @return A list summarising the run (start/end time, inputs, session log).
 #' @export
 run_sciendo_simulate_process <- function(lc_t1_path, initial_year, period_value,
@@ -714,7 +1047,8 @@ run_sciendo_simulate_process <- function(lc_t1_path, initial_year, period_value,
                                          memory_allocation,
                                          alloc_params = NULL,
                                          alloc_override_df = NULL,
-                                         progress_callback = NULL) {
+                                         progress_callback = NULL,
+                                         temp_option = "default") {
   start_time <- Sys.time()
   cat("Started at:", format(start_time, "%Y-%m-%d %H:%M:%S"), "\n")
   
@@ -764,7 +1098,8 @@ run_sciendo_simulate_process <- function(lc_t1_path, initial_year, period_value,
   )
   
   if (!is.null(progress_callback)) progress_callback(0.7, "run dinamica simulation per region")
-  run_dinamica_simulation(dinamica_path, output_dir, out_sim$egoml_sim_file, memory_allocation)
+  temp_dir <- resolve_dinamica_temp_dir(temp_option, output_dir = output_dir)
+  run_dinamica_simulation(dinamica_path, output_dir, out_sim$egoml_sim_file, memory_allocation, temp_dir = temp_dir)
   
   rename_landscape(output_dir, initial_year, period_value)
   
@@ -1051,6 +1386,8 @@ calc_lc_freq <- function(raster_list) {
     for (i in 2:length(freq_tables)) {
       freq_df <- dplyr::left_join(freq_df, freq_tables[[i]], by = c("layer", "value"))
     }
+  }
+  if ("layer" %in% names(freq_df)) {
     freq_df <- dplyr::select(freq_df, -layer)
   }
   
@@ -1061,7 +1398,9 @@ calc_lc_freq <- function(raster_list) {
   if (all_times_present) {
     for (i in seq_along(raster_list)) {
       time_i <- as.character(time(raster_list[[i]]))
-      names(freq_df)[i + 1] <- time_i
+      if (!is.na(time_i) && nzchar(time_i)) {
+        names(freq_df)[i + 1] <- time_i
+      }
     }
     return(freq_df)
   } else {
@@ -1114,11 +1453,16 @@ add_legend_to_categorical_raster <- function(raster_file, lookup_table, year = N
     as.numeric(terra::freq(raster_file)[["value"]])
   })
   
-  lookup_table <- lookup_table[lookup_table[[1]] %in% raw_vals, ]
+  lookup_table <- lookup_table[as.numeric(lookup_table[[1]]) %in% raw_vals, , drop = FALSE]
   lookup_table <- data.frame(lookup_table)
   
-  if (!is.numeric(first_column)) {
-    lookup_table[[1]] <- as.numeric(first_column)
+  if (nrow(lookup_table) == 0) {
+    warning("No matching categories found between raster values and lookup_table.")
+    return(raster_file)
+  }
+  
+  if (!is.numeric(lookup_table[[1]])) {
+    lookup_table[[1]] <- as.numeric(lookup_table[[1]])
   }
   
   name_rast <- names(raster_file)
@@ -1290,7 +1634,9 @@ multiple_lc_freq_combined <- function(lc_dir, df_lc, PU = "NO", zone = NULL,
         dplyr::group_split(PU) %>%
         purrr::map(~ dplyr::select(., -PU))
       pu_names <- unique(final_data$PU)
-      names(pu_list) <- paste0("PU_", pu_names)
+      if (length(pu_list) > 0) {
+        names(pu_list) <- paste0("PU_", pu_names)
+      }
       return(pu_list)
     }
     return(final_data)
@@ -1400,6 +1746,15 @@ matrix_to_tpm <- function(input_folder_path, lc_lookup, output_dir) {
     return(invisible(NULL))
   }
   
+  if (is.character(lc_lookup)) {
+    lc_lookup <- read_table_flexible(lc_lookup)
+  }
+  if (!is.null(lc_lookup) && ncol(lc_lookup) >= 2) {
+    colnames(lc_lookup)[1:2] <- c("ID", "LC")
+    lc_lookup$ID <- suppressWarnings(as.numeric(as.character(lc_lookup$ID)))
+    lc_lookup$LC <- as.character(lc_lookup$LC)
+  }
+  
   clean_text <- function(x) tolower(trimws(gsub("\\s+", " ", as.character(x))))
   lc_lookup_clean <- lc_lookup %>% dplyr::mutate(LC_clean = clean_text(LC))
   
@@ -1472,22 +1827,34 @@ matrix_to_tpm <- function(input_folder_path, lc_lookup, output_dir) {
           raw_data <- readxl::read_excel(xlsm_path, sheet = sh_name, col_names = FALSE) %>% as.data.frame()
           if (nrow(raw_data) == 0) next
           
-          header_row_idx <- which(apply(raw_data, 1, function(r) any(grepl("From|Dari", r, ignore.case = TRUE))))
+          # Prefer exact corner header ("Dari / Ke", "From \ To", "From", "Dari") before substring fallback
+          header_row_idx <- which(apply(raw_data, 1, function(r) any(grepl("^From\\s*[\\\\/]|^Dari\\s*/\\s*Ke|^From$|^Dari$", trimws(as.character(r)), ignore.case = TRUE))))
+          if (length(header_row_idx) == 0) {
+            header_row_idx <- which(apply(raw_data, 1, function(r) any(grepl("From|Dari", r, ignore.case = TRUE))))
+          }
           if (length(header_row_idx) == 0) header_row_idx <- 1 else header_row_idx <- header_row_idx[1]
           
           header_row_vals <- as.character(raw_data[header_row_idx, ])
-          start_col_idx <- which(grepl("From|Dari", header_row_vals, ignore.case = TRUE))
+          start_col_idx <- which(grepl("^From\\s*[\\\\/]|^Dari\\s*/\\s*Ke|^From$|^Dari$", trimws(header_row_vals), ignore.case = TRUE))
+          if (length(start_col_idx) == 0) {
+            start_col_idx <- which(grepl("From|Dari", header_row_vals, ignore.case = TRUE))
+          }
           if (length(start_col_idx) == 0) start_col_idx <- 1 else start_col_idx <- start_col_idx[1]
           
           gt_col_idx <- which(grepl("grand total|total baris", header_row_vals, ignore.case = TRUE))
           if (length(gt_col_idx) == 0) {
             non_empty <- which(!is.na(header_row_vals) & header_row_vals != "")
-            end_col_idx <- max(non_empty)
+            end_col_idx <- if (length(non_empty) > 0) max(non_empty) else ncol(raw_data)
           } else {
             end_col_idx <- gt_col_idx[1] - 1
           }
           
-          col_names_vec <- as.character(raw_data[header_row_idx, (start_col_idx + 1):end_col_idx])
+          if (is.na(end_col_idx) || end_col_idx < (start_col_idx + 1) || start_col_idx >= ncol(raw_data)) {
+            stop("Could not locate matrix column bounds (start_col=", start_col_idx, ", end_col=", end_col_idx, ").")
+          }
+          
+          mat_col_indices <- (start_col_idx + 1):min(end_col_idx, ncol(raw_data))
+          col_names_vec <- as.character(raw_data[header_row_idx, mat_col_indices])
           
           row_scan <- (header_row_idx + 1):nrow(raw_data)
           valid_rows <- integer(0)
@@ -1503,15 +1870,32 @@ matrix_to_tpm <- function(input_folder_path, lc_lookup, output_dir) {
           if (length(valid_rows) == 0) next
           
           row_names_vec <- as.character(raw_data[valid_rows, start_col_idx])
-          matrix_vals <- raw_data[valid_rows, (start_col_idx + 1):end_col_idx, drop = FALSE]
+          matrix_vals <- raw_data[valid_rows, mat_col_indices, drop = FALSE]
           
           data <- as.data.frame(matrix_vals)
           colnames(data) <- col_names_vec
           data <- cbind(From = row_names_vec, data)
           
           ids <- convert_to_id(data, lc_lookup_clean)
+          if (all(is.na(ids$row_ids)) || all(is.na(ids$col_ids))) {
+            stop(
+              "None of the matrix classes matched the Land Cover Lookup Table. ",
+              "Verify that the Land Cover lookup table (not the Planning Unit table) is selected."
+            )
+          }
+          
+          # Drop unmatched columns/rows (e.g. NoData omitted from lookup) before pivot_longer
+          # so NA column names never trigger tidyselect 'undefined columns selected'.
+          valid_cols <- which(!is.na(ids$col_ids))
+          if (length(valid_cols) < length(ids$col_ids)) {
+            dropped_cols <- col_names_vec[is.na(ids$col_ids)]
+            message("  Note (", sh_name, "): ignoring unmatched class column(s): ", paste(dropped_cols, collapse = ", "))
+          }
           data[[1]] <- ids$row_ids
-          colnames(data)[-1] <- ids$col_ids
+          data <- data[, c(1, valid_cols + 1), drop = FALSE]
+          colnames(data)[-1] <- ids$col_ids[valid_cols]
+          data <- data[!is.na(data[[1]]), , drop = FALSE]
+          if (nrow(data) == 0 || ncol(data) < 2) next
           
           parse_num <- function(x) suppressWarnings(as.numeric(trimws(gsub(",", ".", as.character(x)))))
           
@@ -2073,8 +2457,11 @@ build_allocate_transitions <- function(
   for (nm in names(uniform)) df[[nm]] <- uniform[[nm]]
   
   if (!is.null(override_df)) {
+    if (is.character(override_df)) {
+      override_df <- read_table_flexible(override_df)
+    }
     if (!is.data.frame(override_df))
-      stop("`override_df` must be a data.frame.", call. = FALSE)
+      stop("`override_df` must be a data.frame or valid file path.", call. = FALSE)
     
     required <- c("from_id", "to_id",
                   "percent", "exp_mean", "exp_var", "exp_iso",
@@ -2202,6 +2589,10 @@ alloc_help_texts <- list(
             running the simulation.</p> <ul> <li>Balanced (default): input maps are kept in memory, while results
             are written to disk if RAM is limited.</li> <li>Prefer Memory: keep both inputs and results in RAM when possible.</li> <li>Prefer Disk: stream everything through disk.</li> <li>Memory Only: abort if there is insufficient RAM.</li> <li>Aggressive: inputs are kept on disk, while results are kept in RAM
             when possible.</li> </ul>"
+  ),
+  temp_folder = list(
+    title = "Temporary Folder (Optional)",
+    body = "<p>Selects where DINAMICA EGO stores temporary files during execution.</p><ul><li><b>Default:</b> Uses DINAMICA EGO's built-in temporary folder setting.</li><li><b>Output Folder:</b> Creates a temporary <code>TEMP_SCIENDO</code> subfolder inside your Output Folder.</li><li><b>Local Drive (e.g., D:/TEMP_SCIENDO):</b> Creates a temporary folder on the selected local drive.</li></ul><p>Temporary files created by SCIENDO are automatically removed once finished.</p>"
   ),
   custom = list(
     title = "Parameterize Allocate Transitions",

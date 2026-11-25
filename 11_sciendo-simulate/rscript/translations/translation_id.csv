@@ -31,6 +31,7 @@ tip_wd,Silakan pilih direktori
 ph_print_wd,Belum ada folder output yang dipilih
 accordion_adv_settings,Pengaturan Lanjutan
 lbl_memory_allocation,Pilih Alokasi Memori
+lbl_temp_folder,Pilih Temporary Folder (Opsional)
 opt_balanced,Seimbang (Balanced)
 opt_prefer_memory,Utamakan Memori (Prefer Memory)
 opt_prefer_disk,Utamakan Disk (Prefer Disk)
@@ -136,3 +137,7 @@ help_gen_iso_title,Isometri Patch Pembentukan Baru
 help_gen_iso_body,<p>Bentuk geometris patch baru yang dibentuk.</p> <ul> <li><code>0</code> = linier</li> <li><code>1</code> = netral</li> <li><code>2</code> = melingkar / kompak</li> </ul> <p>Rentang nilai: <code>0</code> - <code>2</code>.</p>
 help_override_title,Alokasi per-Transisi (Opsional)
 help_override_body,<p>Unggah templat Excel/CSV untuk menyesuaikan parameter alokasi transisi secara spesifik untuk masing-masing pasangan transisi.</p>
+help_temp_folder_title,Pilih Temporary Folder (Opsional)
+help_temp_folder_body,"<p>Menentukan lokasi penyimpanan berkas sementara DINAMICA EGO selama proses berlangsung.</p><ul><li><b>Default:</b> Menggunakan pengaturan folder sementara bawaan DINAMICA EGO.</li><li><b>Folder Output:</b> Membuat subfolder sementara <code>TEMP_SCIENDO</code> di dalam Folder Output.</li><li><b>Drive Lokal (misalnya D:/TEMP_SCIENDO):</b> Membuat folder sementara pada drive lokal yang dipilih.</li></ul><p>Berkas sementara yang dibuat oleh SCIENDO akan dihapus otomatis setelah proses selesai.</p>"
+err_ego_temp_read_log,"Galat: DINAMICA EGO tidak dapat membuka berkas sementara (EGOTmp_*.ers) dalam mode baca. Solusi: (1) Buka Pengaturan Lanjutan -> Pilih Temporary Folder (Opsional), lalu pilih drive lokal selain C: (misalnya D:/TEMP_SCIENDO) atau Folder Output di luar OneDrive; atau (2) ubah Pilih Alokasi Memori menjadi Utamakan Memori (Prefer Memory) atau Agresif (Aggressive)."
+err_ego_temp_read_notif,"Gagal membaca berkas sementara DINAMICA EGO (EGOTmp_*.ers). Di Pengaturan Lanjutan, ubah Pilih Temporary Folder ke drive selain C: (mis. D:/TEMP_SCIENDO) atau Folder Output non-OneDrive, atau ubah Alokasi Memori ke Utamakan Memori / Agresif."

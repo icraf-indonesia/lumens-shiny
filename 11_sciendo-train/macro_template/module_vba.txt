@@ -85,7 +85,7 @@ Public Function GetInitialClassArea(ws As Worksheet, ByVal fromClassName As Stri
         End If
     ElseIf Len(Trim(fromClassName)) > 0 Then
         Dim rScanA As Long
-        For rScanA = 7 To 50
+        For rScanA = 7 To 200
             If StrComp(Trim(CStr(ws.Cells(rScanA, 2).Value)), Trim(fromClassName), vbTextCompare) = 0 Then
                 colAArea = SafeCDbl(ws.Cells(rScanA, 1).Value)
                 If colAArea > 0.0001 Then
@@ -277,6 +277,32 @@ Public Sub HandleSheetChange(ByVal ws As Worksheet, ByVal Target As Range)
     
     ' CASE 1: Cell in Matrix changed
     If tRow >= matStartRow And tRow <= matEndRow And tCol >= matStartCol And tCol <= matEndCol Then
+        Dim rowInitArea As Double
+        rowInitArea = SafeCDbl(ws.Cells(tRow, 1).Value)
+        If rowInitArea <= 0.000001 Then
+            Dim fromClsName As String
+            fromClsName = Trim(CStr(ws.Cells(tRow, matLabelCol).Value))
+            If IsIndonesian() Then
+                ShowMsg "Baris ini tidak dapat diintervensi karena kelas asal '" & fromClsName & "' memiliki luasan awal 0 ha pada Unit Perencanaan ini.", vbExclamation, "Validasi Intervensi"
+            Else
+                ShowMsg "This row cannot be intervened because the origin class '" & fromClsName & "' has 0 ha initial area in this Planning Unit.", vbExclamation, "Intervention Validation"
+            End If
+            IsUpdating = True
+            Dim prevEvM0 As Boolean: prevEvM0 = Application.EnableEvents
+            Application.EnableEvents = False
+            If Not baseWs Is Nothing Then
+                Target.Value = baseWs.Cells(tRow, tCol).Value
+            Else
+                If tRow - matStartRow + 1 = tCol - matStartCol + 1 Then
+                    Target.Value = 1#
+                Else
+                    Target.Value = 0#
+                End If
+            End If
+            Application.EnableEvents = prevEvM0
+            IsUpdating = False
+            Exit Sub
+        End If
         If Not IsNumeric(Target.Value) Or SafeCDbl(Target.Value) < 0 Or SafeCDbl(Target.Value) > 1 Then
             If IsIndonesian() Then
                 ShowMsg "Nilai tidak valid! Silakan masukkan probabilitas antara 0 dan 1.", vbExclamation, "Validasi Masukan"
@@ -389,6 +415,29 @@ Public Sub HandleSheetChange(ByVal ws As Worksheet, ByVal Target As Range)
         
         Dim mRow As Long, mCol As Long, baseRate As Double, scenRate As Double, pctAdj As Double
         mRow = Val(ws.Cells(tRow, panelCol + 8).Value)
+        
+        If mRow > 0 Then
+            Dim panInitArea As Double
+            panInitArea = SafeCDbl(ws.Cells(mRow, 1).Value)
+            If panInitArea <= 0.000001 Then
+                Dim panFromName As String
+                panFromName = Trim(CStr(ws.Cells(tRow, panelCol).Value))
+                If IsIndonesian() Then
+                    ShowMsg "Transisi ini tidak dapat diintervensi karena kelas asal '" & panFromName & "' memiliki luasan awal 0 ha pada Unit Perencanaan ini.", vbExclamation, "Validasi Intervensi"
+                Else
+                    ShowMsg "This transition cannot be intervened because the origin class '" & panFromName & "' has 0 ha initial area in this Planning Unit.", vbExclamation, "Intervention Validation"
+                End If
+                IsUpdating = True
+                Dim prevEvP0 As Boolean: prevEvP0 = Application.EnableEvents
+                Application.EnableEvents = False
+                If Not baseWs Is Nothing Then
+                    Target.Value = baseWs.Cells(tRow, tCol).Value
+                End If
+                Application.EnableEvents = prevEvP0
+                IsUpdating = False
+                Exit Sub
+            End If
+        End If
         mCol = Val(ws.Cells(tRow, panelCol + 9).Value)
         baseRate = SafeCDbl(ws.Cells(tRow, panelCol + 2).Value)
         Dim isAppended As Boolean: isAppended = (baseRate <= 0.000001)
@@ -1028,6 +1077,14 @@ Sub RestoreCellFormatting(ws As Worksheet, rowNum As Long, colNum As Long, Optio
     If matHeaderRow = 0 Then matHeaderRow = 4
     If matLabelCol = 0 Then matLabelCol = 2
     
+    ' Check if row is a 0-initial-area class
+    If SafeCDbl(ws.Cells(rowNum, 1).Value) <= 0.000001 Then
+        ws.Cells(rowNum, colNum).Interior.Color = RGB(226, 232, 240) ' Muted gray (#E2E8F0)
+        ws.Cells(rowNum, colNum).Font.Color = RGB(100, 116, 139)     ' Dimmed font (#64748B)
+        ws.Cells(rowNum, colNum).Font.Italic = True
+        Exit Sub
+    End If
+    
     Dim rIdx As Long, cIdx As Long
     rIdx = rowNum - matHeaderRow
     cIdx = colNum - matLabelCol
@@ -1035,11 +1092,13 @@ Sub RestoreCellFormatting(ws As Worksheet, rowNum As Long, colNum As Long, Optio
     If rIdx = cIdx Then
         ws.Cells(rowNum, colNum).Interior.Color = RGB(254, 249, 195) ' Soft yellow (#FEF9C3) for diagonal persistence
         ws.Cells(rowNum, colNum).Font.Color = RGB(0, 0, 0)
+        ws.Cells(rowNum, colNum).Font.Italic = False
     Else
         Dim cellVal As Double: cellVal = 0#
         If IsNumeric(ws.Cells(rowNum, colNum).Value) Then
             cellVal = SafeCDbl(ws.Cells(rowNum, colNum).Value)
         End If
+        ws.Cells(rowNum, colNum).Font.Italic = False
         If cellVal > 0.000001 Then
             ws.Cells(rowNum, colNum).Interior.Color = RGB(219, 234, 254) ' Subtle blue (#DBEAFE) for active transition
             ws.Cells(rowNum, colNum).Font.Color = RGB(0, 0, 0)
@@ -1404,7 +1463,8 @@ ResetAllCleanExit:
 End Sub
 
 ' Helper function to apply policy to a single sheet
-Function ApplyPolicyToSheet(ws As Worksheet, fromClass As String, toClass As String, pctVal As Double) As Boolean
+Function ApplyPolicyToSheet(ws As Worksheet, fromClass As String, toClass As String, pctVal As Double, Optional ByRef wasSkippedZero As Boolean = False) As Boolean
+    wasSkippedZero = False
     Dim matHeaderRow As Long, matLabelCol As Long, matStartCol As Long, colScan As Long
     matLabelCol = 2
     matStartCol = 3
@@ -1463,6 +1523,15 @@ Function ApplyPolicyToSheet(ws As Worksheet, fromClass As String, toClass As Str
         Next rIdx
     End If
     If mRow = 0 Then
+        ApplyPolicyToSheet = False
+        Exit Function
+    End If
+    
+    ' Skip if fromClass has 0 initial area in this Planning Unit
+    Dim fAreaCheck As Double
+    fAreaCheck = SafeCDbl(ws.Cells(mRow, 1).Value)
+    If fAreaCheck <= 0.000001 Then
+        wasSkippedZero = True
         ApplyPolicyToSheet = False
         Exit Function
     End If
@@ -1855,6 +1924,7 @@ Sub ApplyPolicyAcrossPUs()
     End If
     
     Dim ws As Worksheet, modifiedCount As Long: modifiedCount = 0
+    Dim skippedZeroCount As Long: skippedZeroCount = 0
     For Each ws In ThisWorkbook.Worksheets
         If ws.Name <> "Dashboard" And Left(ws.Name, 1) <> "_" Then
             Dim shouldApply As Boolean: shouldApply = False
@@ -1871,8 +1941,11 @@ Sub ApplyPolicyAcrossPUs()
             End If
             
             If shouldApply Then
-                If ApplyPolicyToSheet(ws, fromClass, toClass, pctVal) Then
+                Dim wasZero As Boolean: wasZero = False
+                If ApplyPolicyToSheet(ws, fromClass, toClass, pctVal, wasZero) Then
                     modifiedCount = modifiedCount + 1
+                ElseIf wasZero Then
+                    skippedZeroCount = skippedZeroCount + 1
                 End If
             End If
         End If
@@ -1880,12 +1953,24 @@ Sub ApplyPolicyAcrossPUs()
     
     UpdateDashboardSummary
     If IsIndonesian() Then
-        ShowMsg "Kebijakan berhasil diterapkan pada " & modifiedCount & " Unit Perencanaan." & vbCrLf & _
+        Dim msgId As String
+        msgId = "Kebijakan berhasil diterapkan pada " & modifiedCount & " Unit Perencanaan."
+        If skippedZeroCount > 0 Then
+            msgId = msgId & " (" & skippedZeroCount & " unit dilewati karena kelas asal memiliki luas 0 ha)."
+        End If
+        msgId = msgId & vbCrLf & _
                 "Transisi: " & fromClass & " -> " & toClass & vbCrLf & _
-                "Penyesuaian: " & Format(pctVal, "0.0%"), vbInformation, "Penerapan Kebijakan Selesai"
+                "Penyesuaian: " & Format(pctVal, "0.0%")
+        ShowMsg msgId, vbInformation, "Penerapan Kebijakan Selesai"
     Else
-        ShowMsg "Policy applied to " & modifiedCount & " Planning Unit(s)." & vbCrLf & _
+        Dim msgEn As String
+        msgEn = "Policy applied to " & modifiedCount & " Planning Unit(s)."
+        If skippedZeroCount > 0 Then
+            msgEn = msgEn & " (" & skippedZeroCount & " units skipped because the origin class has 0 ha area)."
+        End If
+        msgEn = msgEn & vbCrLf & _
                 "Transition: " & fromClass & " -> " & toClass & vbCrLf & _
-                "Adjustment: " & Format(pctVal, "0.0%"), vbInformation, "Policy Application Complete"
+                "Adjustment: " & Format(pctVal, "0.0%")
+        ShowMsg msgEn, vbInformation, "Policy Application Complete"
     End If
 End Sub

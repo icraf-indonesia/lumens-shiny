@@ -27,6 +27,88 @@ format_session_info_table <- function() {
   return(session_summary)
 }
 
+#' Read Table Flexibly from CSV or Excel (.xlsx/.xls)
+#'
+#' Reads a data frame from a file path (.csv, .xlsx, .xls) or returns the data frame as is.
+#' Handles various delimiters for CSV (comma, semicolon, tab) automatically.
+#'
+#' @param path_or_df Character file path or data.frame
+#' @return A data.frame or NULL
+#' @export
+read_table_flexible <- function(path_or_df) {
+  if (is.null(path_or_df)) return(NULL)
+  if (is.data.frame(path_or_df)) return(as.data.frame(path_or_df, stringsAsFactors = FALSE))
+  if (!is.character(path_or_df) || length(path_or_df) == 0 || !nzchar(trimws(path_or_df[1]))) return(NULL)
+  
+  fpath <- path_or_df[1]
+  if (!file.exists(fpath)) return(NULL)
+  
+  ext <- tolower(tools::file_ext(fpath))
+  
+  # 1. Excel format (.xlsx, .xls)
+  if (ext %in% c("xlsx", "xls")) {
+    df_xl <- tryCatch({
+      if (requireNamespace("readxl", quietly = TRUE)) {
+        as.data.frame(readxl::read_excel(fpath), stringsAsFactors = FALSE)
+      } else if (requireNamespace("openxlsx2", quietly = TRUE)) {
+        as.data.frame(openxlsx2::read_xlsx(fpath), stringsAsFactors = FALSE)
+      } else if (requireNamespace("openxlsx", quietly = TRUE)) {
+        as.data.frame(openxlsx::read.xlsx(fpath), stringsAsFactors = FALSE)
+      } else {
+        NULL
+      }
+    }, error = function(e) NULL)
+    if (!is.null(df_xl)) return(df_xl)
+  }
+  
+  # 2. Delimited text / CSV format
+  # Try comma-delimited first
+  df <- tryCatch({
+    read.csv(fpath, stringsAsFactors = FALSE, check.names = FALSE)
+  }, error = function(e) NULL)
+  
+  # If 1 column or failed, try semicolon (European/Indonesian CSV)
+  if (is.null(df) || ncol(df) < 2) {
+    df_semi <- tryCatch({
+      read.csv2(fpath, stringsAsFactors = FALSE, check.names = FALSE)
+    }, error = function(e) NULL)
+    if (!is.null(df_semi) && ncol(df_semi) >= 2) {
+      df <- df_semi
+    }
+  }
+  
+  # If still 1 column or failed, try tab delimiter
+  if (is.null(df) || ncol(df) < 2) {
+    df_tab <- tryCatch({
+      read.delim(fpath, stringsAsFactors = FALSE, check.names = FALSE)
+    }, error = function(e) NULL)
+    if (!is.null(df_tab) && ncol(df_tab) >= 2) {
+      df <- df_tab
+    }
+  }
+  
+  # Fallback: if extension was wrong or missing, try Excel
+  if (is.null(df) || ncol(df) < 2) {
+    df_xl_fallback <- tryCatch({
+      if (requireNamespace("readxl", quietly = TRUE)) {
+        as.data.frame(readxl::read_excel(fpath), stringsAsFactors = FALSE)
+      } else if (requireNamespace("openxlsx2", quietly = TRUE)) {
+        as.data.frame(openxlsx2::read_xlsx(fpath), stringsAsFactors = FALSE)
+      } else if (requireNamespace("openxlsx", quietly = TRUE)) {
+        as.data.frame(openxlsx::read.xlsx(fpath), stringsAsFactors = FALSE)
+      } else {
+        NULL
+      }
+    }, error = function(e) NULL)
+    if (!is.null(df_xl_fallback) && ncol(df_xl_fallback) >= 2) {
+      df <- df_xl_fallback
+    }
+  }
+  
+  if (is.null(df)) return(NULL)
+  return(as.data.frame(df, stringsAsFactors = FALSE))
+}
+
 ### Required Library ####
 #' Install Required Library
 #' 
@@ -388,6 +470,12 @@ plot_categorical_raster <- function(raster_object, filename = "raster_plot.png",
     "#D9D9D9", "#BC80BD", "#CCEBC5", "#FFED6F", "#E41A1C"
   )
   
+  n_cats <- if (length(cats(raster_object)) > 0 && !is.null(cats(raster_object)[[1]])) {
+    nrow(cats(raster_object)[[1]])
+  } else {
+    10
+  }
+
   has_custom_colors <- length(cats(raster_object)) > 0 &&
     !is.null(cats(raster_object)[[1]]) &&
     "color_palette" %in% names(cats(raster_object)[[1]]) &&
@@ -400,8 +488,13 @@ plot_categorical_raster <- function(raster_object, filename = "raster_plot.png",
       labels = scales::label_wrap(30)
     )
   } else {
+    palette_vals <- if (n_cats > length(default_palette)) {
+      grDevices::colorRampPalette(default_palette)(n_cats)
+    } else {
+      default_palette
+    }
     fill_scale <- scale_fill_manual(
-      values = default_palette,
+      values = palette_vals,
       na.value = "transparent",
       labels = scales::label_wrap(30)
     )
@@ -413,12 +506,7 @@ plot_categorical_raster <- function(raster_object, filename = "raster_plot.png",
     plot_title <- names(raster_object)
   }
   
-  n_cats <- if (length(cats(raster_object)) > 0 && !is.null(cats(raster_object)[[1]])) {
-    nrow(cats(raster_object)[[1]])
-  } else {
-    10
-  }
-  legend_ncol <- if (n_cats > 18) 2 else 1
+  legend_ncol <- if (n_cats > 54) 4 else if (n_cats > 36) 3 else if (n_cats > 18) 2 else 1
   
   # Generate the plot
   plot_lc <- ggplot() +
@@ -489,6 +577,11 @@ plot_categorical_raster <- function(raster_object, filename = "raster_plot.png",
 
 
 create_list_of_weight_report <- function(woe_report_path, list_woe_report, df_zone, lc_lookup_table) {
+  if (!is.null(lc_lookup_table) && ncol(lc_lookup_table) >= 2) {
+    colnames(lc_lookup_table)[1:2] <- c("ID_LC", "LC")
+    lc_lookup_table$ID_LC <- suppressWarnings(as.numeric(as.character(lc_lookup_table$ID_LC)))
+    lc_lookup_table$LC <- as.character(lc_lookup_table$LC)
+  }
   listWoeReport <- list_woe_report
   woe <- list()
   len <- nrow(df_zone)
@@ -561,7 +654,220 @@ generate_sciendo_train_report <- function(output, dir) {
 }
 
 
-executeDINAMICA <- function(params, memory_allocation) {
+#' Detect Writable Non-C: Fixed Drives on Windows
+#'
+#' Queries fixed local drives on Windows, excludes `C:`, and verifies that a
+#' `TEMP_SCIENDO` subfolder can be created and written to.
+#'
+#' @return Character vector of writable `TEMP_SCIENDO` paths (e.g., `"D:/TEMP_SCIENDO"`).
+detect_writable_non_c_drives <- function() {
+  if (.Platform$OS.type != "windows") {
+    return(character(0))
+  }
+  drives <- tryCatch(
+    system2(
+      "powershell",
+      args = c(
+        "-NoProfile", "-Command",
+        "[System.IO.DriveInfo]::GetDrives() | Where-Object { $_.DriveType -eq 'Fixed' -and $_.IsReady } | ForEach-Object { $_.Name }"
+      ),
+      stdout = TRUE,
+      stderr = FALSE
+    ),
+    error = function(e) character(0)
+  )
+  drives <- trimws(drives)
+  drives <- drives[nzchar(drives)]
+  drives <- drives[!grepl("^C:", drives, ignore.case = TRUE)]
+  if (length(drives) == 0) {
+    return(character(0))
+  }
+  writable <- character(0)
+  for (drv in drives) {
+    drv_clean <- sub("[/\\\\]+$", "", drv)
+    candidate <- paste0(drv_clean, "/TEMP_SCIENDO")
+    existed <- dir.exists(candidate)
+    ok <- tryCatch({
+      if (!existed) {
+        dir.create(candidate, recursive = TRUE, showWarnings = FALSE)
+      }
+      if (!dir.exists(candidate)) {
+        FALSE
+      } else {
+        probe <- file.path(candidate, paste0(".write_test_", Sys.getpid()))
+        writeLines("ok", probe)
+        res <- file.exists(probe)
+        unlink(probe)
+        if (!existed && length(list.files(candidate, all.files = TRUE, no.. = TRUE)) == 0) {
+          unlink(candidate, recursive = TRUE)
+        }
+        res
+      }
+    }, error = function(e) FALSE)
+    if (isTRUE(ok)) {
+      writable <- c(writable, candidate)
+    }
+  }
+  writable
+}
+
+#' Resolve DINAMICA EGO Temporary Folder Option
+#'
+#' @param temp_option Selection value: `"default"`, `"output_dir"`, or a drive path.
+#' @param output_dir Optional output directory.
+#' @return Character path or `NULL`.
+resolve_dinamica_temp_dir <- function(temp_option, output_dir = NULL) {
+  if (is.null(temp_option) || !nzchar(temp_option) || identical(temp_option, "default")) {
+    return(NULL)
+  }
+  if (identical(temp_option, "output_dir")) {
+    if (is.null(output_dir) || !nzchar(output_dir)) {
+      return(NULL)
+    }
+    return(gsub("\\\\", "/", file.path(output_dir, "TEMP_SCIENDO")))
+  }
+  gsub("\\\\", "/", temp_option)
+}
+
+#' Extract DINAMICA EGO Major Version
+#'
+#' @param dinamica_path Path to the DINAMICA EGO installation directory.
+#' @param dinamica_exe Optional path to the `DinamicaConsole` executable.
+#' @return Major version string (e.g., `"7"` or `"6"`), or `NULL`.
+detect_dinamica_version <- function(dinamica_path = NULL, dinamica_exe = NULL) {
+  candidates <- c(
+    if (!is.null(dinamica_exe)) basename(dinamica_exe) else character(0),
+    if (!is.null(dinamica_path)) basename(dinamica_path) else character(0)
+  )
+  for (cand in candidates) {
+    m <- regmatches(cand, regexec("([0-9]+)", cand))[[1]]
+    if (length(m) >= 2 && nzchar(m[2])) {
+      return(m[2])
+    }
+  }
+  NULL
+}
+
+#' Read a Windows Registry String Value Safely
+#'
+#' @param reg_key Registry key path.
+#' @param value_name Registry value name.
+#' @return List with `exists` (logical) and `value` (character or `NULL`).
+read_windows_reg_value <- function(reg_key, value_name) {
+  out <- tryCatch(
+    suppressWarnings(system2("reg", c("query", shQuote(reg_key), "/v", shQuote(value_name)), stdout = TRUE, stderr = TRUE)),
+    error = function(e) NULL
+  )
+  status <- attr(out, "status")
+  if (is.null(out) || (!is.null(status) && status != 0)) {
+    return(list(exists = FALSE, value = NULL))
+  }
+  line <- grep(paste0("\\b", value_name, "\\b"), out, value = TRUE)
+  if (length(line) == 0) {
+    return(list(exists = FALSE, value = NULL))
+  }
+  val <- sub(paste0("^\\s*", value_name, "\\s+REG_[A-Z_]+\\s*"), "", line[1])
+  list(exists = TRUE, value = trimws(val))
+}
+
+#' Run Expression with Temporary DINAMICA EGO Temp Folder
+#'
+#' @param temp_base_dir Base `TEMP_SCIENDO` directory, or `NULL` for default.
+#' @param dinamica_path Path to the DINAMICA EGO installation directory.
+#' @param dinamica_exe Path to the `DinamicaConsole` executable.
+#' @param expr Expression to evaluate.
+#' @return Result of evaluating `expr`.
+with_dinamica_temp_dir <- function(temp_base_dir, dinamica_path, dinamica_exe, expr) {
+  if (is.null(temp_base_dir) || !nzchar(temp_base_dir)) {
+    return(force(expr))
+  }
+  base_existed <- dir.exists(temp_base_dir)
+  run_id <- paste0("run_", Sys.getpid(), "_", format(Sys.time(), "%Y%m%d%H%M%S"))
+  run_temp_dir <- file.path(temp_base_dir, run_id)
+  dir.create(run_temp_dir, recursive = TRUE, showWarnings = FALSE)
+  if (!dir.exists(run_temp_dir)) {
+    warning("Could not create temporary folder '", run_temp_dir, "'. Using DINAMICA EGO default.")
+    return(force(expr))
+  }
+  run_temp_win <- normalizePath(run_temp_dir, winslash = "\\", mustWork = FALSE)
+  message(paste("Using DINAMICA EGO temporary folder:", run_temp_win))
+
+  old_temp <- Sys.getenv("TEMP", unset = NA)
+  old_tmp  <- Sys.getenv("TMP", unset = NA)
+  Sys.setenv(TEMP = run_temp_win, TMP = run_temp_win)
+
+  reg_key <- NULL
+  prev_reg <- list(exists = FALSE, value = NULL)
+  reg_modified <- FALSE
+  if (.Platform$OS.type == "windows") {
+    ver <- detect_dinamica_version(dinamica_path, dinamica_exe)
+    if (!is.null(ver)) {
+      reg_key <- paste0("HKCU\\Software\\CSR\\Dinamica EGO ", ver)
+      prev_reg <- read_windows_reg_value(reg_key, "TempDir")
+      set_status <- tryCatch(
+        suppressWarnings(system2(
+          "reg",
+          c("add", shQuote(reg_key), "/v", "TempDir", "/t", "REG_SZ", "/d", shQuote(run_temp_win), "/f"),
+          stdout = FALSE, stderr = FALSE
+        )),
+        error = function(e) 1L
+      )
+      if (identical(set_status, 0L)) {
+        reg_modified <- TRUE
+      } else {
+        warning("Could not update DINAMICA EGO registry TempDir; falling back to TEMP/TMP environment variables.")
+      }
+    }
+  }
+
+  on.exit({
+    if (is.na(old_temp)) Sys.unsetenv("TEMP") else Sys.setenv(TEMP = old_temp)
+    if (is.na(old_tmp))  Sys.unsetenv("TMP")  else Sys.setenv(TMP = old_tmp)
+
+    if (reg_modified && !is.null(reg_key)) {
+      tryCatch({
+        if (isTRUE(prev_reg$exists)) {
+          suppressWarnings(system2(
+            "reg",
+            c("add", shQuote(reg_key), "/v", "TempDir", "/t", "REG_SZ", "/d", shQuote(prev_reg$value), "/f"),
+            stdout = FALSE, stderr = FALSE
+          ))
+        } else {
+          suppressWarnings(system2(
+            "reg",
+            c("delete", shQuote(reg_key), "/v", "TempDir", "/f"),
+            stdout = FALSE, stderr = FALSE
+          ))
+        }
+      }, error = function(e) {
+        warning("Failed to restore DINAMICA EGO registry TempDir: ", e$message)
+      })
+    }
+
+    unlink(run_temp_dir, recursive = TRUE, force = TRUE)
+    if (!base_existed && dir.exists(temp_base_dir) &&
+        length(list.files(temp_base_dir, all.files = TRUE, no.. = TRUE)) == 0) {
+      unlink(temp_base_dir, recursive = TRUE, force = TRUE)
+    }
+  }, add = TRUE)
+
+  force(expr)
+}
+
+#' Check DINAMICA Output for Temporary ERMapper Read-Lock Error
+#'
+#' @param log_lines Character vector of DINAMICA EGO stdout/stderr output.
+#' @return Logical `TRUE` if the `EGOTmp_*.ers` read-mode error is detected.
+is_ego_temp_read_error <- function(log_lines) {
+  if (is.null(log_lines) || length(log_lines) == 0) {
+    return(FALSE)
+  }
+  txt <- paste(log_lines, collapse = "\n")
+  grepl("can not be open in read mode", txt, ignore.case = TRUE) &&
+    grepl("EGOTmp_|ERMapper map", txt, ignore.case = TRUE)
+}
+
+executeDINAMICA <- function(params, memory_allocation, temp_dir = NULL) {
   # # Find DINAMICA directory if not provided
   # if (is.null(params$dinamica_path) | identical(params$dinamica_path, character(0))) {
   #   program_files <- c("C:/Program Files/", "C:/Program Files (x86)/")
@@ -593,20 +899,34 @@ executeDINAMICA <- function(params, memory_allocation) {
     stop("Specified egoml does not exist.")
   }
   
-  # Prepare DINAMICA command
-  # command<-paste('"', dinamica_exe, '" -processors 0 -log-level 4 -memory-allocation-policy 1 "', params$egoml, '"', sep="")
-  command <- paste(
-    '"', dinamica_exe, 
-    '" -processors 0 -log-level 4 -memory-allocation-policy ', 
-    memory_allocation, 
-    ' "', params$egoml, '"', 
-    sep = ""
+  args <- c(
+    "-processors", "0",
+    "-log-level", "4",
+    "-memory-allocation-policy", as.character(memory_allocation),
+    shQuote(params$egoml)
   )
   
   # Execute DINAMICA
-  result <- system(command)
+  out <- with_dinamica_temp_dir(temp_dir, dinamica_path, dinamica_exe, {
+    suppressWarnings(system2(dinamica_exe, args = args, stdout = TRUE, stderr = TRUE))
+  })
   
-  if(result != 0) {
+  if (length(out) > 0) {
+    cat(paste(out, collapse = "\n"), "\n")
+  }
+  
+  status <- attr(out, "status")
+  if (!is.null(status) && status != 0) {
+    if (is_ego_temp_read_error(out)) {
+      stop(errorCondition(
+        paste0(
+          "DINAMICA EGO crashed because a temporary file (EGOTmp_*.ers) could not be opened in read mode. ",
+          "To fix this: (1) Under Advanced Settings -> Choose Temporary Folder (Optional), select a non-C: local drive (e.g., D:/TEMP_SCIENDO) or a non-OneDrive Output Folder; ",
+          "or (2) change Choose Memory Allocation to Prefer Memory or Aggressive."
+        ),
+        class = "ego_temp_read_error"
+      ))
+    }
     stop("DINAMICA EGO execution failed. Check DINAMICA EGO installation and parameters.")
   } else {
     message("DINAMICA EGO execution completed successfully.")
@@ -739,13 +1059,13 @@ generate_egoml_transition_matrix <- function(lc1_path, lc2_path,
   return(egoml_mtx_file)
 }
 
-run_dinamica_transition_matrix <- function(dinamica_path = NULL, output_dir, egoml, memory_allocation) {
+run_dinamica_transition_matrix <- function(dinamica_path = NULL, output_dir, egoml, memory_allocation, temp_dir = NULL) {
   params <- list()
   params$dinamica_path <- dinamica_path
   params$output_dir <- output_dir
   params$egoml <- egoml
   
-  executeDINAMICA(params, memory_allocation)
+  executeDINAMICA(params, memory_allocation, temp_dir = temp_dir)
 }
 
 generate_egoml_raster_cube <- function(factor_path, output_dir, egoml) {
@@ -854,13 +1174,13 @@ generate_egoml_raster_cube <- function(factor_path, output_dir, egoml) {
   return(out)
 }
 
-run_dinamica_raster_cube <- function(dinamica_path = NULL, output_dir, egoml, memory_allocation) {
+run_dinamica_raster_cube <- function(dinamica_path = NULL, output_dir, egoml, memory_allocation, temp_dir = NULL) {
   params <- list()
   params$dinamica_path <- dinamica_path
   params$output_dir <- output_dir
   params$egoml <- egoml
   
-  executeDINAMICA(params, memory_allocation)
+  executeDINAMICA(params, memory_allocation, temp_dir = temp_dir)
   
   # check raster cube file 
   ers_file <- paste0(output_dir, "/sciendo_factors.tif")
@@ -1133,13 +1453,13 @@ generate_egoml_woe_model <- function(aliasFactor, lusim_lc,
   return(out)
 }
 
-run_dinamica_woe_model <- function(dinamica_path = NULL, output_dir, egoml, memory_allocation){
+run_dinamica_woe_model <- function(dinamica_path = NULL, output_dir, egoml, memory_allocation, temp_dir = NULL){
   params <- list()
   params$dinamica_path <- dinamica_path
   params$output_dir <- output_dir
   params$egoml <- egoml
   
-  executeDINAMICA(params, memory_allocation)
+  executeDINAMICA(params, memory_allocation, temp_dir = temp_dir)
   
   n_woe_report <- paste0(output_dir, "/woe") %>% 
     list.files(full.names=TRUE, pattern="weight_report*") %>%
@@ -1152,14 +1472,15 @@ run_dinamica_woe_model <- function(dinamica_path = NULL, output_dir, egoml, memo
 run_sciendo_train_process <- function(lc_t1_path, lc_t2_path, zone_path, lc_lookup_table_path,
                                       lc_lookup_table, z_lookup_table, factor_path, time_points,
                                       dinamica_path = NULL, output_dir, memory_allocation, progress_callback = NULL,
-                                      lang = "id") {
+                                      lang = "id", temp_option = "default") {
   start_time <- Sys.time()
   cat("Started at:", format(start_time, "%Y-%m-%d %H:%M:%S"), "\n")
+  temp_dir <- resolve_dinamica_temp_dir(temp_option, output_dir = output_dir)
   
   if (!is.null(progress_callback)) progress_callback(0.1, "generate egoml: baseline matrix generation")
   period <- as.numeric(time_points$t2) - as.numeric(time_points$t1)
   egoml_mtx_file <- generate_egoml_transition_matrix(lc_t1_path, lc_t2_path, zone_path, period, output_dir, egoml = "00_sciendo_baseline_tpm")
-  run_dinamica_transition_matrix(dinamica_path, output_dir, egoml_mtx_file, memory_allocation)
+  run_dinamica_transition_matrix(dinamica_path, output_dir, egoml_mtx_file, memory_allocation, temp_dir = temp_dir)
 
   # Convert TPM long format to wide format
   macro_dir <- file.path(output_dir, "baseline_tpm_macro")
@@ -1168,7 +1489,7 @@ run_sciendo_train_process <- function(lc_t1_path, lc_t2_path, zone_path, lc_look
   tryCatch({
     tpm_to_matrix_conversion(
       input_dir = tpm_input_dir,
-      lc_lookup_path = lc_lookup_table_path,
+      lc_lookup_path = if (!is.null(lc_lookup_table) && is.data.frame(lc_lookup_table)) lc_lookup_table else lc_lookup_table_path,
       output_dir = macro_dir,
       template_path = "../macro_template/macro_template.xlsm",
       pu_lookup = z_lookup_table,
@@ -1185,7 +1506,7 @@ run_sciendo_train_process <- function(lc_t1_path, lc_t2_path, zone_path, lc_look
   out_rc <- generate_egoml_raster_cube(factor_path, output_dir, egoml = "01_sciendo_train_raster_cube")
   
   if (!is.null(progress_callback)) progress_callback(0.5, "run dinamica raster cube")
-  run_dinamica_raster_cube(dinamica_path, output_dir, out_rc$egoml_rc_file, memory_allocation)
+  run_dinamica_raster_cube(dinamica_path, output_dir, out_rc$egoml_rc_file, memory_allocation, temp_dir = temp_dir)
   
   # generate modified xml file
   pu_df <- z_lookup_table
@@ -1203,7 +1524,7 @@ run_sciendo_train_process <- function(lc_t1_path, lc_t2_path, zone_path, lc_look
                                       egoml = "02_sciendo_train_woe")
   
   if (!is.null(progress_callback)) progress_callback(0.9, "run dinamica determine weight of evidence")
-  run_dinamica_woe_model(dinamica_path, output_dir, out_woe$egoml_woe_file, memory_allocation)
+  run_dinamica_woe_model(dinamica_path, output_dir, out_woe$egoml_woe_file, memory_allocation, temp_dir = temp_dir)
   
   listWoeReport <- out_woe$weight  %>% list.files(full.names=TRUE, pattern="weight_report*")
   df_pu <- z_lookup_table %>% dplyr::rename(ID_PU = 1, PU = 2)
@@ -1669,24 +1990,23 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, temp
     stop("Template file not found: ", template_path)
   }
   
-  # Read LC lookup table (supports file path or data.frame)
-  if (is.character(lc_lookup_path)) {
-    lc_lookup_table <- read.csv(lc_lookup_path, stringsAsFactors = FALSE)
-  } else if (is.data.frame(lc_lookup_path)) {
-    lc_lookup_table <- lc_lookup_path
-  } else {
-    stop("lc_lookup_path must be a file path or data.frame")
+  # Read LC lookup table (supports file path .csv/.xlsx/.xls or data.frame)
+  lc_lookup_table <- read_table_flexible(lc_lookup_path)
+  if (is.null(lc_lookup_table)) {
+    stop("Failed to read lc_lookup_path or table is empty: ", lc_lookup_path)
   }
   
-  # Read PU lookup table if provided
+  # Standardize LC lookup table by column order: column 1 is always ID, column 2 is always LC
+  if (ncol(lc_lookup_table) >= 2) {
+    colnames(lc_lookup_table)[1:2] <- c("ID", "LC")
+    lc_lookup_table$ID <- suppressWarnings(as.numeric(as.character(lc_lookup_table$ID)))
+    lc_lookup_table$LC <- as.character(lc_lookup_table$LC)
+  }
+  
+  # Read PU lookup table if provided (supports file path .csv/.xlsx/.xls or data.frame)
   pu_map <- list()
   if (!is.null(pu_lookup)) {
-    pu_df <- NULL
-    if (is.character(pu_lookup) && file.exists(pu_lookup)) {
-      pu_df <- read.csv(pu_lookup, stringsAsFactors = FALSE)
-    } else if (is.data.frame(pu_lookup)) {
-      pu_df <- pu_lookup
-    }
+    pu_df <- read_table_flexible(pu_lookup)
     if (!is.null(pu_df) && ncol(pu_df) >= 2) {
       colnames(pu_df)[1:2] <- c("ID", "Name")
       pu_map <- setNames(as.character(pu_df$Name), as.character(pu_df$ID))
@@ -1847,7 +2167,13 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, temp
     matrix1$Rate <- as.numeric(matrix1$Rate)
     matrix1 <- matrix1[!is.na(matrix1$From) & !is.na(matrix1$To) & !is.na(matrix1$Rate), ]
     
-    all_ids <- sort(unique(c(matrix1$From, matrix1$To)))
+    # Universal matrix dimension: include all classes from lc_lookup_table
+    master_lc_ids <- if (!is.null(lc_lookup_table) && "ID" %in% colnames(lc_lookup_table)) {
+      sort(unique(suppressWarnings(as.numeric(as.character(lc_lookup_table$ID[!is.na(lc_lookup_table$ID)])))))
+    } else {
+      numeric(0)
+    }
+    all_ids <- sort(unique(c(master_lc_ids, matrix1$From, matrix1$To)))
     if (length(all_ids) == 0) {
       next
     }
@@ -1893,15 +2219,31 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, temp
       }
     }
     
-    # Map row and col names to LC labels
+    # Map row and col names to LC labels (order-specific fallback safe)
     row_ids <- as.numeric(rownames(result_matrix))
-    row_labels <- lc_lookup_table$LC[match(row_ids, lc_lookup_table$ID)]
-    row_labels[is.na(row_labels)] <- paste("LC", row_ids[is.na(row_labels)])
+    row_labels <- if (!is.null(lc_lookup_table) && "LC" %in% colnames(lc_lookup_table) && "ID" %in% colnames(lc_lookup_table)) {
+      lc_lookup_table$LC[match(row_ids, lc_lookup_table$ID)]
+    } else {
+      NULL
+    }
+    if (is.null(row_labels) || length(row_labels) == 0) {
+      row_labels <- paste("LC", row_ids)
+    } else {
+      row_labels[is.na(row_labels)] <- paste("LC", row_ids[is.na(row_labels)])
+    }
     rownames(result_matrix) <- row_labels
     
     col_ids <- as.numeric(colnames(result_matrix))
-    col_labels <- lc_lookup_table$LC[match(col_ids, lc_lookup_table$ID)]
-    col_labels[is.na(col_labels)] <- paste("LC", col_ids[is.na(col_labels)])
+    col_labels <- if (!is.null(lc_lookup_table) && "LC" %in% colnames(lc_lookup_table) && "ID" %in% colnames(lc_lookup_table)) {
+      lc_lookup_table$LC[match(col_ids, lc_lookup_table$ID)]
+    } else {
+      NULL
+    }
+    if (is.null(col_labels) || length(col_labels) == 0) {
+      col_labels <- paste("LC", col_ids)
+    } else {
+      col_labels[is.na(col_labels)] <- paste("LC", col_ids[is.na(col_labels)])
+    }
     colnames(result_matrix) <- col_labels
     
     n_rows <- nrow(result_matrix)
@@ -1916,8 +2258,18 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, temp
         pu_class_areas[[area_key]]
       } else if (length(pu_class_areas) > 0) {
         0.00
-      } else {
+      } else if (from_id %in% matrix1$From) {
         1000.00
+      } else {
+        0.00
+      }
+    }
+    
+    # Enforce diagonal = 1.0 and off-diagonals = 0.0 for classes with 0 initial area
+    for (ri in 1:n_rows) {
+      if (col_a_vals[ri] <= 0.000001) {
+        result_matrix[ri, ] <- 0
+        result_matrix[ri, ri] <- 1.0
       }
     }
     
@@ -1925,7 +2277,7 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, temp
     active_records <- list()
     for (ri in 1:n_rows) {
       for (ci in 1:n_cols) {
-        if (ri != ci && result_matrix[ri, ci] > 0.000001) {
+        if (ri != ci && result_matrix[ri, ci] > 0.000001 && col_a_vals[ri] > 0.000001) {
           from_id <- row_ids[ri]
           init_class_area <- col_a_vals[ri]
           base_rate <- round(result_matrix[ri, ci], 6)
@@ -2068,19 +2420,29 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, temp
     wb$add_font(sheet = sheet_name, dims = sum_range, bold = TRUE)
     wb$add_numfmt(sheet = sheet_name, dims = sum_range, numfmt = "0.000")
     
-    # Apply diagonal and active cell styling
+    # Apply diagonal, active cell, and 0-area row styling
     for (ri in 1:n_rows) {
-      for (ci in 1:n_cols) {
-        cell_ref <- paste0(openxlsx2::int2col(2 + ci), 6 + ri)
-        if (ri == ci) {
-          # Diagonal persistence: light yellow
-          wb$add_fill(sheet = sheet_name, dims = cell_ref, color = openxlsx2::wb_color(hex = "FEF9C3"))
-        } else if (result_matrix[ri, ci] > 0.000001) {
-          # Active off-diagonal: subtle blue
-          wb$add_fill(sheet = sheet_name, dims = cell_ref, color = openxlsx2::wb_color(hex = "DBEAFE"))
-        } else {
-          # Zero cells: muted font
-          wb$add_font(sheet = sheet_name, dims = cell_ref, color = openxlsx2::wb_color(hex = "9CA3AF"))
+      row_idx <- 6 + ri
+      is_zero_area <- col_a_vals[ri] <= 0.000001
+      
+      if (is_zero_area) {
+        # Style entire 0-area row with muted gray #E2E8F0 and italic font
+        row_range <- paste0("A", row_idx, ":", openxlsx2::int2col(mat_sum_col), row_idx)
+        wb$add_fill(sheet = sheet_name, dims = row_range, color = openxlsx2::wb_color(hex = "E2E8F0"))
+        wb$add_font(sheet = sheet_name, dims = row_range, italic = TRUE, color = openxlsx2::wb_color(hex = "64748B"))
+      } else {
+        for (ci in 1:n_cols) {
+          cell_ref <- paste0(openxlsx2::int2col(2 + ci), row_idx)
+          if (ri == ci) {
+            # Diagonal persistence: light yellow
+            wb$add_fill(sheet = sheet_name, dims = cell_ref, color = openxlsx2::wb_color(hex = "FEF9C3"))
+          } else if (result_matrix[ri, ci] > 0.000001) {
+            # Active off-diagonal: subtle blue
+            wb$add_fill(sheet = sheet_name, dims = cell_ref, color = openxlsx2::wb_color(hex = "DBEAFE"))
+          } else {
+            # Zero cells: muted font
+            wb$add_font(sheet = sheet_name, dims = cell_ref, color = openxlsx2::wb_color(hex = "9CA3AF"))
+          }
         }
       }
     }
@@ -2276,7 +2638,11 @@ tpm_to_matrix_conversion <- function(input_dir, lc_lookup_path, output_dir, temp
   wb$add_worksheet("_LULC_List")
   wb$set_sheet_visibility(sheet = "_LULC_List", value = "hidden")
   
-  unique_classes <- sort(unique(as.character(lc_lookup_table$LC)))
+  unique_classes <- if (!is.null(lc_lookup_table) && "LC" %in% colnames(lc_lookup_table)) {
+    sort(unique(as.character(lc_lookup_table$LC)))
+  } else {
+    character(0)
+  }
   if (length(unique_classes) == 0) unique_classes <- c("Class 1", "Class 2")
   wb$add_data(sheet = "_LULC_List", x = unique_classes, start_col = 1, start_row = 1, col_names = FALSE)
   
@@ -2735,6 +3101,10 @@ train_help_texts <- list(
   dinamica_path = list(
     title = "DINAMICA EGO Path (Optional)",
     body = "<p>Path to the DINAMICA EGO installation directory (e.g., <code>C:/Program Files/Dinamica EGO 7</code>).</p><p>If left blank, LUMENS automatically detects the installation under <code>Program Files</code>.</p>"
+  ),
+  temp_folder = list(
+    title = "Temporary Folder (Optional)",
+    body = "<p>Selects where DINAMICA EGO stores temporary files during execution.</p><ul><li><b>Default:</b> Uses DINAMICA EGO's built-in temporary folder setting.</li><li><b>Output Folder:</b> Creates a temporary <code>TEMP_SCIENDO</code> subfolder inside your Output Folder.</li><li><b>Local Drive (e.g., D:/TEMP_SCIENDO):</b> Creates a temporary folder on the selected local drive.</li></ul><p>Temporary files created by SCIENDO are automatically removed once finished.</p>"
   )
 )
 

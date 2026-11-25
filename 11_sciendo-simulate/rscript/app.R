@@ -112,13 +112,13 @@ ui <- fluidPage(
       ),
       fileInput("lc_file",
                 label = label_with_help(i18n$t("lbl_lc_file"), "lc_file"),
-                accept = c(".csv", ".xlsx"), placeholder = tr("ph_lc_file", "id")),
+                accept = c(".csv", ".xlsx", ".xls"), placeholder = tr("ph_lc_file", "id")),
       fileInput("rc_file",
                 label = label_with_help(i18n$t("lbl_rc_file"), "rc_file"),
                 accept = c(".tif", ".xml"), multiple = TRUE, placeholder = tr("ph_rc_file", "id")),
       numericInput("repetition",
                    label = label_with_help(i18n$t("lbl_repetition"), "repetition"),
-                   value = 2),
+                   value = 2, min = 1, step = 1),
       
       tags$head(
         tags$style(HTML("
@@ -314,6 +314,12 @@ ui <- fluidPage(
                    }
                  "))),
               
+              selectizeInput("dinamica_temp_option",
+                             label = label_with_help(i18n$t("lbl_temp_folder"), "temp_folder"),
+                             choices = c("Default" = "default",
+                                         "Folder Output" = "output_dir"),
+                             selected = "default"),
+              
               dir_button_with_help(
                 "dinamica_path",
                 tr("lbl_dinamica_path", "id"),
@@ -430,7 +436,7 @@ ui <- fluidPage(
                 
                 fileInput("alloc_override_file",
                           label = i18n$t("lbl_upload_override"),
-                          accept = c(".csv", ".xlsx"), placeholder = tr("ph_upload_override", "id"),
+                          accept = c(".csv", ".xlsx", ".xls"), placeholder = tr("ph_upload_override", "id"),
                           width = "100%")
               )
             )
@@ -499,6 +505,24 @@ server <- function(input, output, session) {
     }
     updateSelectizeInput(session, "memory_allocation", choices = choices, selected = curr)
   }
+
+  writable_drives <- detect_writable_non_c_drives()
+
+  update_temp_folder_choices <- function(lang) {
+    curr <- isolate(input$dinamica_temp_option)
+    if (is.null(curr) || !nzchar(curr)) curr <- "default"
+    base_choices <- if (lang == "en") {
+      c("Default" = "default", "Output Folder" = "output_dir")
+    } else {
+      c("Default" = "default", "Folder Output" = "output_dir")
+    }
+    drive_choices <- stats::setNames(writable_drives, writable_drives)
+    choices <- c(base_choices, drive_choices)
+    if (!(curr %in% unname(choices))) curr <- "default"
+    updateSelectizeInput(session, "dinamica_temp_option", choices = choices, selected = curr)
+  }
+
+  update_temp_folder_choices(isolate(current_lang()))
   
   svg_flag_id <- '<svg class="flag-icon" viewBox="0 0 20 14" width="22" height="15"><rect width="20" height="7" fill="#dc3545"/><rect y="7" width="20" height="7" fill="#ffffff"/></svg>'
   svg_flag_en <- '<svg class="flag-icon" viewBox="0 0 60 30" width="22" height="15"><clipPath id="sim_dd_uk1"><path d="M0,0 v30 h60 v-30 z"/></clipPath><clipPath id="sim_dd_uk2"><path d="M30,15 h30 v15 z v15 h-30 z h-30 v-15 z v-15 h30 z"/></clipPath><g clip-path="url(#sim_dd_uk1)"><path d="M0,0 v30 h60 v-30 z" fill="#012169"/><path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" stroke-width="6"/><path d="M0,0 L60,30 M60,0 L0,30" clip-path="url(#sim_dd_uk2)" stroke="#C8102E" stroke-width="4"/><path d="M30,0 v30 M0,15 h60" stroke="#fff" stroke-width="10"/><path d="M30,0 v30 M0,15 h60" stroke="#C8102E" stroke-width="6"/></g></svg>'
@@ -524,6 +548,7 @@ server <- function(input, output, session) {
     
     update_file_input_placeholders(lang)
     update_memory_choices(lang)
+    update_temp_folder_choices(lang)
   }, ignoreInit = TRUE)
   
   output$user_guide_content <- renderUI({
@@ -763,15 +788,8 @@ server <- function(input, output, session) {
     
     rv$lc_path <- rename_uploaded_file(f)
     
-    ext <- tolower(tools::file_ext(f$name))
     df_c <- tryCatch({
-      if (ext == "csv") {
-        read.csv(rv$lc_path, stringsAsFactors = FALSE, check.names = FALSE)
-      } else if (ext == "xlsx") {
-        as.data.frame(openxlsx::read.xlsx(rv$lc_path, check.names = FALSE))
-      } else {
-        stop("Unsupported file format. Please upload a .csv or .xlsx file.")
-      }
+      read_table_flexible(rv$lc_path)
     }, error = function(e) {
       showNotification(paste("Error reading file:", e$message),
                        type = "error", duration = 6)
@@ -784,8 +802,10 @@ server <- function(input, output, session) {
     }
     
     
-    if(nrow(df_c) == 0)
+    if(nrow(df_c) == 0 || ncol(df_c) < 2) {
+      showNotification("Land cover lookup table must have at least 2 columns (ID and LC).", type = "error")
       return()
+    }
     if(nrow(df_c) < 2)
       return()
     if(!is_numeric_str(df_c[1, 1]))
@@ -1032,15 +1052,8 @@ server <- function(input, output, session) {
       return()
     }
     
-    ext <- tolower(tools::file_ext(f$name))
     df <- tryCatch({
-      if (ext == "csv") {
-        read.csv(f$datapath, stringsAsFactors = FALSE, check.names = FALSE)
-      } else if (ext == "xlsx") {
-        as.data.frame(openxlsx::read.xlsx(f$datapath, check.names = FALSE))
-      } else {
-        stop("Unsupported file format. Please upload a .csv or .xlsx file.")
-      }
+      read_table_flexible(f$datapath)
     }, error = function(e) {
       showNotification(paste("Error reading file:", e$message),
                        type = "error", duration = 6)
@@ -1088,6 +1101,11 @@ server <- function(input, output, session) {
   iv$add_rule("dcf_path", function(value) if (is.null(value)) tr("val_dcf_req", current_lang()) else NULL)
   iv$add_rule("wd", function(value) if (is.null(value)) tr("val_wd_req", current_lang()) else NULL)
   iv$add_rule("memory_allocation", function(value) if (is.null(value)) tr("val_memory_req", current_lang()) else NULL)
+  iv$add_rule("repetition", function(value) {
+    if (is.null(value) || is.na(value)) return(tr("val_provide_val", current_lang()))
+    if (!is.numeric(value) || value < 1 || value != floor(value)) return(tr("val_gt_0", current_lang()))
+    NULL
+  })
   
   # Raster cube input validation
   iv$add_rule("rc_file", function(value) {
@@ -1207,6 +1225,7 @@ server <- function(input, output, session) {
           dinamica_path = rv$dinamica_path,
           output_dir = rv$wd,
           memory_allocation = input$memory_allocation,
+          temp_option = input$dinamica_temp_option,
           alloc_params = alloc_params,
           alloc_override_df = alloc_override,
           progress_callback = function(value, detail) {
@@ -1222,11 +1241,20 @@ server <- function(input, output, session) {
         shinyjs::show("openReport")
         shinyjs::show("open_output_folder")
       }, error = function(e) {
-        output$status_messages <- renderText(paste("Error in analysis:", e$message))
-        output$error_messages <- renderText(paste("Error in analysis:", e$message))
-        output$success_message <- renderText(NULL)
         removeNotification("running_notification")
-        showNotification("Error in analysis. Please check the error messages.", type = "error")
+        output$success_message <- renderText(NULL)
+        if (inherits(e, "ego_temp_read_error") || is_ego_temp_read_error(e$message)) {
+          lang <- current_lang()
+          log_msg <- tr("err_ego_temp_read_log", lang)
+          notif_msg <- tr("err_ego_temp_read_notif", lang)
+          output$status_messages <- renderText(log_msg)
+          output$error_messages <- renderText(log_msg)
+          showNotification(notif_msg, type = "error", duration = NULL)
+        } else {
+          output$status_messages <- renderText(paste("Error in analysis:", e$message))
+          output$error_messages <- renderText(paste("Error in analysis:", e$message))
+          showNotification("Error in analysis. Please check the error messages.", type = "error")
+        }
       })
     })
     

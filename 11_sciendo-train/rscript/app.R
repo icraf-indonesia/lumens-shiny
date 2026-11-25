@@ -6,7 +6,7 @@ options(repos = c(CRAN = "https://cloud.r-project.org"))
 install_load(
   "shiny", "shiny.i18n", "shinyFiles", "shinyvalidate", "shinyjs", "bslib", "sf", "raster",
   "dplyr", "remotes", "rmarkdown", "XML", "splitstackshape", "shinyalert",
-  "usdm", "corrplot", "tidyr", "openxlsx", "openxlsx2", "XML", "xml2"
+  "usdm", "corrplot", "tidyr", "openxlsx", "openxlsx2", "readxl", "XML", "xml2"
 )
 
 if (!("LUMENSR" %in% rownames(installed.packages()))) {
@@ -188,7 +188,7 @@ ui <- fluidPage(
       numericInput("map1_year", label = label_with_help(i18n$t("lbl_map1_year"), "map1_year"), value = 2015),
       fileInput("map2_file", label = label_with_help(i18n$t("lbl_map2_file"), "map2_file"), accept = c("image/tiff"), placeholder = tr("ph_map1_file", "id")),
       numericInput("map2_year", label = label_with_help(i18n$t("lbl_map2_year"), "map2_year"), value = 2020),
-      fileInput("lc_file", label = label_with_help(i18n$t("lbl_lc_file"), "lc_file"), accept = c(".csv"), placeholder = tr("ph_lc_file", "id")),
+      fileInput("lc_file", label = label_with_help(i18n$t("lbl_lc_file"), "lc_file"), accept = c(".csv", ".xlsx", ".xls"), placeholder = tr("ph_lc_file", "id")),
       radioButtons("zone_type", label = label_with_help(i18n$t("lbl_zone_type"), "zone_type"),
                    choiceNames = list(i18n$t("choice_raster"), i18n$t("choice_shapefiles")), choiceValues = list("raster", "shapefile"), inline = T),
       conditionalPanel(
@@ -202,7 +202,7 @@ ui <- fluidPage(
       conditionalPanel(
         condition = "input.zone_type == 'raster'",
         fileInput("mapz_file", label = label_with_help(i18n$t("lbl_mapz_file_rast"), "mapz_file"), accept = c("image/tiff"), placeholder = tr("ph_mapz_file_rast", "id")),
-        fileInput("z_file", label = label_with_help(i18n$t("lbl_z_file"), "z_file"), accept = c(".csv"), placeholder = tr("ph_z_file", "id"))
+        fileInput("z_file", label = label_with_help(i18n$t("lbl_z_file"), "z_file"), accept = c(".csv", ".xlsx", ".xls"), placeholder = tr("ph_z_file", "id"))
       ),
       
       div(style = "display: flex; flex-direction: column; gap: 10px;",
@@ -261,6 +261,12 @@ ui <- fluidPage(
                       }
                     }
                   "))),
+              
+              selectizeInput("dinamica_temp_option",
+                             label = label_with_help(i18n$t("lbl_temp_folder"), "temp_folder"),
+                             choices = c("Default" = "default",
+                                         "Folder Output" = "output_dir"),
+                             selected = "default"),
               
               dir_button_with_help("dinamica_path", tr("lbl_dinamica_path", "id"), tr("tip_dinamica_path", "id"), "dinamica_path", label_key = "lbl_dinamica_path"),
               verbatimTextOutput("print_dinamica_path", placeholder = TRUE)
@@ -329,6 +335,24 @@ server <- function(input, output, session) {
     }
     updateSelectizeInput(session, "memory_allocation", choices = choices, selected = curr)
   }
+
+  writable_drives <- detect_writable_non_c_drives()
+
+  update_temp_folder_choices <- function(lang) {
+    curr <- isolate(input$dinamica_temp_option)
+    if (is.null(curr) || !nzchar(curr)) curr <- "default"
+    base_choices <- if (lang == "en") {
+      c("Default" = "default", "Output Folder" = "output_dir")
+    } else {
+      c("Default" = "default", "Folder Output" = "output_dir")
+    }
+    drive_choices <- stats::setNames(writable_drives, writable_drives)
+    choices <- c(base_choices, drive_choices)
+    if (!(curr %in% unname(choices))) curr <- "default"
+    updateSelectizeInput(session, "dinamica_temp_option", choices = choices, selected = curr)
+  }
+
+  update_temp_folder_choices(isolate(current_lang()))
   
   svg_flag_id <- '<svg class="flag-icon" viewBox="0 0 20 14" width="22" height="15"><rect width="20" height="7" fill="#dc3545"/><rect y="7" width="20" height="7" fill="#ffffff"/></svg>'
   svg_flag_en <- '<svg class="flag-icon" viewBox="0 0 60 30" width="22" height="15"><clipPath id="trn_dd_uk1"><path d="M0,0 v30 h60 v-30 z"/></clipPath><clipPath id="trn_dd_uk2"><path d="M30,15 h30 v15 z v15 h-30 z h-30 v-15 z v-15 h30 z"/></clipPath><g clip-path="url(#trn_dd_uk1)"><path d="M0,0 v30 h60 v-30 z" fill="#012169"/><path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" stroke-width="6"/><path d="M0,0 L60,30 M60,0 L0,30" clip-path="url(#trn_dd_uk2)" stroke="#C8102E" stroke-width="4"/><path d="M30,0 v30 M0,15 h60" stroke="#fff" stroke-width="10"/><path d="M30,0 v30 M0,15 h60" stroke="#C8102E" stroke-width="6"/></g></svg>'
@@ -354,6 +378,7 @@ server <- function(input, output, session) {
     
     update_file_input_placeholders(lang)
     update_memory_choices(lang)
+    update_temp_folder_choices(lang)
   }, ignoreInit = TRUE)
   
   output$user_guide_content <- renderUI({
@@ -563,17 +588,24 @@ server <- function(input, output, session) {
   observeEvent(input$lc_file, {
     f <- input$lc_file
     rv$lc_path <- rename_uploaded_file(f)
-    df_c <- read.csv(rv$lc_path)
+    df_c <- tryCatch({
+      read_table_flexible(rv$lc_path)
+    }, error = function(e) {
+      showNotification(paste("Error reading land cover table:", e$message), type = "error", duration = 6)
+      NULL
+    })
     
-    if(nrow(df_c) == 0)
+    if(is.null(df_c) || nrow(df_c) == 0 || ncol(df_c) < 2) {
+      showNotification("Land cover lookup table must have at least 2 columns (ID and LC).", type = "error", duration = 6)
       return()
+    }
     if(nrow(df_c) < 2)
       return()
     if(!is_numeric_str(df_c[1, 1]))
       return()
     
     df <- data.frame("ID_LC" = as.integer((as.character(df_c[, 1]))))
-    df$LC <- df_c[, 2]
+    df$LC <- as.character(df_c[, 2])
     rv$lc_df <- df
   })
   
@@ -585,14 +617,26 @@ server <- function(input, output, session) {
     
     f <- input$z_file
     rv$z_path <- rename_uploaded_file(f)
-    rv$mapz_df <- read.csv(rv$z_path)
+    df_z <- tryCatch({
+      read_table_flexible(rv$z_path)
+    }, error = function(e) {
+      showNotification(paste("Error reading zone table:", e$message), type = "error", duration = 6)
+      NULL
+    })
     
-    if(nrow(rv$mapz_df) == 0)
+    if(is.null(df_z) || nrow(df_z) == 0)
       return()
-    if(nrow(rv$mapz_df) < 2)
+    if(nrow(df_z) < 2)
       return()
-    if(!is_numeric_str(rv$mapz_df[1, 1]))
+    if(!is_numeric_str(df_z[1, 1]))
       return()
+      
+    if (ncol(df_z) >= 2) {
+      colnames(df_z)[1:2] <- c("ID_PU", "PU")
+      df_z$ID_PU <- suppressWarnings(as.numeric(as.character(df_z$ID_PU)))
+      df_z$PU <- as.character(df_z$PU)
+    }
+    rv$mapz_df <- df_z
   })
   
   #### Set working directory ####
@@ -893,6 +937,7 @@ server <- function(input, output, session) {
           dinamica_path = rv$dinamica_path,
           output_dir = rv$wd,
           memory_allocation = input$memory_allocation,
+          temp_option = input$dinamica_temp_option,
           progress_callback = function(value, detail) {
             setProgress(value = value, message = detail)
           },
@@ -910,11 +955,20 @@ server <- function(input, output, session) {
         shinyjs::show("openReport")
         shinyjs::show("open_output_folder")
       }, error = function(e) {
-        output$status_messages <- renderText(paste("Error in analysis:", e$message))
-        output$error_messages <- renderText(paste("Error in analysis:", e$message))
-        output$success_message <- renderText(NULL)
         removeNotification("running_notification")
-        showNotification("Error in analysis. Please check the error messages.", type = "error")
+        output$success_message <- renderText(NULL)
+        if (inherits(e, "ego_temp_read_error") || is_ego_temp_read_error(e$message)) {
+          lang <- current_lang()
+          log_msg <- tr("err_ego_temp_read_log", lang)
+          notif_msg <- tr("err_ego_temp_read_notif", lang)
+          output$status_messages <- renderText(log_msg)
+          output$error_messages <- renderText(log_msg)
+          showNotification(notif_msg, type = "error", duration = NULL)
+        } else {
+          output$status_messages <- renderText(paste("Error in analysis:", e$message))
+          output$error_messages <- renderText(paste("Error in analysis:", e$message))
+          showNotification("Error in analysis. Please check the error messages.", type = "error")
+        }
       })
     })
   })
