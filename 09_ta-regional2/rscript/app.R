@@ -2416,7 +2416,7 @@ server <- function(input, output, session) {
   output$user_guide <- renderUI({
     guide_paths <- c(
       "helpfile/quick_user_guide_ID.Rmd",
-      "../helpfile/quick_user_guide.Rmd",
+      "../helpfile/quick_user_guide_ID.Rmd",
       file.path(getwd(), "helpfile", "quick_user_guide_ID.Rmd"),
       file.path(dirname(getwd()), "helpfile", "quick_user_guide_ID.Rmd")
     )
