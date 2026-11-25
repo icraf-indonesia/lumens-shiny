@@ -1462,7 +1462,7 @@ run_dinamica_woe_model <- function(dinamica_path = NULL, output_dir, egoml, memo
     stop("There are no single one of WoE Report! Check DINAMICA EGO log.")
   }
 }
-stop(errorCondition("EGOTmp_test.ers can not be open in read mode", class = "ego_temp_read_error"))
+
 run_sciendo_train_process <- function(lc_t1_path, lc_t2_path, zone_path, lc_lookup_table_path,
                                       lc_lookup_table, z_lookup_table, factor_path, time_points,
                                       dinamica_path = NULL, output_dir, memory_allocation, progress_callback = NULL,
