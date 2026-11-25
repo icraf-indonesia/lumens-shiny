@@ -203,3 +203,50 @@ test_that("add_legend_to_categorical_raster handles character IDs with unused lo
   expect_equal(nrow(lvls), 30)
   expect_true(128 %in% lvls[[1]])
 })
+
+test_that("matrix_to_tpm handles partial unmatched classes safely and reports clear mismatch message when wrong lookup table is given", {
+  skip_if_not_installed("openxlsx2")
+  tmp_dir <- file.path(tempdir(), paste0("mat_tpm_guard_", Sys.getpid()))
+  unlink(tmp_dir, recursive = TRUE, force = TRUE)
+  dir.create(tmp_dir, recursive = TRUE)
+  on.exit(unlink(tmp_dir, recursive = TRUE, force = TRUE), add = TRUE)
+
+  xl_path <- file.path(tmp_dir, "sciendo_tpm_scenario.xlsm")
+  wb <- openxlsx2::wb_workbook()
+  wb$add_worksheet("Dashboard")
+  wb$add_worksheet("PU_1_Lindung")
+  wb$add_data("PU_1_Lindung", x = "Unit Perencanaan 1: Lindung", start_col = 2, start_row = 1)
+  hdr <- data.frame(
+    Luas = "Luas 2020 (ha)", Dari = "Dari / Ke",
+    NoData = "NoData", Forest = "Forest", Agri = "Agri", Total = "Total Baris",
+    stringsAsFactors = FALSE
+  )
+  wb$add_data("PU_1_Lindung", x = hdr, start_col = 1, start_row = 6, col_names = FALSE)
+  rows_df <- data.frame(
+    Area = c(0, 100, 50),
+    Class = c("NoData", "Forest", "Agri"),
+    c1 = c(1, 0, 0),
+    c2 = c(0, 0.8, 0.1),
+    c3 = c(0, 0.2, 0.9),
+    tot = c(1, 1, 1),
+    stringsAsFactors = FALSE
+  )
+  wb$add_data("PU_1_Lindung", x = rows_df, start_col = 1, start_row = 7, col_names = FALSE)
+  wb$save(xl_path)
+
+  # Partial mismatch: lookup omits NoData (ID 0), should drop NoData safely without 'undefined columns selected'
+  lc_partial <- data.frame(ID = c(1, 2), LC = c("Forest", "Agri"), stringsAsFactors = FALSE)
+  res <- matrix_to_tpm(xl_path, lc_partial, tmp_dir)
+  expect_length(res, 1)
+  out_tbl <- read.csv(res[1], check.names = FALSE)
+  expect_equal(nrow(out_tbl), 2)
+
+  # Full mismatch (e.g., Planning Unit table passed as Land Cover lookup): clear diagnostic message, no undefined columns error
+  pu_wrong <- data.frame(ID = c(1, 2), LC = c("Lindung", "Produksi"), stringsAsFactors = FALSE)
+  out_dir2 <- file.path(tmp_dir, "wrong_lc")
+  dir.create(out_dir2)
+  expect_message(
+    matrix_to_tpm(xl_path, pu_wrong, out_dir2),
+    "None of the matrix classes matched the Land Cover Lookup Table"
+  )
+})

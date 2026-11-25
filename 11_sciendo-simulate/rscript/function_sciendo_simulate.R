@@ -1827,22 +1827,34 @@ matrix_to_tpm <- function(input_folder_path, lc_lookup, output_dir) {
           raw_data <- readxl::read_excel(xlsm_path, sheet = sh_name, col_names = FALSE) %>% as.data.frame()
           if (nrow(raw_data) == 0) next
           
-          header_row_idx <- which(apply(raw_data, 1, function(r) any(grepl("From|Dari", r, ignore.case = TRUE))))
+          # Prefer exact corner header ("Dari / Ke", "From \ To", "From", "Dari") before substring fallback
+          header_row_idx <- which(apply(raw_data, 1, function(r) any(grepl("^From\\s*[\\\\/]|^Dari\\s*/\\s*Ke|^From$|^Dari$", trimws(as.character(r)), ignore.case = TRUE))))
+          if (length(header_row_idx) == 0) {
+            header_row_idx <- which(apply(raw_data, 1, function(r) any(grepl("From|Dari", r, ignore.case = TRUE))))
+          }
           if (length(header_row_idx) == 0) header_row_idx <- 1 else header_row_idx <- header_row_idx[1]
           
           header_row_vals <- as.character(raw_data[header_row_idx, ])
-          start_col_idx <- which(grepl("From|Dari", header_row_vals, ignore.case = TRUE))
+          start_col_idx <- which(grepl("^From\\s*[\\\\/]|^Dari\\s*/\\s*Ke|^From$|^Dari$", trimws(header_row_vals), ignore.case = TRUE))
+          if (length(start_col_idx) == 0) {
+            start_col_idx <- which(grepl("From|Dari", header_row_vals, ignore.case = TRUE))
+          }
           if (length(start_col_idx) == 0) start_col_idx <- 1 else start_col_idx <- start_col_idx[1]
           
           gt_col_idx <- which(grepl("grand total|total baris", header_row_vals, ignore.case = TRUE))
           if (length(gt_col_idx) == 0) {
             non_empty <- which(!is.na(header_row_vals) & header_row_vals != "")
-            end_col_idx <- max(non_empty)
+            end_col_idx <- if (length(non_empty) > 0) max(non_empty) else ncol(raw_data)
           } else {
             end_col_idx <- gt_col_idx[1] - 1
           }
           
-          col_names_vec <- as.character(raw_data[header_row_idx, (start_col_idx + 1):end_col_idx])
+          if (is.na(end_col_idx) || end_col_idx < (start_col_idx + 1) || start_col_idx >= ncol(raw_data)) {
+            stop("Could not locate matrix column bounds (start_col=", start_col_idx, ", end_col=", end_col_idx, ").")
+          }
+          
+          mat_col_indices <- (start_col_idx + 1):min(end_col_idx, ncol(raw_data))
+          col_names_vec <- as.character(raw_data[header_row_idx, mat_col_indices])
           
           row_scan <- (header_row_idx + 1):nrow(raw_data)
           valid_rows <- integer(0)
@@ -1858,15 +1870,32 @@ matrix_to_tpm <- function(input_folder_path, lc_lookup, output_dir) {
           if (length(valid_rows) == 0) next
           
           row_names_vec <- as.character(raw_data[valid_rows, start_col_idx])
-          matrix_vals <- raw_data[valid_rows, (start_col_idx + 1):end_col_idx, drop = FALSE]
+          matrix_vals <- raw_data[valid_rows, mat_col_indices, drop = FALSE]
           
           data <- as.data.frame(matrix_vals)
           colnames(data) <- col_names_vec
           data <- cbind(From = row_names_vec, data)
           
           ids <- convert_to_id(data, lc_lookup_clean)
+          if (all(is.na(ids$row_ids)) || all(is.na(ids$col_ids))) {
+            stop(
+              "None of the matrix classes matched the Land Cover Lookup Table. ",
+              "Verify that the Land Cover lookup table (not the Planning Unit table) is selected."
+            )
+          }
+          
+          # Drop unmatched columns/rows (e.g. NoData omitted from lookup) before pivot_longer
+          # so NA column names never trigger tidyselect 'undefined columns selected'.
+          valid_cols <- which(!is.na(ids$col_ids))
+          if (length(valid_cols) < length(ids$col_ids)) {
+            dropped_cols <- col_names_vec[is.na(ids$col_ids)]
+            message("  Note (", sh_name, "): ignoring unmatched class column(s): ", paste(dropped_cols, collapse = ", "))
+          }
           data[[1]] <- ids$row_ids
-          colnames(data)[-1] <- ids$col_ids
+          data <- data[, c(1, valid_cols + 1), drop = FALSE]
+          colnames(data)[-1] <- ids$col_ids[valid_cols]
+          data <- data[!is.na(data[[1]]), , drop = FALSE]
+          if (nrow(data) == 0 || ncol(data) < 2) next
           
           parse_num <- function(x) suppressWarnings(as.numeric(trimws(gsub(",", ".", as.character(x)))))
           
