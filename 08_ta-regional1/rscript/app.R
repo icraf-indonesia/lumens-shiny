@@ -31,8 +31,7 @@ if (!requireNamespace("TARegEco", quietly = TRUE)) {
 }
 library(TARegEco)
 
-# --- JS untuk close window ---
-jscode <- "shinyjs.closeWindow = function() { window.close(); }"
+# --- JS untuk close window / kembali ke menu utama didefinisikan di helper.R ---
 
 # ==============================================================================
 # UI

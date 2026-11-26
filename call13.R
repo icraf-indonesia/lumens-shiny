@@ -1,1 +1,2 @@
-shiny::runApp('12_lasem/rscript/', launch.browser = T, port = 875)
+source("helper.R")
+run_lumens_module('12_lasem/rscript/')

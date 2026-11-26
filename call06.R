@@ -1,1 +1,2 @@
-shiny::runApp('06_quesh/rscript/', launch.browser = T, port = 875)
+source("helper.R")
+run_lumens_module('06_quesh/rscript/')

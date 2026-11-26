@@ -1,2 +1,3 @@
 # Load Pre-QuES analysis functions 
-shiny::runApp('03_preques/rscript/', launch.browser = T, port = 875)
+source("helper.R")
+run_lumens_module('03_preques/rscript/')

@@ -1,1 +1,2 @@
-shiny::runApp('10_sciendo-scenario/rscript/', launch.browser = T, port = 875)
+source("helper.R")
+run_lumens_module('10_sciendo-scenario/rscript/')

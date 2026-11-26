@@ -40,7 +40,7 @@ cat("âœ“ Semua fungsi kritis ter-load\n\n")
 # =========================================================
 # HELPER FUNCTIONS
 # =========================================================
-jscode <- "shinyjs.closeWindow = function() { window.close(); }"
+# jscode is defined in helper.R (returns to landing page or closes window)
 
 app_css <- "
   .alloc-label {
@@ -2328,9 +2328,13 @@ server <- function(input, output, session) {
     }
   })
   
+  session$onSessionEnded(function() {
+    stopApp()
+  })
+
   observeEvent(input$returnButton, {
     js$closeWindow()
-    stopApp()
+    shinyjs::delay(1000, stopApp())
   })
   
   # ---- User guide ----

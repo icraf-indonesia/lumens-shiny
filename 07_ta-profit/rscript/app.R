@@ -53,11 +53,8 @@ source("functions.R")
 #' JavaScript Extension for Shiny
 #'
 #' @description
-#' Provides a small JS function (`closeWindow()`) for allowing
-#' the Shiny app to close its browser tab or window.
-#'
-#' @examples
-jscode <- "shinyjs.closeWindow = function() { window.close(); }"
+#' `closeWindow()` is provided by `helper.R` (`jscode`) to return to the
+#' LUMENS landing page or close the browser tab when run standalone.
 
 #' User Interface Definition
 #'
