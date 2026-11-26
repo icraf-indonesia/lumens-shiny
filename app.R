@@ -2,6 +2,10 @@ library(shiny)
 
 MODULE_PORT <- 875L
 
+launch_state <- new.env(parent = emptyenv())
+launch_state$pending <- NULL
+launch_state$lines_read <- 0L
+
 is_port_open <- function(port = MODULE_PORT, host = "127.0.0.1") {
   con <- tryCatch(
     suppressWarnings(socketConnection(host = host, port = port, open = "r+", blocking = TRUE, timeout = 1)),
@@ -57,11 +61,19 @@ ui <- htmlTemplate("index.html",
 )
 
 server <- function(input, output, session) {
-  pending_launch <- reactiveVal(NULL)
-  launch_lines_read <- 0L
+  is_polling <- reactiveVal(!is.null(launch_state$pending))
+
+  if (!is.null(launch_state$pending)) {
+    showNotification(
+      paste0("Running ", launch_state$pending$module_name, "..."),
+      type = "message",
+      duration = NULL,
+      id = "running_message"
+    )
+  }
 
   call_lumens_shiny_module <- function(r_script, module_name) {
-    if (!is.null(pending_launch()) || is_port_open(MODULE_PORT)) {
+    if (!is.null(launch_state$pending) || is_port_open(MODULE_PORT)) {
       showNotification("Another module is already starting or running.", type = "warning", duration = 4)
       return(invisible(NULL))
     }
@@ -82,7 +94,7 @@ server <- function(input, output, session) {
     null_dev <- if (.Platform$OS.type == "windows") "NUL" else "/dev/null"
     log_file <- tempfile(fileext = ".log")
     file.create(log_file)
-    launch_lines_read <<- 0L
+    launch_state$lines_read <- 0L
 
     message(sprintf("[LUMENS] Launching %s (%s)...", module_name, r_script))
     system2(
@@ -94,36 +106,44 @@ server <- function(input, output, session) {
       wait = FALSE
     )
 
-    pending_launch(list(
+    launch_state$pending <- list(
       module_name = module_name,
       started_at = Sys.time(),
       log_file = log_file
-    ))
+    )
+    is_polling(TRUE)
   }
 
   flush_launch_log <- function(log_file) {
     if (is.null(log_file) || !file.exists(log_file)) return(invisible(NULL))
     lines <- tryCatch(suppressWarnings(readLines(log_file, warn = FALSE)), error = function(e) character(0))
     n <- length(lines)
-    if (n > launch_lines_read) {
-      cat(paste(lines[(launch_lines_read + 1L):n], collapse = "\n"), "\n", sep = "")
-      launch_lines_read <<- n
+    if (n > launch_state$lines_read) {
+      cat(paste(lines[(launch_state$lines_read + 1L):n], collapse = "\n"), "\n", sep = "")
+      launch_state$lines_read <- n
     }
   }
 
   observe({
-    launch <- pending_launch()
-    req(launch)
+    req(is_polling())
+    launch <- launch_state$pending
+    if (is.null(launch)) {
+      removeNotification("running_message")
+      is_polling(FALSE)
+      return(invisible(NULL))
+    }
 
     flush_launch_log(launch$log_file)
 
     if (is_port_open(MODULE_PORT)) {
-      pending_launch(NULL)
+      launch_state$pending <- NULL
+      is_polling(FALSE)
       removeNotification("running_message")
       message(sprintf("[LUMENS] %s ready on port %d.", launch$module_name, MODULE_PORT))
       session$sendCustomMessage("lumens_navigate", get_module_url(session, MODULE_PORT))
     } else if (as.numeric(difftime(Sys.time(), launch$started_at, units = "secs")) > 90) {
-      pending_launch(NULL)
+      launch_state$pending <- NULL
+      is_polling(FALSE)
       removeNotification("running_message")
       showNotification(paste0("Timed out starting ", launch$module_name, "."), type = "error", duration = 6)
     } else {
