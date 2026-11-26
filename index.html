@@ -10,6 +10,9 @@
 					Shiny.addCustomMessageHandler('lumens_navigate', function(url) {
 						window.location.replace(url);
 					});
+					Shiny.addCustomMessageHandler('lumens_clean_url', function(path) {
+						window.history.replaceState({}, '', path || '/');
+					});
 				}
 			});
 		</script>

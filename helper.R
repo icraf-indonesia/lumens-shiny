@@ -20,21 +20,100 @@ if (!exists(".lumens_state", envir = globalenv(), inherits = FALSE)) {
 
 jscode <- local({
   landing_url <- Sys.getenv("LUMENS_LANDING_URL", unset = "")
+  module_script <- Sys.getenv("LUMENS_MODULE_SCRIPT", unset = "")
+  relaunch_url <- if (nzchar(landing_url) && nzchar(module_script)) {
+    sep <- if (grepl("\\?", landing_url)) "&" else "?"
+    paste0(landing_url, sep, "relaunch=", utils::URLencode(module_script, reserved = TRUE))
+  } else {
+    ""
+  }
+  landing_json <- jsonlite::toJSON(landing_url, auto_unbox = TRUE)
+  relaunch_json <- jsonlite::toJSON(relaunch_url, auto_unbox = TRUE)
   leave_action <- if (nzchar(landing_url)) {
-    sprintf("window.location.replace(%s);", jsonlite::toJSON(landing_url, auto_unbox = TRUE))
+    sprintf("window.location.replace(%s);", landing_json)
   } else {
     "window.close();"
   }
   paste0(
     "(function() {\n",
-    "  if (!window.__lumensBeforeUnloadAdded) {\n",
-    "    window.__lumensBeforeUnloadAdded = true;\n",
+    "  var landingUrl = ", landing_json, ";\n",
+    "  var relaunchUrl = ", relaunch_json, ";\n",
+    "  if (!window.__lumensLifecycleAdded) {\n",
+    "    window.__lumensLifecycleAdded = true;\n",
     "    window.__lumensAllowLeave = false;\n",
+    "    window.__lumensUnloading = false;\n",
     "    window.addEventListener('beforeunload', function(e) {\n",
     "      if (window.__lumensAllowLeave) return;\n",
     "      e.preventDefault();\n",
     "      e.returnValue = '';\n",
     "    });\n",
+    "    window.addEventListener('pagehide', function() {\n",
+    "      window.__lumensUnloading = true;\n",
+    "    });\n",
+    "    window.setInterval(function() {\n",
+    "      if (window.__lumensAllowLeave || window.__lumensUnloading) return;\n",
+    "      if (window.Shiny && Shiny.shinyapp && typeof Shiny.shinyapp.isConnected === 'function' && Shiny.shinyapp.isConnected()) {\n",
+    "        try { Shiny.setInputValue('__lumens_keepalive', Date.now()); } catch (e) {}\n",
+    "      }\n",
+    "    }, 25000);\n",
+    "    function showDisconnectCard() {\n",
+    "      if (window.__lumensAllowLeave || window.__lumensUnloading) return;\n",
+    "      if (document.getElementById('lumens-disconnect-card')) return;\n",
+    "      var wrap = document.createElement('div');\n",
+    "      wrap.id = 'lumens-disconnect-card';\n",
+    "      wrap.setAttribute('style', 'position:fixed;inset:0;z-index:999999;display:flex;align-items:center;justify-content:center;pointer-events:auto;font-family:-apple-system,BlinkMacSystemFont,\"Segoe UI\",Roboto,Arial,sans-serif;');\n",
+    "      var card = document.createElement('div');\n",
+    "      card.setAttribute('style', 'background:#ffffff;color:#1e293b;border:1px solid #e2e8f0;border-radius:12px;padding:24px 28px;max-width:400px;width:90%;box-shadow:0 12px 32px rgba(0,0,0,0.25);text-align:center;');\n",
+    "      var title = document.createElement('h4');\n",
+    "      title.textContent = 'Session Disconnected';\n",
+    "      title.setAttribute('style', 'margin:0 0 8px 0;font-size:18px;font-weight:600;color:#0f172a;');\n",
+    "      var msg = document.createElement('p');\n",
+    "      msg.textContent = 'Connection to the module was interrupted. Return to the main menu or reload the module to continue.';\n",
+    "      msg.setAttribute('style', 'margin:0 0 18px 0;font-size:13px;line-height:1.5;color:#475569;');\n",
+    "      var btns = document.createElement('div');\n",
+    "      btns.setAttribute('style', 'display:flex;gap:10px;justify-content:center;flex-wrap:wrap;');\n",
+    "      if (landingUrl) {\n",
+    "        var backBtn = document.createElement('button');\n",
+    "        backBtn.type = 'button';\n",
+    "        backBtn.textContent = 'Return to Main Menu';\n",
+    "        backBtn.setAttribute('style', 'background:#096456;color:#ffffff;border:none;border-radius:6px;padding:8px 16px;font-size:13px;font-weight:500;cursor:pointer;');\n",
+    "        backBtn.onclick = function() { window.__lumensAllowLeave = true; window.location.replace(landingUrl); };\n",
+    "        btns.appendChild(backBtn);\n",
+    "      }\n",
+    "      var reloadBtn = document.createElement('button');\n",
+    "      reloadBtn.type = 'button';\n",
+    "      reloadBtn.textContent = 'Reload Module';\n",
+    "      reloadBtn.setAttribute('style', 'background:#f1f5f9;color:#1e293b;border:1px solid #cbd5e1;border-radius:6px;padding:8px 16px;font-size:13px;font-weight:500;cursor:pointer;');\n",
+    "      reloadBtn.onclick = function() {\n",
+    "        fetch(window.location.href, { method: 'HEAD', cache: 'no-store' }).then(function() {\n",
+    "          window.__lumensAllowLeave = true;\n",
+    "          window.location.reload();\n",
+    "        }).catch(function() {\n",
+    "          if (relaunchUrl) {\n",
+    "            window.__lumensAllowLeave = true;\n",
+    "            window.location.replace(relaunchUrl);\n",
+    "          } else {\n",
+    "            msg.textContent = 'The module server stopped while inactive. Please reopen it from LUMENS.';\n",
+    "            reloadBtn.style.display = 'none';\n",
+    "          }\n",
+    "        });\n",
+    "      };\n",
+    "      btns.appendChild(reloadBtn);\n",
+    "      card.appendChild(title);\n",
+    "      card.appendChild(msg);\n",
+    "      card.appendChild(btns);\n",
+    "      wrap.appendChild(card);\n",
+    "      document.body.appendChild(wrap);\n",
+    "    }\n",
+    "    if (window.jQuery) {\n",
+    "      jQuery(document).on('shiny:disconnected', function() {\n",
+    "        window.setTimeout(showDisconnectCard, 300);\n",
+    "      });\n",
+    "      jQuery(document).on('shiny:connected', function() {\n",
+    "        var el = document.getElementById('lumens-disconnect-card');\n",
+    "        if (el) el.remove();\n",
+    "      });\n",
+    "    }\n",
     "  }\n",
     "})();\n",
     "shinyjs.closeWindow = function() {\n",

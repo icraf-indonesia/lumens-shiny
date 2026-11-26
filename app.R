@@ -60,7 +60,24 @@ ui <- htmlTemplate("index.html",
                    button13 = lumens_button("lasemButton", "LaSEM", "Land Suitability Evaluation Module")
 )
 
+LUMENS_MODULES <- list(
+  buildButton           = list(script = "call01.R", name = "PUR Build"),
+  reconcileButton       = list(script = "call02.R", name = "PUR Reconcile"),
+  prequesButton         = list(script = "call03.R", name = "Pre-QUES"),
+  quescButton           = list(script = "call04.R", name = "QUES-C"),
+  quesbButton           = list(script = "call05.R", name = "QUES-B"),
+  queshButton           = list(script = "call06.R", name = "QUES-H"),
+  taProfitButton        = list(script = "call07.R", name = "LU Profitability"),
+  reDescButton          = list(script = "call08.R", name = "RE Descriptive"),
+  reProjButton          = list(script = "call09.R", name = "RE Projection"),
+  scenarioBuilderButton = list(script = "call10.R", name = "Scenario Builder"),
+  trainModelButton      = list(script = "call11.R", name = "SCIENDO Train Model"),
+  simulateBuilderButton = list(script = "call12.R", name = "SCIENDO Simulate"),
+  lasemButton           = list(script = "call13.R", name = "LaSEM")
+)
+
 server <- function(input, output, session) {
+  session$allowReconnect("force")
   is_polling <- reactiveVal(!is.null(launch_state$pending))
 
   if (!is.null(launch_state$pending)) {
@@ -86,9 +103,10 @@ server <- function(input, output, session) {
     }
     Sys.setenv(
       LUMENS_LAUNCH_BROWSER = "FALSE",
+      LUMENS_MODULE_SCRIPT = r_script,
       R_LIBS = paste(.libPaths(), collapse = .Platform$path.sep)
     )
-    on.exit(Sys.unsetenv(c("LUMENS_LANDING_URL", "LUMENS_LAUNCH_BROWSER", "R_LIBS")), add = TRUE)
+    on.exit(Sys.unsetenv(c("LUMENS_LANDING_URL", "LUMENS_LAUNCH_BROWSER", "LUMENS_MODULE_SCRIPT", "R_LIBS")), add = TRUE)
 
     rscript_bin <- file.path(R.home("bin"), if (.Platform$OS.type == "windows") "Rscript.exe" else "Rscript")
     null_dev <- if (.Platform$OS.type == "windows") "NUL" else "/dev/null"
@@ -151,56 +169,26 @@ server <- function(input, output, session) {
     }
   })
 
-  observeEvent(input$buildButton, {
-    call_lumens_shiny_module("call01.R", "PUR Build")
-  })
-  
-  observeEvent(input$reconcileButton, {
-    call_lumens_shiny_module("call02.R", "PUR Reconcile")
-  })
-  
-  observeEvent(input$prequesButton, {
-    call_lumens_shiny_module("call03.R", "Pre-QUES")
-  })
-  
-  observeEvent(input$quescButton, {
-    call_lumens_shiny_module("call04.R", "QUES-C")
-  })
-  
-  observeEvent(input$quesbButton, {
-    call_lumens_shiny_module("call05.R", "QUES-B")
-  })
-  
-  observeEvent(input$queshButton, {
-    call_lumens_shiny_module("call06.R", "QUES-H")
-  })
-  
-  observeEvent(input$taProfitButton, {
-    call_lumens_shiny_module("call07.R", "LU Profitability")
-  })
-  
-  observeEvent(input$reDescButton, {
-    call_lumens_shiny_module("call08.R", "RE Descriptive")
-  })
-  
-  observeEvent(input$reProjButton, {
-    call_lumens_shiny_module("call09.R", "RE Projection")
-  })  
-  
-  observeEvent(input$scenarioBuilderButton, {
-    call_lumens_shiny_module("call10.R", "Scenario Builder")
-  })
-  
-  observeEvent(input$trainModelButton, {
-    call_lumens_shiny_module("call11.R", "SCIENDO Train Model")
-  })
-  
-  observeEvent(input$simulateBuilderButton, {
-    call_lumens_shiny_module("call12.R", "SCIENDO Simulate")
-  })
-  
-  observeEvent(input$lasemButton, {
-    call_lumens_shiny_module("call13.R", "LaSEM")
+  observeEvent(session$clientData$url_search, {
+    search <- session$clientData$url_search
+    if (!nzchar(search)) return(invisible(NULL))
+    relaunch_script <- parseQueryString(search)[["relaunch"]]
+    if (is.null(relaunch_script) || !nzchar(relaunch_script)) return(invisible(NULL))
+
+    session$sendCustomMessage("lumens_clean_url", session$clientData$url_pathname)
+
+    matched <- Filter(function(m) identical(m$script, relaunch_script), LUMENS_MODULES)
+    if (length(matched) == 1L) {
+      mod <- matched[[1L]]
+      call_lumens_shiny_module(mod$script, mod$name)
+    }
+  }, once = TRUE)
+
+  lapply(names(LUMENS_MODULES), function(btn_id) {
+    mod <- LUMENS_MODULES[[btn_id]]
+    observeEvent(input[[btn_id]], {
+      call_lumens_shiny_module(mod$script, mod$name)
+    })
   })
 }
 
